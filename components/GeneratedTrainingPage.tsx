@@ -15,11 +15,12 @@ import {
   Play,
   X,
 } from "lucide-react";
-import type {
-  LessonMoment,
-  PublicMasonCourse,
+import PicturesOnlyPlayer from "@/components/PicturesOnlyPlayer";
+import {
+  buildPlayerFrames,
+  type LessonMoment,
+  type PublicMasonCourse,
 } from "@/lib/mason";
-import VisualPlayer from "@/components/VisualPlayer";
 import SlideshowTrainingPage from "@/components/SlideshowTrainingPage";
 
 type Answer = { selected: number; submitted: boolean };
@@ -473,7 +474,10 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
                     key={`${moment.title}-${index}`}
                     className="relative left-1/2 my-16 w-screen max-w-[100vw] -translate-x-1/2"
                   >
-                    <VisualPlayer moment={moment} courseSlug={course.slug} />
+                    <PicturesOnlyPlayer
+                      frames={buildPlayerFrames(moment)}
+                      courseSlug={course.slug}
+                    />
                   </div>
                 );
               }

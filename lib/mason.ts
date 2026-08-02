@@ -28,6 +28,11 @@ export type LessonMoment = {
     focusScale?: number | null;
     sourceImage?: string | null;
   }> | null;
+  /** Learner-only: pictures + narrations with all overlay metadata removed. */
+  playerFrames?: Array<{
+    image: string;
+    narration: string;
+  }> | null;
 };
 
 export type LessonPlan = {
@@ -176,26 +181,62 @@ export function slugify(value: string) {
 }
 
 /** Strip on-screen visual explainer metadata before sending lesson data to learners. */
+export function buildPlayerFrames(
+  moment: LessonMoment,
+): Array<{ image: string; narration: string }> {
+  if (moment.playerFrames?.length) return moment.playerFrames;
+
+  if (moment.explainerFrames?.length) {
+    return moment.explainerFrames
+      .map((frame) => ({
+        image: frame.sourceImage ?? "",
+        narration: frame.narration,
+      }))
+      .filter((frame) => frame.narration);
+  }
+
+  if (moment.sourceImage || moment.narration) {
+    return [
+      {
+        image: moment.sourceImage ?? "",
+        narration: moment.narration,
+      },
+    ];
+  }
+
+  return [];
+}
+
 export function sanitizeVisualMomentForLearner(moment: LessonMoment): LessonMoment {
   if (moment.kind !== "visual") return moment;
 
+  const playerFrames = buildPlayerFrames(moment).map((frame) => ({
+    image: frame.image,
+    narration: frame.narration,
+  }));
+
   return {
-    ...moment,
-    visualItems: [],
+    kind: "visual",
+    phase: moment.phase,
+    title: "",
+    narration: "",
+    prompt: null,
+    choices: null,
+    correctAnswer: null,
+    feedback: null,
+    pageNumber: null,
+    sourceImage: null,
     sourceImageAlt: null,
     cue: null,
+    visualAction: null,
+    focusX: null,
+    focusY: null,
+    focusScale: null,
+    visualType: null,
+    visualItems: [],
     explainerStyle: "flipbook",
-    explainerFrames:
-      moment.explainerFrames?.map((frame) => ({
-        narration: frame.narration,
-        sourceImage: frame.sourceImage ?? null,
-        focusX: frame.focusX ?? null,
-        focusY: frame.focusY ?? null,
-        focusScale: frame.focusScale ?? null,
-        title: "",
-        caption: "",
-        visualItems: [],
-      })) ?? null,
+    explainerFrames: null,
+    playerFrames,
   };
 }
 
