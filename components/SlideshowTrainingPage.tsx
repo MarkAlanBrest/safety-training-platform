@@ -298,7 +298,7 @@ export default function SlideshowTrainingPage({
                 />
               ) : slide.moment.kind === "visual" ? (
                 <div className="mx-auto max-w-4xl">
-                  <NarratedExplainer moment={slide.moment} />
+                  <NarratedExplainer moment={slide.moment} courseSlug={course.slug} />
                 </div>
               ) : (
                 <div className="mx-auto flex min-h-[430px] max-w-4xl flex-col justify-center">
