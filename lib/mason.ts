@@ -244,6 +244,9 @@ const CURATED_EXPLAINER_IMAGES: Record<string, Record<string, string>> = {
     Act: "/course-assets/workplace-harassment/visual-explainer/act.png",
     "Follow up": "/course-assets/workplace-harassment/visual-explainer/follow-up.png",
   },
+  "Five practical bystander choices": {
+    Direct: "/course-assets/workplace-harassment/visual-explainer/recognize.png",
+  },
 };
 
 export function sanitizeVisualMomentForLearner(moment: LessonMoment): LessonMoment {
