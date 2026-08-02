@@ -154,16 +154,16 @@ export default function HomePage() {
           <div className={styles.heroBandInner}>
             <span className={styles.eyebrow}>NCST Online Training</span>
             <h1 className={styles.title}>
-              Safety training, built
+              Online training, built
               <span className={styles.accent}>for the trades.</span>
             </h1>
 
             <div className={styles.heroGrid}>
               <div className={styles.heroCopy}>
                 <p className={styles.lead}>
-                  New Castle School of Trades delivers safety and compliance training for
-                  students and partner employers. Enter the course code from your instructor,
-                  employer, or enrollment email in the toolbar above to begin.
+                  New Castle School of Trades delivers online courses for students and partner
+                  employers. Enter the course code from your instructor, employer, or
+                  enrollment email in the toolbar above to begin.
                 </p>
                 <button
                   type="button"
