@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
+import { parseJsonResponse } from "@/lib/parse-response";
 
 export default function HomePage() {
   const router = useRouter();
@@ -24,22 +25,22 @@ export default function HomePage() {
     setError("");
 
     try {
-      const response = await fetch(`/api/enroll?code=${encodeURIComponent(code)}`);
-      const data = await response.json();
+      const response = await fetch(`/api/enroll?code=${encodeURIComponent(code.trim())}`);
+      const data = await parseJsonResponse<{ error?: string; claimed?: boolean; course?: { slug: string } }>(response);
 
       if (!response.ok || data.error) {
-        setError("That course code was not recognized.");
+        setError(data.error || "That course code was not recognized.");
         setLoading(false);
         return;
       }
 
-      if (data.claimed) {
-        router.push(`/training/${data.course.slug}?code=${encodeURIComponent(code)}`);
+      if (data.claimed && data.course) {
+        router.push(`/training/${data.course.slug}?code=${encodeURIComponent(code.trim())}`);
       } else {
-        router.push(`/enroll?code=${encodeURIComponent(code)}`);
+        router.push(`/enroll?code=${encodeURIComponent(code.trim())}`);
       }
-    } catch {
-      setError("We could not connect. Please try again.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "We could not connect. Please try again.");
       setLoading(false);
     }
   }

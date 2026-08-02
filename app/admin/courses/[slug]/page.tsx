@@ -206,11 +206,15 @@ export default function CourseEditorPage() {
       }),
     });
     try {
-      const data = await parseJsonResponse<{ codes?: string[]; error?: string }>(response);
+      const data = await parseJsonResponse<{ codes?: string[]; error?: string; warning?: string | null }>(response);
       if (!response.ok) setError(data.error || "Codes could not be generated.");
       else {
         await load();
-        setMessage(`${data.codes?.length ?? 0} enrollment code${data.codes?.length === 1 ? "" : "s"} generated.`);
+        setMessage(
+          data.warning ||
+            `${data.codes?.length ?? 0} enrollment code${data.codes?.length === 1 ? "" : "s"} generated.`,
+        );
+        if (data.warning) setError("");
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Codes could not be generated.");
@@ -672,6 +676,11 @@ export default function CourseEditorPage() {
                 Each code can be claimed by one learner and then becomes their return-access code.
               </p>
             </div>
+            {!course.published && (
+              <p className="rounded-xl border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
+                This program is still a draft. Publish it under Program settings before learners can use new codes.
+              </p>
+            )}
             <label className="block">
               <span className="mb-2 block text-xs font-bold text-slate-300">Number of codes</span>
               <input name="quantity" type="number" min={1} max={100} defaultValue={1} className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3" />
