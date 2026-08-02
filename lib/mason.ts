@@ -186,18 +186,18 @@ export function buildPlayerFrames(
 ): Array<{ image: string; narration: string }> {
   const curatedImages = CURATED_EXPLAINER_IMAGES[moment.title];
   if (moment.playerFrames?.length && !curatedImages) {
-    return collapsePlayerFrames(moment.playerFrames);
+    return moment.playerFrames.filter(
+      (frame) => frame.image.trim() && frame.narration.trim(),
+    );
   }
 
   if (moment.explainerFrames?.length) {
-    return collapsePlayerFrames(
-      moment.explainerFrames
-        .map((frame) => ({
-          image: curatedImages?.[frame.title] ?? frame.sourceImage ?? "",
-          narration: frame.narration,
-        }))
-        .filter((frame) => frame.narration),
-    );
+    return moment.explainerFrames
+      .map((frame) => ({
+        image: curatedImages?.[frame.title] ?? frame.sourceImage ?? "",
+        narration: frame.narration,
+      }))
+      .filter((frame) => frame.image.trim() && frame.narration.trim());
   }
 
   if (moment.sourceImage || moment.narration) {
@@ -210,18 +210,6 @@ export function buildPlayerFrames(
   }
 
   return [];
-}
-
-function collapsePlayerFrames(
-  frames: Array<{ image: string; narration: string }>,
-): Array<{ image: string; narration: string }> {
-  const image = frames.find((frame) => frame.image.trim())?.image ?? "";
-  const narration = frames
-    .map((frame) => frame.narration.trim())
-    .filter(Boolean)
-    .join("\n\n");
-
-  return image && narration ? [{ image, narration }] : [];
 }
 
 const CURATED_EXPLAINER_IMAGES: Record<string, Record<string, string>> = {
@@ -246,6 +234,10 @@ const CURATED_EXPLAINER_IMAGES: Record<string, Record<string, string>> = {
   },
   "Five practical bystander choices": {
     Direct: "/course-assets/workplace-harassment/visual-explainer/recognize.png",
+    Distract: "/course-assets/workplace-harassment/visual-explainer/respect.png",
+    Delegate: "/course-assets/workplace-harassment/visual-explainer/respond.png",
+    Delay: "/course-assets/workplace-harassment/visual-explainer/impact.png",
+    Document: "/course-assets/workplace-harassment/visual-explainer/review.png",
   },
 };
 

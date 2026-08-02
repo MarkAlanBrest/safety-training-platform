@@ -9,22 +9,39 @@ export type VisualSlideFrame = {
   narration: string;
 };
 
-/** Learner visual: one picture, one narration, and one play control. */
+/** Learner visual: narration-synchronized pictures and one play control. */
 export default function VisualSlide({
   frames,
 }: {
   frames: VisualSlideFrame[];
   courseSlug?: string;
 }) {
-  const explainer = useMemo(() => {
-    const image = frames.find((frame) => isPictureSource(frame.image))?.image;
-    const narration = frames
+  const playableFrames = useMemo(
+    () =>
+      frames.filter(
+        (frame) => isPictureSource(frame.image) && frame.narration.trim(),
+      ),
+    [frames],
+  );
+  const narration = useMemo(
+    () =>
+      playableFrames
       .map((frame) => frame.narration.trim())
-      .filter(Boolean)
-      .join("\n\n");
-
-    return image && narration ? { image, narration } : null;
-  }, [frames]);
+      .join("\n\n"),
+    [playableFrames],
+  );
+  const frameStops = useMemo(() => {
+    const weights = playableFrames.map((frame) =>
+      Math.max(1, frame.narration.trim().split(/\s+/).length),
+    );
+    const total = weights.reduce((sum, weight) => sum + weight, 0);
+    let elapsed = 0;
+    return weights.map((weight) => {
+      elapsed += weight;
+      return elapsed / total;
+    });
+  }, [playableFrames]);
+  const [slideIndex, setSlideIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [loadingAudio, setLoadingAudio] = useState(false);
   const [finished, setFinished] = useState(false);
@@ -44,7 +61,7 @@ export default function VisualSlide({
   useEffect(() => () => stopAudio(), [stopAudio]);
 
   const speak = useCallback(async () => {
-    if (!explainer?.narration) return;
+    if (!narration) return;
 
     stopAudio();
     setLoadingAudio(true);
@@ -54,7 +71,7 @@ export default function VisualSlide({
       const response = await fetch("/api/mason/speech", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: explainer.narration }),
+        body: JSON.stringify({ text: narration }),
       });
       if (!response.ok) throw new Error("speech failed");
 
@@ -64,16 +81,21 @@ export default function VisualSlide({
       audioRef.current = audio;
 
       audio.ontimeupdate = () => {
-        setAudioProgress(audio.duration ? audio.currentTime / audio.duration : 0);
+        const progress = audio.duration ? audio.currentTime / audio.duration : 0;
+        setAudioProgress(progress);
+        const nextIndex = frameStops.findIndex((stop) => progress < stop);
+        setSlideIndex(nextIndex < 0 ? playableFrames.length - 1 : nextIndex);
       };
       audio.onended = () => {
         setAudioProgress(1);
+        setSlideIndex(playableFrames.length - 1);
         setPlaying(false);
         setFinished(true);
         audioRef.current = null;
       };
 
       setAudioProgress(0);
+      setSlideIndex(0);
       await audio.play();
       setPlaying(true);
     } catch {
@@ -81,10 +103,10 @@ export default function VisualSlide({
     } finally {
       setLoadingAudio(false);
     }
-  }, [explainer, stopAudio]);
+  }, [frameStops, narration, playableFrames.length, stopAudio]);
 
   function onPlayPause() {
-    if (loadingAudio || !explainer) return;
+    if (loadingAudio || !playableFrames.length) return;
     if (playing) {
       audioRef.current?.pause();
       setPlaying(false);
@@ -102,13 +124,21 @@ export default function VisualSlide({
     void speak();
   }
 
-  if (!explainer) return null;
+  if (!playableFrames.length) return null;
+
+  const currentPicture = playableFrames[slideIndex]?.image ?? playableFrames[0].image;
 
   return (
-    <div className={styles.root} data-ncst-visual="9">
+    <div className={styles.root} data-ncst-visual="10">
       <div className={styles.frame}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={explainer.image} alt="" className={styles.image} draggable={false} />
+        <img
+          key={currentPicture}
+          src={currentPicture}
+          alt=""
+          className={styles.image}
+          draggable={false}
+        />
       </div>
 
       <div className={styles.playbar}>
