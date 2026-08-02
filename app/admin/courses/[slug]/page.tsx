@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import AdminShell from "@/components/AdminShell";
 import { courseIntensities, courseThemes } from "@/lib/course-options";
+import { parseJsonResponse } from "@/lib/parse-response";
 
 type Section = {
   id: number;
@@ -108,7 +109,7 @@ export default function CourseEditorPage() {
   async function load() {
     if (!slug) return;
     const response = await fetch(`/api/admin/courses/${slug}`, { cache: "no-store" });
-    const data = await response.json();
+    const data = await parseJsonResponse<Course & { error?: string }>(response);
     if (!response.ok) throw new Error(data.error || "Course could not be loaded.");
     setCourse(data);
     setLogoData(data.logoData || null);
@@ -204,11 +205,15 @@ export default function CourseEditorPage() {
         expiresAt: form.get("expiresAt"),
       }),
     });
-    const data = await response.json();
-    if (!response.ok) setError(data.error || "Codes could not be generated.");
-    else {
-      await load();
-      setMessage(`${data.codes.length} enrollment code${data.codes.length === 1 ? "" : "s"} generated.`);
+    try {
+      const data = await parseJsonResponse<{ codes?: string[]; error?: string }>(response);
+      if (!response.ok) setError(data.error || "Codes could not be generated.");
+      else {
+        await load();
+        setMessage(`${data.codes?.length ?? 0} enrollment code${data.codes?.length === 1 ? "" : "s"} generated.`);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Codes could not be generated.");
     }
     setBusy(false);
   }
