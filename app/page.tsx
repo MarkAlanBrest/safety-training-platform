@@ -168,7 +168,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => codeInputRef.current?.focus()}
-                  className="ncst-btn ncst-btn-filled inline-flex items-center gap-2 px-6 py-3 text-sm"
+                  className="ncst-btn ncst-btn-orange inline-flex items-center gap-2 px-6 py-3 text-sm"
                 >
                   Enter your course code
                   <ArrowUp size={16} />
