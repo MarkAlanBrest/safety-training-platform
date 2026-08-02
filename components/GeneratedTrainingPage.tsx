@@ -472,7 +472,7 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
                 return (
                   <div
                     key={`${moment.title}-${index}`}
-                    className="relative left-1/2 my-16 w-screen max-w-[100vw] -translate-x-1/2"
+                    className="mx-auto my-12 w-full max-w-[760px]"
                   >
                     <VisualSlide
                       frames={moment.playerFrames ?? buildPlayerFrames(moment)}

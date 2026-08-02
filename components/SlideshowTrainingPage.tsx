@@ -298,7 +298,7 @@ export default function SlideshowTrainingPage({
                   moment={slide.moment}
                 />
               ) : slide.moment.kind === "visual" ? (
-                <div className="mx-auto w-full max-w-5xl">
+                <div className="mx-auto w-full max-w-[640px]">
                   <VisualSlide
                     frames={slide.moment.playerFrames ?? buildPlayerFrames(slide.moment)}
                     courseSlug={course.slug}
