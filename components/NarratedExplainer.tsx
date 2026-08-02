@@ -37,11 +37,7 @@ function frameFocus(
     typeof frame.focusY === "number" &&
     typeof frame.focusScale === "number"
   ) {
-    return {
-      x: frame.focusX,
-      y: frame.focusY,
-      scale: frame.focusScale,
-    };
+    return { x: frame.focusX, y: frame.focusY, scale: frame.focusScale };
   }
 
   const baseX = moment.focusX ?? 50;
@@ -64,10 +60,7 @@ function frameFocus(
   };
 }
 
-function cropImageFromSource(
-  sourceImage: string,
-  focus: FrameFocus,
-): Promise<string> {
+function cropImageFromSource(sourceImage: string, focus: FrameFocus): Promise<string> {
   return new Promise((resolve, reject) => {
     const image = new window.Image();
     image.onload = () => {
@@ -87,18 +80,8 @@ function cropImageFromSource(
         reject(new Error("Canvas unavailable"));
         return;
       }
-      context.drawImage(
-        image,
-        sx,
-        sy,
-        cropWidth,
-        cropHeight,
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-      );
-      resolve(canvas.toDataURL("image/jpeg", 0.85));
+      context.drawImage(image, sx, sy, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.9));
     };
     image.onerror = () => reject(new Error("Image failed to load"));
     image.src = sourceImage;
@@ -129,7 +112,7 @@ async function resolveFrameImages(
         );
         continue;
       } catch {
-        // Fall through to generated illustration.
+        // Use generated illustration below.
       }
     }
 
@@ -139,39 +122,7 @@ async function resolveFrameImages(
   return images;
 }
 
-function PictureStage({
-  image,
-  loading,
-}: {
-  image: string | null;
-  loading: boolean;
-}) {
-  if (loading) {
-    return (
-      <div className="flex aspect-[16/10] items-center justify-center bg-[#eef2f3] sm:aspect-[16/9]">
-        <LoaderCircle className="animate-spin text-[var(--accent)]" size={36} />
-      </div>
-    );
-  }
-
-  if (!image) {
-    return (
-      <div className="aspect-[16/10] bg-[#eef2f3] sm:aspect-[16/9]" aria-hidden />
-    );
-  }
-
-  return (
-    <div className="relative aspect-[16/10] overflow-hidden bg-[#eef2f3] sm:aspect-[16/9]">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={image}
-        alt=""
-        className="flipbook-frame absolute inset-0 h-full w-full object-contain"
-      />
-    </div>
-  );
-}
-
+/** Pictures + bottom play bar only. No titles, captions, or step cards. */
 export default function NarratedExplainer({
   moment,
   courseSlug,
@@ -182,10 +133,10 @@ export default function NarratedExplainer({
   const theme = themeFromCourseSlug(courseSlug);
   const frames = useMemo(() => {
     if (moment.explainerFrames?.length) return moment.explainerFrames;
-    if (moment.sourceImage) {
+    if (moment.sourceImage || moment.narration) {
       return [
         {
-          title: moment.title,
+          title: "",
           caption: "",
           narration: moment.narration,
           visualItems: [] as string[],
@@ -194,26 +145,27 @@ export default function NarratedExplainer({
     }
     return [];
   }, [moment]);
+
   const [pictures, setPictures] = useState<string[]>([]);
-  const [picturesLoading, setPicturesLoading] = useState(true);
+  const [ready, setReady] = useState(false);
   const [active, setActive] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
+  const [audioProgress, setAudioProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlRef = useRef<string | null>(null);
-  const preloadRef = useRef<{ index: number; url: string; audio: HTMLAudioElement } | null>(
-    null,
-  );
+  const preloadRef = useRef<{ index: number; url: string; audio: HTMLAudioElement } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setPicturesLoading(true);
+    setReady(false);
     setActive(0);
+    setAudioProgress(0);
 
     void resolveFrameImages(moment, frames, theme).then((images) => {
       if (cancelled) return;
       setPictures(images);
-      setPicturesLoading(false);
+      setReady(true);
     });
 
     return () => {
@@ -226,6 +178,7 @@ export default function NarratedExplainer({
     audioRef.current = null;
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = null;
+    setAudioProgress(0);
   }, []);
 
   const clearPreload = useCallback(() => {
@@ -250,8 +203,7 @@ export default function NarratedExplainer({
     });
     if (!response.ok) throw new Error("Narration unavailable");
     const url = URL.createObjectURL(await response.blob());
-    const audio = new Audio(url);
-    return { url, audio };
+    return { url, audio: new Audio(url) };
   }, []);
 
   const preloadFrame = useCallback(
@@ -262,7 +214,7 @@ export default function NarratedExplainer({
         const { url, audio } = await fetchNarration(frames[index].narration);
         preloadRef.current = { index, url, audio };
       } catch {
-        // Preload is best-effort.
+        // Best effort.
       }
     },
     [clearPreload, fetchNarration, frames],
@@ -291,6 +243,7 @@ export default function NarratedExplainer({
         urlRef.current = url;
         audioRef.current = audio;
         audio.ontimeupdate = () => {
+          setAudioProgress(audio.duration ? audio.currentTime / audio.duration : 0);
           if (
             audio.duration &&
             audio.currentTime / audio.duration > 0.55 &&
@@ -300,6 +253,7 @@ export default function NarratedExplainer({
           }
         };
         audio.onended = () => {
+          setAudioProgress(1);
           if (index < frames.length - 1) {
             void playFrame(index + 1);
           } else {
@@ -318,7 +272,7 @@ export default function NarratedExplainer({
   );
 
   function toggle() {
-    if (audioLoading || picturesLoading || !pictures.length) return;
+    if (audioLoading || !ready || !pictures.length) return;
     if (playing) {
       audioRef.current?.pause();
       setPlaying(false);
@@ -331,30 +285,56 @@ export default function NarratedExplainer({
   }
 
   const currentPicture = pictures[active] || pictures[0] || null;
-  const canPlay = pictures.length > 0 && frames.length > 0;
+  const totalProgress =
+    pictures.length > 0 ? ((active + audioProgress) / pictures.length) * 100 : 0;
 
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-[#eef2f3] shadow-[0_20px_60px_rgba(15,23,42,.12)]">
-      <PictureStage image={currentPicture} loading={picturesLoading} />
+    <div
+      className="visual-player relative isolate w-full overflow-hidden bg-black"
+      style={{ aspectRatio: "16 / 9" }}
+      data-visual-player="pictures-only-v3"
+    >
+      {!ready || !currentPicture ? (
+        <div className="absolute inset-0 grid place-items-center bg-neutral-900">
+          <LoaderCircle className="animate-spin text-white/70" size={32} aria-hidden />
+        </div>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={currentPicture.slice(0, 64)}
+          src={currentPicture}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      )}
 
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <button
-          type="button"
-          onClick={toggle}
-          disabled={!canPlay || audioLoading}
-          className="pointer-events-auto grid h-16 w-16 place-items-center rounded-full bg-white/95 text-[var(--dark)] shadow-lg transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label={
-            audioLoading ? "Preparing narration" : playing ? "Pause visual explainer" : "Play visual explainer"
-          }
-        >
-          {audioLoading ? (
-            <LoaderCircle className="animate-spin" size={28} />
-          ) : playing ? (
-            <Pause size={28} fill="currentColor" />
-          ) : (
-            <Play size={28} fill="currentColor" className="ml-1" />
-          )}
-        </button>
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-4 pb-4 pt-16">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={toggle}
+            disabled={!ready || !pictures.length || audioLoading}
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-black transition hover:bg-white/90 disabled:opacity-40"
+            aria-label={playing ? "Pause" : "Play"}
+          >
+            {audioLoading ? (
+              <LoaderCircle className="animate-spin" size={20} />
+            ) : playing ? (
+              <Pause size={20} fill="currentColor" />
+            ) : (
+              <Play size={20} fill="currentColor" className="ml-0.5" />
+            )}
+          </button>
+          <div
+            className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/25"
+            aria-hidden
+          >
+            <div
+              className="h-full rounded-full bg-white transition-[width] duration-200"
+              style={{ width: `${totalProgress}%` }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

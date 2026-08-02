@@ -297,7 +297,7 @@ export default function SlideshowTrainingPage({
                   moment={slide.moment}
                 />
               ) : slide.moment.kind === "visual" ? (
-                <div className="mx-auto max-w-4xl">
+                <div className="mx-auto w-full max-w-5xl px-4">
                   <NarratedExplainer moment={slide.moment} courseSlug={course.slug} />
                 </div>
               ) : (
