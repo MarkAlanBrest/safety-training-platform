@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import {
@@ -9,13 +10,14 @@ import {
   ArrowUp,
   ExternalLink,
   GripVertical,
+  ImagePlus,
   LoaderCircle,
   Plus,
   Save,
   Trash2,
 } from "lucide-react";
 import AdminShell from "@/components/AdminShell";
-import VisualSlide from "@/components/training/VisualSlide";
+import VisualSlide, { isPictureSource } from "@/components/training/VisualSlide";
 import { buildPlayerFrames, type LessonMoment, type LessonPlan } from "@/lib/mason";
 
 type SectionResponse = {
@@ -114,9 +116,34 @@ function MomentEditor({
 }) {
   const isActivity = moment.kind === "question" || moment.kind === "scenario";
   const isVisual = moment.kind === "visual";
+  const playerFrames = buildPlayerFrames(moment);
+  const hasPictures = playerFrames.some((frame) => isPictureSource(frame.image));
 
   function patch(values: Partial<LessonMoment>) {
     onChange({ ...moment, ...values });
+  }
+
+  function setFramePicture(frameIndex: number, file?: File) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      window.alert("Choose a PNG, JPEG, or WebP picture.");
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      window.alert("Pictures must be 4 MB or smaller.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") return;
+      patch({
+        explainerFrames: (moment.explainerFrames || []).map((item, itemIndex) =>
+          itemIndex === frameIndex ? { ...item, sourceImage: reader.result as string } : item,
+        ),
+      });
+    };
+    reader.readAsDataURL(file);
   }
 
   return (
@@ -314,7 +341,13 @@ function MomentEditor({
                 Learner view — pictures and play bar only
               </p>
               <div className="p-3">
-                <VisualSlide frames={buildPlayerFrames(moment)} courseSlug={courseSlug} />
+                {hasPictures ? (
+                  <VisualSlide frames={playerFrames} courseSlug={courseSlug} />
+                ) : (
+                  <div className="grid aspect-video place-items-center bg-black px-6 text-center text-sm text-white/65">
+                    No pictures are attached yet. Choose a picture for each voiceover below.
+                  </div>
+                )}
               </div>
             </div>
 
@@ -348,6 +381,35 @@ function MomentEditor({
                       >
                         <Trash2 size={15} />
                       </button>
+                    </div>
+                    <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+                      {frame.sourceImage ? (
+                        <Image
+                          src={frame.sourceImage}
+                          alt={`Visual explainer picture ${frameIndex + 1}`}
+                          width={160}
+                          height={90}
+                          unoptimized
+                          className="aspect-video w-40 shrink-0 object-cover"
+                        />
+                      ) : (
+                        <div className="grid aspect-video w-40 shrink-0 place-items-center bg-[#e8ecef] text-xs font-bold text-[#6b7780]">
+                          No picture
+                        </div>
+                      )}
+                      <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-[#10283f]/15 bg-white px-3 py-2 text-xs font-bold text-[#10283f]">
+                        <ImagePlus size={15} />
+                        {frame.sourceImage ? "Replace picture" : "Choose picture"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="sr-only"
+                          onChange={(event) => {
+                            setFramePicture(frameIndex, event.target.files?.[0]);
+                            event.target.value = "";
+                          }}
+                        />
+                      </label>
                     </div>
                     <textarea
                       value={frame.narration}

@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle, Pause, Play } from "lucide-react";
-import { buildFramePicture, isEmbeddedPicture, themeFromCourseSlug } from "@/lib/visual-frame-art";
 import styles from "./VisualSlide.module.css";
 
 export type VisualSlideFrame = {
@@ -11,30 +10,30 @@ export type VisualSlideFrame = {
 };
 
 /**
- * Rebuilt learner visual: one picture at a time + play bar. No titles, captions, or labels.
+ * Learner visual: one synchronized picture at a time with a single play control.
+ * No generated artwork, titles, captions, labels, or card overlays.
  */
 export default function VisualSlide({
   frames,
-  courseSlug,
 }: {
   frames: VisualSlideFrame[];
   courseSlug?: string;
 }) {
-  const theme = themeFromCourseSlug(courseSlug);
+  const playableFrames = useMemo(
+    () =>
+      frames.filter(
+        (frame) => isPictureSource(frame.image) && frame.narration.trim(),
+      ),
+    [frames],
+  );
   const [slideIndex, setSlideIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [loadingAudio, setLoadingAudio] = useState(false);
-  const [audioProgress, setAudioProgress] = useState(0);
+  const [finished, setFinished] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = useRef<string | null>(null);
 
-  const pictures = frames.map((frame, index) =>
-    isEmbeddedPicture(frame.image) ? frame.image : buildFramePicture(theme, index),
-  );
-  const currentPicture = pictures[slideIndex] ?? pictures[0] ?? null;
-  const barProgress =
-    pictures.length > 0 ? ((slideIndex + audioProgress) / pictures.length) * 100 : 0;
-
+  const currentPicture = playableFrames[slideIndex]?.image ?? playableFrames[0]?.image ?? null;
   const stopAudio = useCallback(() => {
     audioRef.current?.pause();
     audioRef.current = null;
@@ -42,19 +41,18 @@ export default function VisualSlide({
       URL.revokeObjectURL(blobUrlRef.current);
       blobUrlRef.current = null;
     }
-    setAudioProgress(0);
   }, []);
 
   useEffect(() => () => stopAudio(), [stopAudio]);
 
   const speak = useCallback(
     async (index: number) => {
-      const text = frames[index]?.narration;
+      const text = playableFrames[index]?.narration;
       if (!text) return;
 
       stopAudio();
-      setSlideIndex(index);
       setLoadingAudio(true);
+      setFinished(false);
 
       try {
         const response = await fetch("/api/mason/speech", {
@@ -69,18 +67,19 @@ export default function VisualSlide({
         const audio = new Audio(url);
         audioRef.current = audio;
 
-        audio.ontimeupdate = () => {
-          setAudioProgress(audio.duration ? audio.currentTime / audio.duration : 0);
-        };
         audio.onended = () => {
-          setAudioProgress(1);
-          if (index < frames.length - 1) {
+          if (index < playableFrames.length - 1) {
             void speak(index + 1);
           } else {
             setPlaying(false);
+            setFinished(true);
+            audioRef.current = null;
           }
         };
 
+        // Change the picture at the same moment its narration begins, not while
+        // the audio request is still loading.
+        setSlideIndex(index);
         await audio.play();
         setPlaying(true);
       } catch {
@@ -89,11 +88,11 @@ export default function VisualSlide({
         setLoadingAudio(false);
       }
     },
-    [frames, stopAudio],
+    [playableFrames, stopAudio],
   );
 
   function onPlayPause() {
-    if (loadingAudio || !frames.length) return;
+    if (loadingAudio || !playableFrames.length) return;
     if (playing) {
       audioRef.current?.pause();
       setPlaying(false);
@@ -104,8 +103,14 @@ export default function VisualSlide({
       setPlaying(true);
       return;
     }
+    if (finished) {
+      void speak(0);
+      return;
+    }
     void speak(slideIndex);
   }
+
+  if (!playableFrames.length) return null;
 
   return (
     <div className={styles.root} data-ncst-visual="7">
@@ -122,14 +127,11 @@ export default function VisualSlide({
             draggable={false}
           />
         )}
-      </div>
-
-      <div className={styles.controls}>
         <button
           type="button"
           className={styles.playBtn}
           onClick={onPlayPause}
-          disabled={!frames.length || loadingAudio}
+          disabled={!playableFrames.length || loadingAudio}
           aria-label={playing ? "Pause" : "Play"}
         >
           {loadingAudio ? (
@@ -140,10 +142,18 @@ export default function VisualSlide({
             <Play size={18} fill="currentColor" className={styles.playIcon} />
           )}
         </button>
-        <div className={styles.track} aria-hidden>
-          <div className={styles.fill} style={{ width: `${barProgress}%` }} />
-        </div>
       </div>
     </div>
+  );
+}
+
+export function isPictureSource(source: string) {
+  const value = source.trim().toLowerCase();
+  return (
+    value.startsWith("data:image/") ||
+    value.startsWith("blob:") ||
+    value.startsWith("http://") ||
+    value.startsWith("https://") ||
+    value.startsWith("/")
   );
 }
