@@ -4,7 +4,6 @@ const nextConfig = {
   turbopack: {
     root: __dirname,
   },
-  generateBuildId: async () => "ncst-visual-slide-v7",
   async headers() {
     return [
       {

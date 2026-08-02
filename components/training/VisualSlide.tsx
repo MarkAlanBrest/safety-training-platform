@@ -123,7 +123,7 @@ export default function VisualSlide({
   if (!playableFrames.length) return null;
 
   return (
-    <div className={styles.root} data-ncst-visual="7">
+    <div className={styles.root} data-ncst-visual="8">
       <div className={styles.frame}>
         {!currentPicture ? (
           <LoaderCircle className={styles.spinner} size={28} aria-hidden />
