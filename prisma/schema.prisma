@@ -71,7 +71,7 @@ model EnrollmentCode {
   courseId      Int
   batchName     String?
   recipientName String            @default("")
-  company       String
+  company       String?           @default("")
   status        String            @default("available")
   expiresAt     DateTime?
   createdAt     DateTime          @default(now())
