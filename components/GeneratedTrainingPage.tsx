@@ -475,12 +475,6 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
                       <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-4xl">
                         {moment.title}
                       </h2>
-                      {paragraphs(moment.narration).map((text, paragraphIndex) => (
-                        <p key={paragraphIndex} className="mt-5 text-lg leading-8 text-slate-700">{text}</p>
-                      ))}
-                      <div className="mt-5">
-                        <ListenButton text={`${moment.title}. ${moment.narration}`} />
-                      </div>
                     </div>
                     <NarratedExplainer moment={moment} />
                   </figure>

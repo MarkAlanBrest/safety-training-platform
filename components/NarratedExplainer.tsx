@@ -20,6 +20,7 @@ type Frame = {
   focusX?: number | null;
   focusY?: number | null;
   focusScale?: number | null;
+  sourceImage?: string | null;
 };
 
 type FrameFocus = {
@@ -68,13 +69,12 @@ function frameFocus(
 
   const baseX = moment.focusX ?? 50;
   const baseY = moment.focusY ?? 50;
-  const baseScale = moment.focusScale ?? 1.25;
+  const baseScale = moment.focusScale ?? 1.45;
 
   if (totalFrames <= 1) {
     return { x: baseX, y: baseY, scale: baseScale };
   }
 
-  const progress = frameIndex / Math.max(1, totalFrames - 1);
   const columns = Math.min(3, totalFrames);
   const row = Math.floor(frameIndex / columns);
   const column = frameIndex % columns;
@@ -82,68 +82,116 @@ function frameFocus(
 
   return {
     x: Math.min(85, Math.max(15, 15 + column * columnSpan)),
-    y: Math.min(80, Math.max(20, baseY - 10 + row * 18)),
-    scale: Math.min(2.2, baseScale + progress * 0.35),
+    y: Math.min(80, Math.max(20, baseY - 12 + row * 22)),
+    scale: Math.min(2.4, baseScale + frameIndex * 0.18),
   };
+}
+
+function cropImageFromSource(
+  sourceImage: string,
+  focus: FrameFocus,
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const image = new window.Image();
+    image.onload = () => {
+      const width = image.naturalWidth;
+      const height = image.naturalHeight;
+      const cx = (focus.x / 100) * width;
+      const cy = (focus.y / 100) * height;
+      const cropWidth = Math.min(width, width / focus.scale);
+      const cropHeight = Math.min(height, cropWidth / (16 / 9));
+      const sx = Math.max(0, Math.min(width - cropWidth, cx - cropWidth / 2));
+      const sy = Math.max(0, Math.min(height - cropHeight, cy - cropHeight / 2));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(cropWidth));
+      canvas.height = Math.max(1, Math.round(cropHeight));
+      const context = canvas.getContext("2d");
+      if (!context) {
+        reject(new Error("Canvas unavailable"));
+        return;
+      }
+      context.drawImage(
+        image,
+        sx,
+        sy,
+        cropWidth,
+        cropHeight,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      );
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    image.onerror = () => reject(new Error("Image failed to load"));
+    image.src = sourceImage;
+  });
 }
 
 function FlipbookStage({
   moment,
   frames,
   active,
-  sourceImage,
 }: {
   moment: LessonMoment;
   frames: Frame[];
   active: number;
-  sourceImage?: string | null;
 }) {
   const frame = frames[active];
   const focus = frameFocus(moment, frame, active, frames.length);
+  const [resolvedImage, setResolvedImage] = useState<string | null>(
+    frame.sourceImage || null,
+  );
   const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     setImageFailed(false);
-  }, [sourceImage]);
 
-  const showPicture = Boolean(sourceImage) && !imageFailed;
+    if (frame.sourceImage) {
+      setResolvedImage(frame.sourceImage);
+      return;
+    }
+
+    if (!moment.sourceImage) {
+      setResolvedImage(null);
+      return;
+    }
+
+    setResolvedImage(null);
+    void cropImageFromSource(moment.sourceImage, focus)
+      .then((cropped) => {
+        if (!cancelled) setResolvedImage(cropped);
+      })
+      .catch(() => {
+        if (!cancelled) setResolvedImage(moment.sourceImage || null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [frame.sourceImage, moment.sourceImage, focus.x, focus.y, focus.scale, active]);
+
+  const showPicture = Boolean(resolvedImage) && !imageFailed;
 
   return (
-    <div className="relative min-h-[390px] overflow-hidden bg-white lg:min-h-[460px]">
+    <div className="relative aspect-[16/10] overflow-hidden bg-[#eef2f3] sm:aspect-[16/9]">
       {showPicture ? (
-        <div className="absolute inset-0 overflow-hidden bg-[#f4f7f8]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={sourceImage!}
-            alt={moment.sourceImageAlt || `${moment.title} source visual`}
-            className="flipbook-pan absolute inset-0 h-full w-full object-contain"
-            style={{
-              transform: `scale(${focus.scale})`,
-              transformOrigin: `${focus.x}% ${focus.y}%`,
-            }}
-            onError={() => setImageFailed(true)}
-          />
-        </div>
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={`${active}-${resolvedImage?.slice(0, 48)}`}
+          src={resolvedImage!}
+          alt={moment.sourceImageAlt || `${frame.title} visual`}
+          className="flipbook-frame absolute inset-0 h-full w-full object-contain"
+          onError={() => setImageFailed(true)}
+        />
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-[#e9eff0] via-[#f4f7f8] to-[#dfe8ea]" />
       )}
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#07111f]/95 via-[#07111f]/75 to-transparent px-6 pb-6 pt-28 sm:px-8">
-        <p className="text-xs font-bold uppercase tracking-[.17em] text-[var(--accent)]">
-          {showPicture ? "Picture" : "Visual"} {active + 1} of {frames.length}
-          {moment.pageNumber ? ` · Source page ${moment.pageNumber}` : ""}
-        </p>
-        <h3 className="mt-2 max-w-3xl text-2xl font-semibold leading-tight text-white sm:text-3xl">
-          {frame.title}
-        </h3>
-        <p className="mt-3 max-w-3xl text-base leading-7 text-white/85 sm:text-lg">
-          {frame.caption}
-        </p>
-        {!showPicture && frame.visualItems.length > 0 && (
-          <p className="mt-4 max-w-3xl text-sm leading-6 text-white/60">
-            {frame.visualItems.join(" · ")}
-          </p>
-        )}
+      <div className="pointer-events-none absolute left-4 top-4 rounded-full bg-[#07111f]/70 px-3 py-1 text-xs font-bold uppercase tracking-[.14em] text-white/90 backdrop-blur-sm">
+        {active + 1} / {frames.length}
+        {moment.pageNumber ? ` · page ${moment.pageNumber}` : ""}
       </div>
     </div>
   );
@@ -286,46 +334,40 @@ export default function NarratedExplainer({ moment }: { moment: LessonMoment }) 
   }
 
   const overallProgress = ((active + audioProgress) / frames.length) * 100;
+  const currentFrame = frames[active];
 
   return (
     <div className="overflow-hidden rounded-3xl bg-[var(--dark)] text-white shadow-[0_30px_80px_rgba(15,23,42,.22)]">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-6 py-5 sm:px-8">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-6 py-4 sm:px-8">
         <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-white/55">
-          <Volume2 size={15} className="text-[var(--accent)]" /> Narrated visual explainer
+          <Volume2 size={15} className="text-[var(--accent)]" /> Visual explainer
         </p>
-        <span className="rounded-full bg-white/[.07] px-3 py-1 text-xs font-semibold text-white/50">
-          picture flipbook
-        </span>
+        <p className="text-sm font-semibold text-white/75">{currentFrame.title}</p>
       </div>
 
-      <FlipbookStage
-        moment={moment}
-        frames={frames}
-        active={active}
-        sourceImage={moment.sourceImage}
-      />
+      <FlipbookStage moment={moment} frames={frames} active={active} />
 
-      <div className="border-t border-white/10 bg-black/10 px-6 py-6 sm:px-8">
-        <p className="min-h-14 text-sm leading-6 text-white/65">{frames[active].narration}</p>
+      <div className="border-t border-white/10 bg-black/10 px-6 py-5 sm:px-8">
+        <p className="text-base leading-7 text-white/80">{currentFrame.caption}</p>
         {voiceError && (
           <p className="mt-3 rounded-xl bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
             {voiceError}
           </p>
         )}
-        <div className="mt-5 h-1 overflow-hidden rounded-full bg-white/10">
+        <div className="mt-4 h-1 overflow-hidden rounded-full bg-white/10">
           <span
             className="block h-full bg-[var(--accent)] transition-[width] duration-300"
             style={{ width: `${overallProgress}%` }}
           />
         </div>
-        <div className="mt-5 flex items-center justify-between gap-4">
+        <div className="mt-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => move(active - 1)}
               disabled={active === 0}
               className="grid h-10 w-10 place-items-center rounded-full border border-white/15 text-white/70 disabled:opacity-25"
-              aria-label="Previous frame"
+              aria-label="Previous picture"
             >
               <ChevronLeft size={18} />
             </button>
@@ -348,7 +390,7 @@ export default function NarratedExplainer({ moment }: { moment: LessonMoment }) 
               onClick={() => move(active + 1)}
               disabled={active === frames.length - 1}
               className="grid h-10 w-10 place-items-center rounded-full border border-white/15 text-white/70 disabled:opacity-25"
-              aria-label="Next frame"
+              aria-label="Next picture"
             >
               <ChevronRight size={18} />
             </button>
@@ -373,7 +415,7 @@ export default function NarratedExplainer({ moment }: { moment: LessonMoment }) 
                 className={`h-2 rounded-full transition-all ${
                   index === active ? "w-7 bg-[var(--accent)]" : "w-2 bg-white/20"
                 }`}
-                aria-label={`Show frame ${index + 1}`}
+                aria-label={`Show picture ${index + 1}`}
               />
             ))}
           </div>

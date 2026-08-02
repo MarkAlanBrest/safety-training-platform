@@ -222,8 +222,24 @@ h4 {
 }
 
 .flipbook-pan {
-  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
+  transition: background-size 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-position 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: background-size, background-position;
+}
+
+.flipbook-frame {
+  animation: flipbook-frame-in 450ms ease-out both;
+}
+
+@keyframes flipbook-frame-in {
+  from {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes explainer-in {

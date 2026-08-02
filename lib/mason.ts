@@ -26,6 +26,7 @@ export type LessonMoment = {
     focusX?: number | null;
     focusY?: number | null;
     focusScale?: number | null;
+    sourceImage?: string | null;
   }> | null;
 };
 
