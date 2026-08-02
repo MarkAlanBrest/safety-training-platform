@@ -19,7 +19,7 @@ import type {
   LessonMoment,
   PublicMasonCourse,
 } from "@/lib/mason";
-import NarratedExplainer from "@/components/NarratedExplainer";
+import VisualPlayer from "@/components/VisualPlayer";
 import SlideshowTrainingPage from "@/components/SlideshowTrainingPage";
 
 type Answer = { selected: number; submitted: boolean };
@@ -469,8 +469,11 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
 
               if (moment.kind === "visual") {
                 return (
-                  <div key={`${moment.title}-${index}`} className="my-16 w-full">
-                    <NarratedExplainer moment={moment} courseSlug={course.slug} />
+                  <div
+                    key={`${moment.title}-${index}`}
+                    className="relative left-1/2 my-16 w-screen max-w-[100vw] -translate-x-1/2"
+                  >
+                    <VisualPlayer moment={moment} courseSlug={course.slug} />
                   </div>
                 );
               }

@@ -11,7 +11,7 @@ import {
   CheckCircle2,
   Clock3,
 } from "lucide-react";
-import NarratedExplainer from "@/components/NarratedExplainer";
+import VisualPlayer from "@/components/VisualPlayer";
 import type {
   LessonMoment,
   PublicMasonCourse,
@@ -297,8 +297,8 @@ export default function SlideshowTrainingPage({
                   moment={slide.moment}
                 />
               ) : slide.moment.kind === "visual" ? (
-                <div className="mx-auto w-full max-w-5xl px-4">
-                  <NarratedExplainer moment={slide.moment} courseSlug={course.slug} />
+                <div className="mx-auto w-full max-w-5xl">
+                  <VisualPlayer moment={slide.moment} courseSlug={course.slug} />
                 </div>
               ) : (
                 <div className="mx-auto flex min-h-[430px] max-w-4xl flex-col justify-center">
