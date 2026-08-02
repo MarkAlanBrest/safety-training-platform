@@ -672,7 +672,7 @@ export default function CourseEditorPage() {
               <input name="quantity" type="number" min={1} max={100} defaultValue={1} className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3" />
             </label>
             <label className="block">
-              <span className="mb-2 block text-xs font-bold text-slate-300">Recipient name</span>
+              <span className="mb-2 block text-xs font-bold text-slate-300">Name</span>
               <input name="recipientName" required placeholder="Jane Smith" className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3" />
             </label>
             <label className="block">
@@ -714,7 +714,7 @@ export default function CourseEditorPage() {
                 <thead className="sticky top-0 bg-[#f0f3f4] text-xs uppercase tracking-wider text-[#65717a]">
                   <tr>
                     <th className="px-4 py-3">Code</th>
-                    <th className="px-4 py-3">Recipient</th>
+                    <th className="px-4 py-3">Name</th>
                     <th className="px-4 py-3">Company</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Learner</th>
@@ -725,7 +725,7 @@ export default function CourseEditorPage() {
                   {course.enrollmentCodes.map((item) => (
                     <tr key={item.id} className="border-t border-[#10283f]/10">
                       <td className="px-4 py-3 font-mono font-bold text-[#10283f]">{item.code}</td>
-                      <td className="px-4 py-3 text-[#65717a]">{item.recipientName}</td>
+                      <td className="px-4 py-3 text-[#65717a]">{item.recipientName || "—"}</td>
                       <td className="px-4 py-3 text-[#65717a]">{item.company || "—"}</td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${item.status === "available" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
