@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUp,
+  Award,
+  BookOpenCheck,
+  LineChart,
+  PlayCircle,
+} from "lucide-react";
 import { parseJsonResponse } from "@/lib/parse-response";
 import styles from "./home.module.css";
 
@@ -23,11 +30,31 @@ const steps = [
   },
 ];
 
+const highlights = [
+  {
+    icon: BookOpenCheck,
+    text: "Interactive lessons & knowledge checks",
+  },
+  {
+    icon: PlayCircle,
+    text: "Narrated visual explainers",
+  },
+  {
+    icon: LineChart,
+    text: "Progress tracked automatically",
+  },
+  {
+    icon: Award,
+    text: "Certificate when you finish",
+  },
+];
+
 export default function HomePage() {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const codeInputRef = useRef<HTMLInputElement>(null);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -90,6 +117,7 @@ export default function HomePage() {
                 </label>
                 <input
                   id="course-code"
+                  ref={codeInputRef}
                   type="text"
                   autoComplete="off"
                   placeholder="Course code"
@@ -122,29 +150,75 @@ export default function HomePage() {
       </header>
 
       <div className={styles.hero}>
-        <div className={styles.heroInner}>
-          <span className={styles.eyebrow}>NCST Online Training</span>
-          <h1 className={styles.title}>
-            Start your assigned course.
-            <span className={styles.accent}>Learn at your own pace.</span>
-          </h1>
-          <p className={styles.lead}>
-            This portal delivers safety and compliance training for New Castle School of
-            Trades students and partner employers. Enter your course code in the toolbar
-            above to open your program.
-          </p>
+        <div className={styles.heroBand}>
+          <div className={styles.heroBandInner}>
+            <span className={styles.eyebrow}>NCST Online Training</span>
+            <h1 className={styles.title}>
+              Safety training, built
+              <span className={styles.accent}>for the trades.</span>
+            </h1>
 
-          <ol className={styles.steps}>
-            {steps.map((step, index) => (
-              <li key={step.title} className={styles.step}>
-                <span className={styles.stepNumber}>{String(index + 1).padStart(2, "0")}</span>
-                <div>
-                  <h2 className={styles.stepTitle}>{step.title}</h2>
+            <div className={styles.heroGrid}>
+              <div className={styles.heroCopy}>
+                <p className={styles.lead}>
+                  New Castle School of Trades delivers safety and compliance training for
+                  students and partner employers. Enter the course code from your instructor,
+                  employer, or enrollment email in the toolbar above to begin.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => codeInputRef.current?.focus()}
+                  className="ncst-btn ncst-btn-filled inline-flex items-center gap-2 px-6 py-3 text-sm"
+                >
+                  Enter your course code
+                  <ArrowUp size={16} />
+                </button>
+              </div>
+
+              <div className={styles.highlightCard}>
+                <span className={styles.highlightLabel}>What&rsquo;s inside</span>
+                <ul className={styles.highlightList}>
+                  {highlights.map(({ icon: Icon, text }) => (
+                    <li key={text} className={styles.highlightItem}>
+                      <Icon size={18} className={styles.highlightIcon} aria-hidden="true" />
+                      <span>{text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.photoBand}>
+          <Image
+            src="/images/ncst-campus-hero.jpg"
+            alt="New Castle School of Trades campus building"
+            width={1350}
+            height={400}
+            className={styles.photoBandImage}
+            priority={false}
+          />
+          <div className={styles.photoBandCaption}>New Castle School of Trades</div>
+        </div>
+
+        <div className={styles.stepsSection}>
+          <div className={styles.stepsInner}>
+            <span className={styles.eyebrow}>How it works</span>
+            <h2 className={styles.sectionTitle}>Three steps to get started</h2>
+
+            <ol className={styles.steps}>
+              {steps.map((step, index) => (
+                <li key={step.title} className={styles.step}>
+                  <span className={styles.stepNumber}>
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <h3 className={styles.stepTitle}>{step.title}</h3>
                   <p className={styles.stepText}>{step.text}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
       </div>
 
