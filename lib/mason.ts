@@ -185,15 +185,19 @@ export function buildPlayerFrames(
   moment: LessonMoment,
 ): Array<{ image: string; narration: string }> {
   const curatedImages = CURATED_EXPLAINER_IMAGES[moment.title];
-  if (moment.playerFrames?.length && !curatedImages) return moment.playerFrames;
+  if (moment.playerFrames?.length && !curatedImages) {
+    return collapsePlayerFrames(moment.playerFrames);
+  }
 
   if (moment.explainerFrames?.length) {
-    return moment.explainerFrames
-      .map((frame) => ({
-        image: curatedImages?.[frame.title] ?? frame.sourceImage ?? "",
-        narration: frame.narration,
-      }))
-      .filter((frame) => frame.narration);
+    return collapsePlayerFrames(
+      moment.explainerFrames
+        .map((frame) => ({
+          image: curatedImages?.[frame.title] ?? frame.sourceImage ?? "",
+          narration: frame.narration,
+        }))
+        .filter((frame) => frame.narration),
+    );
   }
 
   if (moment.sourceImage || moment.narration) {
@@ -206,6 +210,18 @@ export function buildPlayerFrames(
   }
 
   return [];
+}
+
+function collapsePlayerFrames(
+  frames: Array<{ image: string; narration: string }>,
+): Array<{ image: string; narration: string }> {
+  const image = frames.find((frame) => frame.image.trim())?.image ?? "";
+  const narration = frames
+    .map((frame) => frame.narration.trim())
+    .filter(Boolean)
+    .join("\n\n");
+
+  return image && narration ? [{ image, narration }] : [];
 }
 
 const CURATED_EXPLAINER_IMAGES: Record<string, Record<string, string>> = {
