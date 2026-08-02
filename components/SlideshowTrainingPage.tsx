@@ -13,6 +13,10 @@ import {
 } from "lucide-react";
 import VisualSlide from "@/components/training/VisualSlide";
 import {
+  DragOrderActivity,
+  ImpactTiles,
+} from "@/components/training/ImpactBlocks";
+import {
   buildPlayerFrames,
   type LessonMoment,
   type PublicMasonCourse,
@@ -291,7 +295,15 @@ export default function SlideshowTrainingPage({
             )}
 
             {slide.type === "moment" &&
-              (slide.moment.kind === "question" ||
+              (slide.moment.kind === "dragdrop" ? (
+                <div className="mx-auto w-full max-w-3xl">
+                  <DragOrderActivity moment={slide.moment} />
+                </div>
+              ) : slide.moment.kind === "tiles" ? (
+                <div className="mx-auto w-full max-w-5xl">
+                  <ImpactTiles moment={slide.moment} />
+                </div>
+              ) : slide.moment.kind === "question" ||
               slide.moment.kind === "scenario" ? (
                 <SlideActivity
                   key={`${section.id}-${slideIndex}`}

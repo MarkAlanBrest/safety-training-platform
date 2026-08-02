@@ -8,6 +8,9 @@ import type { LessonPlan } from "@/lib/mason";
 
 const momentKinds = new Set([
   "explain",
+  "text",
+  "tiles",
+  "dragdrop",
   "visual",
   "question",
   "scenario",
@@ -19,6 +22,22 @@ function validStringArray(value: unknown): value is string[] {
     Array.isArray(value) &&
     value.length <= 100 &&
     value.every((item) => typeof item === "string")
+  );
+}
+
+function validTiles(value: unknown) {
+  return (
+    value === null ||
+    value === undefined ||
+    (Array.isArray(value) &&
+      value.length <= 12 &&
+      value.every(
+        (item) =>
+          item &&
+          typeof item === "object" &&
+          typeof (item as Record<string, unknown>).title === "string" &&
+          typeof (item as Record<string, unknown>).body === "string",
+      ))
   );
 }
 
@@ -47,7 +66,11 @@ function validLessonPlan(value: unknown): value is LessonPlan {
       typeof moment.narration === "string" &&
       (moment.choices === null ||
         moment.choices === undefined ||
-        validStringArray(moment.choices))
+        validStringArray(moment.choices)) &&
+      (moment.dragItems === null ||
+        moment.dragItems === undefined ||
+        validStringArray(moment.dragItems)) &&
+      validTiles(moment.tiles)
     );
   });
 }
@@ -109,6 +132,10 @@ export async function PATCH(
 
     const body = await request.json();
     const title = String(body.title || "").trim();
+    const estimatedMinutes = Math.max(
+      5,
+      Math.min(10000, Number(body.estimatedMinutes) || existing.estimatedMinutes),
+    );
     if (!title || !validLessonPlan(body.lessonPlan)) {
       return Response.json(
         { error: "The section title and valid lesson content are required." },
@@ -121,6 +148,7 @@ export async function PATCH(
       where: { id: existing.id },
       data: {
         title,
+        estimatedMinutes,
         lessonPlan: body.lessonPlan as unknown as Prisma.InputJsonValue,
         updatedAt: savedAt,
       },
@@ -138,5 +166,50 @@ export async function PATCH(
       { error: "The section content could not be saved." },
       { status: 500 },
     );
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ slug: string; id: string }> },
+) {
+  const unauthorized = await requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
+  try {
+    const { slug, id } = await params;
+    const sectionId = Number(id);
+    if (!Number.isInteger(sectionId)) {
+      return Response.json({ error: "Invalid section." }, { status: 400 });
+    }
+
+    const existing = await findSection(slug, sectionId);
+    if (!existing) {
+      return Response.json({ error: "Section not found." }, { status: 404 });
+    }
+
+    await prisma.$transaction(async (transaction) => {
+      await transaction.masonSection.delete({ where: { id: existing.id } });
+      const remaining = await transaction.masonSection.findMany({
+        where: { courseId: existing.courseId },
+        orderBy: { position: "asc" },
+        select: { id: true },
+      });
+      for (let index = 0; index < remaining.length; index += 1) {
+        await transaction.masonSection.update({
+          where: { id: remaining[index].id },
+          data: { position: index + 1 },
+        });
+      }
+      await transaction.masonCourse.update({
+        where: { id: existing.courseId },
+        data: { updatedAt: new Date() },
+      });
+    });
+
+    return Response.json({ success: true });
+  } catch (error) {
+    console.error("Section deletion failed:", error);
+    return Response.json({ error: "The section could not be deleted." }, { status: 500 });
   }
 }

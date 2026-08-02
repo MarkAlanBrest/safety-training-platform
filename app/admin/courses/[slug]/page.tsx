@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { type DragEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   BookOpen,
@@ -10,6 +10,7 @@ import {
   Clipboard,
   Clock3,
   FilePlus2,
+  GripVertical,
   KeyRound,
   LoaderCircle,
   ImagePlus,
@@ -103,6 +104,8 @@ export default function CourseEditorPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
+  const [draggedSectionId, setDraggedSectionId] = useState<number | null>(null);
+  const [deletingSectionId, setDeletingSectionId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [logoData, setLogoData] = useState<string | null>(null);
@@ -214,6 +217,85 @@ export default function CourseEditorPage() {
       setMessage("Section created from the PDF.");
     }
     setBusy(false);
+  }
+
+  async function addBlankSection() {
+    if (!course || busy) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(`/api/admin/courses/${course.slug}/sections`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "New section", estimatedMinutes: 15 }),
+      });
+      const data = await parseJsonResponse<{ error?: string }>(response);
+      if (!response.ok) throw new Error(data.error || "The section could not be created.");
+      await load();
+      setMessage("Blank section added. Open it to add content blocks.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The section could not be created.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reorderSections(destinationId: number) {
+    if (!course || draggedSectionId === null || draggedSectionId === destinationId) {
+      setDraggedSectionId(null);
+      return;
+    }
+    const previous = course.sections;
+    const next = [...course.sections];
+    const sourceIndex = next.findIndex((section) => section.id === draggedSectionId);
+    const destinationIndex = next.findIndex((section) => section.id === destinationId);
+    if (sourceIndex < 0 || destinationIndex < 0) return;
+    const [moved] = next.splice(sourceIndex, 1);
+    next.splice(destinationIndex, 0, moved);
+    const positioned = next.map((section, index) => ({ ...section, position: index + 1 }));
+    setCourse({ ...course, sections: positioned });
+    setDraggedSectionId(null);
+
+    try {
+      const response = await fetch(`/api/admin/courses/${course.slug}/sections`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sectionIds: positioned.map((section) => section.id) }),
+      });
+      const data = await parseJsonResponse<{ error?: string }>(response);
+      if (!response.ok) throw new Error(data.error || "Sections could not be reordered.");
+      setMessage("Section order saved.");
+    } catch (caught) {
+      setCourse({ ...course, sections: previous });
+      setError(caught instanceof Error ? caught.message : "Sections could not be reordered.");
+    }
+  }
+
+  async function deleteSection(section: Section) {
+    if (!course || deletingSectionId !== null) return;
+    const confirmed = window.confirm(
+      `Delete “${section.title}”?\n\nThis permanently removes this section and all of its content blocks.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingSectionId(section.id);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(
+        `/api/admin/courses/${course.slug}/sections/${section.id}`,
+        { method: "DELETE" },
+      );
+      const data = await parseJsonResponse<{ error?: string }>(response);
+      if (!response.ok) throw new Error(data.error || "The section could not be deleted.");
+      await load();
+      setMessage("Section deleted.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The section could not be deleted.");
+    } finally {
+      setDeletingSectionId(null);
+    }
   }
 
   async function generateCodes(event: FormEvent<HTMLFormElement>) {
@@ -351,7 +433,7 @@ export default function CourseEditorPage() {
       {tab === "content" && (
         <div className="grid gap-7 xl:grid-cols-[1fr_380px]">
           <section>
-            <div className="mb-5 flex items-end justify-between">
+            <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">
                   Program structure
@@ -360,9 +442,19 @@ export default function CourseEditorPage() {
                   Sections and source material
                 </h2>
               </div>
-              <p className="text-sm font-semibold text-[#6e7981]">
-                {course.sections.reduce((total, item) => total + item.estimatedMinutes, 0)} minutes
-              </p>
+              <div className="flex items-center gap-3">
+                <p className="text-sm font-semibold text-[#6e7981]">
+                  {course.sections.reduce((total, item) => total + item.estimatedMinutes, 0)} minutes
+                </p>
+                <button
+                  type="button"
+                  onClick={addBlankSection}
+                  disabled={busy}
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#10283f]/15 bg-white px-4 py-2.5 text-sm font-bold text-[#10283f] disabled:opacity-50"
+                >
+                  <Plus size={16} /> Blank section
+                </button>
+              </div>
             </div>
 
             {course.sections.length === 0 ? (
@@ -379,11 +471,23 @@ export default function CourseEditorPage() {
                 {course.sections.map((section) => (
                   <article
                     key={section.id}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={() => void reorderSections(section.id)}
                     className="grid gap-4 rounded-2xl border border-[#10283f]/10 bg-white p-5 shadow-sm sm:grid-cols-[56px_1fr_auto] sm:items-center"
                   >
-                    <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#10283f] font-serif text-xl text-white">
-                      {section.position}
-                    </span>
+                    <div
+                      draggable
+                      onDragStart={(event: DragEvent<HTMLDivElement>) => {
+                        setDraggedSectionId(section.id);
+                        event.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDragEnd={() => setDraggedSectionId(null)}
+                      className="grid h-12 w-12 cursor-grab place-items-center rounded-2xl bg-[#10283f] text-white active:cursor-grabbing"
+                      title="Drag to reorder section"
+                    >
+                      <GripVertical size={19} />
+                      <span className="sr-only">Section {section.position}</span>
+                    </div>
                     <div>
                       <h3 className="font-bold text-[#10283f]">{section.title}</h3>
                       <p className="mt-1 text-xs text-[#7b858c]">{section.fileName}</p>
@@ -424,6 +528,19 @@ export default function CourseEditorPage() {
                       >
                         Edit content
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => deleteSection(section)}
+                        disabled={deletingSectionId !== null}
+                        className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {deletingSectionId === section.id ? (
+                          <LoaderCircle className="animate-spin" size={14} />
+                        ) : (
+                          <Trash2 size={14} />
+                        )}
+                        Delete section
+                      </button>
                     </div>
                   </article>
                 ))}

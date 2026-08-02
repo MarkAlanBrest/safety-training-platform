@@ -24,6 +24,47 @@ export async function POST(
       return Response.json({ error: "Course not found." }, { status: 404 });
     }
 
+    if (request.headers.get("content-type")?.includes("application/json")) {
+      const body = await request.json();
+      const title = String(body.title || "New section").trim().slice(0, 160);
+      const estimatedMinutes = Math.max(
+        5,
+        Math.min(10000, Number(body.estimatedMinutes) || 15),
+      );
+      if (!title) {
+        return Response.json({ error: "A section title is required." }, { status: 400 });
+      }
+
+      const section = await prisma.masonSection.create({
+        data: {
+          courseId: course.id,
+          title,
+          estimatedMinutes,
+          position: course._count.sections + 1,
+          fileName: "Manual section",
+          lessonPlan: {
+            sectionTitle: title,
+            opening: "Add an introduction for this section.",
+            objectives: [],
+            summary: "Add a closing summary.",
+            keyFacts: [],
+            moments: [],
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        select: {
+          id: true,
+          title: true,
+          position: true,
+          estimatedMinutes: true,
+          fileName: true,
+          lessonPlan: true,
+        },
+      });
+      return Response.json(section, { status: 201 });
+    }
+
     const form = await request.formData();
     const title = String(form.get("sectionTitle") || "").trim();
     const estimatedMinutes = Math.max(
@@ -79,5 +120,61 @@ export async function POST(
     const message =
       error instanceof Error ? error.message : "The section could not be created.";
     return Response.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ slug: string }> },
+) {
+  const unauthorized = await requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
+  try {
+    const { slug } = await params;
+    const body = await request.json();
+    const sectionIds = Array.isArray(body.sectionIds)
+      ? body.sectionIds.map(Number)
+      : [];
+    const course = await prisma.masonCourse.findUnique({
+      where: { slug },
+      include: { sections: { select: { id: true } } },
+    });
+    if (!course) {
+      return Response.json({ error: "Course not found." }, { status: 404 });
+    }
+
+    const existingIds = course.sections.map((section) => section.id).sort((a, b) => a - b);
+    const requestedIds = [...sectionIds].sort((a, b) => a - b);
+    if (
+      sectionIds.length !== course.sections.length ||
+      existingIds.some((id, index) => id !== requestedIds[index])
+    ) {
+      return Response.json({ error: "Invalid section order." }, { status: 400 });
+    }
+
+    await prisma.$transaction(async (transaction) => {
+      for (let index = 0; index < sectionIds.length; index += 1) {
+        await transaction.masonSection.update({
+          where: { id: sectionIds[index] },
+          data: { position: -(index + 1) },
+        });
+      }
+      for (let index = 0; index < sectionIds.length; index += 1) {
+        await transaction.masonSection.update({
+          where: { id: sectionIds[index] },
+          data: { position: index + 1 },
+        });
+      }
+      await transaction.masonCourse.update({
+        where: { id: course.id },
+        data: { updatedAt: new Date() },
+      });
+    });
+
+    return Response.json({ success: true });
+  } catch (error) {
+    console.error("Section reorder failed:", error);
+    return Response.json({ error: "Sections could not be reordered." }, { status: 500 });
   }
 }

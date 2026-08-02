@@ -17,6 +17,10 @@ import {
 } from "lucide-react";
 import VisualSlide from "@/components/training/VisualSlide";
 import {
+  DragOrderActivity,
+  ImpactTiles,
+} from "@/components/training/ImpactBlocks";
+import {
   buildPlayerFrames,
   type LessonMoment,
   type PublicMasonCourse,
@@ -479,6 +483,19 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
                       courseSlug={course.slug}
                     />
                   </div>
+                );
+              }
+
+              if (moment.kind === "tiles") {
+                return <ImpactTiles key={`${moment.title}-${index}`} moment={moment} />;
+              }
+
+              if (moment.kind === "dragdrop") {
+                return (
+                  <DragOrderActivity
+                    key={`${moment.title}-${index}`}
+                    moment={moment}
+                  />
                 );
               }
 

@@ -1,5 +1,13 @@
 export type LessonMoment = {
-  kind: "explain" | "visual" | "question" | "scenario" | "summary";
+  kind:
+    | "explain"
+    | "text"
+    | "tiles"
+    | "dragdrop"
+    | "visual"
+    | "question"
+    | "scenario"
+    | "summary";
   phase?: "learn" | "activity" | "mastery";
   title: string;
   narration: string;
@@ -17,6 +25,8 @@ export type LessonMoment = {
   focusScale?: number | null;
   visualType?: "process" | "anatomy" | "comparison" | "formula" | "sequence" | null;
   visualItems?: string[] | null;
+  tiles?: Array<{ title: string; body: string }> | null;
+  dragItems?: string[] | null;
   explainerStyle?: "flipbook" | "guided-focus" | "compare-reveal" | "step-build" | null;
   explainerFrames?: Array<{
     title: string;
