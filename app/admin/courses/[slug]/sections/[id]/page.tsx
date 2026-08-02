@@ -15,8 +15,8 @@ import {
   Trash2,
 } from "lucide-react";
 import AdminShell from "@/components/AdminShell";
-import VisualPlayer from "@/components/VisualPlayer";
-import type { LessonMoment, LessonPlan } from "@/lib/mason";
+import VisualSlide from "@/components/training/VisualSlide";
+import { buildPlayerFrames, type LessonMoment, type LessonPlan } from "@/lib/mason";
 
 type SectionResponse = {
   id: number;
@@ -314,7 +314,7 @@ function MomentEditor({
                 Learner view — pictures and play bar only
               </p>
               <div className="p-3">
-                <VisualPlayer moment={moment} courseSlug={courseSlug} />
+                <VisualSlide frames={buildPlayerFrames(moment)} courseSlug={courseSlug} />
               </div>
             </div>
 

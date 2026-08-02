@@ -11,7 +11,7 @@ import {
   CheckCircle2,
   Clock3,
 } from "lucide-react";
-import PicturesOnlyPlayer from "@/components/PicturesOnlyPlayer";
+import VisualSlide from "@/components/training/VisualSlide";
 import {
   buildPlayerFrames,
   type LessonMoment,
@@ -299,8 +299,8 @@ export default function SlideshowTrainingPage({
                 />
               ) : slide.moment.kind === "visual" ? (
                 <div className="mx-auto w-full max-w-5xl">
-                  <PicturesOnlyPlayer
-                    frames={buildPlayerFrames(slide.moment)}
+                  <VisualSlide
+                    frames={slide.moment.playerFrames ?? buildPlayerFrames(slide.moment)}
                     courseSlug={course.slug}
                   />
                 </div>
