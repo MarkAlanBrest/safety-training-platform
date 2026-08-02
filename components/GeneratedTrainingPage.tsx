@@ -469,9 +469,9 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
 
               if (moment.kind === "visual") {
                 return (
-                  <figure key={`${moment.title}-${index}`} className="my-16">
+                  <div key={`${moment.title}-${index}`} className="my-16 w-full">
                     <NarratedExplainer moment={moment} courseSlug={course.slug} />
-                  </figure>
+                  </div>
                 );
               }
 
