@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { randomInt } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-session";
 
@@ -25,6 +26,26 @@ function defaultExpirationDate() {
   return date;
 }
 
+function isUniqueViolation(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
+}
+
+function databaseErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (
+    message.includes("recipientName") ||
+    message.includes("company") ||
+    message.includes("column") ||
+    message.includes("does not exist")
+  ) {
+    return "The database schema is out of date. Run npm run db:init on the server.";
+  }
+  return "Enrollment codes could not be generated.";
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ slug: string }> },
@@ -41,7 +62,7 @@ export async function POST(
     const batchName = String(body.batchName || "").trim() || company;
 
     if (!recipientName) {
-      return Response.json({ error: "Recipient name is required." }, { status: 400 });
+      return Response.json({ error: "Name is required." }, { status: 400 });
     }
 
     const expiresAt = body.expiresAt
@@ -61,8 +82,13 @@ export async function POST(
     }
 
     const created: string[] = [];
-    while (created.length < quantity) {
+    let attempts = 0;
+    const maxAttempts = Math.max(quantity * 10, 10);
+
+    while (created.length < quantity && attempts < maxAttempts) {
+      attempts += 1;
       const code = createCode(slug);
+
       try {
         await prisma.enrollmentCode.create({
           data: {
@@ -75,16 +101,31 @@ export async function POST(
           },
         });
         created.push(code);
-      } catch {
-        // A collision is extremely unlikely; generate another code.
+      } catch (error) {
+        if (isUniqueViolation(error)) {
+          continue;
+        }
+
+        console.error("Enrollment code generation failed:", error);
+        return Response.json(
+          { error: databaseErrorMessage(error) },
+          { status: 500 },
+        );
       }
+    }
+
+    if (created.length < quantity) {
+      return Response.json(
+        { error: "Enrollment codes could not be generated." },
+        { status: 500 },
+      );
     }
 
     return Response.json({ codes: created }, { status: 201 });
   } catch (error) {
     console.error("Enrollment code generation failed:", error);
     return Response.json(
-      { error: "Enrollment codes could not be generated." },
+      { error: databaseErrorMessage(error) },
       { status: 500 },
     );
   }
