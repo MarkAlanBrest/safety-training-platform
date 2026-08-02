@@ -283,7 +283,7 @@ export default function VisualPlayer({
     pictures.length > 0 ? ((active + audioProgress) / pictures.length) * 100 : 0;
 
   return (
-    <div className="visual-player w-full" data-visual-player="pictures-only-v4">
+    <div className="visual-player w-full" data-visual-player="pictures-only-v5">
       <div className="relative w-full bg-black" style={{ aspectRatio: "16 / 9" }}>
         {!ready || !currentPicture ? (
           <div className="absolute inset-0 grid place-items-center">
