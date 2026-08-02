@@ -4,8 +4,32 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight } from "lucide-react";
+import {
+  ArrowRight,
+  Award,
+  BookOpen,
+  ClipboardCheck,
+  ShieldCheck,
+} from "lucide-react";
 import { parseJsonResponse } from "@/lib/parse-response";
+
+const highlights = [
+  {
+    icon: BookOpen,
+    title: "Assigned courses",
+    text: "Access the safety and compliance training your school or employer assigned to you.",
+  },
+  {
+    icon: ClipboardCheck,
+    title: "Learn at your pace",
+    text: "Work through interactive lessons, knowledge checks, and narrated visuals on your schedule.",
+  },
+  {
+    icon: Award,
+    title: "Finish with proof",
+    text: "Complete each program and keep a record of your progress and certificate.",
+  },
+];
 
 export default function HomePage() {
   const router = useRouter();
@@ -26,7 +50,11 @@ export default function HomePage() {
 
     try {
       const response = await fetch(`/api/enroll?code=${encodeURIComponent(code.trim())}`);
-      const data = await parseJsonResponse<{ error?: string; claimed?: boolean; course?: { slug: string } }>(response);
+      const data = await parseJsonResponse<{
+        error?: string;
+        claimed?: boolean;
+        course?: { slug: string };
+      }>(response);
 
       if (!response.ok || data.error) {
         setError(data.error || "That course code was not recognized.");
@@ -40,85 +68,123 @@ export default function HomePage() {
         router.push(`/enroll?code=${encodeURIComponent(code.trim())}`);
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "We could not connect. Please try again.");
+      setError(
+        caught instanceof Error ? caught.message : "We could not connect. Please try again.",
+      );
       setLoading(false);
     }
   }
 
   return (
     <main className="flex min-h-screen flex-col bg-[#f2f2f2] text-[#404040]">
-      <header className="bg-[#002d74] px-4 py-4 sm:px-6">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4">
-          <Link href="/">
-            <Image
-              src="/images/ncst-logo.png"
-              alt="New Castle School of Trades"
-              width={180}
-              height={54}
-              className="h-11 w-auto sm:h-12"
-              priority
-            />
-          </Link>
-          <Link
-            href="/admin/login"
-            className="font-[family-name:var(--font-oswald)] text-sm font-medium uppercase tracking-wide text-[#faa200] hover:underline"
-          >
-            Admin login
-          </Link>
-        </div>
-      </header>
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#002d74] shadow-[0_4px_20px_rgba(0,0,0,0.12)]">
+        <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <Link href="/" className="shrink-0">
+              <Image
+                src="/images/ncst-logo.png"
+                alt="New Castle School of Trades"
+                width={180}
+                height={54}
+                className="h-11 w-auto sm:h-12"
+                priority
+              />
+            </Link>
 
-      <div className="flex flex-1 items-center px-4 py-12 sm:px-6">
-        <div className="mx-auto w-full max-w-3xl">
-          <div className="bg-white p-8 shadow-[0_5px_15px_rgba(0,0,0,0.1)] sm:p-10">
-            <h1 className="font-[family-name:var(--font-oswald)] text-3xl font-medium uppercase text-[#002d74] sm:text-4xl">
-              Online Training
-            </h1>
-            <p className="mt-4 max-w-xl text-lg leading-7 text-[#636363]">
-              Complete your assigned courses online. Enter the code from your
-              instructor to get started.
+            <p className="hidden max-w-md text-center text-sm leading-6 text-white/75 lg:block">
+              Online safety training for students and employees — enter your course code to begin.
             </p>
 
-            <form onSubmit={handleSubmit} className="mt-8">
-              <label
-                htmlFor="course-code"
-                className="font-[family-name:var(--font-oswald)] text-sm font-medium uppercase tracking-wide text-[#002d74]"
-              >
-                Course code
-              </label>
-              <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+              <form onSubmit={handleSubmit} className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center lg:flex-none">
+                <label htmlFor="course-code" className="sr-only">
+                  Course code
+                </label>
                 <input
                   id="course-code"
                   type="text"
                   autoComplete="off"
-                  placeholder="EXAMPLE-123"
-                  className="min-w-0 flex-1 border-2 border-[#b1b4ba] px-4 py-3 font-bold uppercase tracking-wider text-[#111] outline-none focus:border-[#faa200]"
+                  placeholder="Course code"
+                  className="min-w-0 flex-1 border-2 border-white/20 bg-white px-4 py-2.5 font-bold uppercase tracking-wider text-[#111] outline-none placeholder:font-normal placeholder:normal-case placeholder:tracking-normal placeholder:text-[#888] focus:border-[#faa200] sm:w-44 sm:flex-none lg:w-48"
                   value={code}
                   onChange={(event) => setCode(event.target.value.toUpperCase())}
                 />
                 <button
                   type="submit"
                   disabled={loading}
-                  className="ncst-btn ncst-btn-filled inline-flex items-center justify-center gap-2 px-6 disabled:cursor-wait disabled:opacity-60"
+                  className="ncst-btn ncst-btn-orange inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm disabled:cursor-wait disabled:opacity-60"
                 >
                   {loading ? "Checking…" : "Start course"}
-                  {!loading && <ArrowRight size={17} />}
+                  {!loading && <ArrowRight size={16} />}
                 </button>
-              </div>
-              {error && (
-                <p role="alert" className="mt-3 text-sm font-semibold text-[#ed1c24]">
-                  {error}
-                </p>
-              )}
-            </form>
+              </form>
+              <Link
+                href="/admin/login"
+                className="text-center font-[family-name:var(--font-oswald)] text-xs font-medium uppercase tracking-wide text-[#faa200] hover:underline sm:text-sm"
+              >
+                Admin login
+              </Link>
+            </div>
+          </div>
+
+          {error && (
+            <p role="alert" className="mt-3 text-sm font-semibold text-[#ffb4b4]">
+              {error}
+            </p>
+          )}
+        </div>
+      </header>
+
+      <div className="flex flex-1 items-center px-4 py-12 sm:px-6 sm:py-16">
+        <div className="mx-auto w-full max-w-5xl">
+          <div className="text-center">
+            <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-[#002d74]/15 bg-white px-4 py-2 text-sm font-semibold text-[#002d74] shadow-sm">
+              <ShieldCheck size={16} className="text-[#faa200]" />
+              NCST Online Training Portal
+            </div>
+            <h1 className="font-[family-name:var(--font-oswald)] text-4xl font-medium uppercase leading-tight text-[#002d74] sm:text-5xl lg:text-6xl">
+              Safety training built for real workplaces
+            </h1>
+            <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-[#636363] sm:text-xl">
+              This platform delivers assigned compliance and safety courses for New Castle
+              School of Trades students and partner employers. Use the course code from your
+              instructor or enrollment email to open your program and start learning.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-5 sm:grid-cols-3">
+            {highlights.map((item) => (
+              <article
+                key={item.title}
+                className="bg-white p-6 shadow-[0_5px_15px_rgba(0,0,0,0.08)] sm:p-7"
+              >
+                <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#002d74]/8 text-[#002d74]">
+                  <item.icon size={22} strokeWidth={1.8} />
+                </span>
+                <h2 className="mt-4 font-[family-name:var(--font-oswald)] text-xl font-medium uppercase text-[#002d74]">
+                  {item.title}
+                </h2>
+                <p className="mt-3 text-base leading-7 text-[#636363]">{item.text}</p>
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-10 border-l-4 border-[#faa200] bg-white px-6 py-5 shadow-[0_5px_15px_rgba(0,0,0,0.06)] sm:px-8">
+            <p className="font-[family-name:var(--font-oswald)] text-sm font-medium uppercase tracking-wide text-[#002d74]">
+              Ready to begin?
+            </p>
+            <p className="mt-2 max-w-3xl text-base leading-7 text-[#636363]">
+              Enter your course code in the toolbar above and select{" "}
+              <strong className="font-semibold text-[#002d74]">Start course</strong>. If this
+              is your first visit, you may be asked for a few details before your seat is
+              confirmed.
+            </p>
           </div>
         </div>
       </div>
 
       <footer className="bg-[#002d74] px-4 py-5 text-center text-sm text-white/60 sm:px-6">
-        <p>
-          &copy; {new Date().getFullYear()} New Castle School of Trades
-        </p>
+        <p>&copy; {new Date().getFullYear()} New Castle School of Trades</p>
       </footer>
     </main>
   );
