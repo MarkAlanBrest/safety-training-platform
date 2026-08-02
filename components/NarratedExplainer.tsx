@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Check,
   ChevronLeft,
   ChevronRight,
   LoaderCircle,
@@ -70,7 +68,7 @@ function frameFocus(
 
   const baseX = moment.focusX ?? 50;
   const baseY = moment.focusY ?? 50;
-  const baseScale = moment.focusScale ?? 1.35;
+  const baseScale = moment.focusScale ?? 1.25;
 
   if (totalFrames <= 1) {
     return { x: baseX, y: baseY, scale: baseScale };
@@ -85,162 +83,67 @@ function frameFocus(
   return {
     x: Math.min(85, Math.max(15, 15 + column * columnSpan)),
     y: Math.min(80, Math.max(20, baseY - 10 + row * 18)),
-    scale: Math.min(2.2, baseScale + progress * 0.45),
+    scale: Math.min(2.2, baseScale + progress * 0.35),
   };
 }
 
-function SourceImageFlipbook({
+function FlipbookStage({
   moment,
   frames,
   active,
+  sourceImage,
 }: {
   moment: LessonMoment;
   frames: Frame[];
   active: number;
+  sourceImage?: string | null;
 }) {
   const frame = frames[active];
   const focus = frameFocus(moment, frame, active, frames.length);
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [sourceImage]);
+
+  const showPicture = Boolean(sourceImage) && !imageFailed;
 
   return (
-    <div className="relative min-h-[390px] overflow-hidden bg-[#e9eff0] lg:min-h-[460px]">
-      <div key={active} className="explainer-frame absolute inset-0">
-        <div className="absolute inset-0 overflow-hidden">
-          <div
-            className="absolute inset-[-15%] transition-transform duration-700 ease-out"
+    <div className="relative min-h-[390px] overflow-hidden bg-white lg:min-h-[460px]">
+      {showPicture ? (
+        <div className="absolute inset-0 overflow-hidden bg-[#f4f7f8]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={sourceImage!}
+            alt={moment.sourceImageAlt || `${moment.title} source visual`}
+            className="flipbook-pan absolute inset-0 h-full w-full object-contain"
             style={{
               transform: `scale(${focus.scale})`,
               transformOrigin: `${focus.x}% ${focus.y}%`,
             }}
-          >
-            <Image
-              src={moment.sourceImage!}
-              alt={moment.sourceImageAlt || `${moment.title} source visual`}
-              fill
-              unoptimized
-              className="object-cover"
-              style={{ objectPosition: `${focus.x}% ${focus.y}%` }}
-              sizes="(max-width: 1200px) 100vw, 1200px"
-            />
-          </div>
+            onError={() => setImageFailed(true)}
+          />
         </div>
-      </div>
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-[#e9eff0] via-[#f4f7f8] to-[#dfe8ea]" />
+      )}
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#07111f]/95 via-[#07111f]/72 to-transparent px-6 pb-6 pt-24 sm:px-8">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#07111f]/95 via-[#07111f]/75 to-transparent px-6 pb-6 pt-28 sm:px-8">
         <p className="text-xs font-bold uppercase tracking-[.17em] text-[var(--accent)]">
-          Frame {active + 1} of {frames.length}
+          {showPicture ? "Picture" : "Visual"} {active + 1} of {frames.length}
           {moment.pageNumber ? ` · Source page ${moment.pageNumber}` : ""}
         </p>
         <h3 className="mt-2 max-w-3xl text-2xl font-semibold leading-tight text-white sm:text-3xl">
           {frame.title}
         </h3>
-        <p className="mt-3 max-w-3xl text-base leading-7 text-white/80 sm:text-lg">
+        <p className="mt-3 max-w-3xl text-base leading-7 text-white/85 sm:text-lg">
           {frame.caption}
         </p>
-      </div>
-    </div>
-  );
-}
-
-function ExplainerVisual({
-  style,
-  frames,
-  active,
-}: {
-  style: NonNullable<LessonMoment["explainerStyle"]>;
-  frames: Frame[];
-  active: number;
-}) {
-  const frame = frames[active];
-
-  if (style === "guided-focus") {
-    return (
-      <div className="grid min-h-[350px] gap-8 bg-[#f4f7f8] p-7 text-[var(--ink)] sm:p-10 md:grid-cols-[1.15fr_.85fr] md:items-center">
-        <div className="relative grid min-h-[250px] place-items-center overflow-hidden rounded-[2rem] border border-[var(--ink)]/10 bg-white shadow-inner">
-          <span className="absolute h-52 w-52 rounded-full border border-[var(--accent)]/35" />
-          <span className="absolute h-36 w-36 rounded-full border-2 border-[var(--accent)]/70" />
-          <span className="relative z-10 max-w-[240px] px-6 text-center text-2xl font-semibold leading-8">
-            {frame.visualItems[0] || frame.title}
-          </span>
-        </div>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--ink)]/45">
-            Focus point {active + 1}
+        {!showPicture && frame.visualItems.length > 0 && (
+          <p className="mt-4 max-w-3xl text-sm leading-6 text-white/60">
+            {frame.visualItems.join(" · ")}
           </p>
-          <h3 className="mt-3 text-3xl font-semibold leading-tight">{frame.title}</h3>
-          <p className="mt-4 text-base leading-7 text-[var(--ink)]/70">{frame.caption}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (style === "compare-reveal") {
-    const prior = frames[Math.max(0, active - 1)];
-    return (
-      <div className="grid min-h-[350px] gap-px bg-[var(--ink)]/10 sm:grid-cols-2">
-        <div className="bg-[#f4f7f8] p-8 text-[var(--ink)] sm:p-10">
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--ink)]/40">
-            {active === 0 ? "Starting point" : "Before"}
-          </p>
-          <p className="mt-7 text-2xl font-semibold leading-8 text-[var(--ink)]/55">{prior.caption}</p>
-        </div>
-        <div className="relative overflow-hidden bg-white p-8 text-[var(--ink)] sm:p-10">
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--accent)]">Reveal</p>
-          <h3 className="mt-7 text-3xl font-semibold leading-tight">{frame.title}</h3>
-          <p className="mt-5 text-lg leading-8 text-[var(--ink)]/70">{frame.caption}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (style === "step-build") {
-    return (
-      <div className="min-h-[350px] bg-[#f4f7f8] p-7 text-[var(--ink)] sm:p-10">
-        <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--ink)]/45">
-          Building the idea
-        </p>
-        <div className="mt-8 grid gap-3 md:grid-cols-3">
-          {frames.map((item, index) => (
-            <div
-              key={`${item.title}-${index}`}
-              className={`relative rounded-2xl border bg-white p-5 transition-all duration-500 ${
-                index <= active
-                  ? "border-[var(--accent)]/60 opacity-100 shadow-sm"
-                  : "border-[var(--ink)]/10 opacity-35"
-              }`}
-            >
-              {index < active && (
-                <Check className="absolute right-4 top-4 text-[var(--accent)]" size={17} />
-              )}
-              <span className="text-sm font-bold text-[var(--accent)]">{index + 1}</span>
-              <p className="mt-5 font-semibold leading-6">{item.title}</p>
-              {index === active && (
-                <p className="mt-3 text-sm leading-6 text-[var(--ink)]/65">{item.caption}</p>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative min-h-[350px] overflow-hidden bg-[#f4f7f8] p-7 text-[var(--ink)] sm:p-10">
-      <div key={active} className="explainer-frame">
-        <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--accent)]">
-          Frame {active + 1} of {frames.length}
-        </p>
-        <h3 className="mt-5 max-w-xl text-3xl font-semibold leading-tight">{frame.title}</h3>
-        <p className="mt-5 max-w-2xl text-lg leading-8 text-[var(--ink)]/70">{frame.caption}</p>
-        <div className="mt-7 flex flex-wrap gap-2">
-          {frame.visualItems.map((label) => (
-            <span
-              key={label}
-              className="rounded-full border border-[var(--ink)]/10 bg-white px-4 py-2 text-sm font-semibold"
-            >
-              {label}
-            </span>
-          ))}
-        </div>
+        )}
       </div>
     </div>
   );
@@ -251,67 +154,115 @@ export default function NarratedExplainer({ moment }: { moment: LessonMoment }) 
     () => (moment.explainerFrames?.length ? moment.explainerFrames : fallbackFrames(moment)),
     [moment],
   );
-  const style =
-    moment.explainerStyle ||
-    (moment.visualType === "anatomy"
-      ? "guided-focus"
-      : moment.visualType === "comparison"
-        ? "compare-reveal"
-        : moment.visualType === "formula"
-          ? "step-build"
-          : "flipbook");
-  const usesSourceFlipbook = Boolean(moment.sourceImage);
   const [active, setActive] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlRef = useRef<string | null>(null);
+  const preloadRef = useRef<{ index: number; url: string; audio: HTMLAudioElement } | null>(
+    null,
+  );
 
-  function clearAudio() {
+  const clearAudio = useCallback(() => {
     audioRef.current?.pause();
     audioRef.current = null;
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = null;
     setAudioProgress(0);
-  }
+  }, []);
 
-  useEffect(() => () => clearAudio(), []);
+  const clearPreload = useCallback(() => {
+    preloadRef.current?.audio.pause();
+    if (preloadRef.current?.url) URL.revokeObjectURL(preloadRef.current.url);
+    preloadRef.current = null;
+  }, []);
 
-  async function playFrame(index: number) {
-    clearAudio();
-    setActive(index);
-    setLoading(true);
-    try {
-      const frame = frames[index];
-      const response = await fetch("/api/mason/speech", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: frame.narration }),
-      });
-      if (!response.ok) throw new Error("Narration unavailable");
-      const url = URL.createObjectURL(await response.blob());
-      const audio = new Audio(url);
-      urlRef.current = url;
-      audioRef.current = audio;
-      audio.ontimeupdate = () => {
-        setAudioProgress(audio.duration ? audio.currentTime / audio.duration : 0);
-      };
-      audio.onended = () => {
-        if (index < frames.length - 1) playFrame(index + 1);
-        else {
-          setPlaying(false);
-          setAudioProgress(1);
+  useEffect(
+    () => () => {
+      clearAudio();
+      clearPreload();
+    },
+    [clearAudio, clearPreload],
+  );
+
+  const fetchNarration = useCallback(async (text: string) => {
+    const response = await fetch("/api/mason/speech", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!response.ok) throw new Error("Narration unavailable");
+    const url = URL.createObjectURL(await response.blob());
+    const audio = new Audio(url);
+    return { url, audio };
+  }, []);
+
+  const preloadFrame = useCallback(
+    async (index: number) => {
+      if (index >= frames.length || preloadRef.current?.index === index) return;
+      clearPreload();
+      try {
+        const { url, audio } = await fetchNarration(frames[index].narration);
+        preloadRef.current = { index, url, audio };
+      } catch {
+        // Preload is best-effort.
+      }
+    },
+    [clearPreload, fetchNarration, frames],
+  );
+
+  const playFrame = useCallback(
+    async (index: number) => {
+      clearAudio();
+      setActive(index);
+      setLoading(true);
+      setVoiceError(null);
+
+      try {
+        let url: string;
+        let audio: HTMLAudioElement;
+
+        if (preloadRef.current?.index === index) {
+          ({ url, audio } = preloadRef.current);
+          preloadRef.current = null;
+        } else {
+          clearPreload();
+          ({ url, audio } = await fetchNarration(frames[index].narration));
         }
-      };
-      await audio.play();
-      setPlaying(true);
-    } catch {
-      setPlaying(false);
-    } finally {
-      setLoading(false);
-    }
-  }
+
+        urlRef.current = url;
+        audioRef.current = audio;
+        audio.ontimeupdate = () => {
+          setAudioProgress(audio.duration ? audio.currentTime / audio.duration : 0);
+          if (
+            audio.duration &&
+            audio.currentTime / audio.duration > 0.55 &&
+            index < frames.length - 1
+          ) {
+            void preloadFrame(index + 1);
+          }
+        };
+        audio.onended = () => {
+          if (index < frames.length - 1) {
+            void playFrame(index + 1);
+          } else {
+            setPlaying(false);
+            setAudioProgress(1);
+          }
+        };
+        await audio.play();
+        setPlaying(true);
+      } catch {
+        setPlaying(false);
+        setVoiceError("Audio could not be prepared. You can still step through the pictures.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [clearAudio, clearPreload, fetchNarration, frames, preloadFrame],
+  );
 
   function toggle() {
     if (loading) return;
@@ -319,16 +270,18 @@ export default function NarratedExplainer({ moment }: { moment: LessonMoment }) 
       audioRef.current?.pause();
       setPlaying(false);
     } else if (audioRef.current) {
-      audioRef.current.play();
+      void audioRef.current.play();
       setPlaying(true);
     } else {
-      playFrame(active);
+      void playFrame(active);
     }
   }
 
   function move(index: number) {
     clearAudio();
+    clearPreload();
     setPlaying(false);
+    setVoiceError(null);
     setActive(Math.max(0, Math.min(frames.length - 1, index)));
   }
 
@@ -341,18 +294,24 @@ export default function NarratedExplainer({ moment }: { moment: LessonMoment }) 
           <Volume2 size={15} className="text-[var(--accent)]" /> Narrated visual explainer
         </p>
         <span className="rounded-full bg-white/[.07] px-3 py-1 text-xs font-semibold text-white/50">
-          {usesSourceFlipbook ? "picture flipbook" : style.replace("-", " ")}
+          picture flipbook
         </span>
       </div>
 
-      {usesSourceFlipbook ? (
-        <SourceImageFlipbook moment={moment} frames={frames} active={active} />
-      ) : (
-        <ExplainerVisual style={style} frames={frames} active={active} />
-      )}
+      <FlipbookStage
+        moment={moment}
+        frames={frames}
+        active={active}
+        sourceImage={moment.sourceImage}
+      />
 
       <div className="border-t border-white/10 bg-black/10 px-6 py-6 sm:px-8">
         <p className="min-h-14 text-sm leading-6 text-white/65">{frames[active].narration}</p>
+        {voiceError && (
+          <p className="mt-3 rounded-xl bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+            {voiceError}
+          </p>
+        )}
         <div className="mt-5 h-1 overflow-hidden rounded-full bg-white/10">
           <span
             className="block h-full bg-[var(--accent)] transition-[width] duration-300"
@@ -395,7 +354,10 @@ export default function NarratedExplainer({ moment }: { moment: LessonMoment }) 
             </button>
             <button
               type="button"
-              onClick={() => move(0)}
+              onClick={() => {
+                move(0);
+                void playFrame(0);
+              }}
               className="grid h-10 w-10 place-items-center rounded-full text-white/45 hover:text-white"
               aria-label="Replay from beginning"
             >
