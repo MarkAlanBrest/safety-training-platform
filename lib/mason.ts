@@ -184,12 +184,13 @@ export function slugify(value: string) {
 export function buildPlayerFrames(
   moment: LessonMoment,
 ): Array<{ image: string; narration: string }> {
-  if (moment.playerFrames?.length) return moment.playerFrames;
+  const curatedImages = CURATED_EXPLAINER_IMAGES[moment.title];
+  if (moment.playerFrames?.length && !curatedImages) return moment.playerFrames;
 
   if (moment.explainerFrames?.length) {
     return moment.explainerFrames
       .map((frame) => ({
-        image: frame.sourceImage ?? "",
+        image: curatedImages?.[frame.title] ?? frame.sourceImage ?? "",
         narration: frame.narration,
       }))
       .filter((frame) => frame.narration);
@@ -206,6 +207,15 @@ export function buildPlayerFrames(
 
   return [];
 }
+
+const CURATED_EXPLAINER_IMAGES: Record<string, Record<string, string>> = {
+  "From respectful conduct to prohibited conduct": {
+    Respect: "/course-assets/workplace-harassment/visual-explainer/respect.png",
+    Recognize: "/course-assets/workplace-harassment/visual-explainer/recognize.png",
+    Respond: "/course-assets/workplace-harassment/visual-explainer/respond.png",
+    Prevent: "/course-assets/workplace-harassment/visual-explainer/prevent.png",
+  },
+};
 
 export function sanitizeVisualMomentForLearner(moment: LessonMoment): LessonMoment {
   if (moment.kind !== "visual") return moment;
