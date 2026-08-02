@@ -215,6 +215,19 @@ const CURATED_EXPLAINER_IMAGES: Record<string, Record<string, string>> = {
     Respond: "/course-assets/workplace-harassment/visual-explainer/respond.png",
     Prevent: "/course-assets/workplace-harassment/visual-explainer/prevent.png",
   },
+  "Conduct, context, and impact": {
+    Conduct: "/course-assets/workplace-harassment/visual-explainer/conduct.png",
+    Context: "/course-assets/workplace-harassment/visual-explainer/context.png",
+    Impact: "/course-assets/workplace-harassment/visual-explainer/impact.png",
+    Pattern: "/course-assets/workplace-harassment/visual-explainer/pattern.png",
+  },
+  "What happens after a concern is raised": {
+    Receive: "/course-assets/workplace-harassment/visual-explainer/receive.png",
+    Protect: "/course-assets/workplace-harassment/visual-explainer/protect.png",
+    Review: "/course-assets/workplace-harassment/visual-explainer/review.png",
+    Act: "/course-assets/workplace-harassment/visual-explainer/act.png",
+    "Follow up": "/course-assets/workplace-harassment/visual-explainer/follow-up.png",
+  },
 };
 
 export function sanitizeVisualMomentForLearner(moment: LessonMoment): LessonMoment {
