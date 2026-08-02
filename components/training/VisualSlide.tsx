@@ -30,10 +30,15 @@ export default function VisualSlide({
   const [playing, setPlaying] = useState(false);
   const [loadingAudio, setLoadingAudio] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [audioProgress, setAudioProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = useRef<string | null>(null);
 
   const currentPicture = playableFrames[slideIndex]?.image ?? playableFrames[0]?.image ?? null;
+  const totalProgress =
+    playableFrames.length > 0
+      ? ((slideIndex + audioProgress) / playableFrames.length) * 100
+      : 0;
   const stopAudio = useCallback(() => {
     audioRef.current?.pause();
     audioRef.current = null;
@@ -67,7 +72,11 @@ export default function VisualSlide({
         const audio = new Audio(url);
         audioRef.current = audio;
 
+        audio.ontimeupdate = () => {
+          setAudioProgress(audio.duration ? audio.currentTime / audio.duration : 0);
+        };
         audio.onended = () => {
+          setAudioProgress(1);
           if (index < playableFrames.length - 1) {
             void speak(index + 1);
           } else {
@@ -80,6 +89,7 @@ export default function VisualSlide({
         // Change the picture at the same moment its narration begins, not while
         // the audio request is still loading.
         setSlideIndex(index);
+        setAudioProgress(0);
         await audio.play();
         setPlaying(true);
       } catch {
@@ -127,6 +137,9 @@ export default function VisualSlide({
             draggable={false}
           />
         )}
+      </div>
+
+      <div className={styles.playbar}>
         <button
           type="button"
           className={styles.playBtn}
@@ -142,6 +155,9 @@ export default function VisualSlide({
             <Play size={18} fill="currentColor" className={styles.playIcon} />
           )}
         </button>
+        <div className={styles.track} aria-hidden="true">
+          <div className={styles.progress} style={{ width: `${totalProgress}%` }} />
+        </div>
       </div>
     </div>
   );

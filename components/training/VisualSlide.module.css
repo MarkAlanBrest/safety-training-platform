@@ -31,25 +31,15 @@
 }
 
 .playBtn {
-  position: absolute;
-  bottom: 16px;
-  left: 16px;
   display: grid;
-  height: 48px;
-  width: 48px;
+  height: 36px;
+  width: 36px;
+  flex: 0 0 auto;
   place-items: center;
-  border: 1px solid rgb(255 255 255 / 35%);
-  border-radius: 999px;
-  background: rgb(0 0 0 / 72%);
+  border: 0;
+  background: transparent;
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 30%);
-  transition: background-color 160ms ease, transform 160ms ease;
-}
-
-.playBtn:hover:not(:disabled) {
-  background: rgb(0 0 0 / 88%);
-  transform: scale(1.04);
 }
 
 .playBtn:disabled {
@@ -59,6 +49,29 @@
 
 .playIcon {
   margin-left: 2px;
+}
+
+.playbar {
+  display: flex;
+  height: 48px;
+  align-items: center;
+  gap: 12px;
+  background: #0a0a0a;
+  padding: 0 12px;
+}
+
+.track {
+  height: 4px;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 22%);
+}
+
+.progress {
+  height: 100%;
+  border-radius: inherit;
+  background: #fff;
 }
 
 @keyframes spin {
