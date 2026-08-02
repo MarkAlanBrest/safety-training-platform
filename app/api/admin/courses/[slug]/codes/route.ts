@@ -19,6 +19,12 @@ function createCode(slug: string) {
   return `${prefix}-${randomChunk(4)}-${randomChunk(4)}`;
 }
 
+function defaultExpirationDate() {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() + 1);
+  return date;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ slug: string }> },
@@ -30,8 +36,17 @@ export async function POST(
     const { slug } = await params;
     const body = await request.json();
     const quantity = Math.max(1, Math.min(100, Number(body.quantity) || 1));
-    const batchName = String(body.batchName || "").trim() || null;
-    const expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
+    const recipientName = String(body.recipientName || body.name || "").trim();
+    const company = String(body.company || "").trim() || null;
+    const batchName = String(body.batchName || "").trim() || company;
+
+    if (!recipientName) {
+      return Response.json({ error: "Recipient name is required." }, { status: 400 });
+    }
+
+    const expiresAt = body.expiresAt
+      ? new Date(body.expiresAt)
+      : defaultExpirationDate();
 
     if (expiresAt && Number.isNaN(expiresAt.getTime())) {
       return Response.json({ error: "Expiration date is invalid." }, { status: 400 });
@@ -54,6 +69,8 @@ export async function POST(
             code,
             courseId: course.id,
             batchName,
+            recipientName,
+            company,
             expiresAt,
           },
         });

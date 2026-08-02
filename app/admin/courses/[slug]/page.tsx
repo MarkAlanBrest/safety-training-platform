@@ -36,6 +36,8 @@ type EnrollmentCode = {
   id: number;
   code: string;
   batchName: string | null;
+  recipientName: string;
+  company: string | null;
   status: string;
   expiresAt: string | null;
   createdAt: string;
@@ -83,6 +85,12 @@ type Course = {
 };
 
 type Tab = "content" | "settings" | "codes" | "learners";
+
+function defaultExpirationInputValue() {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() + 1);
+  return date.toISOString().slice(0, 10);
+}
 
 export default function CourseEditorPage() {
   const params = useParams<{ slug: string }>();
@@ -191,7 +199,8 @@ export default function CourseEditorPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         quantity: form.get("quantity"),
-        batchName: form.get("batchName"),
+        recipientName: form.get("recipientName"),
+        company: form.get("company"),
         expiresAt: form.get("expiresAt"),
       }),
     });
@@ -660,15 +669,24 @@ export default function CourseEditorPage() {
             </div>
             <label className="block">
               <span className="mb-2 block text-xs font-bold text-slate-300">Number of codes</span>
-              <input name="quantity" type="number" min={1} max={100} defaultValue={10} className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3" />
+              <input name="quantity" type="number" min={1} max={100} defaultValue={1} className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3" />
             </label>
             <label className="block">
-              <span className="mb-2 block text-xs font-bold text-slate-300">Batch/customer label</span>
-              <input name="batchName" placeholder="Acme Fabrication · July" className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3" />
+              <span className="mb-2 block text-xs font-bold text-slate-300">Recipient name</span>
+              <input name="recipientName" required placeholder="Jane Smith" className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3" />
             </label>
             <label className="block">
-              <span className="mb-2 block text-xs font-bold text-slate-300">Expiration date (optional)</span>
-              <input name="expiresAt" type="date" className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3" />
+              <span className="mb-2 block text-xs font-bold text-slate-300">Company (optional)</span>
+              <input name="company" placeholder="Acme Fabrication" className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3" />
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold text-slate-300">Expiration date</span>
+              <input
+                name="expiresAt"
+                type="date"
+                defaultValue={defaultExpirationInputValue()}
+                className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3"
+              />
             </label>
             <button disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#f2b744] px-4 py-3 font-bold text-[#10283f]">
               {busy ? <LoaderCircle className="animate-spin" size={18} /> : <Plus size={18} />}
@@ -696,7 +714,8 @@ export default function CourseEditorPage() {
                 <thead className="sticky top-0 bg-[#f0f3f4] text-xs uppercase tracking-wider text-[#65717a]">
                   <tr>
                     <th className="px-4 py-3">Code</th>
-                    <th className="px-4 py-3">Batch</th>
+                    <th className="px-4 py-3">Recipient</th>
+                    <th className="px-4 py-3">Company</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Learner</th>
                     <th className="px-4 py-3">Expires</th>
@@ -706,7 +725,8 @@ export default function CourseEditorPage() {
                   {course.enrollmentCodes.map((item) => (
                     <tr key={item.id} className="border-t border-[#10283f]/10">
                       <td className="px-4 py-3 font-mono font-bold text-[#10283f]">{item.code}</td>
-                      <td className="px-4 py-3 text-[#65717a]">{item.batchName || "—"}</td>
+                      <td className="px-4 py-3 text-[#65717a]">{item.recipientName}</td>
+                      <td className="px-4 py-3 text-[#65717a]">{item.company || "—"}</td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${item.status === "available" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
                           {item.status}
@@ -721,7 +741,7 @@ export default function CourseEditorPage() {
                     </tr>
                   ))}
                   {course.enrollmentCodes.length === 0 && (
-                    <tr><td colSpan={5} className="px-5 py-10 text-center text-[#7b858c]">No codes generated yet.</td></tr>
+                    <tr><td colSpan={6} className="px-5 py-10 text-center text-[#7b858c]">No codes generated yet.</td></tr>
                   )}
                 </tbody>
               </table>
