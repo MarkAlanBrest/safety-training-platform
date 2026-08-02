@@ -1,0 +1,82 @@
+.root {
+  width: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+.frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  color: rgb(255 255 255 / 60%);
+  animation: spin 1s linear infinite;
+}
+
+.spinnerDark {
+  animation: spin 1s linear infinite;
+}
+
+.controls {
+  display: flex;
+  height: 48px;
+  align-items: center;
+  gap: 12px;
+  background: #0a0a0a;
+  padding: 0 12px;
+}
+
+.playBtn {
+  display: grid;
+  height: 36px;
+  width: 36px;
+  flex-shrink: 0;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.playBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.playIcon {
+  margin-left: 2px;
+}
+
+.track {
+  height: 4px;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 20%);
+}
+
+.fill {
+  height: 100%;
+  border-radius: 999px;
+  background: #fff;
+  transition: width 200ms ease;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

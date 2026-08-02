@@ -15,7 +15,7 @@ import {
   Play,
   X,
 } from "lucide-react";
-import PicturesOnlyPlayer from "@/components/PicturesOnlyPlayer";
+import VisualSlide from "@/components/training/VisualSlide";
 import {
   buildPlayerFrames,
   type LessonMoment,
@@ -474,8 +474,8 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
                     key={`${moment.title}-${index}`}
                     className="relative left-1/2 my-16 w-screen max-w-[100vw] -translate-x-1/2"
                   >
-                    <PicturesOnlyPlayer
-                      frames={buildPlayerFrames(moment)}
+                    <VisualSlide
+                      frames={moment.playerFrames ?? buildPlayerFrames(moment)}
                       courseSlug={course.slug}
                     />
                   </div>
