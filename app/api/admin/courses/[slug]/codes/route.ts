@@ -5,6 +5,7 @@ import { randomInt } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-session";
+import { parseExpirationDate } from "@/lib/enrollment-code";
 
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -18,12 +19,6 @@ function randomChunk(length: number) {
 function createCode(slug: string) {
   const prefix = slug.replace(/[^a-z0-9]/gi, "").slice(0, 3).toUpperCase() || "TRN";
   return `${prefix}-${randomChunk(4)}-${randomChunk(4)}`;
-}
-
-function defaultExpirationDate() {
-  const date = new Date();
-  date.setFullYear(date.getFullYear() + 1);
-  return date;
 }
 
 function isUniqueViolation(error: unknown) {
@@ -65,17 +60,16 @@ export async function POST(
       return Response.json({ error: "Name is required." }, { status: 400 });
     }
 
-    const expiresAt = body.expiresAt
-      ? new Date(body.expiresAt)
-      : defaultExpirationDate();
-
-    if (expiresAt && Number.isNaN(expiresAt.getTime())) {
+    let expiresAt: Date;
+    try {
+      expiresAt = parseExpirationDate(body.expiresAt);
+    } catch {
       return Response.json({ error: "Expiration date is invalid." }, { status: 400 });
     }
 
     const course = await prisma.masonCourse.findUnique({
       where: { slug },
-      select: { id: true },
+      select: { id: true, published: true, title: true },
     });
     if (!course) {
       return Response.json({ error: "Course not found." }, { status: 404 });
@@ -121,7 +115,15 @@ export async function POST(
       );
     }
 
-    return Response.json({ codes: created }, { status: 201 });
+    return Response.json(
+      {
+        codes: created,
+        warning: course.published
+          ? null
+          : "Codes were created, but this program is still a draft. Publish it under Program settings before learners can use these codes.",
+      },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("Enrollment code generation failed:", error);
     return Response.json(
