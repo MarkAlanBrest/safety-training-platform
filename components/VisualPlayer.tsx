@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle, Pause, Play } from "lucide-react";
-import type { LessonMoment } from "@/lib/mason";
+import {
+  sanitizeVisualMomentForLearner,
+  type LessonMoment,
+} from "@/lib/mason";
 import {
   buildFramePicture,
   isEmbeddedPicture,
@@ -124,21 +127,22 @@ export default function VisualPlayer({
   moment: LessonMoment;
   courseSlug?: string;
 }) {
+  const learnerMoment = useMemo(() => sanitizeVisualMomentForLearner(moment), [moment]);
   const theme = themeFromCourseSlug(courseSlug);
   const frames = useMemo(() => {
-    if (moment.explainerFrames?.length) return moment.explainerFrames;
-    if (moment.sourceImage || moment.narration) {
+    if (learnerMoment.explainerFrames?.length) return learnerMoment.explainerFrames;
+    if (learnerMoment.sourceImage || learnerMoment.narration) {
       return [
         {
           title: "",
           caption: "",
-          narration: moment.narration,
+          narration: learnerMoment.narration,
           visualItems: [] as string[],
         },
       ];
     }
     return [];
-  }, [moment]);
+  }, [learnerMoment]);
 
   const [pictures, setPictures] = useState<string[]>([]);
   const [ready, setReady] = useState(false);
@@ -156,7 +160,7 @@ export default function VisualPlayer({
     setActive(0);
     setAudioProgress(0);
 
-    void resolveFrameImages(moment, frames, theme).then((images) => {
+    void resolveFrameImages(learnerMoment, frames, theme).then((images) => {
       if (cancelled) return;
       setPictures(images);
       setReady(true);
@@ -165,7 +169,7 @@ export default function VisualPlayer({
     return () => {
       cancelled = true;
     };
-  }, [moment, frames, theme]);
+  }, [learnerMoment, frames, theme]);
 
   const clearAudio = useCallback(() => {
     audioRef.current?.pause();

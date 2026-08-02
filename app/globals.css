@@ -217,6 +217,24 @@ h4 {
   }
 }
 
+.visual-player {
+  /* Pictures + play bar only. Hide any legacy step-card text if cached JS injects it. */
+}
+
+.visual-player h1,
+.visual-player h2,
+.visual-player h3,
+.visual-player h4,
+.visual-player p,
+.visual-player li,
+.visual-player [data-visual-chrome] {
+  display: none !important;
+}
+
+.visual-player .flex.h-12 {
+  display: flex !important;
+}
+
 .explainer-frame {
   animation: explainer-in 550ms ease-out both;
 }
