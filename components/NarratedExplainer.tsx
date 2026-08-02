@@ -1,15 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  LoaderCircle,
-  Pause,
-  Play,
-  RotateCcw,
-  Volume2,
-} from "lucide-react";
+import { LoaderCircle, Pause, Play } from "lucide-react";
 import type { LessonMoment } from "@/lib/mason";
 
 type Frame = {
@@ -28,26 +20,6 @@ type FrameFocus = {
   y: number;
   scale: number;
 };
-
-function fallbackFrames(moment: LessonMoment): Frame[] {
-  const items = moment.visualItems?.filter(Boolean).slice(0, 5) || [];
-  if (items.length) {
-    return items.map((item, index) => ({
-      title: `${moment.title} · ${index + 1}`,
-      caption: item,
-      narration: `${item}. ${index === 0 ? moment.narration : ""}`.trim(),
-      visualItems: [item],
-    }));
-  }
-  return [
-    {
-      title: moment.title,
-      caption: moment.cue || "Follow the key idea as the explanation unfolds.",
-      narration: moment.narration,
-      visualItems: [moment.title],
-    },
-  ];
-}
 
 function frameFocus(
   moment: LessonMoment,
@@ -128,97 +100,116 @@ function cropImageFromSource(
   });
 }
 
-function FlipbookStage({
-  moment,
-  frames,
-  active,
-}: {
-  moment: LessonMoment;
-  frames: Frame[];
-  active: number;
-}) {
-  const frame = frames[active];
-  const focus = frameFocus(moment, frame, active, frames.length);
-  const [resolvedImage, setResolvedImage] = useState<string | null>(
-    frame.sourceImage || null,
-  );
-  const [imageFailed, setImageFailed] = useState(false);
+async function resolveFrameImages(
+  moment: LessonMoment,
+  frames: Frame[],
+): Promise<string[]> {
+  const images: string[] = [];
 
-  useEffect(() => {
-    let cancelled = false;
-    setImageFailed(false);
-
+  for (let index = 0; index < frames.length; index += 1) {
+    const frame = frames[index];
     if (frame.sourceImage) {
-      setResolvedImage(frame.sourceImage);
-      return;
+      images.push(frame.sourceImage);
+      continue;
     }
 
-    if (!moment.sourceImage) {
-      setResolvedImage(null);
-      return;
+    if (!moment.sourceImage) continue;
+
+    try {
+      images.push(
+        await cropImageFromSource(
+          moment.sourceImage,
+          frameFocus(moment, frame, index, frames.length),
+        ),
+      );
+    } catch {
+      if (index === 0) images.push(moment.sourceImage);
     }
+  }
 
-    setResolvedImage(null);
-    void cropImageFromSource(moment.sourceImage, focus)
-      .then((cropped) => {
-        if (!cancelled) setResolvedImage(cropped);
-      })
-      .catch(() => {
-        if (!cancelled) setResolvedImage(moment.sourceImage || null);
-      });
+  return images;
+}
 
-    return () => {
-      cancelled = true;
-    };
-  }, [frame.sourceImage, moment.sourceImage, focus.x, focus.y, focus.scale, active]);
+function PictureStage({
+  image,
+  loading,
+}: {
+  image: string | null;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="flex aspect-[16/10] items-center justify-center bg-[#eef2f3] sm:aspect-[16/9]">
+        <LoaderCircle className="animate-spin text-[var(--accent)]" size={36} />
+      </div>
+    );
+  }
 
-  const showPicture = Boolean(resolvedImage) && !imageFailed;
+  if (!image) {
+    return (
+      <div className="aspect-[16/10] bg-[#eef2f3] sm:aspect-[16/9]" aria-hidden />
+    );
+  }
 
   return (
     <div className="relative aspect-[16/10] overflow-hidden bg-[#eef2f3] sm:aspect-[16/9]">
-      {showPicture ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={`${active}-${resolvedImage?.slice(0, 48)}`}
-          src={resolvedImage!}
-          alt={moment.sourceImageAlt || `${frame.title} visual`}
-          className="flipbook-frame absolute inset-0 h-full w-full object-contain"
-          onError={() => setImageFailed(true)}
-        />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-[#e9eff0] via-[#f4f7f8] to-[#dfe8ea]" />
-      )}
-
-      <div className="pointer-events-none absolute left-4 top-4 rounded-full bg-[#07111f]/70 px-3 py-1 text-xs font-bold uppercase tracking-[.14em] text-white/90 backdrop-blur-sm">
-        {active + 1} / {frames.length}
-        {moment.pageNumber ? ` · page ${moment.pageNumber}` : ""}
-      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={image}
+        alt=""
+        className="flipbook-frame absolute inset-0 h-full w-full object-contain"
+      />
     </div>
   );
 }
 
 export default function NarratedExplainer({ moment }: { moment: LessonMoment }) {
-  const frames = useMemo(
-    () => (moment.explainerFrames?.length ? moment.explainerFrames : fallbackFrames(moment)),
-    [moment],
-  );
+  const frames = useMemo(() => {
+    if (moment.explainerFrames?.length) return moment.explainerFrames;
+    if (moment.sourceImage) {
+      return [
+        {
+          title: moment.title,
+          caption: "",
+          narration: moment.narration,
+          visualItems: [] as string[],
+        },
+      ];
+    }
+    return [];
+  }, [moment]);
+  const [pictures, setPictures] = useState<string[]>([]);
+  const [picturesLoading, setPicturesLoading] = useState(true);
   const [active, setActive] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [audioProgress, setAudioProgress] = useState(0);
-  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [audioLoading, setAudioLoading] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const urlRef = useRef<string | null>(null);
   const preloadRef = useRef<{ index: number; url: string; audio: HTMLAudioElement } | null>(
     null,
   );
 
+  useEffect(() => {
+    let cancelled = false;
+    setPicturesLoading(true);
+    setActive(0);
+
+    void resolveFrameImages(moment, frames).then((images) => {
+      if (cancelled) return;
+      setPictures(images);
+      setPicturesLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [moment, frames]);
+
   const clearAudio = useCallback(() => {
     audioRef.current?.pause();
     audioRef.current = null;
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = null;
-    setAudioProgress(0);
   }, []);
 
   const clearPreload = useCallback(() => {
@@ -263,10 +254,11 @@ export default function NarratedExplainer({ moment }: { moment: LessonMoment }) 
 
   const playFrame = useCallback(
     async (index: number) => {
+      if (!frames.length || index >= frames.length) return;
+
       clearAudio();
       setActive(index);
-      setLoading(true);
-      setVoiceError(null);
+      setAudioLoading(true);
 
       try {
         let url: string;
@@ -283,7 +275,6 @@ export default function NarratedExplainer({ moment }: { moment: LessonMoment }) 
         urlRef.current = url;
         audioRef.current = audio;
         audio.ontimeupdate = () => {
-          setAudioProgress(audio.duration ? audio.currentTime / audio.duration : 0);
           if (
             audio.duration &&
             audio.currentTime / audio.duration > 0.55 &&
@@ -297,23 +288,21 @@ export default function NarratedExplainer({ moment }: { moment: LessonMoment }) 
             void playFrame(index + 1);
           } else {
             setPlaying(false);
-            setAudioProgress(1);
           }
         };
         await audio.play();
         setPlaying(true);
       } catch {
         setPlaying(false);
-        setVoiceError("Audio could not be prepared. You can still step through the pictures.");
       } finally {
-        setLoading(false);
+        setAudioLoading(false);
       }
     },
     [clearAudio, clearPreload, fetchNarration, frames, preloadFrame],
   );
 
   function toggle() {
-    if (loading) return;
+    if (audioLoading || picturesLoading || !pictures.length) return;
     if (playing) {
       audioRef.current?.pause();
       setPlaying(false);
@@ -325,101 +314,31 @@ export default function NarratedExplainer({ moment }: { moment: LessonMoment }) 
     }
   }
 
-  function move(index: number) {
-    clearAudio();
-    clearPreload();
-    setPlaying(false);
-    setVoiceError(null);
-    setActive(Math.max(0, Math.min(frames.length - 1, index)));
-  }
-
-  const overallProgress = ((active + audioProgress) / frames.length) * 100;
-  const currentFrame = frames[active];
+  const currentPicture = pictures[active] || pictures[0] || null;
+  const canPlay = pictures.length > 0 && frames.length > 0;
 
   return (
-    <div className="overflow-hidden rounded-3xl bg-[var(--dark)] text-white shadow-[0_30px_80px_rgba(15,23,42,.22)]">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-6 py-4 sm:px-8">
-        <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-white/55">
-          <Volume2 size={15} className="text-[var(--accent)]" /> Visual explainer
-        </p>
-        <p className="text-sm font-semibold text-white/75">{currentFrame.title}</p>
-      </div>
+    <div className="relative overflow-hidden rounded-3xl bg-[#eef2f3] shadow-[0_20px_60px_rgba(15,23,42,.12)]">
+      <PictureStage image={currentPicture} loading={picturesLoading} />
 
-      <FlipbookStage moment={moment} frames={frames} active={active} />
-
-      <div className="border-t border-white/10 bg-black/10 px-6 py-5 sm:px-8">
-        <p className="text-base leading-7 text-white/80">{currentFrame.caption}</p>
-        {voiceError && (
-          <p className="mt-3 rounded-xl bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-            {voiceError}
-          </p>
-        )}
-        <div className="mt-4 h-1 overflow-hidden rounded-full bg-white/10">
-          <span
-            className="block h-full bg-[var(--accent)] transition-[width] duration-300"
-            style={{ width: `${overallProgress}%` }}
-          />
-        </div>
-        <div className="mt-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => move(active - 1)}
-              disabled={active === 0}
-              className="grid h-10 w-10 place-items-center rounded-full border border-white/15 text-white/70 disabled:opacity-25"
-              aria-label="Previous picture"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={toggle}
-              className="flex h-12 items-center gap-2 rounded-full bg-white px-5 font-bold text-[var(--dark)]"
-            >
-              {loading ? (
-                <LoaderCircle className="animate-spin" size={19} />
-              ) : playing ? (
-                <Pause size={19} fill="currentColor" />
-              ) : (
-                <Play size={19} fill="currentColor" />
-              )}
-              {loading ? "Preparing…" : playing ? "Pause" : "Play"}
-            </button>
-            <button
-              type="button"
-              onClick={() => move(active + 1)}
-              disabled={active === frames.length - 1}
-              className="grid h-10 w-10 place-items-center rounded-full border border-white/15 text-white/70 disabled:opacity-25"
-              aria-label="Next picture"
-            >
-              <ChevronRight size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                move(0);
-                void playFrame(0);
-              }}
-              className="grid h-10 w-10 place-items-center rounded-full text-white/45 hover:text-white"
-              aria-label="Replay from beginning"
-            >
-              <RotateCcw size={17} />
-            </button>
-          </div>
-          <div className="hidden gap-1.5 sm:flex">
-            {frames.map((frame, index) => (
-              <button
-                type="button"
-                key={`${frame.title}-${index}`}
-                onClick={() => move(index)}
-                className={`h-2 rounded-full transition-all ${
-                  index === active ? "w-7 bg-[var(--accent)]" : "w-2 bg-white/20"
-                }`}
-                aria-label={`Show picture ${index + 1}`}
-              />
-            ))}
-          </div>
-        </div>
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <button
+          type="button"
+          onClick={toggle}
+          disabled={!canPlay || audioLoading}
+          className="pointer-events-auto grid h-16 w-16 place-items-center rounded-full bg-white/95 text-[var(--dark)] shadow-lg transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label={
+            audioLoading ? "Preparing narration" : playing ? "Pause visual explainer" : "Play visual explainer"
+          }
+        >
+          {audioLoading ? (
+            <LoaderCircle className="animate-spin" size={28} />
+          ) : playing ? (
+            <Pause size={28} fill="currentColor" />
+          ) : (
+            <Play size={28} fill="currentColor" className="ml-1" />
+          )}
+        </button>
       </div>
     </div>
   );

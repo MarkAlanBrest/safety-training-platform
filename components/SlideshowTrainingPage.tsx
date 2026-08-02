@@ -298,18 +298,7 @@ export default function SlideshowTrainingPage({
                 />
               ) : slide.moment.kind === "visual" ? (
                 <div className="mx-auto max-w-4xl">
-                  <p className="text-xs font-black uppercase tracking-[.2em] text-[var(--accent)]">
-                    Visual explainer
-                  </p>
-                  <h2 className="mt-4 text-3xl font-bold tracking-tight text-[var(--ink)] sm:text-5xl">
-                    {slide.moment.title}
-                  </h2>
-                  <p className="mt-5 text-lg leading-8 text-slate-600">
-                    {slide.moment.narration}
-                  </p>
-                  <div className="mt-8">
-                    <NarratedExplainer moment={slide.moment} />
-                  </div>
+                  <NarratedExplainer moment={slide.moment} />
                 </div>
               ) : (
                 <div className="mx-auto flex min-h-[430px] max-w-4xl flex-col justify-center">

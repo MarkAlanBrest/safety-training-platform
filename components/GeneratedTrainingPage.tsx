@@ -470,12 +470,6 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
               if (moment.kind === "visual") {
                 return (
                   <figure key={`${moment.title}-${index}`} className="my-16">
-                    <div className="mb-6 max-w-[760px]">
-                      <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--accent)]">Look closely</p>
-                      <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-4xl">
-                        {moment.title}
-                      </h2>
-                    </div>
                     <NarratedExplainer moment={moment} />
                   </figure>
                 );
