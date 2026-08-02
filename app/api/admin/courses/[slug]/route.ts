@@ -149,3 +149,38 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ slug: string }> },
+) {
+  const unauthorized = await requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
+  try {
+    const { slug } = await params;
+    const course = await prisma.masonCourse.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+
+    if (!course) {
+      return Response.json({ error: "Course not found." }, { status: 404 });
+    }
+
+    await prisma.$transaction([
+      prisma.courseEnrollment.deleteMany({ where: { courseId: course.id } }),
+      prisma.enrollmentCode.deleteMany({ where: { courseId: course.id } }),
+      prisma.masonSection.deleteMany({ where: { courseId: course.id } }),
+      prisma.masonCourse.delete({ where: { id: course.id } }),
+    ]);
+
+    return Response.json({ success: true });
+  } catch (error) {
+    console.error("Course deletion failed:", error);
+    return Response.json(
+      { error: "The course could not be deleted." },
+      { status: 500 },
+    );
+  }
+}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   BookOpen,
   Check,
@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Save,
   Settings2,
+  Trash2,
   Users,
   X,
 } from "lucide-react";
@@ -95,6 +96,7 @@ function defaultExpirationInputValue() {
 
 export default function CourseEditorPage() {
   const params = useParams<{ slug: string }>();
+  const router = useRouter();
   const slug = params?.slug;
   const [course, setCourse] = useState<Course | null>(null);
   const [tab, setTab] = useState<Tab>("content");
@@ -165,6 +167,32 @@ export default function CourseEditorPage() {
       setMessage("Program settings saved.");
     }
     setBusy(false);
+  }
+
+  async function deleteCourse() {
+    if (!course || busy) return;
+    const confirmed = window.confirm(
+      `Delete “${course.title}”?\n\nThis permanently removes its sections, enrollment codes, and learner records. This cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setBusy(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/admin/courses/${course.slug}`, {
+        method: "DELETE",
+      });
+      const data = await parseJsonResponse<{ success?: boolean; error?: string }>(response);
+      if (!response.ok) throw new Error(data.error || "The course could not be deleted.");
+
+      router.push("/admin/courses");
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The course could not be deleted.");
+      setBusy(false);
+    }
   }
 
   async function addSection(event: FormEvent<HTMLFormElement>) {
@@ -661,6 +689,24 @@ export default function CourseEditorPage() {
               {busy ? <LoaderCircle className="animate-spin" size={18} /> : <Save size={18} />}
               Save program settings
             </button>
+
+            <section className="rounded-3xl border border-red-200 bg-red-50 p-6">
+              <p className="text-xs font-black uppercase tracking-[.17em] text-red-700">
+                Danger zone
+              </p>
+              <p className="mt-2 text-sm leading-6 text-red-900/75">
+                Permanently remove this course, its sections, enrollment codes, and learner records.
+              </p>
+              <button
+                type="button"
+                onClick={deleteCourse}
+                disabled={busy}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-red-700 px-5 py-3 font-bold text-white disabled:opacity-60"
+              >
+                {busy ? <LoaderCircle className="animate-spin" size={18} /> : <Trash2 size={18} />}
+                Delete course
+              </button>
+            </section>
           </aside>
         </form>
       )}
