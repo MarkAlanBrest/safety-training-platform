@@ -1,8 +1,8 @@
 import { createCanvas } from "@napi-rs/canvas";
 import type { LessonPlan } from "@/lib/mason";
 
-const TARGET_WIDTH = 1200;
-const JPEG_QUALITY = 78;
+const TARGET_WIDTH = 1600;
+const JPEG_QUALITY = 85;
 
 /**
  * Render the PDF pages cited by visual lesson moments and persist the optimized
@@ -83,6 +83,8 @@ export async function attachPdfVisuals(
     };
   } catch (error) {
     console.error("PDF visual extraction failed:", error);
-    return lessonPlan;
+    throw new Error(
+      "The lesson was generated, but PDF pictures could not be extracted for the visual flipbooks. Try uploading the PDF again.",
+    );
   }
 }
