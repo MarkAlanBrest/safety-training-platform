@@ -10,9 +10,11 @@ import {
   KeyRound,
   LoaderCircle,
   Plus,
+  Trash2,
   Users,
 } from "lucide-react";
 import AdminShell from "@/components/AdminShell";
+import { parseJsonResponse } from "@/lib/parse-response";
 
 type Course = {
   id: number;
@@ -41,6 +43,34 @@ export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deletingSlug, setDeletingSlug] = useState<string | null>(null);
+
+  async function deleteCourse(course: Course) {
+    if (deletingSlug) return;
+    const confirmed = window.confirm(
+      `Delete “${course.title}”?\n\nThis permanently removes its sections, enrollment codes, and learner records. This cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingSlug(course.slug);
+    setDeleteError("");
+
+    try {
+      const response = await fetch(`/api/admin/courses/${course.slug}`, {
+        method: "DELETE",
+      });
+      const data = await parseJsonResponse<{ success?: boolean; error?: string }>(response);
+      if (!response.ok) throw new Error(data.error || "The course could not be deleted.");
+      setCourses((current) => current.filter((item) => item.id !== course.id));
+    } catch (caught) {
+      setDeleteError(
+        caught instanceof Error ? caught.message : "The course could not be deleted.",
+      );
+    } finally {
+      setDeletingSlug(null);
+    }
+  }
 
   useEffect(() => {
     fetch("/api/admin/courses", { cache: "no-store" })
@@ -68,6 +98,11 @@ export default function CoursesPage() {
         </Link>
       }
     >
+      {deleteError && (
+        <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">
+          {deleteError}
+        </div>
+      )}
       {loading ? (
         <div className="grid min-h-72 place-items-center">
           <LoaderCircle className="animate-spin text-[#a06e16]" size={30} />
@@ -146,12 +181,27 @@ export default function CoursesPage() {
                 })}
               </div>
 
-              <Link
-                href={`/admin/courses/${course.slug}`}
-                className="mt-6 flex items-center justify-between border-t border-[#10283f]/10 pt-5 text-sm font-bold text-[#10283f]"
-              >
-                Open course studio <ArrowRight size={17} />
-              </Link>
+              <div className="mt-6 flex items-center justify-between gap-4 border-t border-[#10283f]/10 pt-5">
+                <Link
+                  href={`/admin/courses/${course.slug}`}
+                  className="flex flex-1 items-center justify-between text-sm font-bold text-[#10283f]"
+                >
+                  Open course studio <ArrowRight size={17} />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => deleteCourse(course)}
+                  disabled={Boolean(deletingSlug)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                >
+                  {deletingSlug === course.slug ? (
+                    <LoaderCircle className="animate-spin" size={15} />
+                  ) : (
+                    <Trash2 size={15} />
+                  )}
+                  Delete
+                </button>
+              </div>
             </article>
           ))}
         </div>
