@@ -15,9 +15,8 @@ const robotoCondensed = Roboto_Condensed({
 });
 
 export const metadata: Metadata = {
-  title: "NCST Career Training Platform",
-  description:
-    "Flexible workforce training from New Castle School of Trades — onboarding, employee development, refresher courses, and custom programs with certificates.",
+  title: "NCST Online Training",
+  description: "Access your assigned online training courses at New Castle School of Trades.",
 };
 
 export default function RootLayout({
