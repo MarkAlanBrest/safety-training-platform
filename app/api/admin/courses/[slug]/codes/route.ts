@@ -52,12 +52,14 @@ export async function POST(
     const { slug } = await params;
     const body = await request.json();
     const quantity = Math.max(1, Math.min(100, Number(body.quantity) || 1));
-    const recipientName = String(body.recipientName || body.name || "").trim();
-    const company = String(body.company || "").trim() || null;
+    const company = String(body.company || body.requestedBy || "").trim();
     const batchName = String(body.batchName || "").trim() || company;
 
-    if (!recipientName) {
-      return Response.json({ error: "Name is required." }, { status: 400 });
+    if (!company) {
+      return Response.json(
+        { error: "Enter the name or company requesting this course." },
+        { status: 400 },
+      );
     }
 
     let expiresAt: Date;
@@ -89,7 +91,6 @@ export async function POST(
             code,
             courseId: course.id,
             batchName,
-            recipientName,
             company,
             expiresAt,
           },
