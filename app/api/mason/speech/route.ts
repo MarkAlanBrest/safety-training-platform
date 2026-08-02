@@ -27,7 +27,7 @@ export async function POST(request: Request) {
         voice: process.env.MASON_VOICE || "cedar",
         input,
         instructions:
-          "Speak as a warm and confident instructor. Sound natural, attentive, and conversational—not like an announcer. Use thoughtful pauses, vary emphasis to make important safety concepts memorable, and slow slightly for questions and numerical instructions.",
+          "Speak as a warm, clear instructor guiding someone through a training picture. Sound natural and conversational—not like a radio announcer. Pause briefly between ideas, emphasize key safety terms, and vary your pace so each sentence is easy to follow. When describing what to look at on a diagram, use inviting language like 'notice here' or 'look at this part'.",
         response_format: "mp3",
         speed: 0.96,
       }),

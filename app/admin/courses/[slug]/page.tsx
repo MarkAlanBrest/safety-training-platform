@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import AdminShell from "@/components/AdminShell";
 import { courseIntensities, courseThemes } from "@/lib/course-options";
+import { parseJsonResponse } from "@/lib/parse-response";
 
 type Section = {
   id: number;
@@ -36,6 +37,8 @@ type EnrollmentCode = {
   id: number;
   code: string;
   batchName: string | null;
+  recipientName: string;
+  company: string | null;
   status: string;
   expiresAt: string | null;
   createdAt: string;
@@ -84,6 +87,12 @@ type Course = {
 
 type Tab = "content" | "settings" | "codes" | "learners";
 
+function defaultExpirationInputValue() {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
 export default function CourseEditorPage() {
   const params = useParams<{ slug: string }>();
   const slug = params?.slug;
@@ -100,7 +109,7 @@ export default function CourseEditorPage() {
   async function load() {
     if (!slug) return;
     const response = await fetch(`/api/admin/courses/${slug}`, { cache: "no-store" });
-    const data = await response.json();
+    const data = await parseJsonResponse<Course & { error?: string }>(response);
     if (!response.ok) throw new Error(data.error || "Course could not be loaded.");
     setCourse(data);
     setLogoData(data.logoData || null);
@@ -191,15 +200,23 @@ export default function CourseEditorPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         quantity: form.get("quantity"),
-        batchName: form.get("batchName"),
+        company: form.get("company"),
         expiresAt: form.get("expiresAt"),
       }),
     });
-    const data = await response.json();
-    if (!response.ok) setError(data.error || "Codes could not be generated.");
-    else {
-      await load();
-      setMessage(`${data.codes.length} enrollment code${data.codes.length === 1 ? "" : "s"} generated.`);
+    try {
+      const data = await parseJsonResponse<{ codes?: string[]; error?: string; warning?: string | null }>(response);
+      if (!response.ok) setError(data.error || "Codes could not be generated.");
+      else {
+        await load();
+        setMessage(
+          data.warning ||
+            `${data.codes?.length ?? 0} enrollment code${data.codes?.length === 1 ? "" : "s"} generated.`,
+        );
+        if (data.warning) setError("");
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Codes could not be generated.");
     }
     setBusy(false);
   }
@@ -658,17 +675,37 @@ export default function CourseEditorPage() {
                 Each code can be claimed by one learner and then becomes their return-access code.
               </p>
             </div>
+            {!course.published && (
+              <p className="rounded-xl border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-sm leading-6 text-amber-100">
+                This program is still a draft. Publish it under Program settings before learners can use new codes.
+              </p>
+            )}
             <label className="block">
               <span className="mb-2 block text-xs font-bold text-slate-300">Number of codes</span>
-              <input name="quantity" type="number" min={1} max={100} defaultValue={10} className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3" />
+              <input name="quantity" type="number" min={1} max={100} defaultValue={1} className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3" />
             </label>
             <label className="block">
-              <span className="mb-2 block text-xs font-bold text-slate-300">Batch/customer label</span>
-              <input name="batchName" placeholder="Acme Fabrication · July" className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3" />
+              <span className="mb-2 block text-xs font-bold text-slate-300">
+                Requested by (name or company)
+              </span>
+              <input
+                name="company"
+                required
+                placeholder="Jane Smith or Acme Fabrication"
+                className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3"
+              />
+              <span className="mt-2 block text-xs leading-5 text-slate-400">
+                Who is requesting this course? Learners will enter their own name when they enroll.
+              </span>
             </label>
             <label className="block">
-              <span className="mb-2 block text-xs font-bold text-slate-300">Expiration date (optional)</span>
-              <input name="expiresAt" type="date" className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3" />
+              <span className="mb-2 block text-xs font-bold text-slate-300">Expiration date</span>
+              <input
+                name="expiresAt"
+                type="date"
+                defaultValue={defaultExpirationInputValue()}
+                className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3"
+              />
             </label>
             <button disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#f2b744] px-4 py-3 font-bold text-[#10283f]">
               {busy ? <LoaderCircle className="animate-spin" size={18} /> : <Plus size={18} />}
@@ -696,7 +733,7 @@ export default function CourseEditorPage() {
                 <thead className="sticky top-0 bg-[#f0f3f4] text-xs uppercase tracking-wider text-[#65717a]">
                   <tr>
                     <th className="px-4 py-3">Code</th>
-                    <th className="px-4 py-3">Batch</th>
+                    <th className="px-4 py-3">Requested by</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Learner</th>
                     <th className="px-4 py-3">Expires</th>
@@ -706,7 +743,7 @@ export default function CourseEditorPage() {
                   {course.enrollmentCodes.map((item) => (
                     <tr key={item.id} className="border-t border-[#10283f]/10">
                       <td className="px-4 py-3 font-mono font-bold text-[#10283f]">{item.code}</td>
-                      <td className="px-4 py-3 text-[#65717a]">{item.batchName || "—"}</td>
+                      <td className="px-4 py-3 text-[#65717a]">{item.company || item.recipientName || "—"}</td>
                       <td className="px-4 py-3">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${item.status === "available" ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
                           {item.status}

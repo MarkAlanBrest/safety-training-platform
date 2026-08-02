@@ -2,13 +2,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
-
-function normalizeCode(value: unknown) {
-  return String(value || "").trim().toUpperCase();
-}
+import {
+  isEnrollmentCodeExpired,
+  normalizeEnrollmentCode,
+} from "@/lib/enrollment-code";
 
 export async function GET(request: Request) {
-  const code = normalizeCode(new URL(request.url).searchParams.get("code"));
+  const code = normalizeEnrollmentCode(new URL(request.url).searchParams.get("code"));
   if (!code) {
     return Response.json({ error: "Enter an enrollment code." }, { status: 400 });
   }
@@ -38,10 +38,22 @@ export async function GET(request: Request) {
     },
   });
 
-  if (!accessCode || !accessCode.course.published) {
-    return Response.json({ error: "This enrollment code is not valid." }, { status: 404 });
+  if (!accessCode) {
+    return Response.json(
+      { error: "This enrollment code was not recognized." },
+      { status: 404 },
+    );
   }
-  if (accessCode.expiresAt && accessCode.expiresAt < new Date()) {
+  if (!accessCode.course.published) {
+    return Response.json(
+      {
+        error:
+          "This training program is not published yet. Ask your administrator to publish it before learners can enroll.",
+      },
+      { status: 403 },
+    );
+  }
+  if (isEnrollmentCodeExpired(accessCode.expiresAt)) {
     return Response.json({ error: "This enrollment code has expired." }, { status: 410 });
   }
 
@@ -56,7 +68,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const code = normalizeCode(body.code);
+    const code = normalizeEnrollmentCode(body.code);
     const firstName = String(body.firstName || "").trim();
     const lastName = String(body.lastName || "").trim();
     const email = String(body.email || "").trim().toLowerCase();
@@ -74,10 +86,13 @@ export async function POST(request: Request) {
         include: { course: true, enrollment: true },
       });
 
-      if (!accessCode || !accessCode.course.published) {
+      if (!accessCode) {
         throw new Error("INVALID_CODE");
       }
-      if (accessCode.expiresAt && accessCode.expiresAt < new Date()) {
+      if (!accessCode.course.published) {
+        throw new Error("UNPUBLISHED_COURSE");
+      }
+      if (isEnrollmentCodeExpired(accessCode.expiresAt)) {
         throw new Error("EXPIRED_CODE");
       }
       if (accessCode.enrollment || accessCode.status !== "available") {
@@ -116,7 +131,19 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (message === "INVALID_CODE") {
-      return Response.json({ error: "This enrollment code is not valid." }, { status: 404 });
+      return Response.json(
+        { error: "This enrollment code was not recognized." },
+        { status: 404 },
+      );
+    }
+    if (message === "UNPUBLISHED_COURSE") {
+      return Response.json(
+        {
+          error:
+            "This training program is not published yet. Ask your administrator to publish it before learners can enroll.",
+        },
+        { status: 403 },
+      );
     }
     if (message === "EXPIRED_CODE") {
       return Response.json({ error: "This enrollment code has expired." }, { status: 410 });

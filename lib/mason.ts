@@ -23,6 +23,15 @@ export type LessonMoment = {
     caption: string;
     narration: string;
     visualItems: string[];
+    focusX?: number | null;
+    focusY?: number | null;
+    focusScale?: number | null;
+    sourceImage?: string | null;
+  }> | null;
+  /** Learner-only: pictures + narrations with all overlay metadata removed. */
+  playerFrames?: Array<{
+    image: string;
+    narration: string;
   }> | null;
 };
 
@@ -169,4 +178,81 @@ export function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 64);
+}
+
+/** Strip on-screen visual explainer metadata before sending lesson data to learners. */
+export function buildPlayerFrames(
+  moment: LessonMoment,
+): Array<{ image: string; narration: string }> {
+  if (moment.playerFrames?.length) return moment.playerFrames;
+
+  if (moment.explainerFrames?.length) {
+    return moment.explainerFrames
+      .map((frame) => ({
+        image: frame.sourceImage ?? "",
+        narration: frame.narration,
+      }))
+      .filter((frame) => frame.narration);
+  }
+
+  if (moment.sourceImage || moment.narration) {
+    return [
+      {
+        image: moment.sourceImage ?? "",
+        narration: moment.narration,
+      },
+    ];
+  }
+
+  return [];
+}
+
+export function sanitizeVisualMomentForLearner(moment: LessonMoment): LessonMoment {
+  if (moment.kind !== "visual") return moment;
+
+  const playerFrames = buildPlayerFrames(moment).map((frame) => ({
+    image: frame.image,
+    narration: frame.narration,
+  }));
+
+  return {
+    kind: "visual",
+    phase: moment.phase,
+    title: "",
+    narration: "",
+    prompt: null,
+    choices: null,
+    correctAnswer: null,
+    feedback: null,
+    pageNumber: null,
+    sourceImage: null,
+    sourceImageAlt: null,
+    cue: null,
+    visualAction: null,
+    focusX: null,
+    focusY: null,
+    focusScale: null,
+    visualType: null,
+    visualItems: [],
+    explainerStyle: "flipbook",
+    explainerFrames: null,
+    playerFrames,
+  };
+}
+
+export function sanitizeLessonPlanForLearner(plan: LessonPlan): LessonPlan {
+  return {
+    ...plan,
+    moments: plan.moments.map((moment) => sanitizeVisualMomentForLearner(moment)),
+  };
+}
+
+export function sanitizeCourseForLearner(course: PublicMasonCourse): PublicMasonCourse {
+  return {
+    ...course,
+    sections: course.sections.map((section) => ({
+      ...section,
+      lessonPlan: sanitizeLessonPlanForLearner(section.lessonPlan),
+    })),
+  };
 }

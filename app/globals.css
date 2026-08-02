@@ -1,30 +1,83 @@
 @import "tailwindcss";
 
-/* Remove the forced white background */
 :root {
-  --foreground: #171717;
+  --ncst-blue: #002d74;
+  --ncst-orange: #faa200;
+  --ncst-red: #ed1c24;
+  --foreground: #404040;
 }
 
-/* Optional dark mode foreground */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground: #ededed;
-  }
-}
-
-/* Tailwind theme variables */
 @theme inline {
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ncst-blue: var(--ncst-blue);
+  --color-ncst-orange: var(--ncst-orange);
+  --font-sans: var(--font-roboto-condensed);
+  --font-heading: var(--font-oswald);
 }
 
-/* FIXED: no more white background override */
 body {
   margin: 0;
-  background: #0369a1; /* sky-800 blue */
+  background: #fff;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-roboto-condensed), "Roboto Condensed", Arial, sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-oswald), Oswald, sans-serif;
+  color: var(--ncst-blue);
+}
+
+h2,
+h4 {
+  color: var(--ncst-orange);
+}
+
+.ncst-btn {
+  display: inline-block;
+  padding: 12px 28px;
+  font-family: var(--font-oswald), Oswald, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  border: 3px solid var(--ncst-blue);
+  background: transparent;
+  color: var(--ncst-blue);
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.ncst-btn:hover {
+  background: var(--ncst-blue);
+  color: #fff;
+}
+
+.ncst-btn-filled {
+  background: var(--ncst-blue);
+  color: #fff;
+}
+
+.ncst-btn-filled:hover {
+  background: var(--ncst-orange);
+  border-color: var(--ncst-orange);
+  color: var(--ncst-blue);
+}
+
+.ncst-btn-orange {
+  background: var(--ncst-orange);
+  border-color: var(--ncst-orange);
+  color: var(--ncst-blue);
+}
+
+.ncst-btn-orange:hover {
+  background: var(--ncst-blue);
+  border-color: var(--ncst-blue);
+  color: #fff;
 }
 
 /*
@@ -162,4 +215,15 @@ body {
     min-height: 125vh;
     zoom: 0.8;
   }
+}
+
+/* Hide any legacy flipbook overlay chrome if an old bundle still mounts it */
+.course-shell .flipbook-pan ~ div.absolute.inset-x-0.bottom-0,
+.course-shell .visual-player,
+.course-shell .pictures-only-player {
+  display: none !important;
+}
+
+.course-shell [data-ncst-visual="7"] {
+  display: block !important;
 }

@@ -3,40 +3,25 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  ArrowRight,
-  Award,
-  BookOpen,
-  Check,
-  GraduationCap,
-  KeyRound,
-  Laptop,
-  Presentation,
-  Users,
-} from "lucide-react";
+import Image from "next/image";
+import { ArrowRight, Award, BookOpen, ClipboardCheck, ShieldCheck } from "lucide-react";
 
-const trainingTypes = [
-  {
-    icon: Users,
-    title: "Onboarding",
-    text: "Give every new hire a clear and consistent start.",
-  },
+const highlights = [
   {
     icon: BookOpen,
-    title: "Workforce training",
-    text: "Turn policies and expertise into practical learning.",
+    title: "Assigned courses",
+    text: "Access the safety and compliance training your school or employer assigned to you.",
+  },
+  {
+    icon: ClipboardCheck,
+    title: "Learn at your pace",
+    text: "Work through interactive lessons, knowledge checks, and narrated visuals on your schedule.",
   },
   {
     icon: Award,
-    title: "Custom programs",
-    text: "Build role-specific courses with trackable completion.",
+    title: "Finish with proof",
+    text: "Complete each program and keep a record of your progress and certificate.",
   },
-];
-
-const deliveryOptions = [
-  { icon: Laptop, label: "Self-paced online" },
-  { icon: Presentation, label: "Instructor-led" },
-  { icon: BookOpen, label: "Blended learning" },
 ];
 
 export default function HomePage() {
@@ -57,19 +42,19 @@ export default function HomePage() {
     setError("");
 
     try {
-      const response = await fetch(`/api/enroll?code=${encodeURIComponent(code)}`);
+      const response = await fetch(`/api/enroll?code=${encodeURIComponent(code.trim())}`);
       const data = await response.json();
 
       if (!response.ok || data.error) {
-        setError("That course code was not recognized.");
+        setError(data.error || "That course code was not recognized.");
         setLoading(false);
         return;
       }
 
-      if (data.claimed) {
-        router.push(`/training/${data.course.slug}?code=${encodeURIComponent(code)}`);
+      if (data.claimed && data.course) {
+        router.push(`/training/${data.course.slug}?code=${encodeURIComponent(code.trim())}`);
       } else {
-        router.push(`/enroll?code=${encodeURIComponent(code)}`);
+        router.push(`/enroll?code=${encodeURIComponent(code.trim())}`);
       }
     } catch {
       setError("We could not connect. Please try again.");
@@ -78,164 +63,118 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f8faf8] text-[#17231f]">
-      <header className="border-b border-[#173d33]/10 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
-          <Link href="/" className="flex items-center gap-3" aria-label="Career Training home">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#173d33] text-[#f4c875]">
-              <GraduationCap size={22} strokeWidth={2.2} />
-            </span>
-            <span className="text-base font-extrabold tracking-tight text-[#173d33]">
-              Career Training
-            </span>
-          </Link>
-
-          <nav className="flex items-center gap-5" aria-label="Primary navigation">
-            <a
-              href="#programs"
-              className="hidden text-sm font-semibold text-[#596761] transition hover:text-[#173d33] sm:block"
-            >
-              Programs
-            </a>
-            <Link
-              href="/admin/login"
-              className="rounded-lg border border-[#173d33]/15 bg-white px-4 py-2.5 text-sm font-bold text-[#173d33] transition hover:border-[#173d33]/35 hover:bg-[#f4f7f5]"
-            >
-              Admin sign in
+    <main className="flex min-h-screen flex-col bg-[#f2f2f2] text-[#404040]">
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-[#002d74] shadow-[0_4px_20px_rgba(0,0,0,0.12)]">
+        <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <Link href="/" className="shrink-0" aria-label="NCST Online Training home">
+              <Image
+                src="/ncst-logo.png"
+                alt="New Castle School of Trades"
+                width={180}
+                height={54}
+                className="h-11 w-auto sm:h-12"
+                priority
+              />
             </Link>
-          </nav>
+
+            <p className="hidden max-w-sm text-center text-sm leading-6 text-white/75 lg:block">
+              Online safety training for students and employees
+            </p>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+              <form
+                onSubmit={handleSubmit}
+                className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center lg:flex-none"
+              >
+                <label htmlFor="course-code" className="sr-only">
+                  Course code
+                </label>
+                <input
+                  id="course-code"
+                  type="text"
+                  autoComplete="off"
+                  placeholder="Course code"
+                  className="min-w-0 flex-1 border-2 border-white/20 bg-white px-4 py-2.5 font-bold uppercase tracking-wider text-[#111] outline-none placeholder:font-normal placeholder:normal-case placeholder:tracking-normal placeholder:text-[#888] focus:border-[#faa200] sm:w-44 sm:flex-none lg:w-48"
+                  value={code}
+                  onChange={(event) => setCode(event.target.value.toUpperCase())}
+                  aria-describedby={error ? "course-code-error" : undefined}
+                />
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="inline-flex items-center justify-center gap-2 bg-[#faa200] px-5 py-3 font-[family-name:var(--font-oswald)] text-sm font-medium uppercase tracking-wide text-[#002d74] transition hover:bg-[#ffb62e] disabled:cursor-wait disabled:opacity-60"
+                >
+                  {loading ? "Checking…" : "Start course"}
+                  {!loading && <ArrowRight size={16} />}
+                </button>
+              </form>
+              <Link
+                href="/admin/login"
+                className="text-center font-[family-name:var(--font-oswald)] text-xs font-medium uppercase tracking-wide text-[#faa200] hover:underline sm:text-sm"
+              >
+                Admin login
+              </Link>
+            </div>
+          </div>
+
+          {error && (
+            <p id="course-code-error" role="alert" className="mt-3 text-sm font-semibold text-[#ffb4b4]">
+              {error}
+            </p>
+          )}
         </div>
       </header>
 
-      <section className="relative overflow-hidden border-b border-[#173d33]/8">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_15%,rgba(225,178,90,.16),transparent_32rem)]" />
-        <div className="relative mx-auto grid max-w-6xl gap-12 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[1.08fr_.92fr] lg:items-center lg:py-24">
-          <div>
-            <p className="text-sm font-bold text-[#3d7664]">Training made for your team</p>
-            <h1 className="mt-4 max-w-2xl text-4xl font-black leading-[1.05] tracking-[-.04em] text-[#173d33] sm:text-5xl lg:text-6xl">
-              Practical learning, built around your organization.
-            </h1>
-            <p className="mt-6 max-w-xl text-lg leading-8 text-[#596761]">
-              Clear, engaging courses for onboarding, employee development, safety,
-              and the skills your people need most.
-            </p>
-
-            <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-[#35463f]">
-              {["Fully customizable", "Flexible delivery", "Completion certificates"].map(
-                (item) => (
-                  <span key={item} className="flex items-center gap-2">
-                    <Check size={16} strokeWidth={2.8} className="text-[#3d7664]" />
-                    {item}
-                  </span>
-                ),
-              )}
+      <div className="flex flex-1 items-center px-4 py-12 sm:px-6 sm:py-16">
+        <div className="mx-auto w-full max-w-5xl">
+          <div className="text-center">
+            <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-[#002d74]/15 bg-white px-4 py-2 text-sm font-semibold text-[#002d74] shadow-sm">
+              <ShieldCheck size={16} className="text-[#faa200]" />
+              NCST Online Training Portal
             </div>
-
-            <a
-              href="#programs"
-              className="mt-9 inline-flex items-center gap-2 text-sm font-extrabold text-[#173d33] transition hover:gap-3"
-            >
-              See what we offer <ArrowRight size={17} />
-            </a>
+            <h1 className="font-[family-name:var(--font-oswald)] text-4xl font-medium uppercase leading-tight text-[#002d74] sm:text-5xl lg:text-6xl">
+              Safety training built for real workplaces
+            </h1>
+            <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-[#636363] sm:text-xl">
+              Assigned compliance and safety courses for New Castle School of Trades
+              students and partner employers. Enter the code from your instructor or
+              enrollment email to begin.
+            </p>
           </div>
 
-          <div className="rounded-3xl border border-[#173d33]/10 bg-white p-6 shadow-[0_24px_70px_rgba(23,61,51,.12)] sm:p-8">
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#eef4f0] text-[#3d7664]">
-              <KeyRound size={21} />
-            </span>
-            <h2 className="mt-5 text-2xl font-extrabold tracking-tight text-[#173d33]">
-              Start your course
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-[#68756f]">
-              Enter the code provided by your instructor or organization.
-            </p>
-
-            <form onSubmit={handleSubmit} className="mt-6">
-              <label htmlFor="course-code" className="text-sm font-bold text-[#35463f]">
-                Course code
-              </label>
-              <input
-                id="course-code"
-                type="text"
-                autoComplete="off"
-                placeholder="EXAMPLE-123"
-                className="mt-2 w-full rounded-xl border border-[#173d33]/15 bg-[#fbfcfb] px-4 py-3.5 font-bold uppercase tracking-[.1em] text-[#17231f] outline-none transition placeholder:font-medium placeholder:tracking-normal placeholder:text-[#9aa49f] focus:border-[#3d7664] focus:ring-4 focus:ring-[#3d7664]/10"
-                value={code}
-                onChange={(event) => setCode(event.target.value.toUpperCase())}
-                aria-describedby={error ? "course-code-error" : undefined}
-              />
-              {error && (
-                <p id="course-code-error" role="alert" className="mt-2 text-sm font-semibold text-[#a34335]">
-                  {error}
-                </p>
-              )}
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#173d33] px-5 py-3.5 font-extrabold text-white transition hover:bg-[#245548] disabled:cursor-wait disabled:opacity-60"
+          <div className="mt-12 grid gap-5 sm:grid-cols-3">
+            {highlights.map((item) => (
+              <article
+                key={item.title}
+                className="bg-white p-6 shadow-[0_5px_15px_rgba(0,0,0,0.08)] sm:p-7"
               >
-                {loading ? "Checking…" : "Continue to course"}
-                {!loading && <ArrowRight size={17} />}
-              </button>
-            </form>
-          </div>
-        </div>
-      </section>
-
-      <section id="programs" className="bg-white py-16 sm:py-20">
-        <div className="mx-auto max-w-6xl px-5 sm:px-8">
-          <div className="max-w-2xl">
-            <p className="text-sm font-bold text-[#3d7664]">Built to fit</p>
-            <h2 className="mt-3 text-3xl font-black tracking-[-.03em] text-[#173d33] sm:text-4xl">
-              One platform for the training you need.
-            </h2>
-            <p className="mt-4 text-base leading-7 text-[#68756f]">
-              We shape your materials and expertise into focused learning that is easy
-              to deliver, complete, and track.
-            </p>
-          </div>
-
-          <div className="mt-10 grid gap-4 md:grid-cols-3">
-            {trainingTypes.map(({ icon: Icon, title, text }) => (
-              <article key={title} className="rounded-2xl border border-[#173d33]/10 bg-[#fbfcfb] p-6">
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#eef4f0] text-[#3d7664]">
-                  <Icon size={20} />
+                <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#002d74]/8 text-[#002d74]">
+                  <item.icon size={22} strokeWidth={1.8} />
                 </span>
-                <h3 className="mt-5 text-lg font-extrabold text-[#173d33]">{title}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#68756f]">{text}</p>
+                <h2 className="mt-4 font-[family-name:var(--font-oswald)] text-xl font-medium uppercase text-[#002d74]">
+                  {item.title}
+                </h2>
+                <p className="mt-3 text-base leading-7 text-[#636363]">{item.text}</p>
               </article>
             ))}
           </div>
 
-          <div className="mt-8 flex flex-col gap-5 rounded-2xl bg-[#173d33] px-6 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-8">
-            <div>
-              <p className="font-extrabold">Learn in the format that works best.</p>
-              <p className="mt-1 text-sm text-white/60">For one learner, one team, or an entire organization.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {deliveryOptions.map(({ icon: Icon, label }) => (
-                <span
-                  key={label}
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[.07] px-3 py-2 text-xs font-bold text-white/80"
-                >
-                  <Icon size={14} className="text-[#f4c875]" /> {label}
-                </span>
-              ))}
-            </div>
+          <div className="mt-10 border-l-4 border-[#faa200] bg-white px-6 py-5 shadow-[0_5px_15px_rgba(0,0,0,0.06)] sm:px-8">
+            <p className="font-[family-name:var(--font-oswald)] text-sm font-medium uppercase tracking-wide text-[#002d74]">
+              Ready to begin?
+            </p>
+            <p className="mt-2 max-w-3xl text-base leading-7 text-[#636363]">
+              Enter your course code in the toolbar above and select{" "}
+              <strong className="font-semibold text-[#002d74]">Start course</strong>. First-time
+              visitors may be asked for a few details before their seat is confirmed.
+            </p>
           </div>
         </div>
-      </section>
+      </div>
 
-      <footer className="border-t border-[#173d33]/10 bg-[#f8faf8]">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <div className="flex items-center gap-2.5 font-extrabold text-[#173d33]">
-            <GraduationCap size={19} /> Career Training
-          </div>
-          <div className="flex items-center gap-5 font-semibold text-[#68756f]">
-            <a href="#programs" className="transition hover:text-[#173d33]">Programs</a>
-            <Link href="/admin/login" className="transition hover:text-[#173d33]">Admin sign in</Link>
-          </div>
-        </div>
+      <footer className="bg-[#002d74] px-4 py-5 text-center text-sm text-white/60 sm:px-6">
+        <p>&copy; {new Date().getFullYear()} New Castle School of Trades</p>
       </footer>
     </main>
   );

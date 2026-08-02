@@ -66,16 +66,18 @@ model MasonSection {
 }
 
 model EnrollmentCode {
-  id         Int               @id @default(autoincrement())
-  code       String            @unique
-  courseId   Int
-  batchName  String?
-  status     String            @default("available")
-  expiresAt  DateTime?
-  createdAt  DateTime          @default(now())
-  claimedAt  DateTime?
-  course     MasonCourse       @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  enrollment CourseEnrollment?
+  id            Int               @id @default(autoincrement())
+  code          String            @unique
+  courseId      Int
+  batchName     String?
+  recipientName String            @default("")
+  company       String?           @default("")
+  status        String            @default("available")
+  expiresAt     DateTime?
+  createdAt     DateTime          @default(now())
+  claimedAt     DateTime?
+  course        MasonCourse       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  enrollment    CourseEnrollment?
 
   @@index([courseId, status])
 }

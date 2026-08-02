@@ -15,51 +15,63 @@ export async function GET(
   const unauthorized = await requireAdmin(request);
   if (unauthorized) return unauthorized;
 
-  const { slug } = await params;
-  const course = await prisma.masonCourse.findUnique({
-    where: { slug },
-    include: {
-      sections: {
-        orderBy: { position: "asc" },
-        select: {
-          id: true,
-          title: true,
-          position: true,
-          estimatedMinutes: true,
-          fileName: true,
-          lessonPlan: true,
-          createdAt: true,
-          updatedAt: true,
+  try {
+    const { slug } = await params;
+    const course = await prisma.masonCourse.findUnique({
+      where: { slug },
+      include: {
+        sections: {
+          orderBy: { position: "asc" },
+          select: {
+            id: true,
+            title: true,
+            position: true,
+            estimatedMinutes: true,
+            fileName: true,
+            lessonPlan: true,
+            createdAt: true,
+            updatedAt: true,
+          },
         },
-      },
-      enrollmentCodes: {
-        orderBy: { createdAt: "desc" },
-        take: 250,
-        include: {
-          enrollment: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              progress: true,
-              status: true,
+        enrollmentCodes: {
+          orderBy: { createdAt: "desc" },
+          take: 250,
+          include: {
+            enrollment: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                progress: true,
+                status: true,
+              },
             },
           },
         },
+        enrollments: {
+          orderBy: { enrolledAt: "desc" },
+          include: { code: { select: { code: true } } },
+        },
       },
-      enrollments: {
-        orderBy: { enrolledAt: "desc" },
-        include: { code: { select: { code: true } } },
-      },
-    },
-  });
+    });
 
-  if (!course) {
-    return Response.json({ error: "Course not found." }, { status: 404 });
+    if (!course) {
+      return Response.json({ error: "Course not found." }, { status: 404 });
+    }
+
+    return Response.json(course);
+  } catch (error) {
+    console.error("Course load failed:", error);
+    const message =
+      error instanceof Error &&
+      (error.message.includes("recipientName") ||
+        error.message.includes("company") ||
+        error.message.includes("does not exist"))
+        ? "The database schema is out of date. Run npm run db:init on the server."
+        : "Course could not be loaded.";
+    return Response.json({ error: message }, { status: 500 });
   }
-
-  return Response.json(course);
 }
 
 export async function PATCH(

@@ -15,7 +15,8 @@ import {
   Trash2,
 } from "lucide-react";
 import AdminShell from "@/components/AdminShell";
-import type { LessonMoment, LessonPlan } from "@/lib/mason";
+import VisualSlide from "@/components/training/VisualSlide";
+import { buildPlayerFrames, type LessonMoment, type LessonPlan } from "@/lib/mason";
 
 type SectionResponse = {
   id: number;
@@ -98,6 +99,7 @@ function MomentEditor({
   moment,
   index,
   total,
+  courseSlug,
   onChange,
   onMove,
   onRemove,
@@ -105,6 +107,7 @@ function MomentEditor({
   moment: LessonMoment;
   index: number;
   total: number;
+  courseSlug: string;
   onChange: (moment: LessonMoment) => void;
   onMove: (direction: -1 | 1) => void;
   onRemove: () => void;
@@ -209,15 +212,17 @@ function MomentEditor({
             className="w-full rounded-xl border border-[#10283f]/15 px-4 py-3"
           />
         </label>
-        <label className="lg:col-span-2">
-          <FieldLabel>Narration or teaching text</FieldLabel>
-          <textarea
-            value={moment.narration}
-            onChange={(event) => patch({ narration: event.target.value })}
-            rows={6}
-            className="w-full resize-y rounded-xl border border-[#10283f]/15 px-4 py-3 leading-7"
-          />
-        </label>
+        {!isVisual && (
+          <label className="lg:col-span-2">
+            <FieldLabel>Narration or teaching text</FieldLabel>
+            <textarea
+              value={moment.narration}
+              onChange={(event) => patch({ narration: event.target.value })}
+              rows={6}
+              className="w-full resize-y rounded-xl border border-[#10283f]/15 px-4 py-3 leading-7"
+            />
+          </label>
+        )}
 
         {isActivity && (
           <>
@@ -303,125 +308,31 @@ function MomentEditor({
         )}
 
         {isVisual && (
-          <details className="lg:col-span-2 rounded-2xl border border-[#10283f]/10 bg-[#f8f9f9] p-5">
-            <summary className="cursor-pointer font-bold text-[#10283f]">
-              Visual and narration settings
-            </summary>
-            <div className="mt-5 grid gap-5 lg:grid-cols-2">
-              <label>
-                <FieldLabel optional>Visual type</FieldLabel>
-                <select
-                  value={moment.visualType || ""}
-                  onChange={(event) =>
-                    patch({
-                      visualType:
-                        (event.target.value as LessonMoment["visualType"]) || null,
-                    })
-                  }
-                  className="w-full rounded-xl border border-[#10283f]/15 bg-white px-4 py-3"
-                >
-                  <option value="">Not specified</option>
-                  <option value="process">Process</option>
-                  <option value="anatomy">Anatomy</option>
-                  <option value="comparison">Comparison</option>
-                  <option value="formula">Formula</option>
-                  <option value="sequence">Sequence</option>
-                </select>
-              </label>
-              <label>
-                <FieldLabel optional>Explainer style</FieldLabel>
-                <select
-                  value={moment.explainerStyle || ""}
-                  onChange={(event) =>
-                    patch({
-                      explainerStyle:
-                        (event.target.value as LessonMoment["explainerStyle"]) ||
-                        null,
-                    })
-                  }
-                  className="w-full rounded-xl border border-[#10283f]/15 bg-white px-4 py-3"
-                >
-                  <option value="">Automatic</option>
-                  <option value="flipbook">Flipbook</option>
-                  <option value="guided-focus">Guided focus</option>
-                  <option value="compare-reveal">Compare and reveal</option>
-                  <option value="step-build">Step build</option>
-                </select>
-              </label>
-              <label className="lg:col-span-2">
-                <FieldLabel optional>Narration cue</FieldLabel>
-                <input
-                  value={moment.cue || ""}
-                  onChange={(event) => patch({ cue: event.target.value || null })}
-                  className="w-full rounded-xl border border-[#10283f]/15 bg-white px-4 py-3"
-                />
-              </label>
-              <label className="lg:col-span-2">
-                <FieldLabel optional>Visual labels—one per line</FieldLabel>
-                <textarea
-                  value={(moment.visualItems || []).join("\n")}
-                  onChange={(event) =>
-                    patch({
-                      visualItems: event.target.value
-                        .split("\n")
-                        .map((item) => item.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                  rows={4}
-                  className="w-full resize-y rounded-xl border border-[#10283f]/15 bg-white px-4 py-3"
-                />
-              </label>
-              <label>
-                <FieldLabel optional>Source PDF page</FieldLabel>
-                <input
-                  type="number"
-                  min={1}
-                  value={moment.pageNumber || ""}
-                  onChange={(event) =>
-                    patch({
-                      pageNumber: event.target.value
-                        ? Number(event.target.value)
-                        : null,
-                    })
-                  }
-                  className="w-full rounded-xl border border-[#10283f]/15 bg-white px-4 py-3"
-                />
-              </label>
+          <div className="lg:col-span-2 space-y-5">
+            <div className="overflow-hidden rounded-2xl border border-[#10283f]/10 bg-[#0b1218]">
+              <p className="border-b border-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[.14em] text-white/60">
+                Learner view — pictures and play bar only
+              </p>
+              <div className="p-3">
+                <VisualSlide frames={buildPlayerFrames(moment)} courseSlug={courseSlug} />
+              </div>
             </div>
 
-            <div className="mt-6 border-t border-[#10283f]/10 pt-5">
-              <div className="flex items-center justify-between gap-3">
-                <p className="font-bold text-[#10283f]">Explainer frames</p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    patch({
-                      explainerFrames: [
-                        ...(moment.explainerFrames || []),
-                        {
-                          title: "New frame",
-                          caption: "",
-                          narration: "",
-                          visualItems: [],
-                        },
-                      ],
-                    })
-                  }
-                  className="inline-flex items-center gap-2 rounded-lg border border-[#10283f]/15 bg-white px-3 py-2 text-xs font-bold"
-                >
-                  <Plus size={14} /> Add frame
-                </button>
-              </div>
+            <div className="rounded-2xl border border-[#10283f]/10 bg-[#f8f9f9] p-5">
+              <p className="font-bold text-[#10283f]">Voiceover per picture</p>
+              <p className="mt-1 text-sm leading-6 text-[#5f6d75]">
+                Learners only see the pictures above. Edit the spoken narration for each
+                picture here — titles, captions, and labels are not shown.
+              </p>
               <div className="mt-4 space-y-4">
                 {(moment.explainerFrames || []).map((frame, frameIndex) => (
                   <div
                     key={frameIndex}
-                    className="grid gap-3 rounded-2xl border border-[#10283f]/10 bg-white p-4"
+                    className="rounded-2xl border border-[#10283f]/10 bg-white p-4"
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="mb-3 flex items-center justify-between gap-3">
                       <span className="text-xs font-black uppercase tracking-wider text-[#9a6812]">
-                        Frame {frameIndex + 1}
+                        Picture {frameIndex + 1}
                       </span>
                       <button
                         type="button"
@@ -433,76 +344,96 @@ function MomentEditor({
                           })
                         }
                         className="text-red-700"
-                        aria-label="Delete frame"
+                        aria-label="Delete picture"
                       >
                         <Trash2 size={15} />
                       </button>
                     </div>
-                    {(["title", "caption", "narration"] as const).map((field) =>
-                      field === "narration" ? (
-                        <textarea
-                          key={field}
-                          value={frame[field]}
-                          onChange={(event) =>
-                            patch({
-                              explainerFrames: (moment.explainerFrames || []).map(
-                                (item, itemIndex) =>
-                                  itemIndex === frameIndex
-                                    ? { ...item, [field]: event.target.value }
-                                    : item,
-                              ),
-                            })
-                          }
-                          rows={3}
-                          placeholder="Frame narration"
-                          className="rounded-xl border border-[#10283f]/15 px-3 py-2"
-                        />
-                      ) : (
-                        <input
-                          key={field}
-                          value={frame[field]}
-                          onChange={(event) =>
-                            patch({
-                              explainerFrames: (moment.explainerFrames || []).map(
-                                (item, itemIndex) =>
-                                  itemIndex === frameIndex
-                                    ? { ...item, [field]: event.target.value }
-                                    : item,
-                              ),
-                            })
-                          }
-                          placeholder={field === "title" ? "Frame title" : "Visible caption"}
-                          className="rounded-xl border border-[#10283f]/15 px-3 py-2"
-                        />
-                      ),
-                    )}
                     <textarea
-                      value={frame.visualItems.join("\n")}
+                      value={frame.narration}
                       onChange={(event) =>
                         patch({
                           explainerFrames: (moment.explainerFrames || []).map(
                             (item, itemIndex) =>
                               itemIndex === frameIndex
-                                ? {
-                                    ...item,
-                                    visualItems: event.target.value
-                                      .split("\n")
-                                      .map((label) => label.trim())
-                                      .filter(Boolean),
-                                  }
+                                ? { ...item, narration: event.target.value }
                                 : item,
                           ),
                         })
                       }
-                      rows={2}
-                      placeholder="Visual labels, one per line"
-                      className="rounded-xl border border-[#10283f]/15 px-3 py-2"
+                      rows={3}
+                      placeholder="Spoken narration for this picture"
+                      className="w-full resize-y rounded-xl border border-[#10283f]/15 px-3 py-2 leading-7"
                     />
                   </div>
                 ))}
               </div>
+              <button
+                type="button"
+                onClick={() =>
+                  patch({
+                    explainerStyle: "flipbook",
+                    explainerFrames: [
+                      ...(moment.explainerFrames || []),
+                      {
+                        title: "",
+                        caption: "",
+                        narration: "",
+                        visualItems: [],
+                      },
+                    ],
+                  })
+                }
+                className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#10283f]/15 bg-white px-3 py-2 text-xs font-bold"
+              >
+                <Plus size={14} /> Add picture
+              </button>
             </div>
-          </details>
+
+            <details className="rounded-2xl border border-[#10283f]/10 bg-[#f8f9f9] p-5">
+              <summary className="cursor-pointer text-sm font-bold text-[#10283f]">
+                Advanced visual settings
+              </summary>
+              <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                <label>
+                  <FieldLabel optional>Visual type</FieldLabel>
+                  <select
+                    value={moment.visualType || ""}
+                    onChange={(event) =>
+                      patch({
+                        visualType:
+                          (event.target.value as LessonMoment["visualType"]) || null,
+                      })
+                    }
+                    className="w-full rounded-xl border border-[#10283f]/15 bg-white px-4 py-3"
+                  >
+                    <option value="">Not specified</option>
+                    <option value="process">Process</option>
+                    <option value="anatomy">Anatomy</option>
+                    <option value="comparison">Comparison</option>
+                    <option value="formula">Formula</option>
+                    <option value="sequence">Sequence</option>
+                  </select>
+                </label>
+                <label>
+                  <FieldLabel optional>Source PDF page</FieldLabel>
+                  <input
+                    type="number"
+                    min={1}
+                    value={moment.pageNumber || ""}
+                    onChange={(event) =>
+                      patch({
+                        pageNumber: event.target.value
+                          ? Number(event.target.value)
+                          : null,
+                      })
+                    }
+                    className="w-full rounded-xl border border-[#10283f]/15 bg-white px-4 py-3"
+                  />
+                </label>
+              </div>
+            </details>
+          </div>
         )}
       </div>
     </article>
@@ -727,6 +658,7 @@ export default function SectionContentEditorPage() {
               moment={moment}
               index={index}
               total={plan.moments.length}
+              courseSlug={section.course.slug}
               onChange={(updated) => updateMoment(index, updated)}
               onMove={(direction) => moveMoment(index, direction)}
               onRemove={() =>

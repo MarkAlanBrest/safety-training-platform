@@ -15,11 +15,12 @@ import {
   Play,
   X,
 } from "lucide-react";
-import type {
-  LessonMoment,
-  PublicMasonCourse,
+import VisualSlide from "@/components/training/VisualSlide";
+import {
+  buildPlayerFrames,
+  type LessonMoment,
+  type PublicMasonCourse,
 } from "@/lib/mason";
-import NarratedExplainer from "@/components/NarratedExplainer";
 import SlideshowTrainingPage from "@/components/SlideshowTrainingPage";
 
 type Answer = { selected: number; submitted: boolean };
@@ -469,21 +470,15 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
 
               if (moment.kind === "visual") {
                 return (
-                  <figure key={`${moment.title}-${index}`} className="my-16">
-                    <div className="mb-6 max-w-[760px]">
-                      <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--accent)]">Look closely</p>
-                      <h2 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-4xl">
-                        {moment.title}
-                      </h2>
-                      {paragraphs(moment.narration).map((text, paragraphIndex) => (
-                        <p key={paragraphIndex} className="mt-5 text-lg leading-8 text-slate-700">{text}</p>
-                      ))}
-                      <div className="mt-5">
-                        <ListenButton text={`${moment.title}. ${moment.narration}`} />
-                      </div>
-                    </div>
-                    <NarratedExplainer moment={moment} />
-                  </figure>
+                  <div
+                    key={`${moment.title}-${index}`}
+                    className="relative left-1/2 my-16 w-screen max-w-[100vw] -translate-x-1/2"
+                  >
+                    <VisualSlide
+                      frames={moment.playerFrames ?? buildPlayerFrames(moment)}
+                      courseSlug={course.slug}
+                    />
+                  </div>
                 );
               }
 
