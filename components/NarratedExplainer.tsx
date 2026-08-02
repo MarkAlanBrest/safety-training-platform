@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle, Pause, Play } from "lucide-react";
 import type { LessonMoment } from "@/lib/mason";
+import {
+  buildFramePicture,
+  isEmbeddedPicture,
+  themeFromCourseSlug,
+} from "@/lib/visual-frame-art";
 
 type Frame = {
   title: string;
@@ -103,28 +108,32 @@ function cropImageFromSource(
 async function resolveFrameImages(
   moment: LessonMoment,
   frames: Frame[],
+  theme: string,
 ): Promise<string[]> {
   const images: string[] = [];
 
   for (let index = 0; index < frames.length; index += 1) {
     const frame = frames[index];
-    if (frame.sourceImage) {
-      images.push(frame.sourceImage);
+    if (isEmbeddedPicture(frame.sourceImage)) {
+      images.push(frame.sourceImage!);
       continue;
     }
 
-    if (!moment.sourceImage) continue;
-
-    try {
-      images.push(
-        await cropImageFromSource(
-          moment.sourceImage,
-          frameFocus(moment, frame, index, frames.length),
-        ),
-      );
-    } catch {
-      if (index === 0) images.push(moment.sourceImage);
+    if (isEmbeddedPicture(moment.sourceImage)) {
+      try {
+        images.push(
+          await cropImageFromSource(
+            moment.sourceImage!,
+            frameFocus(moment, frame, index, frames.length),
+          ),
+        );
+        continue;
+      } catch {
+        // Fall through to generated illustration.
+      }
     }
+
+    images.push(buildFramePicture(theme, index));
   }
 
   return images;
@@ -163,7 +172,14 @@ function PictureStage({
   );
 }
 
-export default function NarratedExplainer({ moment }: { moment: LessonMoment }) {
+export default function NarratedExplainer({
+  moment,
+  courseSlug,
+}: {
+  moment: LessonMoment;
+  courseSlug?: string;
+}) {
+  const theme = themeFromCourseSlug(courseSlug);
   const frames = useMemo(() => {
     if (moment.explainerFrames?.length) return moment.explainerFrames;
     if (moment.sourceImage) {
@@ -194,7 +210,7 @@ export default function NarratedExplainer({ moment }: { moment: LessonMoment }) 
     setPicturesLoading(true);
     setActive(0);
 
-    void resolveFrameImages(moment, frames).then((images) => {
+    void resolveFrameImages(moment, frames, theme).then((images) => {
       if (cancelled) return;
       setPictures(images);
       setPicturesLoading(false);
@@ -203,7 +219,7 @@ export default function NarratedExplainer({ moment }: { moment: LessonMoment }) 
     return () => {
       cancelled = true;
     };
-  }, [moment, frames]);
+  }, [moment, frames, theme]);
 
   const clearAudio = useCallback(() => {
     audioRef.current?.pause();
