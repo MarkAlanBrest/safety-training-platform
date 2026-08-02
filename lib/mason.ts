@@ -23,6 +23,9 @@ export type LessonMoment = {
     caption: string;
     narration: string;
     visualItems: string[];
+    focusX?: number | null;
+    focusY?: number | null;
+    focusScale?: number | null;
   }> | null;
 };
 

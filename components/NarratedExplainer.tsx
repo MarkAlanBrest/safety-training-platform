@@ -19,6 +19,15 @@ type Frame = {
   caption: string;
   narration: string;
   visualItems: string[];
+  focusX?: number | null;
+  focusY?: number | null;
+  focusScale?: number | null;
+};
+
+type FrameFocus = {
+  x: number;
+  y: number;
+  scale: number;
 };
 
 function fallbackFrames(moment: LessonMoment): Frame[] {
@@ -41,6 +50,97 @@ function fallbackFrames(moment: LessonMoment): Frame[] {
   ];
 }
 
+function frameFocus(
+  moment: LessonMoment,
+  frame: Frame,
+  frameIndex: number,
+  totalFrames: number,
+): FrameFocus {
+  if (
+    typeof frame.focusX === "number" &&
+    typeof frame.focusY === "number" &&
+    typeof frame.focusScale === "number"
+  ) {
+    return {
+      x: frame.focusX,
+      y: frame.focusY,
+      scale: frame.focusScale,
+    };
+  }
+
+  const baseX = moment.focusX ?? 50;
+  const baseY = moment.focusY ?? 50;
+  const baseScale = moment.focusScale ?? 1.35;
+
+  if (totalFrames <= 1) {
+    return { x: baseX, y: baseY, scale: baseScale };
+  }
+
+  const progress = frameIndex / Math.max(1, totalFrames - 1);
+  const columns = Math.min(3, totalFrames);
+  const row = Math.floor(frameIndex / columns);
+  const column = frameIndex % columns;
+  const columnSpan = 70 / Math.max(1, columns - 1);
+
+  return {
+    x: Math.min(85, Math.max(15, 15 + column * columnSpan)),
+    y: Math.min(80, Math.max(20, baseY - 10 + row * 18)),
+    scale: Math.min(2.2, baseScale + progress * 0.45),
+  };
+}
+
+function SourceImageFlipbook({
+  moment,
+  frames,
+  active,
+}: {
+  moment: LessonMoment;
+  frames: Frame[];
+  active: number;
+}) {
+  const frame = frames[active];
+  const focus = frameFocus(moment, frame, active, frames.length);
+
+  return (
+    <div className="relative min-h-[390px] overflow-hidden bg-[#e9eff0] lg:min-h-[460px]">
+      <div key={active} className="explainer-frame absolute inset-0">
+        <div className="absolute inset-0 overflow-hidden">
+          <div
+            className="absolute inset-[-15%] transition-transform duration-700 ease-out"
+            style={{
+              transform: `scale(${focus.scale})`,
+              transformOrigin: `${focus.x}% ${focus.y}%`,
+            }}
+          >
+            <Image
+              src={moment.sourceImage!}
+              alt={moment.sourceImageAlt || `${moment.title} source visual`}
+              fill
+              unoptimized
+              className="object-cover"
+              style={{ objectPosition: `${focus.x}% ${focus.y}%` }}
+              sizes="(max-width: 1200px) 100vw, 1200px"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#07111f]/95 via-[#07111f]/72 to-transparent px-6 pb-6 pt-24 sm:px-8">
+        <p className="text-xs font-bold uppercase tracking-[.17em] text-[var(--accent)]">
+          Frame {active + 1} of {frames.length}
+          {moment.pageNumber ? ` · Source page ${moment.pageNumber}` : ""}
+        </p>
+        <h3 className="mt-2 max-w-3xl text-2xl font-semibold leading-tight text-white sm:text-3xl">
+          {frame.title}
+        </h3>
+        <p className="mt-3 max-w-3xl text-base leading-7 text-white/80 sm:text-lg">
+          {frame.caption}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function ExplainerVisual({
   style,
   frames,
@@ -54,25 +154,20 @@ function ExplainerVisual({
 
   if (style === "guided-focus") {
     return (
-      <div className="grid min-h-[350px] gap-8 p-7 sm:p-10 md:grid-cols-[1.15fr_.85fr] md:items-center">
-        <div className="relative grid min-h-[250px] place-items-center overflow-hidden rounded-[2rem] border border-white/10 bg-white/[.04]">
+      <div className="grid min-h-[350px] gap-8 bg-[#f4f7f8] p-7 text-[var(--ink)] sm:p-10 md:grid-cols-[1.15fr_.85fr] md:items-center">
+        <div className="relative grid min-h-[250px] place-items-center overflow-hidden rounded-[2rem] border border-[var(--ink)]/10 bg-white shadow-inner">
           <span className="absolute h-52 w-52 rounded-full border border-[var(--accent)]/35" />
-          <span className="absolute h-36 w-36 rounded-full border-2 border-[var(--accent)]/70 shadow-[0_0_70px_rgba(255,255,255,.08)]" />
+          <span className="absolute h-36 w-36 rounded-full border-2 border-[var(--accent)]/70" />
           <span className="relative z-10 max-w-[240px] px-6 text-center text-2xl font-semibold leading-8">
             {frame.visualItems[0] || frame.title}
           </span>
         </div>
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-white/45">Focus point {active + 1}</p>
+          <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--ink)]/45">
+            Focus point {active + 1}
+          </p>
           <h3 className="mt-3 text-3xl font-semibold leading-tight">{frame.title}</h3>
-          <div className="mt-6 space-y-3">
-            {frame.visualItems.slice(1).map((item) => (
-              <p key={item} className="flex gap-3 text-sm leading-6 text-white/70">
-                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                {item}
-              </p>
-            ))}
-          </div>
+          <p className="mt-4 text-base leading-7 text-[var(--ink)]/70">{frame.caption}</p>
         </div>
       </div>
     );
@@ -81,22 +176,17 @@ function ExplainerVisual({
   if (style === "compare-reveal") {
     const prior = frames[Math.max(0, active - 1)];
     return (
-      <div className="grid min-h-[350px] gap-px bg-white/10 sm:grid-cols-2">
-        <div className="bg-[var(--dark)] p-8 sm:p-10">
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-white/40">
+      <div className="grid min-h-[350px] gap-px bg-[var(--ink)]/10 sm:grid-cols-2">
+        <div className="bg-[#f4f7f8] p-8 text-[var(--ink)] sm:p-10">
+          <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--ink)]/40">
             {active === 0 ? "Starting point" : "Before"}
           </p>
-          <p className="mt-7 text-2xl font-semibold leading-8 text-white/55">{prior.caption}</p>
+          <p className="mt-7 text-2xl font-semibold leading-8 text-[var(--ink)]/55">{prior.caption}</p>
         </div>
-        <div className="relative overflow-hidden bg-white/[.06] p-8 sm:p-10">
-          <span className="absolute right-5 top-3 text-[7rem] font-semibold leading-none text-white/[.04]">
-            {active + 1}
-          </span>
-          <p className="relative text-xs font-bold uppercase tracking-[.2em] text-[var(--accent)]">
-            Reveal
-          </p>
-          <h3 className="relative mt-7 text-3xl font-semibold leading-tight">{frame.title}</h3>
-          <p className="relative mt-5 text-lg leading-8 text-white/70">{frame.caption}</p>
+        <div className="relative overflow-hidden bg-white p-8 text-[var(--ink)] sm:p-10">
+          <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--accent)]">Reveal</p>
+          <h3 className="mt-7 text-3xl font-semibold leading-tight">{frame.title}</h3>
+          <p className="mt-5 text-lg leading-8 text-[var(--ink)]/70">{frame.caption}</p>
         </div>
       </div>
     );
@@ -104,18 +194,18 @@ function ExplainerVisual({
 
   if (style === "step-build") {
     return (
-      <div className="min-h-[350px] p-7 sm:p-10">
-        <p className="text-xs font-bold uppercase tracking-[.2em] text-white/45">
+      <div className="min-h-[350px] bg-[#f4f7f8] p-7 text-[var(--ink)] sm:p-10">
+        <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--ink)]/45">
           Building the idea
         </p>
         <div className="mt-8 grid gap-3 md:grid-cols-3">
           {frames.map((item, index) => (
             <div
               key={`${item.title}-${index}`}
-              className={`relative rounded-2xl border p-5 transition-all duration-500 ${
+              className={`relative rounded-2xl border bg-white p-5 transition-all duration-500 ${
                 index <= active
-                  ? "border-[var(--accent)]/60 bg-white/[.08] opacity-100"
-                  : "border-white/10 bg-white/[.02] opacity-30"
+                  ? "border-[var(--accent)]/60 opacity-100 shadow-sm"
+                  : "border-[var(--ink)]/10 opacity-35"
               }`}
             >
               {index < active && (
@@ -124,7 +214,7 @@ function ExplainerVisual({
               <span className="text-sm font-bold text-[var(--accent)]">{index + 1}</span>
               <p className="mt-5 font-semibold leading-6">{item.title}</p>
               {index === active && (
-                <p className="mt-3 text-sm leading-6 text-white/60">{item.caption}</p>
+                <p className="mt-3 text-sm leading-6 text-[var(--ink)]/65">{item.caption}</p>
               )}
             </div>
           ))}
@@ -134,35 +224,24 @@ function ExplainerVisual({
   }
 
   return (
-    <div className="relative min-h-[350px] overflow-hidden p-7 sm:p-10">
-      {frames.map((item, index) => {
-        const distance = index - active;
-        if (distance < 0 || distance > 2) return null;
-        return (
-          <div
-            key={`${item.title}-${index}`}
-            className="absolute inset-x-7 top-8 min-h-[275px] rounded-3xl border border-white/10 bg-[#f7f2e8] p-8 text-[var(--ink)] shadow-2xl transition-all duration-500 sm:inset-x-10"
-            style={{
-              zIndex: 10 - distance,
-              transform: `translate(${distance * 14}px, ${distance * 12}px) scale(${1 - distance * 0.035})`,
-              opacity: 1 - distance * 0.25,
-            }}
-          >
-            <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--accent)]">
-              Frame {index + 1} of {frames.length}
-            </p>
-            <h3 className="mt-5 max-w-xl text-3xl font-semibold leading-tight">{item.title}</h3>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">{item.caption}</p>
-            <div className="mt-7 flex flex-wrap gap-2">
-              {item.visualItems.map((label) => (
-                <span key={label} className="rounded-full bg-[var(--pale)] px-4 py-2 text-sm font-semibold">
-                  {label}
-                </span>
-              ))}
-            </div>
-          </div>
-        );
-      })}
+    <div className="relative min-h-[350px] overflow-hidden bg-[#f4f7f8] p-7 text-[var(--ink)] sm:p-10">
+      <div key={active} className="explainer-frame">
+        <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--accent)]">
+          Frame {active + 1} of {frames.length}
+        </p>
+        <h3 className="mt-5 max-w-xl text-3xl font-semibold leading-tight">{frame.title}</h3>
+        <p className="mt-5 max-w-2xl text-lg leading-8 text-[var(--ink)]/70">{frame.caption}</p>
+        <div className="mt-7 flex flex-wrap gap-2">
+          {frame.visualItems.map((label) => (
+            <span
+              key={label}
+              className="rounded-full border border-[var(--ink)]/10 bg-white px-4 py-2 text-sm font-semibold"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -181,6 +260,7 @@ export default function NarratedExplainer({ moment }: { moment: LessonMoment }) 
         : moment.visualType === "formula"
           ? "step-build"
           : "flipbook");
+  const usesSourceFlipbook = Boolean(moment.sourceImage);
   const [active, setActive] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -261,29 +341,15 @@ export default function NarratedExplainer({ moment }: { moment: LessonMoment }) 
           <Volume2 size={15} className="text-[var(--accent)]" /> Narrated visual explainer
         </p>
         <span className="rounded-full bg-white/[.07] px-3 py-1 text-xs font-semibold text-white/50">
-          {style.replace("-", " ")}
+          {usesSourceFlipbook ? "picture flipbook" : style.replace("-", " ")}
         </span>
       </div>
 
-      {moment.sourceImage && (
-        <figure className="border-b border-white/10 bg-black/20 px-4 py-5 sm:px-8 sm:py-7">
-          <Image
-            src={moment.sourceImage}
-            alt={moment.sourceImageAlt || `${moment.title} source visual`}
-            width={1200}
-            height={1600}
-            unoptimized
-            className="mx-auto max-h-[620px] w-auto rounded-xl bg-white object-contain shadow-2xl"
-          />
-          {moment.pageNumber && (
-            <figcaption className="mt-3 text-center text-xs font-semibold uppercase tracking-[.14em] text-white/40">
-              Source material · page {moment.pageNumber}
-            </figcaption>
-          )}
-        </figure>
+      {usesSourceFlipbook ? (
+        <SourceImageFlipbook moment={moment} frames={frames} active={active} />
+      ) : (
+        <ExplainerVisual style={style} frames={frames} active={active} />
       )}
-
-      <ExplainerVisual style={style} frames={frames} active={active} />
 
       <div className="border-t border-white/10 bg-black/10 px-6 py-6 sm:px-8">
         <p className="min-h-14 text-sm leading-6 text-white/65">{frames[active].narration}</p>

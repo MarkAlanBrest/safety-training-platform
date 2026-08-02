@@ -88,7 +88,7 @@ const lessonSchema = {
             items: {
               type: "object",
               additionalProperties: false,
-              required: ["title", "caption", "narration", "visualItems"],
+              required: ["title", "caption", "narration", "visualItems", "focusX", "focusY", "focusScale"],
               properties: {
                 title: { type: "string" },
                 caption: { type: "string" },
@@ -97,6 +97,9 @@ const lessonSchema = {
                   type: "array",
                   items: { type: "string" },
                 },
+                focusX: { type: ["number", "null"], minimum: 0, maximum: 100 },
+                focusY: { type: ["number", "null"], minimum: 0, maximum: 100 },
+                focusScale: { type: ["number", "null"], minimum: 1, maximum: 2.5 },
               },
             },
           },
@@ -146,6 +149,7 @@ export async function generateLessonPlan({
         "Create two or three learn-phase narrated visual explainers from the source: a process, labeled anatomy, comparison, formula, or sequence.",
         "Every visual moment must set explainerStyle to flipbook, guided-focus, compare-reveal, or step-build and provide 3 to 5 explainerFrames.",
         "Each explainer frame needs a short title, one-sentence visible caption, natural spoken narration, and 1 to 4 concise visual labels. The frames must form a coherent mini-lesson rather than repeating the same point.",
+        "For each explainer frame, set focusX and focusY (0-100) to the center of what the learner should look at on the source PDF page, and focusScale (1.2-2.2) for how tightly to zoom that region.",
         "Also set visualType and provide 3 to 6 concise visualItems as a summary of the entire explainer.",
         "For every visual, set pageNumber to the PDF page containing the most useful supporting picture, diagram, chart, or example. Make the narration teach what that source visual means and what the learner should notice.",
         "Insert two or three activity-phase questions or realistic scenarios immediately after the related teaching. They should require thought and provide detailed instructional feedback.",
