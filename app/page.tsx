@@ -101,7 +101,7 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#f4f7fb] text-[#1e2d43]">
-      <header className="relative z-20 border-b border-[#002d74]/10 bg-[#f4f7fb]/95 backdrop-blur">
+      <header className="relative z-20 border-b border-white/10 bg-[#002d74] shadow-[0_4px_18px_rgba(0,31,82,.18)]">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-5 py-5 sm:px-8 lg:px-10">
           <Link href="/" aria-label="New Castle School of Trades home">
             <Image
@@ -117,19 +117,19 @@ export default function HomePage() {
           <nav className="flex items-center gap-3">
             <a
               href="#solutions"
-              className="hidden text-sm font-semibold text-[#5f6b7a] hover:text-[#002d74] md:block"
+              className="hidden text-sm font-semibold text-white/75 transition hover:text-[#ffc24a] md:block"
             >
               Solutions
             </a>
             <a
               href="#delivery"
-              className="hidden text-sm font-semibold text-[#5f6b7a] hover:text-[#002d74] md:block"
+              className="hidden text-sm font-semibold text-white/75 transition hover:text-[#ffc24a] md:block"
             >
               Delivery
             </a>
             <Link
               href="/admin/login"
-              className="rounded-full border border-[#002d74]/20 px-4 py-2.5 text-sm font-bold text-[#002d74] transition hover:border-[#002d74] hover:bg-white"
+              className="rounded-full border border-[#faa200] bg-[#faa200] px-4 py-2.5 text-sm font-bold text-[#002d74] transition hover:border-[#ffc24a] hover:bg-[#ffc24a]"
             >
               Administrator
             </Link>
