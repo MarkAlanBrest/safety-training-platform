@@ -7,6 +7,8 @@
     "build": "next build",
     "vercel-build": "prisma generate && prisma db push && next build",
     "db:init": "prisma db push",
+    "courses:install": "node scripts/install-complete-courses.mjs",
+    "courses:refresh-visuals": "node scripts/refresh-visual-lessons.mjs",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate"

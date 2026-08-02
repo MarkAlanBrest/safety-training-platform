@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "@prisma/client";
+import { embedVisualFrameImages } from "./visual-frame-art.mjs";
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not configured.");
@@ -53,20 +54,25 @@ function scenario(title, narration, prompt, choices, correctAnswer, feedback, ph
 
 function visual(title, narration, visualType, visualItems, frames) {
   return base("visual", "learn", title, narration, {
-    cue: `Follow the ${visualType} one step at a time.`,
+    cue: null,
     visualAction: "spotlight",
     focusX: 50,
     focusY: 50,
-    focusScale: 1.25,
+    focusScale: 1.35,
     visualType,
     visualItems,
-    explainerStyle: visualType === "comparison" ? "compare-reveal" : "step-build",
-    explainerFrames: frames.map(([frameTitle, caption, frameNarration, labels]) => ({
-      title: frameTitle,
-      caption,
-      narration: frameNarration,
-      visualItems: labels,
-    })),
+    explainerStyle: "flipbook",
+    explainerFrames: frames.map(
+      ([frameTitle, caption, frameNarration, labels], index, allFrames) => ({
+        title: frameTitle,
+        caption,
+        narration: frameNarration,
+        visualItems: labels,
+        focusX: 20 + (index % 3) * 30,
+        focusY: 35 + Math.floor(index / 3) * 25,
+        focusScale: 1.4 + index * 0.12,
+      }),
+    ),
   });
 }
 
@@ -901,22 +907,10 @@ const ladderSections = [
   },
 ];
 
-harassmentSections[0].lessonPlan.moments[1].sourceImage =
-  "/course-assets/workplace-harassment/respectful-workplace.png";
-harassmentSections[0].lessonPlan.moments[1].sourceImageAlt =
-  "A diverse team participating in a respectful workplace meeting";
-harassmentSections[2].lessonPlan.moments[1].sourceImage =
-  "/course-assets/workplace-harassment/reporting-support.png";
-harassmentSections[2].lessonPlan.moments[1].sourceImageAlt =
-  "An employee having a private, supportive conversation with a human resources representative";
-ladderSections[0].lessonPlan.moments[1].sourceImage =
-  "/course-assets/ladder-safety/ladder-inspection.png";
-ladderSections[0].lessonPlan.moments[1].sourceImageAlt =
-  "A construction worker inspecting a fiberglass extension ladder before use";
-ladderSections[1].lessonPlan.moments[1].sourceImage =
-  "/course-assets/ladder-safety/four-to-one-setup.png";
-ladderSections[1].lessonPlan.moments[1].sourceImageAlt =
-  "A secured extension ladder correctly positioned for access to an upper landing";
+function themeForCourse(slug) {
+  if (String(slug).includes("ladder")) return "ladder";
+  return "harassment";
+}
 
 const courses = [
   {
@@ -975,6 +969,11 @@ async function installCourse(definition) {
   });
 
   for (const [index, section] of definition.sections.entries()) {
+    const lessonPlan = embedVisualFrameImages(
+      section.lessonPlan,
+      themeForCourse(definition.slug),
+    );
+
     await prisma.masonSection.upsert({
       where: {
         courseId_position: {
@@ -988,13 +987,13 @@ async function installCourse(definition) {
         position: index + 1,
         estimatedMinutes: section.estimatedMinutes,
         fileName: "Editorial course content",
-        lessonPlan: section.lessonPlan,
+        lessonPlan,
       },
       update: {
         title: section.title,
         estimatedMinutes: section.estimatedMinutes,
         fileName: "Editorial course content",
-        lessonPlan: section.lessonPlan,
+        lessonPlan,
         updatedAt: new Date(),
       },
     });
