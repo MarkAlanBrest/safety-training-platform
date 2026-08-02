@@ -1,1 +1,1 @@
-export { default } from "@/components/VisualPlayer";
+export { default } from "@/components/PicturesOnlyPlayer";

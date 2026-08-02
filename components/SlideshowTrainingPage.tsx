@@ -11,10 +11,11 @@ import {
   CheckCircle2,
   Clock3,
 } from "lucide-react";
-import VisualPlayer from "@/components/VisualPlayer";
-import type {
-  LessonMoment,
-  PublicMasonCourse,
+import PicturesOnlyPlayer from "@/components/PicturesOnlyPlayer";
+import {
+  buildPlayerFrames,
+  type LessonMoment,
+  type PublicMasonCourse,
 } from "@/lib/mason";
 
 const palettes: Record<
@@ -298,7 +299,10 @@ export default function SlideshowTrainingPage({
                 />
               ) : slide.moment.kind === "visual" ? (
                 <div className="mx-auto w-full max-w-5xl">
-                  <VisualPlayer moment={slide.moment} courseSlug={course.slug} />
+                  <PicturesOnlyPlayer
+                    frames={buildPlayerFrames(slide.moment)}
+                    courseSlug={course.slug}
+                  />
                 </div>
               ) : (
                 <div className="mx-auto flex min-h-[430px] max-w-4xl flex-col justify-center">
