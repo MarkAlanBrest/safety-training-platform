@@ -490,6 +490,149 @@ const harassmentSections = [
   },
 ];
 
+harassmentSections[3].title = "Bystander Action and Supervisor Duties";
+harassmentSections[3].lessonPlan.sectionTitle = "Bystander Action and Supervisor Duties";
+
+harassmentSections.push(
+  {
+    title: "Sexual Violence, Consent, and Survivor Support",
+    estimatedMinutes: 18,
+    lessonPlan: {
+      sectionTitle: "Sexual Violence, Consent, and Survivor Support",
+      opening:
+        "This section addresses sexual violence directly and may be difficult for some learners. You may pause when needed. If anyone is in immediate danger, contact 911 or local emergency services. In the United States, confidential support is available 24/7 through RAINN at 800-656-HOPE or by texting HOPE to 64673.",
+      objectives: [
+        "Define consent as freely given and recognize when it is absent",
+        "Recognize forms of sexual violence connected to work",
+        "Respond to a disclosure without blame or pressure",
+        "Connect a person with safety, workplace, and confidential support options",
+      ],
+      keyFacts: [
+        "Sexual violence is sexual activity when consent is not obtained or freely given.",
+        "Consent cannot be assumed from silence, a past relationship, flirting, clothing, alcohol use, or a prior yes.",
+        "Freezing, delayed reporting, fragmented memory, or continued contact do not prove that conduct was welcome.",
+        "Support the person's choices, explain any policy-based reporting duty honestly, and do not conduct your own investigation.",
+      ],
+      moments: [
+        explain(
+          "Consent must be freely given",
+          "Consent is a voluntary, informed, and specific agreement. It can be withdrawn. A person who is asleep, unconscious, incapacitated, coerced, threatened, or unable to understand the situation cannot freely consent. A prior relationship or prior consent does not create ongoing permission.\n\nSexual violence can include completed or attempted sexual acts without freely given consent, unwanted sexual touching, and non-contact sexual abuse. Technology may also be used for sexual coercion, stalking, threats, or sharing intimate material without permission. When conduct is connected to employment, work travel, a company event, housing, transportation, or work communications, workplace safety and reporting processes may apply in addition to criminal or civil options.",
+        ),
+        base("tiles", "learn", "Consent: what to remember", "Consent is active, specific, and reversible.", {
+          tiles: [
+            { title: "Freely given", body: "No coercion, threat, manipulation, or misuse of workplace power." },
+            { title: "Specific", body: "Agreement to one act is not agreement to another." },
+            { title: "Reversible", body: "Anyone may change their mind at any time." },
+            { title: "Capable", body: "The person must be awake, aware, and able to choose." },
+            { title: "Communicated", body: "Do not treat silence, freezing, or lack of resistance as a yes." },
+            { title: "Ongoing", body: "Pay attention and stop when consent is withdrawn or uncertain." },
+          ],
+        }),
+        scenario(
+          "A disclosure after work travel",
+          "A coworker says that during a work trip a colleague entered their room and touched them sexually after they said no. They appear shaken and say, “Please do not tell everyone.”",
+          "What is the best first response?",
+          [
+            "Ask detailed questions to decide whether the account is believable",
+            "Listen, affirm that it was not their fault, ask about immediate safety, and explain available support and any reporting duty",
+            "Contact the accused person for their version before doing anything else",
+            "Tell coworkers so they can protect themselves",
+          ],
+          1,
+          "Correct. Listen without blame, prioritize immediate safety, protect privacy, explain options and policy limits honestly, and activate the appropriate trained response process.",
+        ),
+        explain(
+          "A trauma-informed first response",
+          "A calm first response can reduce harm. Thank the person for telling you. Say that what happened is not their fault. Ask what they need right now and whether they are safe. Offer choices instead of taking control away. Do not demand a complete timeline, question why they did not leave, or ask why they waited.\n\nDo not promise absolute confidentiality if your role or policy requires escalation. Explain clearly who must be told and why, share information only with people who need it, and involve trained personnel. Preserve relevant messages or records when safe and lawful, but do not pressure the person to collect evidence or report to law enforcement. Those choices belong to the affected person except where law or policy creates a specific duty.",
+        ),
+        base("dragdrop", "activity", "Put the first response in order", "Arrange a supportive response from first step to follow-through.", {
+          prompt: "Drag these actions into the safest order.",
+          dragItems: [
+            "Check immediate safety and urgent medical needs",
+            "Listen without blame and thank the person for speaking up",
+            "Explain support choices and any limits on confidentiality",
+            "Follow the designated workplace process and protect privacy",
+            "Check back about support and possible retaliation",
+          ],
+        }),
+        scenario(
+          "When danger is immediate",
+          "An employee receives a message from a former partner threatening to come to the worksite with a weapon.",
+          "What should happen first?",
+          [
+            "Wait to see whether the person arrives",
+            "Post the message in the team chat",
+            "Contact 911 or local emergency services and activate site emergency/security procedures",
+            "Ask the employee to confront the person",
+          ],
+          2,
+          "Correct. Treat a specific, immediate threat as an emergency. Contact emergency services and follow site security procedures rather than investigating or confronting the person.",
+        ),
+        question(
+          "Mastery: consent",
+          "Apply the course definition of freely given consent.",
+          "Which statement is accurate?",
+          [
+            "Silence is consent unless the person says no twice",
+            "Past consent applies to future encounters",
+            "Consent can be withdrawn and cannot be freely given through coercion or incapacitation",
+            "Workplace authority has no effect on whether a choice is free",
+          ],
+          2,
+          "Correct. Consent must be freely given, specific, ongoing, and capable of being withdrawn.",
+          "mastery",
+        ),
+        summary(
+          "Safety, dignity, and choice",
+          "Sexual violence is never the survivor's fault. Respond without blame, prioritize immediate safety, protect privacy, explain options honestly, and connect the person with trained help. U.S. confidential support is available from RAINN at 800-656-HOPE and by text at 64673; emergencies require 911 or local emergency services.",
+        ),
+      ],
+      summary:
+        "Consent must be freely given. A survivor-centered response listens without blame, protects safety and privacy, preserves choice, and connects the person with appropriate support and reporting paths.",
+    },
+  },
+  {
+    title: "Final Review and Certification Exam",
+    estimatedMinutes: 15,
+    lessonPlan: {
+      sectionTitle: "Final Review and Certification Exam",
+      opening:
+        "Review the core responsibilities, then complete the 12-question certification exam. You must answer at least 10 of 12 questions correctly to meet the 80% passing standard and earn your certificate.",
+      objectives: [
+        "Integrate prevention, recognition, reporting, and response principles",
+        "Demonstrate safe decisions in realistic workplace situations",
+        "Earn a course completion certificate by scoring 80% or higher",
+      ],
+      keyFacts: [
+        "Respect boundaries and act before concerning conduct escalates.",
+        "Use safe reporting channels; employees do not need to make a legal determination first.",
+        "Supervisors must promptly follow policy and must not promise secrecy or investigate alone.",
+        "Retaliation against reporters, witnesses, and participants is prohibited.",
+      ],
+      moments: [
+        summary(
+          "Before you begin",
+          "The exam covers consent, sexual and sex-based harassment, digital and off-site conduct, bystander options, reporting, retaliation, survivor support, and supervisor responsibilities. Choose the safest and most policy-consistent response. This is a closed-coaching assessment; feedback appears after submission.",
+        ),
+        question("Final 1", "Federal and workplace standards.", "Which conduct may constitute sexual harassment?", ["Only physical assault", "Unwelcome sexual advances, requests, or verbal or physical sexual conduct", "Only conduct by executives", "Only conduct reported the same day"], 1, "Sexual harassment is not limited to physical conduct or supervisors.", "mastery"),
+        question("Final 2", "Consent.", "Which statement best describes consent?", ["A prior yes applies indefinitely", "Silence always means yes", "It must be freely given, specific, ongoing, and reversible", "It is unnecessary between coworkers who are dating"], 2, "Consent must be freely given and may be withdrawn.", "mastery"),
+        scenario("Final 3", "A supervisor offers a promotion in exchange for a date.", "What is the primary concern?", ["There is none if the offer is verbal", "A job benefit is being linked to a romantic or sexual request", "Dating is required before promotion", "The employee must reject the offer publicly"], 1, "Workplace benefits must never be conditioned on sexual or romantic cooperation.", "mastery"),
+        question("Final 4", "Digital conduct.", "Repeated sexual messages in a work chat are:", ["Outside policy because they are online", "Potential workplace conduct that should be addressed", "Acceptable after business hours", "Only a concern if every recipient objects"], 1, "Work communication channels are workplace environments.", "mastery"),
+        scenario("Final 5", "A coworker discloses unwanted sexual touching.", "What is the best initial response?", ["Question why they waited", "Promise that nobody will ever be told", "Listen without blame, check safety, and explain support and reporting options", "Contact the accused person yourself"], 2, "A supportive response centers safety, dignity, choice, and honest limits on confidentiality.", "mastery"),
+        question("Final 6", "Bystander action.", "Which is a valid bystander option?", ["Direct, distract, delegate, delay, or document safely", "Publish the incident online", "Investigate everyone personally", "Do nothing unless asked in writing"], 0, "Bystanders can choose among several safe actions.", "mastery"),
+        scenario("Final 7", "A customer repeatedly comments on an employee's body after being asked to stop.", "What should the employee understand?", ["Customers cannot create a workplace concern", "The conduct may be reported through workplace channels", "Sales goals override boundaries", "Only the customer can report it"], 1, "Customers and other nonemployees can engage in workplace harassment.", "mastery"),
+        scenario("Final 8", "A manager receives an informal disclosure.", "What should the manager do?", ["Wait for legal terminology", "Promise secrecy", "Address immediate needs and promptly follow the employer's escalation process", "Run a private investigation"], 2, "Managers should respond promptly under policy and use trained channels.", "mastery"),
+        question("Final 9", "Retaliation.", "Who may be protected from retaliation?", ["Only the person who filed the first report", "Reporters, witnesses, and people who participate in the process", "Only managers", "Nobody if the concern is not proven"], 1, "Protection extends to good-faith reporting, opposition, and participation.", "mastery"),
+        scenario("Final 10", "An employee receives a credible threat that someone is coming to the workplace with a weapon.", "What is the first priority?", ["Confront the person", "Contact emergency services and follow site emergency procedures", "Wait for a manager meeting", "Share the threat broadly on social media"], 1, "Immediate threats require emergency response, not personal investigation.", "mastery"),
+        question("Final 11", "Trauma responses.", "Which statement is accurate?", ["A delayed report proves consent", "Freezing or fragmented recall can occur and does not prove conduct was welcome", "A survivor must confront the person", "Only physical injury matters"], 1, "People respond to trauma differently; avoid blame and credibility assumptions based on response style.", "mastery"),
+        question("Final 12", "Policy and prevention.", "When may an employee raise a concern?", ["Only after a court finds a violation", "Only after the same event happens three times", "Early, even when unsure whether the legal threshold has been met", "Only through the immediate supervisor"], 2, "Early reporting supports prevention, and accessible policies should provide more than one channel.", "mastery"),
+      ],
+      summary:
+        "Passing this assessment confirms completion of this general U.S. workplace awareness course. Employer-specific policy, reporting contacts, and jurisdiction-specific requirements must also be provided.",
+    },
+  },
+);
+
 const ladderSections = [
   {
     title: "Select the Right Ladder and Inspect It",
@@ -914,14 +1057,14 @@ function themeForCourse(slug) {
 
 const courses = [
   {
-    title: "Workplace Sexual Harassment Prevention",
+    title: "Workplace Sexual Harassment and Violence Prevention",
     slug: "workplace-sexual-harassment-prevention",
     description:
-      "General U.S. employee training on respectful conduct, recognizing sexual and sex-based harassment, reporting, retaliation prevention, and bystander action.",
+      "Serious, trauma-informed U.S. workplace training on sexual harassment and violence prevention, consent, bystander action, reporting, survivor support, retaliation, supervisor response, and final certification.",
     audience: "Employees and supervisors; requires company and jurisdiction-specific customization before deployment",
     theme: "clean",
     intensity: "comprehensive",
-    estimatedMinutes: 80,
+    estimatedMinutes: 110,
     displayMode: "webpage",
     published: false,
     sections: harassmentSections,
@@ -963,7 +1106,6 @@ async function installCourse(definition) {
       intensity: definition.intensity,
       estimatedMinutes: definition.estimatedMinutes,
       displayMode: definition.displayMode,
-      published: definition.published,
       updatedAt: new Date(),
     },
   });

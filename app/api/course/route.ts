@@ -13,6 +13,30 @@ export async function GET(req: Request) {
       return Response.json({ error: "No course code provided." }, { status: 400 });
     }
 
+    const enrollmentCode = await prisma.enrollmentCode.findUnique({
+      where: { code },
+      include: { course: true, enrollment: true },
+    });
+
+    if (enrollmentCode) {
+      const enrollment = enrollmentCode.enrollment;
+      if (!enrollment || enrollment.status !== "completed" || !enrollment.completedAt) {
+        return Response.json(
+          { error: "Complete the course and pass the final exam to view this certificate." },
+          { status: 403 },
+        );
+      }
+
+      return Response.json({
+        id: enrollment.id,
+        FirstName: enrollment.firstName,
+        LastName: enrollment.lastName,
+        CourseName: enrollmentCode.course.title,
+        CertificateId: `NCST-${enrollmentCode.course.id}-${enrollment.id}`,
+        CompletedAt: enrollment.completedAt,
+      });
+    }
+
     const record = await prisma.courseRecords.findUnique({ where: { Code: code } });
 
     if (!record) {

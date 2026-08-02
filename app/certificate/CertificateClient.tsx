@@ -7,6 +7,8 @@ type StudentRecord = {
   FirstName: string;
   LastName: string;
   CourseName: string;
+  CertificateId?: string;
+  CompletedAt?: string;
 };
 
 export default function CertificateClient() {
@@ -100,6 +102,7 @@ export default function CertificateClient() {
   };
 
   const [record, setRecord] = useState<StudentRecord | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -108,20 +111,23 @@ export default function CertificateClient() {
     if (!code) return;
 
     fetch(`/api/course?code=${encodeURIComponent(code)}`)
-      .then((r) => r.json())
-      .then((data: StudentRecord) => setRecord(data))
-      .catch(() => setRecord(null));
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Certificate unavailable.");
+        setRecord(data as StudentRecord);
+      })
+      .catch((reason) => setError(reason instanceof Error ? reason.message : "Certificate unavailable."));
   }, []);
 
   if (!record) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        Loading certificate...
+      <main className="min-h-screen flex items-center justify-center p-6 text-center">
+        {error || "Loading certificate..."}
       </main>
     );
   }
 
-  const today = new Date().toLocaleDateString();
+  const issuedOn = new Date(record.CompletedAt || Date.now()).toLocaleDateString();
 
   return (
     <main className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
@@ -138,7 +144,7 @@ export default function CertificateClient() {
           <div className="relative text-center px-20">
 
             <div className="mb-6 text-blue-900 font-bold text-xl">
-              Career Safety Training
+              New Castle School of Trades
             </div>
 
             <h1 className="text-5xl font-serif font-bold text-blue-900 mb-6">
@@ -162,7 +168,7 @@ export default function CertificateClient() {
             </h3>
 
             <p className="mb-12">
-              Issued on {today}
+              Issued on {issuedOn}
             </p>
 
             <div className="flex justify-between mt-16 text-sm">
@@ -180,7 +186,7 @@ export default function CertificateClient() {
             </div>
 
             <div className="absolute bottom-4 right-8 text-xs text-slate-600">
-              Certificate ID: CERT-{record.id}
+              Certificate ID: {record.CertificateId || `CERT-${record.id}`}
             </div>
 
           </div>

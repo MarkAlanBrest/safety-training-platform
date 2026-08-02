@@ -2,8 +2,10 @@
 
 import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowRight,
+  Award,
   BookOpen,
   Check,
   CheckCircle2,
@@ -205,9 +207,11 @@ function ListenButton({ text }: { text: string }) {
 function MasteryCheck({
   moments,
   onComplete,
+  finalExam = false,
 }: {
   moments: LessonMoment[];
-  onComplete: () => void;
+  onComplete: (score: number, answers: number[]) => void;
+  finalExam?: boolean;
 }) {
   const [started, setStarted] = useState(false);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -217,21 +221,29 @@ function MasteryCheck({
     (total, moment, index) => total + (answers[index] === moment.correctAnswer ? 1 : 0),
     0,
   );
+  const percentage = scored.length ? Math.round((score / scored.length) * 100) : 0;
+  const passed = percentage >= 80;
 
   if (!started) {
     return (
       <section className="my-20 rounded-3xl bg-[var(--dark)] px-7 py-10 text-white sm:px-12 sm:py-14">
-        <p className="text-xs font-bold uppercase tracking-[.2em] text-white/60">End of section</p>
-        <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">Ready to check your mastery?</h2>
+        <p className="text-xs font-bold uppercase tracking-[.2em] text-white/60">
+          {finalExam ? "Final assessment" : "End of section"}
+        </p>
+        <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">
+          {finalExam ? "Ready for the final exam?" : "Ready to check your mastery?"}
+        </h2>
         <p className="mt-4 max-w-2xl text-lg leading-8 text-white/75">
-          This is the independent part. Narration and coaching are paused while you demonstrate what you know.
+          {finalExam
+            ? "Answer every question independently. A score of 80% or higher is required to complete the course and earn your certificate."
+            : "This is the independent part. Narration and coaching are paused while you demonstrate what you know."}
         </p>
         <button
           type="button"
           onClick={() => setStarted(true)}
           className="mt-7 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 font-bold text-[var(--dark)]"
         >
-          Begin mastery check <ArrowRight size={17} />
+          {finalExam ? "Begin final exam" : "Begin mastery check"} <ArrowRight size={17} />
         </button>
       </section>
     );
@@ -239,8 +251,11 @@ function MasteryCheck({
 
   return (
     <section className="my-20 border-y border-slate-300 py-12">
-      <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--accent)]">Mastery check</p>
+      <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--accent)]">
+        {finalExam ? "Final exam" : "Mastery check"}
+      </p>
       <h2 className="mt-2 text-3xl font-semibold text-[var(--ink)]">Work independently</h2>
+      <p className="mt-3 text-slate-600">Passing score: 80%</p>
       <div className="mt-9 space-y-10">
         {scored.map((moment, index) => (
           <div key={`${moment.title}-${index}`}>
@@ -273,22 +288,36 @@ function MasteryCheck({
           disabled={Object.keys(answers).length !== scored.length}
           onClick={() => {
             setSubmitted(true);
-            onComplete();
+            if (percentage >= 80) onComplete(percentage, scored.map((_, index) => answers[index]));
           }}
           className="mt-9 rounded-full bg-[var(--dark)] px-7 py-3 font-bold text-white disabled:opacity-35"
         >
           Submit mastery check
         </button>
       ) : (
-        <div className="mt-9 rounded-2xl bg-[var(--pale)] p-6">
+        <div className={`mt-9 rounded-2xl p-6 ${passed ? "bg-emerald-50" : "bg-amber-50"}`}>
           <p className="text-xl font-bold text-[var(--ink)]">
-            {score} of {scored.length} correct
+            {score} of {scored.length} correct · {percentage}%
           </p>
           <p className="mt-2 text-slate-700">
-            {score === scored.length
-              ? "Section complete. You demonstrated the objective independently."
-              : "Review the section before moving on, then take the check again when you’re ready."}
+            {passed
+              ? finalExam
+                ? "Passed. Your completion is being recorded and your certificate is ready below."
+                : "Section complete. You demonstrated the objective independently."
+              : "You need 80% to pass. Review the section, then try again when you are ready."}
           </p>
+          {!passed && (
+            <button
+              type="button"
+              onClick={() => {
+                setAnswers({});
+                setSubmitted(false);
+              }}
+              className="mt-5 rounded-full bg-[var(--dark)] px-6 py-2.5 font-bold text-white"
+            >
+              Retake assessment
+            </button>
+          )}
         </div>
       )}
     </section>
@@ -296,10 +325,15 @@ function MasteryCheck({
 }
 
 function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
+  const searchParams = useSearchParams();
+  const enrollmentCode = searchParams?.get("code") || "";
   const [sectionIndex, setSectionIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [answers, setAnswers] = useState<Record<number, Answer>>({});
   const [complete, setComplete] = useState<number[]>([]);
+  const [certificateUrl, setCertificateUrl] = useState("");
+  const [completionError, setCompletionError] = useState("");
+  const [recordingCompletion, setRecordingCompletion] = useState(false);
   const section = course.sections[sectionIndex];
   const palette = themes[course.theme || "heritage"] || themes.heritage;
   const accentColor =
@@ -325,6 +359,35 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
     setAnswers({});
     setMenuOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function finishSection(_score: number, examAnswers: number[]) {
+    setComplete((current) =>
+      current.includes(sectionIndex) ? current : [...current, sectionIndex],
+    );
+
+    if (sectionIndex !== course.sections.length - 1) return;
+    if (!enrollmentCode) {
+      setCompletionError("Open this course with your enrollment code to record completion and earn a certificate.");
+      return;
+    }
+
+    setRecordingCompletion(true);
+    setCompletionError("");
+    try {
+      const response = await fetch("/api/training/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: enrollmentCode, courseSlug: course.slug, answers: examAnswers }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Completion could not be recorded.");
+      setCertificateUrl(data.certificateUrl);
+    } catch (error) {
+      setCompletionError(error instanceof Error ? error.message : "Completion could not be recorded.");
+    } finally {
+      setRecordingCompletion(false);
+    }
   }
 
   return (
@@ -541,12 +604,28 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
           {mastery.length > 0 && (
             <MasteryCheck
               moments={mastery}
-              onComplete={() =>
-                setComplete((current) =>
-                  current.includes(sectionIndex) ? current : [...current, sectionIndex],
-                )
-              }
+              finalExam={sectionIndex === course.sections.length - 1}
+              onComplete={finishSection}
             />
+          )}
+
+          {sectionIndex === course.sections.length - 1 && complete.includes(sectionIndex) && (
+            <section className="my-10 rounded-3xl border-2 border-[var(--accent)] bg-white p-8 sm:p-10">
+              <Award size={36} className="text-[var(--accent)]" />
+              <h2 className="mt-4 text-3xl font-semibold text-[var(--ink)]">
+                {certificateUrl ? "Certificate earned" : "Final exam passed"}
+              </h2>
+              {recordingCompletion && <p className="mt-3 text-slate-600">Recording your completion...</p>}
+              {completionError && <p className="mt-3 text-amber-800">{completionError}</p>}
+              {certificateUrl && (
+                <a
+                  href={certificateUrl}
+                  className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--dark)] px-7 py-3 font-bold text-white"
+                >
+                  <Award size={18} /> View and print certificate
+                </a>
+              )}
+            </section>
           )}
 
           {sectionIndex < course.sections.length - 1 && complete.includes(sectionIndex) && (
