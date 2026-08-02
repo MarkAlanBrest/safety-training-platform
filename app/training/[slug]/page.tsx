@@ -1,7 +1,12 @@
 import { notFound } from "next/navigation";
 import GeneratedTrainingPage from "@/components/GeneratedTrainingPage";
 import { prisma } from "@/lib/prisma";
-import { demoCourse, type LessonPlan, type PublicMasonCourse } from "@/lib/mason";
+import {
+  demoCourse,
+  sanitizeCourseForLearner,
+  type LessonPlan,
+  type PublicMasonCourse,
+} from "@/lib/mason";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +16,9 @@ export default async function TrainingCoursePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  if (slug === "demo") return <GeneratedTrainingPage course={demoCourse} />;
+  if (slug === "demo") {
+    return <GeneratedTrainingPage course={sanitizeCourseForLearner(demoCourse)} />;
+  }
 
   const record = await prisma.masonCourse.findUnique({
     where: { slug },
@@ -31,14 +38,14 @@ export default async function TrainingCoursePage({
   });
   if (!record || record.sections.length === 0) notFound();
 
-  const course: PublicMasonCourse = {
+  const course: PublicMasonCourse = sanitizeCourseForLearner({
     ...record,
     displayMode: record.displayMode === "slideshow" ? "slideshow" : "webpage",
     sections: record.sections.map((section) => ({
       ...section,
       lessonPlan: section.lessonPlan as unknown as LessonPlan,
     })),
-  };
+  });
 
   return <GeneratedTrainingPage course={course} />;
 }

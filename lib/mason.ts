@@ -174,3 +174,44 @@ export function slugify(value: string) {
     .replace(/^-|-$/g, "")
     .slice(0, 64);
 }
+
+/** Strip on-screen visual explainer metadata before sending lesson data to learners. */
+export function sanitizeVisualMomentForLearner(moment: LessonMoment): LessonMoment {
+  if (moment.kind !== "visual") return moment;
+
+  return {
+    ...moment,
+    visualItems: [],
+    sourceImageAlt: null,
+    cue: null,
+    explainerStyle: "flipbook",
+    explainerFrames:
+      moment.explainerFrames?.map((frame) => ({
+        narration: frame.narration,
+        sourceImage: frame.sourceImage ?? null,
+        focusX: frame.focusX ?? null,
+        focusY: frame.focusY ?? null,
+        focusScale: frame.focusScale ?? null,
+        title: "",
+        caption: "",
+        visualItems: [],
+      })) ?? null,
+  };
+}
+
+export function sanitizeLessonPlanForLearner(plan: LessonPlan): LessonPlan {
+  return {
+    ...plan,
+    moments: plan.moments.map((moment) => sanitizeVisualMomentForLearner(moment)),
+  };
+}
+
+export function sanitizeCourseForLearner(course: PublicMasonCourse): PublicMasonCourse {
+  return {
+    ...course,
+    sections: course.sections.map((section) => ({
+      ...section,
+      lessonPlan: sanitizeLessonPlanForLearner(section.lessonPlan),
+    })),
+  };
+}
