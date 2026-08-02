@@ -15,9 +15,9 @@ const robotoCondensed = Roboto_Condensed({
 });
 
 export const metadata: Metadata = {
-  title: "New Castle School of Trades | Career Training",
+  title: "NCST Career Training Platform",
   description:
-    "New Castle School of Trades — hands-on skilled trades training in New Castle, PA and East Liverpool, OH.",
+    "Flexible workforce training from New Castle School of Trades — onboarding, employee development, refresher courses, and custom programs with certificates.",
 };
 
 export default function RootLayout({
