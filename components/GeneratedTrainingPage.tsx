@@ -20,6 +20,9 @@ import {
   DragOrderActivity,
   ImpactTiles,
 } from "@/components/training/ImpactBlocks";
+import MomentTypeLabel, {
+  isExampleShowcaseCourse,
+} from "@/components/training/MomentTypeLabel";
 import {
   buildPlayerFrames,
   type LessonMoment,
@@ -300,6 +303,7 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
   }, [section]);
   const masterySet = new Set(mastery);
   const learningMoments = section.lessonPlan.moments.filter((moment) => !masterySet.has(moment));
+  const showMomentLabels = isExampleShowcaseCourse(course.slug);
   const totalMinutes =
     section.estimatedMinutes ||
     Math.max(10, Math.round((course.estimatedMinutes || 60) / Math.max(course.sections.length, 1)));
@@ -456,6 +460,11 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
             <p className="mt-7 text-xl leading-9 text-slate-600 sm:text-2xl sm:leading-10">
               {section.lessonPlan.opening}
             </p>
+            {showMomentLabels && sectionIndex === 0 && (
+              <p className="mt-6 inline-flex rounded-full border border-[var(--accent)]/35 bg-[var(--pale)] px-4 py-2 text-sm font-semibold text-[var(--ink)]">
+                Example course — scroll to see labeled explain, text, tiles, visual, drag, scenario, question, and summary moments.
+              </p>
+            )}
           </div>
 
           {!!section.lessonPlan.objectives.length && (
@@ -474,71 +483,88 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
 
           <div className="max-w-[850px]">
             {learningMoments.map((moment, index) => {
+              const label = showMomentLabels ? (
+                <MomentTypeLabel kind={moment.kind} />
+              ) : null;
+
               if (moment.kind === "question" || moment.kind === "scenario") {
                 return (
-                  <Activity
-                    key={`${moment.title}-${index}`}
-                    moment={moment}
-                    index={index}
-                    answer={answers[index]}
-                    onAnswer={(answerIndex, answer) =>
-                      setAnswers((current) => ({ ...current, [answerIndex]: answer }))
-                    }
-                  />
-                );
-              }
-
-              if (moment.kind === "visual") {
-                return (
-                  <div
-                    key={`${moment.title}-${index}`}
-                    className="mx-auto my-12 w-full max-w-[760px]"
-                  >
-                    <VisualSlide
-                      frames={moment.playerFrames ?? buildPlayerFrames(moment)}
-                      courseSlug={course.slug}
+                  <div key={`${moment.title}-${index}`}>
+                    {label}
+                    <Activity
+                      moment={moment}
+                      index={index}
+                      answer={answers[index]}
+                      onAnswer={(answerIndex, answer) =>
+                        setAnswers((current) => ({ ...current, [answerIndex]: answer }))
+                      }
                     />
                   </div>
                 );
               }
 
+              if (moment.kind === "visual") {
+                return (
+                  <div key={`${moment.title}-${index}`}>
+                    {label}
+                    <div className="mx-auto my-12 w-full max-w-[760px]">
+                      <VisualSlide
+                        frames={moment.playerFrames ?? buildPlayerFrames(moment)}
+                        courseSlug={course.slug}
+                      />
+                    </div>
+                  </div>
+                );
+              }
+
               if (moment.kind === "tiles") {
-                return <ImpactTiles key={`${moment.title}-${index}`} moment={moment} />;
+                return (
+                  <div key={`${moment.title}-${index}`}>
+                    {label}
+                    <ImpactTiles moment={moment} />
+                  </div>
+                );
               }
 
               if (moment.kind === "dragdrop") {
                 return (
-                  <DragOrderActivity
-                    key={`${moment.title}-${index}`}
-                    moment={moment}
-                  />
+                  <div key={`${moment.title}-${index}`}>
+                    {label}
+                    <DragOrderActivity moment={moment} />
+                  </div>
                 );
               }
 
               if (moment.kind === "summary") {
                 return (
-                  <ReadingSlide
-                    key={`${moment.title}-${index}`}
-                    title={moment.title}
-                    narration={moment.narration}
-                    variant="summary"
-                  />
+                  <div key={`${moment.title}-${index}`}>
+                    {label}
+                    <ReadingSlide
+                      title={moment.title}
+                      narration={moment.narration}
+                      variant="summary"
+                    />
+                  </div>
                 );
               }
 
               if (moment.kind === "explain" || moment.kind === "text") {
                 return (
-                  <ReadingSlide
-                    key={`${moment.title}-${index}`}
-                    title={moment.title}
-                    narration={moment.narration}
-                    variant="learn"
-                  />
+                  <div key={`${moment.title}-${index}`}>
+                    {label}
+                    <ReadingSlide
+                      title={moment.title}
+                      narration={moment.narration}
+                      variant="learn"
+                      eyebrow={moment.kind === "text" ? "Text page" : "Explain"}
+                    />
+                  </div>
                 );
               }
 
               return (
                 <section key={`${moment.title}-${index}`} className="my-14 max-w-[760px]">
+                  {label}
                   <h2 className="text-3xl font-semibold tracking-tight text-[var(--ink)] sm:text-4xl">
                     {moment.title}
                   </h2>
