@@ -32,7 +32,7 @@ export function slidesForClassroomPlan(
       ? undefined
       : placeholderSlideDataUrl(
           slide.title.slice(0, 72),
-          "Imported from PowerPoint",
+          slide.bodyText.slice(0, 220) || "Imported from PowerPoint",
           slide.index,
         ),
   }));

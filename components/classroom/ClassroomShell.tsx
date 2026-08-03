@@ -268,15 +268,6 @@ export default function ClassroomShell({
     );
   }
 
-  function handleSelectSlide(slideIndex: number) {
-    setCurrentSlideIndex(slideIndex);
-    setPresentation({
-      type: "slide",
-      slideIndex,
-      headline: plan.slides[slideIndex]?.title,
-    });
-  }
-
   function markTopicComplete(topicId: string) {
     setCompletedTopicIds((current) =>
       current.includes(topicId) ? current : [...current, topicId],
@@ -298,9 +289,7 @@ export default function ClassroomShell({
             plan={plan}
             activeTopicId={activeTopic?.id || null}
             completedTopicIds={completedTopicIds}
-            currentSlideIndex={currentSlideIndex}
             onSelectTopic={handleSelectTopic}
-            onSelectSlide={handleSelectSlide}
           />
         </div>
 
