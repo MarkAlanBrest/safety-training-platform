@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import {
@@ -11,13 +11,11 @@ import {
   CheckCircle2,
   ChevronLeft,
   Clock3,
-  Headphones,
   Menu,
-  Pause,
-  Play,
   X,
 } from "lucide-react";
 import VisualSlide from "@/components/training/VisualSlide";
+import ReadingSlide from "@/components/training/ReadingSlide";
 import {
   DragOrderActivity,
   ImpactTiles,
@@ -153,54 +151,6 @@ function Activity({
         )}
       </div>
     </section>
-  );
-}
-
-function ListenButton({ text }: { text: string }) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const urlRef = useRef<string | null>(null);
-  const [state, setState] = useState<"idle" | "loading" | "playing">("idle");
-
-  async function toggle() {
-    if (state === "playing") {
-      audioRef.current?.pause();
-      setState("idle");
-      return;
-    }
-    if (audioRef.current && urlRef.current) {
-      await audioRef.current.play();
-      setState("playing");
-      return;
-    }
-    setState("loading");
-    try {
-      const response = await fetch("/api/mason/speech", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (!response.ok) throw new Error("Audio unavailable");
-      const url = URL.createObjectURL(await response.blob());
-      const audio = new Audio(url);
-      urlRef.current = url;
-      audioRef.current = audio;
-      audio.onended = () => setState("idle");
-      await audio.play();
-      setState("playing");
-    } catch {
-      setState("idle");
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500"
-    >
-      {state === "playing" ? <Pause size={15} /> : state === "loading" ? <Headphones size={15} /> : <Play size={15} />}
-      {state === "playing" ? "Pause narration" : state === "loading" ? "Preparing audio…" : "Listen"}
-    </button>
   );
 }
 
@@ -399,6 +349,9 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
           "--pale": palette.pale,
           "--dark": palette.dark,
           "--page": palette.page,
+          "--visual-accent": accentColor,
+          "--visual-bg": palette.dark,
+          "--visual-dark": palette.dark,
         } as React.CSSProperties
       }
       data-course-theme={course.theme || "heritage"}
@@ -564,13 +517,23 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
 
               if (moment.kind === "summary") {
                 return (
-                  <section key={`${moment.title}-${index}`} className="my-16 border-l-4 border-[var(--accent)] bg-[var(--pale)] px-7 py-8 sm:px-10">
-                    <p className="text-xs font-bold uppercase tracking-[.2em] text-[var(--accent)]">Bring it together</p>
-                    <h2 className="mt-3 text-3xl font-semibold text-[var(--ink)]">{moment.title}</h2>
-                    {paragraphs(moment.narration).map((text, paragraphIndex) => (
-                      <p key={paragraphIndex} className="mt-4 text-lg leading-8 text-slate-700">{text}</p>
-                    ))}
-                  </section>
+                  <ReadingSlide
+                    key={`${moment.title}-${index}`}
+                    title={moment.title}
+                    narration={moment.narration}
+                    variant="summary"
+                  />
+                );
+              }
+
+              if (moment.kind === "explain" || moment.kind === "text") {
+                return (
+                  <ReadingSlide
+                    key={`${moment.title}-${index}`}
+                    title={moment.title}
+                    narration={moment.narration}
+                    variant="learn"
+                  />
                 );
               }
 

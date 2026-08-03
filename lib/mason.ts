@@ -38,10 +38,11 @@ export type LessonMoment = {
     focusScale?: number | null;
     sourceImage?: string | null;
   }> | null;
-  /** Learner-only: pictures + narrations with all overlay metadata removed. */
+  /** Learner-only: pictures + narrations with step labels, overlay metadata removed. */
   playerFrames?: Array<{
     image: string;
     narration: string;
+    label?: string;
   }> | null;
 };
 
@@ -193,7 +194,7 @@ export function slugify(value: string) {
 /** Strip on-screen visual explainer metadata before sending lesson data to learners. */
 export function buildPlayerFrames(
   moment: LessonMoment,
-): Array<{ image: string; narration: string }> {
+): Array<{ image: string; narration: string; label?: string }> {
   const curatedImages = CURATED_EXPLAINER_IMAGES[moment.title];
   if (moment.playerFrames?.length && !curatedImages) {
     return moment.playerFrames.filter(
@@ -206,6 +207,7 @@ export function buildPlayerFrames(
       .map((frame) => ({
         image: curatedImages?.[frame.title] ?? frame.sourceImage ?? "",
         narration: frame.narration,
+        label: frame.title,
       }))
       .filter((frame) => frame.image.trim() && frame.narration.trim());
   }
@@ -215,6 +217,7 @@ export function buildPlayerFrames(
       {
         image: moment.sourceImage ?? "",
         narration: moment.narration,
+        label: moment.title || undefined,
       },
     ];
   }
@@ -270,6 +273,7 @@ export function sanitizeVisualMomentForLearner(moment: LessonMoment): LessonMome
   const playerFrames = buildPlayerFrames(moment).map((frame) => ({
     image: frame.image,
     narration: frame.narration,
+    label: frame.label,
   }));
 
   return {

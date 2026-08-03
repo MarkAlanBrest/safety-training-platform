@@ -7,9 +7,10 @@ import styles from "./VisualSlide.module.css";
 export type VisualSlideFrame = {
   image: string;
   narration: string;
+  label?: string;
 };
 
-/** Learner visual: narration-synchronized pictures and one play control. */
+/** Learner visual: narration-synchronized pictures, step labels, and play control. */
 export default function VisualSlide({
   frames,
 }: {
@@ -26,8 +27,8 @@ export default function VisualSlide({
   const narration = useMemo(
     () =>
       playableFrames
-      .map((frame) => frame.narration.trim())
-      .join("\n\n"),
+        .map((frame) => frame.narration.trim())
+        .join("\n\n"),
     [playableFrames],
   );
   const frameStops = useMemo(() => {
@@ -117,28 +118,58 @@ export default function VisualSlide({
       setPlaying(true);
       return;
     }
-    if (finished) {
-      void speak();
-      return;
-    }
     void speak();
   }
 
   if (!playableFrames.length) return null;
 
-  const currentPicture = playableFrames[slideIndex]?.image ?? playableFrames[0].image;
+  const currentFrame = playableFrames[slideIndex] ?? playableFrames[0];
+  const currentLabel = currentFrame.label?.trim();
 
   return (
-    <div className={styles.root} data-ncst-visual="10">
+    <div className={styles.root} data-ncst-visual="11">
       <div className={styles.frame}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          key={currentPicture}
-          src={currentPicture}
-          alt=""
-          className={styles.image}
-          draggable={false}
-        />
+        {playableFrames.map((frame, index) => (
+          <div
+            key={`${frame.image}-${index}`}
+            className={`${styles.imageLayer} ${
+              index === slideIndex ? styles.imageLayerActive : ""
+            }`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={frame.image}
+              alt=""
+              className={styles.image}
+              draggable={false}
+            />
+          </div>
+        ))}
+
+        {(currentLabel || playableFrames.length > 1) && (
+          <div className={styles.labelBar}>
+            {currentLabel ? (
+              <span className={styles.labelPill}>
+                <span className={styles.labelStep}>{slideIndex + 1}</span>
+                {currentLabel}
+              </span>
+            ) : (
+              <span />
+            )}
+            {playableFrames.length > 1 && (
+              <div className={styles.dots} aria-hidden="true">
+                {playableFrames.map((frame, index) => (
+                  <span
+                    key={`dot-${frame.image}-${index}`}
+                    className={`${styles.dot} ${
+                      index === slideIndex ? styles.dotActive : ""
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className={styles.playbar}>
@@ -158,8 +189,16 @@ export default function VisualSlide({
           )}
         </button>
         <div className={styles.track} aria-hidden="true">
-          <div className={styles.progress} style={{ width: `${audioProgress * 100}%` }} />
+          <div
+            className={styles.progress}
+            style={{ width: `${audioProgress * 100}%` }}
+          />
         </div>
+        {playableFrames.length > 1 && (
+          <span className={styles.frameCounter}>
+            {slideIndex + 1}/{playableFrames.length}
+          </span>
+        )}
       </div>
     </div>
   );

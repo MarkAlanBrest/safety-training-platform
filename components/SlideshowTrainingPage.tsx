@@ -12,6 +12,7 @@ import {
   Clock3,
 } from "lucide-react";
 import VisualSlide from "@/components/training/VisualSlide";
+import ReadingSlide from "@/components/training/ReadingSlide";
 import {
   DragOrderActivity,
   ImpactTiles,
@@ -61,13 +62,6 @@ type CourseSlide =
   | { type: "objectives" }
   | { type: "moment"; moment: LessonMoment }
   | { type: "complete" };
-
-function paragraphs(text: string) {
-  return text
-    .split(/\n\s*\n/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
 
 function SlideActivity({ moment }: { moment: LessonMoment }) {
   const [selected, setSelected] = useState<number | null>(null);
@@ -210,6 +204,9 @@ export default function SlideshowTrainingPage({
           "--pale": palette.pale,
           "--dark": palette.dark,
           "--page": palette.page,
+          "--visual-accent": accent,
+          "--visual-bg": palette.dark,
+          "--visual-dark": palette.dark,
         } as React.CSSProperties
       }
     >
@@ -310,27 +307,29 @@ export default function SlideshowTrainingPage({
                   moment={slide.moment}
                 />
               ) : slide.moment.kind === "visual" ? (
-                <div className="mx-auto w-full max-w-[640px]">
+                <div className="mx-auto w-full max-w-[720px]">
                   <VisualSlide
                     frames={slide.moment.playerFrames ?? buildPlayerFrames(slide.moment)}
                     courseSlug={course.slug}
                   />
                 </div>
+              ) : slide.moment.kind === "summary" ? (
+                <div className="mx-auto w-full max-w-4xl">
+                  <ReadingSlide
+                    title={slide.moment.title}
+                    narration={slide.moment.narration}
+                    variant="summary"
+                    compact
+                  />
+                </div>
               ) : (
-                <div className="mx-auto flex min-h-[430px] max-w-4xl flex-col justify-center">
-                  <p className="text-xs font-black uppercase tracking-[.2em] text-[var(--accent)]">
-                    {slide.moment.kind === "summary" ? "Key takeaway" : "Learn"}
-                  </p>
-                  <h2 className="mt-4 text-4xl font-bold tracking-tight text-[var(--ink)] sm:text-5xl">
-                    {slide.moment.title}
-                  </h2>
-                  <div className="mt-7 max-w-3xl space-y-5">
-                    {paragraphs(slide.moment.narration).map((paragraph) => (
-                      <p key={paragraph} className="text-xl leading-9 text-slate-600">
-                        {paragraph}
-                      </p>
-                    ))}
-                  </div>
+                <div className="mx-auto w-full max-w-4xl">
+                  <ReadingSlide
+                    title={slide.moment.title}
+                    narration={slide.moment.narration}
+                    variant="learn"
+                    compact
+                  />
                 </div>
               ))}
 
