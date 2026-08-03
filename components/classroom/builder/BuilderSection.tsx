@@ -114,27 +114,53 @@ export function BuilderCheckboxGrid({
   options,
   values,
   onChange,
+  maxSelected,
+  hint,
 }: {
   options: Array<{ id: string; label: string }>;
   values: Record<string, boolean>;
   onChange: (id: string, checked: boolean) => void;
+  maxSelected?: number;
+  hint?: string;
 }) {
+  const selectedCount = Object.values(values).filter(Boolean).length;
+  const atLimit = maxSelected ? selectedCount >= maxSelected : false;
+
   return (
-    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-      {options.map((option) => (
-        <label
-          key={option.id}
-          className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#10283f]/10 px-4 py-3 text-sm hover:bg-[#faf8f3]"
-        >
-          <input
-            type="checkbox"
-            checked={Boolean(values[option.id])}
-            onChange={(event) => onChange(option.id, event.target.checked)}
-            className="mt-0.5 accent-[#c68b1b]"
-          />
-          <span className="leading-6 text-[#263746]">{option.label}</span>
-        </label>
-      ))}
+    <div className="space-y-3">
+      {maxSelected ? (
+        <p className="text-sm text-[#69757e]">
+          {hint || `Choose up to ${maxSelected}.`}{" "}
+          <span className="font-semibold text-[#10283f]">
+            {selectedCount}/{maxSelected} selected
+          </span>
+        </p>
+      ) : null}
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {options.map((option) => {
+          const checked = Boolean(values[option.id]);
+          const disabled = !checked && atLimit;
+          return (
+            <label
+              key={option.id}
+              className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
+                disabled
+                  ? "cursor-not-allowed border-[#10283f]/5 bg-[#faf8f3]/60 opacity-60"
+                  : "cursor-pointer border-[#10283f]/10 hover:bg-[#faf8f3]"
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                disabled={disabled}
+                onChange={(event) => onChange(option.id, event.target.checked)}
+                className="mt-0.5 accent-[#c68b1b] disabled:cursor-not-allowed"
+              />
+              <span className="leading-6 text-[#263746]">{option.label}</span>
+            </label>
+          );
+        })}
+      </div>
     </div>
   );
 }

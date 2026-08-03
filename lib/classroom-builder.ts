@@ -207,17 +207,199 @@ export const EXCEL_OPTIONS = [
   { id: "moveFaster", label: "Move Faster" },
 ];
 
+export const CLASSROOM_BUILDER_LIMITS = {
+  activities: 6,
+  presentation: 5,
+  studentExperience: 5,
+  formativeAllow: 4,
+  summativeTypes: 4,
+  struggles: 4,
+  excels: 3,
+} as const;
+
+export type ClassroomBuilderPreset = "focused" | "balanced" | "rich";
+
+export const CLASSROOM_BUILDER_PRESETS: Array<{
+  id: ClassroomBuilderPreset;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "focused",
+    label: "Focused",
+    description: "Dialogue-first teaching with a few checks. Best for shorter lessons.",
+  },
+  {
+    id: "balanced",
+    label: "Balanced",
+    description: "Recommended default. A mix of teaching, examples, and light practice.",
+  },
+  {
+    id: "rich",
+    label: "Rich",
+    description: "More interaction and activity types, still capped so the class stays coherent.",
+  },
+];
+
 function flagsFromOptions(
   options: Array<{ id: string }>,
-  enabled: string[] = options.map((item) => item.id),
+  enabled: string[] = [],
 ) {
   return Object.fromEntries(options.map((item) => [item.id, enabled.includes(item.id)]));
+}
+
+export function countEnabled(flags: Record<string, boolean>) {
+  return Object.values(flags).filter(Boolean).length;
+}
+
+export function canToggleFlag(
+  flags: Record<string, boolean>,
+  id: string,
+  checked: boolean,
+  max: number,
+) {
+  if (!checked) return true;
+  if (flags[id]) return true;
+  return countEnabled(flags) < max;
+}
+
+const PRESET_SELECTIONS: Record<
+  ClassroomBuilderPreset,
+  {
+    teaching: Partial<ClassroomBuilderConfig["teaching"]>;
+    activities: string[];
+    presentation: string[];
+    studentExperience: string[];
+    formativeFrequency: AssessmentFrequency;
+    formativeAllow: string[];
+    summativeTypes: string[];
+    struggles: string[];
+    excels: string[];
+  }
+> = {
+  focused: {
+    teaching: { interactionLevel: "minimal" },
+    activities: ["trueFalse", "scenarioQuestions", "reflection"],
+    presentation: ["zoomPictures", "highlightObjects"],
+    studentExperience: [
+      "askPriorKnowledge",
+      "encourageQuestions",
+      "realWorldExamples",
+    ],
+    formativeFrequency: "rare",
+    formativeAllow: ["openQuestions", "quickChecks"],
+    summativeTypes: ["multipleChoice", "practicalScenario"],
+    struggles: ["explainAgain", "giveHint"],
+    excels: ["deeperQuestions"],
+  },
+  balanced: {
+    teaching: { interactionLevel: "moderate" },
+    activities: [
+      "multipleChoice",
+      "trueFalse",
+      "scenarioQuestions",
+      "shortAnswer",
+      "reflection",
+    ],
+    presentation: [
+      "zoomPictures",
+      "highlightObjects",
+      "drawArrows",
+      "revealBullets",
+    ],
+    studentExperience: [
+      "askPriorKnowledge",
+      "encourageQuestions",
+      "checkUnderstanding",
+      "realWorldExamples",
+      "summarizeObjectives",
+    ],
+    formativeFrequency: "moderate",
+    formativeAllow: ["openQuestions", "quickChecks", "explainOwnWords"],
+    summativeTypes: ["multipleChoice", "shortAnswer", "practicalScenario"],
+    struggles: ["explainAgain", "anotherExample", "giveHint"],
+    excels: ["deeperQuestions", "moveFaster"],
+  },
+  rich: {
+    teaching: { interactionLevel: "high" },
+    activities: [
+      "multipleChoice",
+      "multipleSelect",
+      "trueFalse",
+      "hotspots",
+      "scenarioQuestions",
+      "shortAnswer",
+    ],
+    presentation: [
+      "zoomPictures",
+      "highlightObjects",
+      "drawArrows",
+      "revealBullets",
+      "laserPointer",
+    ],
+    studentExperience: [
+      "askPriorKnowledge",
+      "encourageQuestions",
+      "checkUnderstanding",
+      "realWorldExamples",
+      "useAnalogies",
+    ],
+    formativeFrequency: "frequent",
+    formativeAllow: [
+      "openQuestions",
+      "quickChecks",
+      "explainOwnWords",
+      "confidenceChecks",
+    ],
+    summativeTypes: [
+      "multipleChoice",
+      "matching",
+      "hotspot",
+      "practicalScenario",
+    ],
+    struggles: [
+      "explainAgain",
+      "anotherExample",
+      "giveHint",
+      "startPractice",
+    ],
+    excels: ["increaseDifficulty", "deeperQuestions", "moveFaster"],
+  },
+};
+
+export function applyClassroomBuilderPreset(
+  current: ClassroomBuilderConfig,
+  preset: ClassroomBuilderPreset,
+): ClassroomBuilderConfig {
+  const selection = PRESET_SELECTIONS[preset];
+  return {
+    ...current,
+    teaching: { ...current.teaching, ...selection.teaching },
+    activities: flagsFromOptions(ACTIVITY_OPTIONS, selection.activities),
+    presentation: flagsFromOptions(PRESENTATION_OPTIONS, selection.presentation),
+    studentExperience: flagsFromOptions(
+      STUDENT_EXPERIENCE_OPTIONS,
+      selection.studentExperience,
+    ),
+    formative: {
+      frequency: selection.formativeFrequency,
+      allow: flagsFromOptions(FORMATIVE_ALLOW_OPTIONS, selection.formativeAllow),
+    },
+    summative: {
+      ...current.summative,
+      types: flagsFromOptions(SUMMATIVE_TYPE_OPTIONS, selection.summativeTypes),
+    },
+    adaptation: {
+      ifStruggles: flagsFromOptions(STRUGGLE_OPTIONS, selection.struggles),
+      ifExcels: flagsFromOptions(EXCEL_OPTIONS, selection.excels),
+    },
+  };
 }
 
 export function defaultClassroomBuilderConfig(
   overrides?: Partial<ClassroomBuilderConfig>,
 ): ClassroomBuilderConfig {
-  const base: ClassroomBuilderConfig = {
+  const skeleton: ClassroomBuilderConfig = {
     knowledge: {
       courseName: "",
       description: "",
@@ -229,31 +411,14 @@ export function defaultClassroomBuilderConfig(
     },
     teaching: {
       style: "classroom",
-      interactionLevel: "high",
+      interactionLevel: "moderate",
       personality: "encouraging",
       voice: "cedar",
       voiceSpeed: 0.96,
       accent: "neutral",
       readBulletPoints: "when-important",
     },
-    activities: flagsFromOptions(ACTIVITY_OPTIONS, [
-      "multipleChoice",
-      "multipleSelect",
-      "trueFalse",
-      "matching",
-      "dragDrop",
-      "hotspots",
-      "flashCards",
-      "fillBlank",
-      "imageIdentification",
-      "labelDiagram",
-      "sequenceSteps",
-      "scenarioQuestions",
-      "calculations",
-      "shortAnswer",
-      "reflection",
-      "discussions",
-    ]),
+    activities: flagsFromOptions(ACTIVITY_OPTIONS),
     presentation: flagsFromOptions(PRESENTATION_OPTIONS),
     studentExperience: flagsFromOptions(STUDENT_EXPERIENCE_OPTIONS),
     formative: {
@@ -279,6 +444,8 @@ export function defaultClassroomBuilderConfig(
       bookmarks: true,
     },
   };
+
+  const base = applyClassroomBuilderPreset(skeleton, "balanced");
 
   return {
     ...base,
