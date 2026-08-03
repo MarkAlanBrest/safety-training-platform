@@ -12,6 +12,9 @@ const momentKinds = new Set([
   "tiles",
   "dragdrop",
   "visual",
+  "flashcard",
+  "hotspot",
+  "tutor",
   "question",
   "scenario",
   "summary",
@@ -22,6 +25,41 @@ function validStringArray(value: unknown): value is string[] {
     Array.isArray(value) &&
     value.length <= 100 &&
     value.every((item) => typeof item === "string")
+  );
+}
+
+function validFlashcards(value: unknown) {
+  return (
+    value === null ||
+    value === undefined ||
+    (Array.isArray(value) &&
+      value.length <= 24 &&
+      value.every(
+        (item) =>
+          item &&
+          typeof item === "object" &&
+          typeof (item as Record<string, unknown>).front === "string" &&
+          typeof (item as Record<string, unknown>).back === "string",
+      ))
+  );
+}
+
+function validHotspotPoints(value: unknown) {
+  return (
+    value === null ||
+    value === undefined ||
+    (Array.isArray(value) &&
+      value.length <= 20 &&
+      value.every((item) => {
+        if (!item || typeof item !== "object") return false;
+        const point = item as Record<string, unknown>;
+        return (
+          typeof point.x === "number" &&
+          typeof point.y === "number" &&
+          typeof point.label === "string" &&
+          typeof point.text === "string"
+        );
+      }))
   );
 }
 
@@ -70,7 +108,9 @@ function validLessonPlan(value: unknown): value is LessonPlan {
       (moment.dragItems === null ||
         moment.dragItems === undefined ||
         validStringArray(moment.dragItems)) &&
-      validTiles(moment.tiles)
+      validTiles(moment.tiles) &&
+      validFlashcards(moment.flashcards) &&
+      validHotspotPoints(moment.hotspotPoints)
     );
   });
 }
