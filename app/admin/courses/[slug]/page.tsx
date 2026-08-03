@@ -812,11 +812,21 @@ export default function CourseEditorPage() {
             </section>
 
             <label className="flex items-start gap-3 rounded-2xl border border-[#10283f]/10 bg-white p-5">
-              <input name="published" type="checkbox" defaultChecked={course.published} disabled={course.sections.length === 0} className="mt-1 h-4 w-4" />
+              <input
+                name="published"
+                type="checkbox"
+                defaultChecked={course.published}
+                disabled={course.courseType !== "scorm" && course.sections.length === 0}
+                className="mt-1 h-4 w-4"
+              />
               <span>
                 <span className="block font-bold text-[#10283f]">Published and available for enrollment</span>
                 <span className="mt-1 block text-xs leading-5 text-[#6c7881]">
-                  {course.sections.length === 0 ? "Add at least one section before publishing." : "Learners with valid codes can enter this program."}
+                  {course.courseType !== "scorm" && course.sections.length === 0
+                    ? "Add at least one section before publishing."
+                    : course.courseType === "scorm"
+                      ? `The imported SCORM ${course.scormVersion || ""} package is ready for learners with valid codes.`
+                      : "Learners with valid codes can enter this program."}
                 </span>
               </span>
             </label>
