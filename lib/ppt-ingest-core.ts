@@ -15,6 +15,7 @@ export type ParsedClassroomSlide = {
   title: string;
   bodyText: string;
   speakerNotes: string;
+  bullets: string[];
   image: ParsedSlideImage | null;
 };
 
@@ -246,7 +247,44 @@ function mergeUniqueText(...parts: Array<string | undefined | null>) {
   return merged.join(" ").replace(/\s+/g, " ").trim();
 }
 
-function deriveTitle(bodyText: string, speakerNotes: string, index: number) {
+export function extractParagraphs(xml: string) {
+  const paragraphs = [...xml.matchAll(/<a:p\b[^>]*>([\s\S]*?)<\/a:p>/g)]
+    .map((match) => {
+      const chunks = [
+        ...match[1].matchAll(/<(?:\w+:)?t(?:\s[^>]*)?>([\s\S]*?)<\/(?:\w+:)?t>/g),
+      ]
+        .map((part) => decodeXml(part[1].replace(/<[^>]+>/g, "")).trim())
+        .filter(Boolean);
+      return chunks.join(" ").trim();
+    })
+    .filter(Boolean);
+  return [...new Set(paragraphs)];
+}
+
+function bulletsFromParagraphs(paragraphs: string[], title: string, bodyText: string) {
+  if (paragraphs.length > 1) {
+    const [first, ...rest] = paragraphs;
+    const titleMatchesFirst =
+      first.toLowerCase() === title.toLowerCase() || title.startsWith(first.slice(0, 40));
+    return titleMatchesFirst ? rest.slice(0, 6) : paragraphs.slice(0, 6);
+  }
+
+  return bodyText
+    .replace(title, "")
+    .split(/(?:•|;|\n|(?<=[.!?])\s+)/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 8)
+    .slice(0, 6);
+}
+
+function deriveTitle(
+  bodyText: string,
+  speakerNotes: string,
+  index: number,
+  paragraphs: string[],
+) {
+  const fromParagraph = paragraphs[0]?.slice(0, 80).trim();
+  if (fromParagraph) return fromParagraph;
   const fromBody = bodyText.split(/[.!?]/)[0]?.trim().slice(0, 80);
   if (fromBody) return fromBody;
   const fromNotes = speakerNotes.split(/[.!?]/)[0]?.trim().slice(0, 80);
@@ -346,6 +384,7 @@ export function parsePptxBuffer(
   return slideEntries.map(([path, content], index) => {
     const xml = new TextDecoder().decode(content);
     const rels = relationshipsFor(path);
+    const paragraphs = extractParagraphs(xml);
     const slideText = extractText(xml);
     const diagramText = extractDiagramText(rels, path, unpacked);
     const layoutText = slideText ? "" : extractLayoutText(rels, path, unpacked);
@@ -363,13 +402,15 @@ export function parsePptxBuffer(
       relationshipsFor,
     );
     const bodyText = mergeUniqueText(slideText, diagramText, layoutText);
-    const title = deriveTitle(bodyText, speakerNotes, index);
+    const title = deriveTitle(bodyText, speakerNotes, index, paragraphs);
+    const bullets = bulletsFromParagraphs(paragraphs, title, bodyText);
 
     return {
       index,
       title,
       bodyText: deriveBodyText(bodyText, speakerNotes, Boolean(image), index),
       speakerNotes,
+      bullets,
       image,
     };
   });
