@@ -14,15 +14,17 @@ export default function ReadingSlide({
   narration,
   variant = "learn",
   compact = false,
+  eyebrow,
 }: {
   title: string;
   narration: string;
   variant?: "learn" | "summary";
   compact?: boolean;
+  eyebrow?: string;
 }) {
   const parts = paragraphs(narration);
-  const eyebrow =
-    variant === "summary" ? "Key takeaway" : "Learn";
+  const resolvedEyebrow =
+    eyebrow ?? (variant === "summary" ? "Key takeaway" : "Learn");
 
   if (variant === "summary") {
     return (
@@ -32,7 +34,7 @@ export default function ReadingSlide({
         <div className="h-1.5 bg-gradient-to-r from-[var(--accent)] to-[var(--dark)]" />
         <div className={`${compact ? "px-6 py-8 sm:px-10" : "px-7 py-9 sm:px-12 sm:py-11"}`}>
           <p className="text-xs font-black uppercase tracking-[.22em] text-[var(--accent)]">
-            {eyebrow}
+            {resolvedEyebrow}
           </p>
           <h2
             className={`mt-3 font-bold tracking-tight text-[var(--ink)] ${
@@ -66,7 +68,7 @@ export default function ReadingSlide({
         <div className="h-1 bg-gradient-to-r from-[var(--accent)] via-[var(--accent)]/60 to-transparent" />
         <div className={`${compact ? "px-6 py-8 sm:px-10" : "px-7 py-9 sm:px-10 sm:py-11"}`}>
           <p className="text-xs font-black uppercase tracking-[.22em] text-[var(--accent)]">
-            {eyebrow}
+            {resolvedEyebrow}
           </p>
           <h2
             className={`mt-3 font-bold tracking-tight text-[var(--ink)] ${
