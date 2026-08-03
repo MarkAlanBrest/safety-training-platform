@@ -1,34 +1,57 @@
-import type { ClassroomPlan } from "@/lib/classroom";
+import type { ClassroomPlan, ClassroomSlide, ClassroomTopic } from "@/lib/classroom";
 import type { ClassroomBuilderConfig } from "@/lib/classroom-builder";
-import { buildClassroomPlanFromSlides, parsePptx } from "@/lib/ppt-ingest";
+import type { ParsedClassroomSlide } from "@/lib/ppt-ingest";
+import { extractResponseOutputText } from "@/lib/parse-response";
 
-export async function generateClassroomPlanFromPptx(
-  buffer: Uint8Array,
+export function buildClassroomPlanFromSlides(
+  slides: ClassroomSlide[],
   title: string,
   config?: ClassroomBuilderConfig,
-): Promise<ClassroomPlan> {
-  const slides = parsePptx(buffer);
-  const plan = buildClassroomPlanFromSlides(slides, title);
-  const objectives =
-    config?.knowledge.objectives.filter(Boolean) || plan.objectives;
+): ClassroomPlan {
+  const topics: ClassroomTopic[] = slides.map((slide, index) => ({
+    id: `topic-${index + 1}`,
+    title: slide.title,
+    slideStart: index,
+    slideEnd: index,
+  }));
 
-  const basePlan: ClassroomPlan = {
-    ...plan,
-    title: config?.knowledge.courseName || plan.title,
-    opening: config?.knowledge.description || plan.opening,
-    objectives: objectives.length ? objectives : plan.objectives,
+  const objectives =
+    config?.knowledge.objectives.filter(Boolean) ||
+    slides
+      .map((slide) => slide.title)
+      .filter(Boolean)
+      .slice(0, 5);
+
+  return {
+    type: "classroom",
+    title: config?.knowledge.courseName || title,
+    opening:
+      config?.knowledge.description ||
+      "Welcome to class. I will teach from your uploaded slides, ask what you already know, and keep the conversation going like a real instructor.",
+    objectives: objectives.length ? objectives : ["Understand the lesson material"],
+    topics,
+    slides,
     config,
   };
+}
 
+async function enrichPlanWithAi(
+  plan: ClassroomPlan,
+  parsedSlides: ParsedClassroomSlide[],
+  title: string,
+) {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return basePlan;
+  if (!apiKey) return plan;
 
-  const slideDigest = slides
+  const slideDigest = parsedSlides
     .map(
       (slide) =>
         `Slide ${slide.index + 1}: ${slide.title}\nText: ${slide.bodyText}\nNotes: ${slide.speakerNotes || "(none)"}`,
     )
     .join("\n\n");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
 
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -37,6 +60,7 @@ export async function generateClassroomPlanFromPptx(
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
+      signal: controller.signal,
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-5.6-sol",
         instructions:
@@ -90,21 +114,33 @@ export async function generateClassroomPlanFromPptx(
     });
 
     const data = await response.json();
-    if (!response.ok) return basePlan;
+    if (!response.ok) return plan;
 
-    const parsed = JSON.parse(data.output_text || "{}") as {
+    const parsed = JSON.parse(extractResponseOutputText(data) || "{}") as {
       opening?: string;
       objectives?: string[];
       topics?: ClassroomPlan["topics"];
     };
 
     return {
-      ...basePlan,
-      opening: parsed.opening?.trim() || basePlan.opening,
-      objectives: parsed.objectives?.length ? parsed.objectives : basePlan.objectives,
-      topics: parsed.topics?.length ? parsed.topics : basePlan.topics,
+      ...plan,
+      opening: parsed.opening?.trim() || plan.opening,
+      objectives: parsed.objectives?.length ? parsed.objectives : plan.objectives,
+      topics: parsed.topics?.length ? parsed.topics : plan.topics,
     };
   } catch {
-    return basePlan;
+    return plan;
+  } finally {
+    clearTimeout(timeout);
   }
+}
+
+export async function generateClassroomPlan(
+  parsedSlides: ParsedClassroomSlide[],
+  slides: ClassroomSlide[],
+  title: string,
+  config?: ClassroomBuilderConfig,
+): Promise<ClassroomPlan> {
+  const basePlan = buildClassroomPlanFromSlides(slides, title, config);
+  return enrichPlanWithAi(basePlan, parsedSlides, title);
 }

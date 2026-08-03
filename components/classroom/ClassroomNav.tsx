@@ -2,6 +2,7 @@
 
 import { Check, GraduationCap } from "lucide-react";
 import type { ClassroomPlan, ClassroomTopic } from "@/lib/classroom";
+import { slideImageSrc } from "@/lib/classroom";
 
 export default function ClassroomNav({
   plan,
@@ -95,7 +96,7 @@ export default function ClassroomNav({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={slide.imageDataUrl}
+                src={slideImageSrc(slide)}
                 alt={slide.title}
                 className="aspect-video w-full object-cover"
               />
