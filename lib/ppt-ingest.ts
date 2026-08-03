@@ -1,8 +1,22 @@
 import { unzipSync } from "fflate";
-import type { ClassroomPlan, ClassroomSlide, ClassroomTopic } from "@/lib/classroom";
+import type { ClassroomSlide } from "@/lib/classroom";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_SLIDES = 60;
+const MAX_IMAGE_BYTES = 350 * 1024;
+
+export type ParsedSlideImage = {
+  bytes: Uint8Array;
+  mimeType: string;
+};
+
+export type ParsedClassroomSlide = {
+  index: number;
+  title: string;
+  bodyText: string;
+  speakerNotes: string;
+  image: ParsedSlideImage | null;
+};
 
 function decodeXml(value: string) {
   return value
@@ -35,28 +49,23 @@ function mimeForPath(filePath: string) {
   return "application/octet-stream";
 }
 
-function toDataUrl(bytes: Uint8Array, mimeType: string) {
-  const base64 = Buffer.from(bytes).toString("base64");
-  return `data:${mimeType};base64,${base64}`;
-}
-
 function slideNumber(path: string) {
   const match = path.match(/slide(\d+)\.xml$/i);
   return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
 }
 
-function placeholderSlide(title: string, subtitle: string, index: number): string {
+export function placeholderSlideDataUrl(title: string, subtitle: string, index: number) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
     <rect width="960" height="540" fill="#f8fafc"/>
     <rect x="48" y="48" width="864" height="444" rx="24" fill="#ffffff" stroke="#cbd5e1"/>
-    <text x="88" y="130" fill="#0f172a" font-family="Arial,sans-serif" font-size="34" font-weight="700">${title}</text>
-    <text x="88" y="190" fill="#475569" font-family="Arial,sans-serif" font-size="22">${subtitle}</text>
+    <text x="88" y="130" fill="#0f172a" font-family="Arial,sans-serif" font-size="34" font-weight="700">${title.replace(/[<>&"]/g, "")}</text>
+    <text x="88" y="190" fill="#475569" font-family="Arial,sans-serif" font-size="22">${subtitle.replace(/[<>&"]/g, "")}</text>
     <text x="88" y="450" fill="#94a3b8" font-family="Arial,sans-serif" font-size="18">Slide ${index + 1}</text>
   </svg>`;
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }
 
-export function parsePptx(buffer: Uint8Array): ClassroomSlide[] {
+export function parsePptx(buffer: Uint8Array): ParsedClassroomSlide[] {
   if (buffer.byteLength > MAX_FILE_BYTES) {
     throw new Error("PowerPoint files are limited to 25 MB.");
   }
@@ -94,12 +103,7 @@ export function parsePptx(buffer: Uint8Array): ClassroomSlide[] {
       ? extractNotes(new TextDecoder().decode(unpacked[notesPath]))
       : "";
 
-    let imageDataUrl = placeholderSlide(
-      bodyText.slice(0, 72) || `Slide ${index + 1}`,
-      "Imported from PowerPoint",
-      index,
-    );
-
+    let image: ParsedSlideImage | null = null;
     const rels = relationshipsFor(path);
     const imageRel = Object.values(rels).find((target) =>
       /\.(png|jpe?g|gif|webp|svg)$/i.test(target),
@@ -109,8 +113,11 @@ export function parsePptx(buffer: Uint8Array): ClassroomSlide[] {
         ? `ppt/${imageRel.replace(/^\.\.\//, "")}`
         : imageRel;
       const media = unpacked[mediaPath];
-      if (media) {
-        imageDataUrl = toDataUrl(media, mimeForPath(mediaPath));
+      if (media && media.byteLength <= MAX_IMAGE_BYTES) {
+        image = {
+          bytes: media,
+          mimeType: mimeForPath(mediaPath),
+        };
       }
     }
 
@@ -122,32 +129,27 @@ export function parsePptx(buffer: Uint8Array): ClassroomSlide[] {
       title,
       bodyText: bodyText || `Content from slide ${index + 1}.`,
       speakerNotes,
-      imageDataUrl,
+      image,
     };
   });
 }
 
-export function buildClassroomPlanFromSlides(
-  slides: ClassroomSlide[],
-  title: string,
-): ClassroomPlan {
-  const topics: ClassroomTopic[] = slides.map((slide, index) => ({
-    id: `topic-${index + 1}`,
+export function slidesForClassroomPlan(
+  parsedSlides: ParsedClassroomSlide[],
+  courseSlug: string,
+): ClassroomSlide[] {
+  return parsedSlides.map((slide) => ({
+    index: slide.index,
     title: slide.title,
-    slideStart: index,
-    slideEnd: index,
+    bodyText: slide.bodyText,
+    speakerNotes: slide.speakerNotes,
+    imageUrl: slide.image ? `/api/classroom/${courseSlug}/slides/${slide.index}` : undefined,
+    imageDataUrl: slide.image
+      ? undefined
+      : placeholderSlideDataUrl(
+          slide.title.slice(0, 72),
+          "Imported from PowerPoint",
+          slide.index,
+        ),
   }));
-
-  return {
-    type: "classroom",
-    title,
-    opening:
-      "Welcome to class. I will teach from your uploaded slides, ask what you already know, and keep the conversation going like a real instructor.",
-    objectives: slides
-      .map((slide) => slide.title)
-      .filter(Boolean)
-      .slice(0, 5),
-    topics,
-    slides,
-  };
 }

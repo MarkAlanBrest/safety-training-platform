@@ -27,6 +27,11 @@ export async function parseJsonResponse<T>(response: Response): Promise<T> {
   try {
     return JSON.parse(text) as T;
   } catch {
-    throw new Error("The server returned an invalid response.");
+    const preview = text.replace(/\s+/g, " ").slice(0, 180);
+    throw new Error(
+      response.ok
+        ? "The server returned an invalid response."
+        : `Upload failed (${response.status}): ${preview || "No details returned."}`,
+    );
   }
 }

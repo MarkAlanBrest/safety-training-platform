@@ -2,6 +2,7 @@
 
 import { Lightbulb, MessageCircleQuestion, Presentation } from "lucide-react";
 import type { ClassroomPlan, PresentationView } from "@/lib/classroom";
+import { slideImageSrc } from "@/lib/classroom";
 
 export default function PresentationArea({
   plan,
@@ -40,9 +41,9 @@ export default function PresentationArea({
   const imageUrl =
     safeView.type === "example" && safeView.imageDataUrl
       ? safeView.imageDataUrl
-      : safeView.type === "slide"
-        ? slide?.imageDataUrl
-        : slide?.imageDataUrl;
+      : slide
+        ? slideImageSrc(slide)
+        : "";
 
   const eyebrow =
     safeView.type === "question"

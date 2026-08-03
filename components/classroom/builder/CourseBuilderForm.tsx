@@ -164,6 +164,12 @@ export default function CourseBuilderForm() {
   async function onSubmit(event: FormEvent, mode: SubmitMode) {
     event.preventDefault();
     if (!file || !config.knowledge.courseName.trim()) return;
+    if (file.size > 4 * 1024 * 1024) {
+      setError(
+        "This file is too large (max 4 MB). Compress images in PowerPoint or split the deck.",
+      );
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
@@ -199,7 +205,10 @@ export default function CourseBuilderForm() {
   return (
     <form className="space-y-6">
       <BuilderSection number={1} title="Knowledge Package">
-        <BuilderField label="Upload PowerPoint (.pptx)">
+        <BuilderField
+          label="Upload PowerPoint (.pptx)"
+          hint="Maximum file size: 4 MB. Compress images in PowerPoint if your deck is larger."
+        >
           <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-[#faf8f3] px-5 py-8 text-center">
             <UploadCloud className="mx-auto text-[#a06e16]" size={28} />
             <input

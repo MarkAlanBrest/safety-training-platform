@@ -5,7 +5,8 @@ export type ClassroomSlide = {
   title: string;
   bodyText: string;
   speakerNotes: string;
-  imageDataUrl: string;
+  imageDataUrl?: string;
+  imageUrl?: string;
 };
 
 export type ClassroomTopic = {
@@ -177,6 +178,14 @@ export const demoClassroomCourse: PublicClassroomCourse = {
     slides: demoSlides,
   },
 };
+
+export function slideImageSrc(slide: ClassroomSlide) {
+  return slide.imageUrl || slide.imageDataUrl || "";
+}
+
+export function classroomSlideAssetPath(index: number) {
+  return `classroom/slides/${index}`;
+}
 
 export function isClassroomPlan(value: unknown): value is ClassroomPlan {
   return (
