@@ -1,5 +1,10 @@
 import type { ClassroomPlan, ClassroomSlide, ClassroomTopic } from "@/lib/classroom";
 import type { ClassroomBuilderConfig } from "@/lib/classroom-builder";
+import {
+  buildFallbackAssessment,
+  buildFallbackCheckpoints,
+  buildLessonBeats,
+} from "@/lib/classroom-lesson";
 import type { ParsedClassroomSlide } from "@/lib/ppt-ingest";
 import { extractResponseOutputText } from "@/lib/parse-response";
 
@@ -22,7 +27,9 @@ export function buildClassroomPlanFromSlides(
       .filter(Boolean)
       .slice(0, 5);
 
-  return {
+  const checkpoints = buildFallbackCheckpoints(slides, config);
+  const assessment = buildFallbackAssessment(slides, config);
+  const plan: ClassroomPlan = {
     type: "classroom",
     title: config?.knowledge.courseName || title,
     opening:
@@ -31,8 +38,12 @@ export function buildClassroomPlanFromSlides(
     objectives: objectives.length ? objectives : ["Understand the lesson material"],
     topics,
     slides,
+    checkpoints,
+    assessment,
     config,
   };
+  plan.lessonBeats = buildLessonBeats(plan);
+  return plan;
 }
 
 async function enrichPlanWithAi(

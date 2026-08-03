@@ -289,10 +289,17 @@ export default function CourseBuilderForm() {
                     Preparing slides in your browser…
                   </p>
                 ) : parsedSlides ? (
-                  <p className="text-emerald-700">
-                    Ready — {parsedSlides.length} slide
-                    {parsedSlides.length === 1 ? "" : "s"} prepared for upload.
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-emerald-700">
+                      Ready — {parsedSlides.length} slide
+                      {parsedSlides.length === 1 ? "" : "s"} prepared for upload.
+                    </p>
+                    <p className="text-xs text-[#69757e]">
+                      {parsedSlides.filter((slide) => slide.image).length} of{" "}
+                      {parsedSlides.length} slides include extracted images. Checkpoints and a
+                      final assessment will be added automatically.
+                    </p>
+                  </div>
                 ) : null}
               </div>
             ) : null}

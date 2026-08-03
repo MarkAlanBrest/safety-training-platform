@@ -568,6 +568,7 @@ export function classroomInstructorPrompt(config: ClassroomBuilderConfig) {
     `Presentation tools available: ${enabledLabels(config.presentation, PRESENTATION_OPTIONS).join(", ") || "slides only"}.`,
     `Student experience priorities: ${enabledLabels(config.studentExperience, STUDENT_EXPERIENCE_OPTIONS).join(", ")}.`,
     `Formative assessment frequency: ${config.formative.frequency}. Allowed checks: ${enabledLabels(config.formative.allow, FORMATIVE_ALLOW_OPTIONS).join(", ")}.`,
+    `Summative assessment types: ${enabledLabels(config.summative.types, SUMMATIVE_TYPE_OPTIONS).join(", ") || "none"}. Passing score: ${config.summative.passingScore}%. Retakes: ${config.summative.retakeRule}.`,
     `If the student struggles: ${enabledLabels(config.adaptation.ifStruggles, STRUGGLE_OPTIONS).join(", ")}.`,
     `If the student excels: ${enabledLabels(config.adaptation.ifExcels, EXCEL_OPTIONS).join(", ")}.`,
     `Conversation mode: ${config.settings.conversationMode}.`,
