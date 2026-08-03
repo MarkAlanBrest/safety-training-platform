@@ -92,7 +92,7 @@ export default function PresentationArea({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-5 lg:p-6">
+      <div className="flex min-h-0 flex-1 overflow-hidden p-5 lg:p-6">
         <div className="flex min-h-0 flex-1 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,.08)]">
           {safeView.type === "welcome" ? (
             <div className="flex h-full w-full flex-col justify-center bg-gradient-to-br from-[#0f2b46] to-[#163a5d] p-10 text-white">
@@ -114,7 +114,7 @@ export default function PresentationArea({
           ) : safeView.type === "question" ||
             safeView.type === "exercise" ||
             safeView.type === "assessment" ? (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-amber-50 via-white to-slate-50 px-8">
+            <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-amber-50 via-white to-slate-50 px-8 py-10">
               <div className="max-w-2xl text-center">
                 <p className="text-sm font-bold uppercase tracking-[.16em] text-amber-600">
                   {safeView.type === "assessment" ? "Final assessment" : "Interactive checkpoint"}
@@ -129,60 +129,29 @@ export default function PresentationArea({
                     Question {safeView.questionIndex + 1} of {safeView.questionCount}
                   </p>
                 ) : null}
+                {safeView.choices?.length ? (
+                  <div className="mt-8 flex flex-wrap justify-center gap-2">
+                    {safeView.choices.map((choice) => (
+                      <button
+                        key={choice}
+                        type="button"
+                        onClick={() => onSelectChoice?.(choice)}
+                        className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-amber-300 hover:bg-amber-50"
+                      >
+                        {choice}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
-          ) : null}
-        </div>
-
-        <div className="shrink-0 overflow-hidden rounded-3xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
-          {safeView.type === "welcome" && (
-            <p className="line-clamp-3 text-base leading-7 text-slate-700">{safeView.body}</p>
-          )}
-
-          {safeView.type === "slide" && structuredSlide && !useImageStage ? (
-            <div className="space-y-2">
-              {structuredSlide.bullets.slice(0, 3).map((bullet) => (
-                <p key={bullet} className="text-sm leading-6 text-slate-700">
-                  {bullet}
-                </p>
-              ))}
+          ) : safeView.type === "example" ? (
+            <div className="flex h-full w-full items-center justify-center px-10">
+              <p className="max-w-3xl text-center text-lg leading-8 text-slate-700">
+                {safeView.body}
+              </p>
             </div>
           ) : null}
-
-          {safeView.type === "slide" && slide?.speakerNotes ? (
-            <p className="text-sm leading-6 text-slate-500">
-              <span className="font-semibold text-slate-700">Instructor note:</span>{" "}
-              {slide.speakerNotes}
-            </p>
-          ) : null}
-
-          {(safeView.type === "question" ||
-            safeView.type === "exercise" ||
-            safeView.type === "assessment") && (
-            <>
-              <p className="line-clamp-3 text-base font-semibold leading-7 text-slate-900">
-                {safeView.prompt}
-              </p>
-              {safeView.choices?.length ? (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {safeView.choices.map((choice) => (
-                    <button
-                      key={choice}
-                      type="button"
-                      onClick={() => onSelectChoice?.(choice)}
-                      className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-amber-300 hover:bg-amber-50"
-                    >
-                      {choice}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </>
-          )}
-
-          {safeView.type === "example" && (
-            <p className="line-clamp-4 text-base leading-7 text-slate-700">{safeView.body}</p>
-          )}
         </div>
       </div>
     </section>
