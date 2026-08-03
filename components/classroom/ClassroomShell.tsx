@@ -8,6 +8,7 @@ import type {
 } from "@/lib/classroom";
 import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
 import {
+  beatIndexForSlide,
   buildLessonBeats,
   presentationForBeat,
   type ClassroomLessonBeat,
@@ -23,12 +24,19 @@ type ChatApiResponse = {
   error?: string;
 };
 
-function topicForSlide(plan: ClassroomPlan, slideIndex: number) {
-  return (
-    plan.topics.find(
-      (topic) => slideIndex >= topic.slideStart && slideIndex <= topic.slideEnd,
-    ) || plan.topics[0]
-  );
+function pinSlidePresentation(
+  plan: ClassroomPlan,
+  presentation: PresentationView | undefined,
+  slideIndex: number,
+): PresentationView | undefined {
+  if (!presentation || presentation.type !== "slide") return presentation;
+  const slide = plan.slides[slideIndex];
+  if (!slide) return presentation;
+  return {
+    ...presentation,
+    slideIndex,
+    headline: presentation.headline || slide.title,
+  };
 }
 
 export default function ClassroomShell({
@@ -60,7 +68,7 @@ export default function ClassroomShell({
   const [speaking, setSpeaking] = useState(false);
   const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
-  const [completedTopicIds, setCompletedTopicIds] = useState<string[]>([]);
+  const [taughtSlideIndices, setTaughtSlideIndices] = useState<number[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [beatIndex, setBeatIndex] = useState(0);
   const [assessmentQuestionIndex, setAssessmentQuestionIndex] = useState(0);
@@ -77,10 +85,11 @@ export default function ClassroomShell({
   const speakQueueRef = useRef<Promise<void>>(Promise.resolve());
   const speakRef = useRef<(text: string) => Promise<void>>(async () => undefined);
 
-  const activeTopic = useMemo(
-    () => topicForSlide(plan, currentSlideIndex),
-    [plan, currentSlideIndex],
-  );
+  function markSlideTaught(slideIndex: number) {
+    setTaughtSlideIndices((current) =>
+      current.includes(slideIndex) ? current : [...current, slideIndex],
+    );
+  }
 
   const unlockAudio = useCallback(() => {
     audioUnlockedRef.current = true;
@@ -180,6 +189,7 @@ export default function ClassroomShell({
     setPresentation(view);
     if (view.type === "slide") {
       setCurrentSlideIndex(view.slideIndex);
+      markSlideTaught(view.slideIndex);
     }
     if (
       view.type === "question" ||
@@ -213,13 +223,16 @@ export default function ClassroomShell({
         data.error ||
         "Let's keep going. Tell me what you're thinking so far.";
 
+      const pinnedPresentation = pinSlidePresentation(
+        plan,
+        data.presentation,
+        options?.slideIndex ?? currentSlideIndex,
+      );
+
       setMessages([...nextMessages, { role: "assistant", content: reply }]);
-      if (data.presentation) setPresentation(data.presentation);
-      if (
-        data.presentation?.type === "slide" &&
-        typeof data.presentation.slideIndex === "number"
-      ) {
-        setCurrentSlideIndex(data.presentation.slideIndex);
+      if (pinnedPresentation) setPresentation(pinnedPresentation);
+      if (pinnedPresentation?.type === "slide") {
+        setCurrentSlideIndex(pinnedPresentation.slideIndex);
       }
       if (data.quickReplies?.length) {
         setQuickReplies(data.quickReplies);
@@ -364,45 +377,38 @@ export default function ClassroomShell({
     await handleSend(choice);
   }
 
-  function handleSelectTopic(topic: (typeof plan.topics)[number]) {
+  function goToSlide(slideIndex: number) {
+    if (slideIndex < 0 || slideIndex >= plan.slides.length) return;
     unlockAudio();
-    setCurrentSlideIndex(topic.slideStart);
-    setPresentation({
+
+    const nextBeatIndex = beatIndexForSlide(lessonBeats, slideIndex);
+    if (nextBeatIndex >= 0) {
+      setBeatIndex(nextBeatIndex);
+    }
+
+    const slide = plan.slides[slideIndex];
+    const view: PresentationView = {
       type: "slide",
-      slideIndex: topic.slideStart,
-      headline: plan.slides[topic.slideStart]?.title,
-    });
+      slideIndex,
+      headline: slide?.title,
+    };
+    setCurrentSlideIndex(slideIndex);
+    setPresentation(view);
+
     void sendToTeacher(
       [
         ...messages,
         {
           role: "user",
-          content: `Let's jump to "${topic.title}".`,
+          content: `Let's look at slide ${slideIndex + 1}: ${slide?.title}.`,
         },
       ],
       {
-        slideIndex: topic.slideStart,
-        presentation: {
-          type: "slide",
-          slideIndex: topic.slideStart,
-          headline: plan.slides[topic.slideStart]?.title,
-        },
+        slideIndex,
+        presentation: view,
       },
     );
   }
-
-  function markTopicComplete(topicId: string) {
-    setCompletedTopicIds((current) =>
-      current.includes(topicId) ? current : [...current, topicId],
-    );
-  }
-
-  useEffect(() => {
-    if (!activeTopic) return;
-    if (presentation.type === "slide" && presentation.slideIndex >= activeTopic.slideEnd) {
-      markTopicComplete(activeTopic.id);
-    }
-  }, [presentation, activeTopic]);
 
   return (
     <main className="h-screen overflow-hidden bg-white text-slate-900">
@@ -410,15 +416,17 @@ export default function ClassroomShell({
         <div className="hidden min-h-0 overflow-hidden lg:block">
           <ClassroomNav
             plan={plan}
-            activeTopicId={activeTopic?.id || null}
-            completedTopicIds={completedTopicIds}
-            onSelectTopic={handleSelectTopic}
+            activeSlideIndex={currentSlideIndex}
+            taughtSlideIndices={taughtSlideIndices}
+            onSelectSlide={goToSlide}
           />
         </div>
 
         <PresentationArea
           plan={plan}
           view={presentation}
+          activeSlideIndex={currentSlideIndex}
+          onGoToSlide={goToSlide}
           onSelectChoice={(choice) => void handleSelectChoice(choice)}
         />
 

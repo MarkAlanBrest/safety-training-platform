@@ -122,6 +122,32 @@ function collectImageTargets(xml: string, rels: Record<string, string>) {
   return [...targets];
 }
 
+function extractImagesFromSlideXml(
+  xml: string,
+  rels: Record<string, string>,
+  slidePath: string,
+  unpacked: Record<string, Uint8Array>,
+  maxImageBytes: number | undefined,
+): ParsedSlideImage[] {
+  const images: ParsedSlideImage[] = [];
+  const seenPaths = new Set<string>();
+
+  for (const target of collectImageTargets(xml, rels)) {
+    const mediaPath = resolveMediaPath(target, slidePath);
+    if (seenPaths.has(mediaPath)) continue;
+    seenPaths.add(mediaPath);
+    const media = unpacked[mediaPath];
+    if (!media) continue;
+    if (maxImageBytes && media.byteLength > maxImageBytes) continue;
+    images.push({
+      bytes: media,
+      mimeType: mimeForPath(mediaPath),
+    });
+  }
+
+  return images;
+}
+
 function extractImagesFromRelatedParts(
   xml: string,
   rels: Record<string, string>,
@@ -179,6 +205,13 @@ function extractImagesFromRelatedParts(
   return images;
 }
 
+function pickBestSlideImage(images: ParsedSlideImage[]) {
+  if (!images.length) return null;
+  const sorted = [...images].sort((a, b) => b.bytes.byteLength - a.bytes.byteLength);
+  const meaningful = sorted.find((image) => image.bytes.byteLength >= 4 * 1024);
+  return meaningful || sorted[0];
+}
+
 function extractSlideImage(
   xml: string,
   rels: Record<string, string>,
@@ -187,7 +220,17 @@ function extractSlideImage(
   maxImageBytes: number | undefined,
   getRelationships: (path: string) => Record<string, string>,
 ): ParsedSlideImage | null {
-  const images = extractImagesFromRelatedParts(
+  const slideImages = extractImagesFromSlideXml(
+    xml,
+    rels,
+    slidePath,
+    unpacked,
+    maxImageBytes,
+  );
+  const slidePick = pickBestSlideImage(slideImages);
+  if (slidePick) return slidePick;
+
+  const fallbackImages = extractImagesFromRelatedParts(
     xml,
     rels,
     slidePath,
@@ -195,8 +238,7 @@ function extractSlideImage(
     maxImageBytes,
     getRelationships,
   );
-  if (!images.length) return null;
-  return images.sort((a, b) => b.bytes.byteLength - a.bytes.byteLength)[0];
+  return pickBestSlideImage(fallbackImages);
 }
 
 function extractDiagramText(

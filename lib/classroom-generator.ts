@@ -193,7 +193,7 @@ async function enrichPlanWithAi(
       ...plan,
       opening: parsed.opening?.trim() || plan.opening,
       objectives: parsed.objectives?.length ? parsed.objectives : plan.objectives,
-      topics: parsed.topics?.length ? parsed.topics : plan.topics,
+      topics: plan.topics,
       slides: enhancedSlides,
     };
     enrichedPlan.lessonBeats = buildLessonBeats(enrichedPlan);
