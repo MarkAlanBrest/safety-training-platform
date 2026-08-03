@@ -1,0 +1,186 @@
+export const runtime = "nodejs";
+
+import { prisma } from "@/lib/prisma";
+import {
+  classroomPlanForSlug,
+  isClassroomPlan,
+  type ClassroomPlan,
+  type PresentationView,
+} from "@/lib/classroom";
+
+type ChatMessage = { role: "user" | "assistant"; content: string };
+
+async function resolvePlan(
+  courseSlug: string,
+  sectionId?: number,
+): Promise<ClassroomPlan | null> {
+  const staticPlan = classroomPlanForSlug(courseSlug);
+  if (staticPlan) return staticPlan;
+
+  if (!Number.isInteger(sectionId)) {
+    const course = await prisma.masonCourse.findUnique({
+      where: { slug: courseSlug, courseType: "classroom" },
+      include: {
+        sections: {
+          orderBy: { position: "asc" },
+          take: 1,
+          select: { lessonPlan: true },
+        },
+      },
+    });
+    const plan = course?.sections[0]?.lessonPlan;
+    return isClassroomPlan(plan) ? plan : null;
+  }
+
+  const section = await prisma.masonSection.findUnique({
+    where: { id: sectionId },
+    select: { lessonPlan: true },
+  });
+  return isClassroomPlan(section?.lessonPlan) ? section.lessonPlan : null;
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const courseSlug =
+      typeof body.courseSlug === "string" ? body.courseSlug : undefined;
+    const sectionId = Number(body.sectionId);
+    const slideIndex = Number.isInteger(body.slideIndex) ? body.slideIndex : 0;
+    const presentation = body.presentation as PresentationView | undefined;
+    const messages = (Array.isArray(body.messages) ? body.messages : [])
+      .filter(
+        (item: ChatMessage) =>
+          (item.role === "user" || item.role === "assistant") &&
+          typeof item.content === "string",
+      )
+      .slice(-12) as ChatMessage[];
+
+    if (!courseSlug || !messages.length) {
+      return Response.json({ error: "A message is required." }, { status: 400 });
+    }
+
+    const plan = await resolvePlan(
+      courseSlug,
+      Number.isInteger(sectionId) ? sectionId : undefined,
+    );
+    if (!plan) {
+      return Response.json({ error: "Classroom lesson not found." }, { status: 404 });
+    }
+
+    const slide = plan.slides[slideIndex] || plan.slides[0];
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return Response.json({
+        reply:
+          "I'm ready to teach once the OpenAI API key is connected. You can still browse the slides while we set that up.",
+        presentation: {
+          type: "slide",
+          slideIndex: slide.index,
+          headline: slide.title,
+        },
+        quickReplies: [
+          "That makes sense",
+          "Could you rephrase that?",
+          "Raise your hand",
+        ],
+      });
+    }
+
+    const source = [
+      `Course: ${plan.title}`,
+      `Opening: ${plan.opening}`,
+      `Objectives:\n- ${plan.objectives.join("\n- ")}`,
+      `Current slide (${slide.index + 1}/${plan.slides.length}): ${slide.title}`,
+      `Slide text: ${slide.bodyText}`,
+      `Speaker notes: ${slide.speakerNotes || "(none)"}`,
+      `Presentation mode: ${presentation?.type || "welcome"}`,
+    ].join("\n\n");
+
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || "gpt-5.6-sol",
+        instructions:
+          "You are a real classroom instructor, not a chatbot reading slides. Teach through dialogue: ask what the learner knows, respond to their ideas, give short explanations, show examples, and check understanding. Keep replies concise (2-4 sentences) and conversational. When useful, ask one thoughtful question. Ground answers in the supplied slide knowledge. Return JSON only.",
+        text: {
+          format: {
+            type: "json_schema",
+            name: "classroom_teacher_turn",
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              required: ["reply", "presentation", "quickReplies"],
+              properties: {
+                reply: { type: "string" },
+                presentation: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["type"],
+                  properties: {
+                    type: {
+                      type: "string",
+                      enum: ["slide", "question", "exercise", "example", "welcome"],
+                    },
+                    slideIndex: { type: ["integer", "null"], minimum: 0 },
+                    headline: { type: ["string", "null"] },
+                    prompt: { type: ["string", "null"] },
+                    body: { type: ["string", "null"] },
+                    choices: {
+                      type: ["array", "null"],
+                      items: { type: "string" },
+                    },
+                  },
+                },
+                quickReplies: {
+                  type: "array",
+                  items: { type: "string" },
+                  minItems: 3,
+                  maxItems: 6,
+                },
+              },
+            },
+          },
+        },
+        input: [
+          { role: "developer", content: source },
+          ...messages.map((message) => ({
+            role: message.role,
+            content: message.content,
+          })),
+        ],
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.error?.message || "The instructor could not respond.");
+    }
+
+    const parsed = JSON.parse(data.output_text || "{}") as {
+      reply: string;
+      presentation: PresentationView;
+      quickReplies: string[];
+    };
+
+    if (
+      parsed.presentation?.type === "slide" &&
+      typeof parsed.presentation.slideIndex === "number" &&
+      plan.slides[parsed.presentation.slideIndex]
+    ) {
+      parsed.presentation.headline =
+        parsed.presentation.headline ||
+        plan.slides[parsed.presentation.slideIndex].title;
+    }
+
+    return Response.json(parsed);
+  } catch (error) {
+    console.error("Classroom chat failed:", error);
+    const message =
+      error instanceof Error ? error.message : "The instructor could not respond.";
+    return Response.json({ error: message }, { status: 500 });
+  }
+}
