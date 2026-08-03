@@ -2,22 +2,17 @@
 
 import { Check, GraduationCap } from "lucide-react";
 import type { ClassroomPlan, ClassroomTopic } from "@/lib/classroom";
-import { slideImageSrc } from "@/lib/classroom";
 
 export default function ClassroomNav({
   plan,
   activeTopicId,
   completedTopicIds,
-  currentSlideIndex,
   onSelectTopic,
-  onSelectSlide,
 }: {
   plan: ClassroomPlan;
   activeTopicId: string | null;
   completedTopicIds: string[];
-  currentSlideIndex: number;
   onSelectTopic: (topic: ClassroomTopic) => void;
-  onSelectSlide: (slideIndex: number) => void;
 }) {
   return (
     <aside className="flex h-full flex-col border-r border-slate-200 bg-[#f8fafc]">
@@ -78,33 +73,6 @@ export default function ClassroomNav({
               </button>
             );
           })}
-        </div>
-
-        <p className="mt-6 px-2 text-xs font-bold uppercase tracking-[.14em] text-slate-500">
-          Slides
-        </p>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          {plan.slides.map((slide) => (
-            <button
-              key={slide.index}
-              onClick={() => onSelectSlide(slide.index)}
-              className={`overflow-hidden rounded-xl border text-left transition ${
-                currentSlideIndex === slide.index
-                  ? "border-amber-400 ring-2 ring-amber-200"
-                  : "border-slate-200 hover:border-slate-300"
-              }`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={slideImageSrc(slide)}
-                alt={slide.title}
-                className="aspect-video w-full object-cover"
-              />
-              <p className="truncate px-2 py-2 text-xs font-semibold text-slate-700">
-                {slide.index + 1}. {slide.title}
-              </p>
-            </button>
-          ))}
         </div>
       </div>
     </aside>

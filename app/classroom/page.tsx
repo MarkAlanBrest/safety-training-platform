@@ -64,7 +64,7 @@ export default function ClassroomLandingPage() {
             </div>
             <div className="mt-4 grid grid-cols-3 gap-3">
               <div className="rounded-2xl bg-[#0f2b46] p-4 text-left text-sm text-slate-200">
-                Topics and slide thumbnails
+                Lesson topics
               </div>
               <div className="rounded-2xl bg-white p-4 text-left text-sm text-slate-800">
                 <Presentation className="mb-3 text-amber-500" size={22} />
