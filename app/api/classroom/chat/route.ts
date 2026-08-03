@@ -11,6 +11,7 @@ import {
   classroomInstructorPrompt,
   defaultClassroomBuilderConfig,
 } from "@/lib/classroom-builder";
+import { extractResponseOutputText } from "@/lib/parse-response";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -23,12 +24,23 @@ type RawPresentation = {
   choices: string[] | null;
 };
 
-function normalizePresentation(raw: RawPresentation): PresentationView {
+function normalizePresentation(
+  raw: RawPresentation | null | undefined,
+  fallbackSlideIndex: number,
+): PresentationView {
+  if (!raw?.type) {
+    return {
+      type: "slide",
+      slideIndex: fallbackSlideIndex,
+    };
+  }
+
   switch (raw.type) {
     case "slide":
       return {
         type: "slide",
-        slideIndex: raw.slideIndex ?? 0,
+        slideIndex:
+          typeof raw.slideIndex === "number" ? raw.slideIndex : fallbackSlideIndex,
         headline: raw.headline || undefined,
       };
     case "question":
@@ -223,13 +235,24 @@ export async function POST(request: Request) {
       throw new Error(data?.error?.message || "The instructor could not respond.");
     }
 
-    const parsed = JSON.parse(data.output_text || "{}") as {
-      reply: string;
-      presentation: RawPresentation;
-      quickReplies: string[];
+    const outputText = extractResponseOutputText(data);
+    if (!outputText) {
+      throw new Error("The instructor returned an empty response.");
+    }
+
+    const parsed = JSON.parse(outputText) as {
+      reply?: string;
+      presentation?: RawPresentation;
+      quickReplies?: string[];
     };
 
-    const presentationView = normalizePresentation(parsed.presentation);
+    const reply =
+      parsed.reply?.trim() ||
+      "Let's keep going — tell me what you're thinking so far.";
+    const presentationView = normalizePresentation(
+      parsed.presentation,
+      slide.index,
+    );
 
     if (
       presentationView.type === "slide" &&
@@ -241,9 +264,15 @@ export async function POST(request: Request) {
     }
 
     return Response.json({
-      reply: parsed.reply,
+      reply,
       presentation: presentationView,
-      quickReplies: parsed.quickReplies,
+      quickReplies: parsed.quickReplies?.length
+        ? parsed.quickReplies
+        : [
+            "That makes sense",
+            "Could you rephrase that?",
+            "Raise your hand",
+          ],
     });
   } catch (error) {
     console.error("Classroom chat failed:", error);

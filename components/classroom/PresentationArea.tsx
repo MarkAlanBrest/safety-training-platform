@@ -10,40 +10,55 @@ export default function PresentationArea({
   plan: ClassroomPlan;
   view: PresentationView;
 }) {
+  const safeView: PresentationView =
+    view?.type === "welcome"
+      ? view
+      : view?.type === "slide"
+        ? view
+        : view?.type === "question" || view?.type === "exercise" || view?.type === "example"
+          ? view
+          : {
+              type: "welcome",
+              headline: plan.title,
+              body: plan.opening,
+            };
+
   const slide =
-    view.type === "slide"
-      ? plan.slides[view.slideIndex]
+    safeView.type === "slide"
+      ? plan.slides[safeView.slideIndex] || plan.slides[0]
       : plan.slides[0];
 
   const headline =
-    view.type === "welcome"
-      ? view.headline
-      : view.type === "question" || view.type === "exercise" || view.type === "example"
-        ? view.headline
-        : view.headline || slide?.title || plan.title;
+    safeView.type === "welcome"
+      ? safeView.headline
+      : safeView.type === "question" ||
+          safeView.type === "exercise" ||
+          safeView.type === "example"
+        ? safeView.headline
+        : safeView.headline || slide?.title || plan.title;
 
   const imageUrl =
-    view.type === "example" && view.imageDataUrl
-      ? view.imageDataUrl
-      : view.type === "slide"
+    safeView.type === "example" && safeView.imageDataUrl
+      ? safeView.imageDataUrl
+      : safeView.type === "slide"
         ? slide?.imageDataUrl
         : slide?.imageDataUrl;
 
   const eyebrow =
-    view.type === "question"
+    safeView.type === "question"
       ? "Your instructor is asking"
-      : view.type === "exercise"
+      : safeView.type === "exercise"
         ? "Try this"
-        : view.type === "example"
+        : safeView.type === "example"
           ? "Example"
-          : view.type === "welcome"
+          : safeView.type === "welcome"
             ? "Welcome"
             : "On screen";
 
   const Icon =
-    view.type === "question"
+    safeView.type === "question"
       ? MessageCircleQuestion
-      : view.type === "exercise"
+      : safeView.type === "exercise"
         ? Lightbulb
         : Presentation;
 
@@ -75,11 +90,11 @@ export default function PresentationArea({
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
-          {view.type === "welcome" && (
-            <p className="text-lg leading-8 text-slate-700">{view.body}</p>
+          {safeView.type === "welcome" && (
+            <p className="text-lg leading-8 text-slate-700">{safeView.body}</p>
           )}
 
-          {view.type === "slide" && slide && (
+          {safeView.type === "slide" && slide && (
             <>
               <p className="text-lg leading-8 text-slate-700">{slide.bodyText}</p>
               {slide.speakerNotes ? (
@@ -90,14 +105,14 @@ export default function PresentationArea({
             </>
           )}
 
-          {(view.type === "question" || view.type === "exercise") && (
+          {(safeView.type === "question" || safeView.type === "exercise") && (
             <>
               <p className="text-lg font-semibold leading-8 text-slate-900">
-                {view.prompt}
+                {safeView.prompt}
               </p>
-              {view.choices?.length ? (
+              {safeView.choices?.length ? (
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {view.choices.map((choice) => (
+                  {safeView.choices.map((choice) => (
                     <span
                       key={choice}
                       className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700"
@@ -110,8 +125,8 @@ export default function PresentationArea({
             </>
           )}
 
-          {view.type === "example" && (
-            <p className="text-lg leading-8 text-slate-700">{view.body}</p>
+          {safeView.type === "example" && (
+            <p className="text-lg leading-8 text-slate-700">{safeView.body}</p>
           )}
         </div>
       </div>

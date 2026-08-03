@@ -1,3 +1,18 @@
+export function extractResponseOutputText(data: {
+  output_text?: string;
+  output?: Array<{ content?: Array<{ text?: string }> }>;
+}) {
+  return (
+    data.output_text ||
+    data.output
+      ?.flatMap((item) => item.content || [])
+      .map((item) => item.text)
+      .filter(Boolean)
+      .join("") ||
+    ""
+  );
+}
+
 export async function parseJsonResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
 
