@@ -14,6 +14,81 @@ import {
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
+type RawPresentation = {
+  type: "slide" | "question" | "exercise" | "example" | "welcome";
+  slideIndex: number | null;
+  headline: string | null;
+  prompt: string | null;
+  body: string | null;
+  choices: string[] | null;
+};
+
+function normalizePresentation(raw: RawPresentation): PresentationView {
+  switch (raw.type) {
+    case "slide":
+      return {
+        type: "slide",
+        slideIndex: raw.slideIndex ?? 0,
+        headline: raw.headline || undefined,
+      };
+    case "question":
+    case "exercise":
+      return {
+        type: raw.type,
+        headline: raw.headline || "Let's check in",
+        prompt: raw.prompt || raw.body || "What do you think?",
+        choices: raw.choices?.length ? raw.choices : undefined,
+      };
+    case "example":
+      return {
+        type: "example",
+        headline: raw.headline || "Example",
+        body: raw.body || raw.prompt || "",
+        imageDataUrl: undefined,
+      };
+    default:
+      return {
+        type: "welcome",
+        headline: raw.headline || "Welcome",
+        body: raw.body || raw.prompt || "",
+      };
+  }
+}
+
+const classroomTeacherTurnSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["reply", "presentation", "quickReplies"],
+  properties: {
+    reply: { type: "string" },
+    presentation: {
+      type: "object",
+      additionalProperties: false,
+      required: ["type", "slideIndex", "headline", "prompt", "body", "choices"],
+      properties: {
+        type: {
+          type: "string",
+          enum: ["slide", "question", "exercise", "example", "welcome"],
+        },
+        slideIndex: { type: ["integer", "null"] },
+        headline: { type: ["string", "null"] },
+        prompt: { type: ["string", "null"] },
+        body: { type: ["string", "null"] },
+        choices: {
+          type: ["array", "null"],
+          items: { type: "string" },
+        },
+      },
+    },
+    quickReplies: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 3,
+      maxItems: 6,
+    },
+  },
+} as const;
+
 async function resolvePlan(
   courseSlug: string,
   sectionId?: number,
@@ -130,39 +205,7 @@ export async function POST(request: Request) {
           format: {
             type: "json_schema",
             name: "classroom_teacher_turn",
-            schema: {
-              type: "object",
-              additionalProperties: false,
-              required: ["reply", "presentation", "quickReplies"],
-              properties: {
-                reply: { type: "string" },
-                presentation: {
-                  type: "object",
-                  additionalProperties: false,
-                  required: ["type"],
-                  properties: {
-                    type: {
-                      type: "string",
-                      enum: ["slide", "question", "exercise", "example", "welcome"],
-                    },
-                    slideIndex: { type: ["integer", "null"], minimum: 0 },
-                    headline: { type: ["string", "null"] },
-                    prompt: { type: ["string", "null"] },
-                    body: { type: ["string", "null"] },
-                    choices: {
-                      type: ["array", "null"],
-                      items: { type: "string" },
-                    },
-                  },
-                },
-                quickReplies: {
-                  type: "array",
-                  items: { type: "string" },
-                  minItems: 3,
-                  maxItems: 6,
-                },
-              },
-            },
+            schema: classroomTeacherTurnSchema,
           },
         },
         input: [
@@ -182,21 +225,26 @@ export async function POST(request: Request) {
 
     const parsed = JSON.parse(data.output_text || "{}") as {
       reply: string;
-      presentation: PresentationView;
+      presentation: RawPresentation;
       quickReplies: string[];
     };
 
+    const presentationView = normalizePresentation(parsed.presentation);
+
     if (
-      parsed.presentation?.type === "slide" &&
-      typeof parsed.presentation.slideIndex === "number" &&
-      plan.slides[parsed.presentation.slideIndex]
+      presentationView.type === "slide" &&
+      plan.slides[presentationView.slideIndex]
     ) {
-      parsed.presentation.headline =
-        parsed.presentation.headline ||
-        plan.slides[parsed.presentation.slideIndex].title;
+      presentationView.headline =
+        presentationView.headline ||
+        plan.slides[presentationView.slideIndex].title;
     }
 
-    return Response.json(parsed);
+    return Response.json({
+      reply: parsed.reply,
+      presentation: presentationView,
+      quickReplies: parsed.quickReplies,
+    });
   } catch (error) {
     console.error("Classroom chat failed:", error);
     const message =
