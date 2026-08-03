@@ -292,8 +292,8 @@ export default function ClassroomShell({
 
   return (
     <main className="h-screen overflow-hidden bg-white text-slate-900">
-      <div className="grid h-full grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)_360px]">
-        <div className="hidden lg:block">
+      <div className="grid h-full min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_360px]">
+        <div className="hidden min-h-0 overflow-hidden lg:block">
           <ClassroomNav
             plan={plan}
             activeTopicId={activeTopic?.id || null}

@@ -29,14 +29,13 @@ export default function TeacherChat({
   onInteract?: () => void;
 }) {
   const [draft, setDraft] = useState("");
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [messages, thinking, speaking]);
+    const list = listRef.current;
+    if (!list) return;
+    list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
+  }, [messages, thinking]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -56,7 +55,7 @@ export default function TeacherChat({
   const replies = quickReplies.length ? quickReplies : DEFAULT_QUICK_REPLIES;
 
   return (
-    <aside className="flex h-full flex-col border-l border-slate-200 bg-white">
+    <aside className="flex h-full min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white">
       <div className="border-b border-slate-200 px-5 py-5">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#0f2b46] text-amber-300">
@@ -77,7 +76,10 @@ export default function TeacherChat({
         </div>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div
+        ref={listRef}
+        className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4"
+      >
         {!messages.length && (
           <div className="rounded-2xl bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-600">
             Your instructor will teach, ask questions, and respond to you here. Use the
@@ -114,10 +116,9 @@ export default function TeacherChat({
             Instructor is thinking…
           </div>
         ) : null}
-        <div ref={bottomRef} aria-hidden="true" className="h-px shrink-0" />
       </div>
 
-      <div className="border-t border-slate-200 px-4 py-4">
+      <div className="shrink-0 border-t border-slate-200 px-4 py-4">
         <div className="mb-3 flex flex-wrap gap-2">
           {replies.map((reply) => (
             <button

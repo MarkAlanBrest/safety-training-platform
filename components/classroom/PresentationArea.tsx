@@ -63,8 +63,8 @@ export default function PresentationArea({
         : Presentation;
 
   return (
-    <section className="flex h-full min-w-0 flex-col bg-[#eef2f7]">
-      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+    <section className="flex h-full min-h-0 flex-col overflow-hidden bg-[#eef2f7]">
+      <div className="shrink-0 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
         <div>
           <p className="text-xs font-bold uppercase tracking-[.16em] text-slate-500">
             Presentation
@@ -77,28 +77,28 @@ export default function PresentationArea({
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-5 lg:p-8">
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,.08)]">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-5 lg:p-6">
+        <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,.08)]">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageUrl}
               alt={headline}
-              className="max-h-[52vh] w-full object-contain bg-slate-50"
+              className="max-h-full max-w-full object-contain bg-slate-50"
             />
           ) : null}
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+        <div className="shrink-0 overflow-hidden rounded-3xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
           {safeView.type === "welcome" && (
-            <p className="text-lg leading-8 text-slate-700">{safeView.body}</p>
+            <p className="line-clamp-4 text-base leading-7 text-slate-700">{safeView.body}</p>
           )}
 
           {safeView.type === "slide" && slide && (
             <>
-              <p className="text-lg leading-8 text-slate-700">{slide.bodyText}</p>
+              <p className="line-clamp-4 text-base leading-7 text-slate-700">{slide.bodyText}</p>
               {slide.speakerNotes ? (
-                <p className="mt-4 border-t border-slate-100 pt-4 text-sm leading-7 text-slate-500">
+                <p className="mt-3 line-clamp-2 border-t border-slate-100 pt-3 text-sm leading-6 text-slate-500">
                   Instructor note: {slide.speakerNotes}
                 </p>
               ) : null}
@@ -107,7 +107,7 @@ export default function PresentationArea({
 
           {(safeView.type === "question" || safeView.type === "exercise") && (
             <>
-              <p className="text-lg font-semibold leading-8 text-slate-900">
+              <p className="line-clamp-3 text-base font-semibold leading-7 text-slate-900">
                 {safeView.prompt}
               </p>
               {safeView.choices?.length ? (
@@ -126,7 +126,7 @@ export default function PresentationArea({
           )}
 
           {safeView.type === "example" && (
-            <p className="text-lg leading-8 text-slate-700">{safeView.body}</p>
+            <p className="line-clamp-4 text-base leading-7 text-slate-700">{safeView.body}</p>
           )}
         </div>
       </div>
