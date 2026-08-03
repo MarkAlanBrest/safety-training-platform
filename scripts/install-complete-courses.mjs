@@ -493,11 +493,10 @@ const harassmentSections = [
 harassmentSections[3].title = "Bystander Action and Supervisor Duties";
 harassmentSections[3].lessonPlan.sectionTitle = "Bystander Action and Supervisor Duties";
 
-harassmentSections.push(
-  {
-    title: "Sexual Violence, Consent, and Survivor Support",
-    estimatedMinutes: 22,
-    lessonPlan: {
+const sexualViolenceSection = {
+  title: "Sexual Violence, Consent, and Survivor Support",
+  estimatedMinutes: 22,
+  lessonPlan: {
       sectionTitle: "Sexual Violence, Consent, and Survivor Support",
       opening:
         "This section addresses sexual violence directly and may be difficult for some learners. You may pause when needed. If anyone is in immediate danger, contact 911 or local emergency services. In the United States, confidential support is available 24/7 through RAINN at 800-656-HOPE or by texting HOPE to 64673.",
@@ -614,8 +613,11 @@ harassmentSections.push(
       ],
       summary:
         "Consent must be freely given. A survivor-centered response listens without blame, protects safety and privacy, preserves choice, and connects the person with appropriate support and reporting paths.",
-    },
   },
+};
+
+harassmentSections.push(
+  sexualViolenceSection,
   {
     title: "Final Review and Certification Exam",
     estimatedMinutes: 15,
@@ -1095,6 +1097,19 @@ const courses = [
     sections: harassmentSections,
   },
   {
+    title: "Sexual Violence",
+    slug: "sexual-violence",
+    description:
+      "Example trauma-informed training on consent, workplace-connected sexual violence, survivor-centered first response, and support resources.",
+    audience: "Employees and supervisors; customize with company policy and reporting contacts before deployment",
+    theme: "clean",
+    intensity: "comprehensive",
+    estimatedMinutes: 22,
+    displayMode: "webpage",
+    published: true,
+    sections: [sexualViolenceSection],
+  },
+  {
     title: "OSHA-Aligned Ladder Safety",
     slug: "osha-aligned-ladder-safety",
     description:
@@ -1131,6 +1146,7 @@ async function installCourse(definition) {
       intensity: definition.intensity,
       estimatedMinutes: definition.estimatedMinutes,
       displayMode: definition.displayMode,
+      published: definition.published,
       updatedAt: new Date(),
     },
   });
@@ -1173,12 +1189,74 @@ async function installCourse(definition) {
   };
 }
 
+async function syncSexualViolenceExampleCourses(sectionDef) {
+  const lessonPlan = embedVisualFrameImages(sectionDef.lessonPlan, "harassment");
+  const matches = await prisma.masonCourse.findMany({
+    where: {
+      OR: [
+        { slug: "sexual-violence" },
+        { title: { equals: "Sexual Violence", mode: "insensitive" } },
+      ],
+      NOT: { slug: "workplace-sexual-harassment-prevention" },
+    },
+    include: {
+      sections: { orderBy: { position: "asc" } },
+    },
+  });
+
+  const synced = [];
+
+  for (const course of matches) {
+    const targetSection =
+      course.sections.find((section) =>
+        section.title.toLowerCase().includes("sexual violence"),
+      ) ?? course.sections[0];
+
+    if (targetSection) {
+      await prisma.masonSection.update({
+        where: { id: targetSection.id },
+        data: {
+          title: sectionDef.title,
+          estimatedMinutes: sectionDef.estimatedMinutes,
+          fileName: "Editorial course content",
+          lessonPlan,
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      await prisma.masonSection.create({
+        data: {
+          courseId: course.id,
+          title: sectionDef.title,
+          position: 1,
+          estimatedMinutes: sectionDef.estimatedMinutes,
+          fileName: "Editorial course content",
+          lessonPlan,
+        },
+      });
+    }
+
+    await prisma.masonCourse.update({
+      where: { id: course.id },
+      data: {
+        estimatedMinutes: sectionDef.estimatedMinutes,
+        updatedAt: new Date(),
+      },
+    });
+
+    synced.push({ title: course.title, slug: course.slug });
+  }
+
+  return synced;
+}
+
 try {
   const installed = [];
   for (const course of courses) {
     installed.push(await installCourse(course));
   }
-  console.log(JSON.stringify({ installed }, null, 2));
+  const syncedExamples = await syncSexualViolenceExampleCourses(sexualViolenceSection);
+  console.log(JSON.stringify({ installed, syncedExamples }, null, 2));
 } finally {
   await prisma.$disconnect();
 }

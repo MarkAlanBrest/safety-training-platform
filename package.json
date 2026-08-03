@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "prisma generate && prisma db push && next build",
+    "vercel-build": "prisma generate && prisma db push && node scripts/install-complete-courses.mjs && next build",
     "db:init": "prisma db push",
     "courses:install": "node scripts/install-complete-courses.mjs",
     "start": "next start",
