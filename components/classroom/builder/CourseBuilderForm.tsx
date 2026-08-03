@@ -41,6 +41,11 @@ import {
   BuilderTextarea,
 } from "@/components/classroom/builder/BuilderSection";
 import { parseJsonResponse } from "@/lib/parse-response";
+import {
+  buildClassroomUploadFormData,
+  preparePptxForUpload,
+} from "@/lib/ppt-ingest-client";
+import type { ParsedClassroomSlide } from "@/lib/ppt-ingest-core";
 
 type SubmitMode = "draft" | "publish";
 
@@ -50,6 +55,8 @@ export default function CourseBuilderForm() {
   );
   const [preset, setPreset] = useState<ClassroomBuilderPreset>("balanced");
   const [file, setFile] = useState<File | null>(null);
+  const [parsedSlides, setParsedSlides] = useState<ParsedClassroomSlide[] | null>(null);
+  const [parsingFile, setParsingFile] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{
@@ -60,7 +67,11 @@ export default function CourseBuilderForm() {
     published: boolean;
   } | null>(null);
 
-  const slideCountEstimate = file ? Math.max(4, Math.round(file.size / 120_000)) : 8;
+  const slideCountEstimate = parsedSlides?.length
+    ? parsedSlides.length
+    : file
+      ? Math.max(4, Math.round(file.size / 120_000))
+      : 8;
   const estimates = useMemo(
     () => estimateClassroomCourse(slideCountEstimate, config),
     [slideCountEstimate, config],
@@ -197,24 +208,39 @@ export default function CourseBuilderForm() {
     });
   }
 
+  async function handleFileSelect(selected: File | null) {
+    setFile(selected);
+    setParsedSlides(null);
+    setError("");
+    if (!selected) return;
+
+    setParsingFile(true);
+    try {
+      const slides = await preparePptxForUpload(selected);
+      setParsedSlides(slides);
+    } catch (parseError) {
+      setError(
+        parseError instanceof Error
+          ? parseError.message
+          : "This PowerPoint file could not be read.",
+      );
+    } finally {
+      setParsingFile(false);
+    }
+  }
+
   async function onSubmit(event: FormEvent, mode: SubmitMode) {
     event.preventDefault();
-    if (!file || !config.knowledge.courseName.trim()) return;
-    if (file.size > 4 * 1024 * 1024) {
-      setError(
-        "This file is too large (max 4 MB). Compress images in PowerPoint or split the deck.",
-      );
-      return;
-    }
+    if (!file || !parsedSlides?.length || !config.knowledge.courseName.trim()) return;
     setSubmitting(true);
     setError("");
     try {
-      const form = new FormData();
-      form.set("title", config.knowledge.courseName.trim());
-      form.set("description", config.knowledge.description.trim());
-      form.set("published", mode === "publish" ? "true" : "false");
-      form.set("config", JSON.stringify(config));
-      form.set("pptx", file);
+      const form = buildClassroomUploadFormData(file, parsedSlides, {
+        title: config.knowledge.courseName.trim(),
+        description: config.knowledge.description.trim(),
+        published: mode === "publish",
+        config,
+      });
       const response = await fetch("/api/classroom/upload", {
         method: "POST",
         body: form,
@@ -243,19 +269,32 @@ export default function CourseBuilderForm() {
       <BuilderSection number={1} title="Knowledge Package">
         <BuilderField
           label="Upload PowerPoint (.pptx)"
-          hint="Maximum file size: 4 MB. Compress images in PowerPoint if your deck is larger."
+          hint="Up to 25 MB. Your browser prepares the deck locally, so large files no longer hit the old 4 MB server limit."
         >
           <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-[#faf8f3] px-5 py-8 text-center">
             <UploadCloud className="mx-auto text-[#a06e16]" size={28} />
             <input
               type="file"
               accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-              onChange={(event) => setFile(event.target.files?.[0] || null)}
+              onChange={(event) => void handleFileSelect(event.target.files?.[0] || null)}
               className="mt-4 block w-full text-sm text-[#69757e]"
               required
             />
             {file ? (
-              <p className="mt-2 text-sm font-medium text-[#10283f]">{file.name}</p>
+              <div className="mt-2 space-y-1 text-sm">
+                <p className="font-medium text-[#10283f]">{file.name}</p>
+                {parsingFile ? (
+                  <p className="inline-flex items-center justify-center gap-2 text-[#69757e]">
+                    <LoaderCircle className="animate-spin" size={14} />
+                    Preparing slides in your browser…
+                  </p>
+                ) : parsedSlides ? (
+                  <p className="text-emerald-700">
+                    Ready — {parsedSlides.length} slide
+                    {parsedSlides.length === 1 ? "" : "s"} prepared for upload.
+                  </p>
+                ) : null}
+              </div>
             ) : null}
           </div>
         </BuilderField>
@@ -747,7 +786,7 @@ export default function CourseBuilderForm() {
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
-            disabled={submitting || !file || !config.knowledge.courseName.trim()}
+            disabled={submitting || !file || !parsedSlides?.length || !config.knowledge.courseName.trim() || parsingFile}
             onClick={(event) => void onSubmit(event, "draft")}
             className="inline-flex items-center gap-2 rounded-2xl border border-[#10283f]/15 px-5 py-3 font-semibold text-[#10283f] disabled:opacity-40"
           >
@@ -756,7 +795,7 @@ export default function CourseBuilderForm() {
           </button>
           <button
             type="button"
-            disabled={submitting || !file || !config.knowledge.courseName.trim()}
+            disabled={submitting || !file || !parsedSlides?.length || !config.knowledge.courseName.trim() || parsingFile}
             onClick={(event) => void onSubmit(event, "publish")}
             className="inline-flex items-center gap-2 rounded-2xl bg-[#10283f] px-5 py-3 font-semibold text-white disabled:opacity-40"
           >

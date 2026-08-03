@@ -11,10 +11,14 @@ import {
   estimateClassroomCourse,
 } from "@/lib/classroom-builder";
 import { classroomSlideAssetPath } from "@/lib/classroom";
-import { parsePptx, slidesForClassroomPlan } from "@/lib/ppt-ingest";
+import {
+  parsePptx,
+  parsedSlidesFromUploadFormAsync,
+  slidesForClassroomPlan,
+} from "@/lib/ppt-ingest";
 import { slugify } from "@/lib/mason";
 
-const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+const MAX_LEGACY_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 function parseBuilderConfig(raw: string | null): ClassroomBuilderConfig {
   if (!raw) return defaultClassroomBuilderConfig();
@@ -36,28 +40,12 @@ export async function POST(request: Request) {
     const description = String(form.get("description") || "").trim();
     const published = String(form.get("published") || "false") === "true";
     const config = parseBuilderConfig(String(form.get("config") || ""));
+    const sourceFileName = String(form.get("sourceFileName") || "classroom.pptx");
     const file = form.get("pptx");
+    const hasPreparedSlides = Boolean(form.get("slides"));
 
     if (!title) {
       return Response.json({ error: "A course title is required." }, { status: 400 });
-    }
-    if (!(file instanceof File)) {
-      return Response.json({ error: "A PowerPoint file is required." }, { status: 400 });
-    }
-    if (!/\.pptx$/i.test(file.name)) {
-      return Response.json(
-        { error: "Only .pptx PowerPoint files are supported right now." },
-        { status: 400 },
-      );
-    }
-    if (file.size > MAX_UPLOAD_BYTES) {
-      return Response.json(
-        {
-          error:
-            "This file is too large for upload (max 4 MB on the server). Try exporting a smaller deck or compressing images in PowerPoint.",
-        },
-        { status: 400 },
-      );
     }
 
     const mergedConfig = defaultClassroomBuilderConfig({
@@ -69,8 +57,37 @@ export async function POST(request: Request) {
       },
     });
 
-    const buffer = new Uint8Array(await file.arrayBuffer());
-    const parsedSlides = parsePptx(buffer);
+    let parsedSlides;
+    let fileName = sourceFileName;
+
+    if (hasPreparedSlides) {
+      parsedSlides = await parsedSlidesFromUploadFormAsync(form);
+      if (!parsedSlides.length) {
+        return Response.json({ error: "No slides were found in this upload." }, { status: 400 });
+      }
+    } else {
+      if (!(file instanceof File)) {
+        return Response.json({ error: "A PowerPoint file is required." }, { status: 400 });
+      }
+      if (!/\.pptx$/i.test(file.name)) {
+        return Response.json(
+          { error: "Only .pptx PowerPoint files are supported right now." },
+          { status: 400 },
+        );
+      }
+      if (file.size > MAX_LEGACY_UPLOAD_BYTES) {
+        return Response.json(
+          {
+            error:
+              "This file is too large for direct upload. Please refresh the page and try again — your browser should prepare the deck automatically.",
+          },
+          { status: 400 },
+        );
+      }
+      fileName = file.name;
+      const buffer = new Uint8Array(await file.arrayBuffer());
+      parsedSlides = parsePptx(buffer);
+    }
 
     let slug = slugify(title);
     const existing = await prisma.masonCourse.findUnique({ where: { slug } });
@@ -88,7 +105,7 @@ export async function POST(request: Request) {
           description:
             description ||
             mergedConfig.knowledge.description ||
-            `AI classroom lesson built from ${file.name}`,
+            `AI classroom lesson built from ${fileName}`,
           courseType: "classroom",
           displayMode: "classroom",
           published,
@@ -104,7 +121,7 @@ export async function POST(request: Request) {
               title: plan.title,
               position: 1,
               estimatedMinutes: estimates.courseLengthMinutes,
-              fileName: file.name,
+              fileName,
               lessonPlan: plan,
             },
           },
