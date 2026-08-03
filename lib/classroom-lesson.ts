@@ -134,6 +134,15 @@ export function buildLessonBeats(plan: ClassroomPlan): ClassroomLessonBeat[] {
   return beats;
 }
 
+export function beatIndexForSlide(
+  beats: ClassroomLessonBeat[],
+  slideIndex: number,
+): number {
+  return beats.findIndex(
+    (beat) => beat.kind === "slide" && beat.slideIndex === slideIndex,
+  );
+}
+
 export function presentationForBeat(
   plan: ClassroomPlan,
   beat: ClassroomLessonBeat,

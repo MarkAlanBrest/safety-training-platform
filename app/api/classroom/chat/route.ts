@@ -47,8 +47,7 @@ function normalizePresentation(
     case "slide":
       return {
         type: "slide",
-        slideIndex:
-          typeof raw.slideIndex === "number" ? raw.slideIndex : fallbackSlideIndex,
+        slideIndex: fallbackSlideIndex,
         headline: raw.headline || undefined,
         focus: normalizeFocus(
           {
@@ -254,7 +253,8 @@ export async function POST(request: Request) {
           "Keep replies concise (2-4 sentences) and conversational.",
           "During checkpoints, use presentation.type question or exercise with 3-4 answer choices.",
           "During the final assessment, use presentation.type assessment with clear multiple-choice options.",
-          "When discussing a specific line, symbol, or region on the slide image, set presentation.type slide and use hotspotId when possible.",
+          "When discussing a specific line, symbol, or region on the slide image, keep presentation.type slide and use hotspotId when possible.",
+          "Always keep presentation.slideIndex on the current teaching slide unless the student explicitly asks to jump to another slide.",
           "Otherwise set focusX, focusY (0-100), focusScale (1.2-2.2), and focusLabel to direct attention.",
           "Keep the slide visible while pointing; do not replace image slides with text-only layouts.",
           "Ground answers in the supplied slide knowledge.",
