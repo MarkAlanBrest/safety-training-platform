@@ -1,7 +1,7 @@
 import type { ClassroomSlide } from "@/lib/classroom";
+import { structureClassroomSlide } from "@/lib/classroom-slide-content";
 import {
   type ParsedClassroomSlide,
-  placeholderSlideDataUrl,
   parsePptxBuffer,
 } from "@/lib/ppt-ingest-core";
 
@@ -11,7 +11,6 @@ export type { ParsedClassroomSlide, ParsedSlideImage } from "@/lib/ppt-ingest-co
 export {
   MAX_FILE_BYTES,
   MAX_SLIDES,
-  placeholderSlideDataUrl,
 } from "@/lib/ppt-ingest-core";
 
 export function parsePptx(buffer: Uint8Array): ParsedClassroomSlide[] {
@@ -22,20 +21,27 @@ export function slidesForClassroomPlan(
   parsedSlides: ParsedClassroomSlide[],
   courseSlug: string,
 ): ClassroomSlide[] {
-  return parsedSlides.map((slide) => ({
-    index: slide.index,
-    title: slide.title,
-    bodyText: slide.bodyText,
-    speakerNotes: slide.speakerNotes,
-    imageUrl: slide.image ? `/api/classroom/${courseSlug}/slides/${slide.index}` : undefined,
-    imageDataUrl: slide.image
-      ? undefined
-      : placeholderSlideDataUrl(
-          slide.title.slice(0, 72),
-          slide.bodyText.slice(0, 220) || "Imported from PowerPoint",
-          slide.index,
-        ),
-  }));
+  return parsedSlides.map((slide) => {
+    const structured = structureClassroomSlide({
+      index: slide.index,
+      title: slide.title,
+      bodyText: slide.bodyText,
+      speakerNotes: slide.speakerNotes,
+      bullets: slide.bullets,
+      imageUrl: slide.image ? `/api/classroom/${courseSlug}/slides/${slide.index}` : undefined,
+    });
+    return {
+      index: structured.index,
+      title: structured.title,
+      bodyText: structured.bodyText,
+      speakerNotes: structured.speakerNotes,
+      subtitle: structured.subtitle,
+      bullets: structured.bullets,
+      highlight: structured.highlight,
+      layout: structured.layout,
+      imageUrl: structured.imageUrl,
+    };
+  });
 }
 
 export async function parsedSlidesFromUploadFormAsync(
@@ -51,6 +57,7 @@ export async function parsedSlidesFromUploadFormAsync(
     title: string;
     bodyText: string;
     speakerNotes: string;
+    bullets?: string[];
     hasImage: boolean;
   }>;
 
@@ -71,6 +78,7 @@ export async function parsedSlidesFromUploadFormAsync(
       title: slide.title,
       bodyText: slide.bodyText,
       speakerNotes: slide.speakerNotes,
+      bullets: slide.bullets || [],
       image,
     });
   }

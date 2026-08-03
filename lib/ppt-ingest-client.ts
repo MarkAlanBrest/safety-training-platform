@@ -131,6 +131,7 @@ export function buildClassroomUploadFormData(
         title: slide.title,
         bodyText: slide.bodyText,
         speakerNotes: slide.speakerNotes,
+        bullets: slide.bullets,
         hasImage: Boolean(slide.image),
       })),
     ),

@@ -15,6 +15,10 @@ export type ClassroomSlide = {
   title: string;
   bodyText: string;
   speakerNotes: string;
+  subtitle?: string;
+  bullets?: string[];
+  highlight?: string;
+  layout?: "title" | "content" | "image" | "split";
   imageDataUrl?: string;
   imageUrl?: string;
 };

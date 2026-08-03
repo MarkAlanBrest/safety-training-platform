@@ -1,5 +1,6 @@
 import type { ClassroomPlan, ClassroomSlide, ClassroomTopic } from "@/lib/classroom";
 import type { ClassroomBuilderConfig } from "@/lib/classroom-builder";
+import { mergeEnhancedSlide } from "@/lib/classroom-slide-content";
 import {
   buildFallbackAssessment,
   buildFallbackCheckpoints,
@@ -83,7 +84,7 @@ async function enrichPlanWithAi(
             schema: {
               type: "object",
               additionalProperties: false,
-              required: ["opening", "objectives", "topics"],
+              required: ["opening", "objectives", "topics", "slides"],
               properties: {
                 opening: { type: "string" },
                 objectives: {
@@ -106,6 +107,37 @@ async function enrichPlanWithAi(
                     },
                   },
                 },
+                slides: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: [
+                      "index",
+                      "title",
+                      "subtitle",
+                      "bullets",
+                      "highlight",
+                      "layout",
+                    ],
+                    properties: {
+                      index: { type: "integer", minimum: 0 },
+                      title: { type: "string" },
+                      subtitle: { type: ["string", "null"] },
+                      bullets: {
+                        type: "array",
+                        items: { type: "string" },
+                        minItems: 1,
+                        maxItems: 6,
+                      },
+                      highlight: { type: ["string", "null"] },
+                      layout: {
+                        type: "string",
+                        enum: ["title", "content", "image", "split"],
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -115,8 +147,10 @@ async function enrichPlanWithAi(
             role: "user",
             content: [
               `Course title: ${title}`,
-              "Create a warm instructor opening, 3-5 learning objectives, and topic groupings for the left navigation.",
-              "Group nearby slides into topics when they clearly belong together.",
+              "Create a warm instructor opening, 3-5 learning objectives, topic groupings, and polished on-screen slides.",
+              "For each slide, write a clear title, short subtitle, 2-5 learner-friendly bullets, one highlight callout, and a layout.",
+              "Use layout title for opener slides, split when an image is present, image for photo-heavy slides, content for text slides.",
+              "Do not invent facts that are not supported by the source slide text.",
               slideDigest,
             ].join("\n\n"),
           },
@@ -131,14 +165,37 @@ async function enrichPlanWithAi(
       opening?: string;
       objectives?: string[];
       topics?: ClassroomPlan["topics"];
+      slides?: Array<{
+        index: number;
+        title: string;
+        subtitle?: string | null;
+        bullets: string[];
+        highlight?: string | null;
+        layout?: ClassroomSlide["layout"];
+      }>;
     };
 
-    return {
+    const enhancedSlides = plan.slides.map((slide) => {
+      const enhanced = parsed.slides?.find((item) => item.index === slide.index);
+      return mergeEnhancedSlide(slide, {
+        title: enhanced?.title,
+        subtitle: enhanced?.subtitle || undefined,
+        bullets: enhanced?.bullets,
+        highlight: enhanced?.highlight || undefined,
+        layout: enhanced?.layout,
+        bodyText: enhanced?.bullets?.join(" ") || slide.bodyText,
+      });
+    });
+
+    const enrichedPlan = {
       ...plan,
       opening: parsed.opening?.trim() || plan.opening,
       objectives: parsed.objectives?.length ? parsed.objectives : plan.objectives,
       topics: parsed.topics?.length ? parsed.topics : plan.topics,
+      slides: enhancedSlides,
     };
+    enrichedPlan.lessonBeats = buildLessonBeats(enrichedPlan);
+    return enrichedPlan;
   } catch {
     return plan;
   } finally {
