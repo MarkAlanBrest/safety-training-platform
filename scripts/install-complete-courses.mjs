@@ -34,6 +34,18 @@ function summary(title, narration) {
   return base("summary", "learn", title, narration);
 }
 
+function text(title, narration) {
+  return base("text", "learn", title, narration);
+}
+
+function tiles(title, narration, tileList) {
+  return base("tiles", "learn", title, narration, { tiles: tileList });
+}
+
+function dragdrop(title, narration, prompt, dragItems, phase = "activity") {
+  return base("dragdrop", phase, title, narration, { prompt, dragItems });
+}
+
 function question(title, narration, prompt, choices, correctAnswer, feedback, phase = "activity") {
   return base("question", phase, title, narration, {
     prompt,
@@ -101,6 +113,10 @@ const harassmentSections = [
           "The standard begins with respect",
           "Federal law prohibits employment discrimination because of sex. Sexual harassment can include unwelcome sexual advances, requests for sexual favors, and verbal or physical conduct of a sexual nature. Sex-based harassment can also include hostile remarks about a person's sex even when the words are not sexual.\n\nA strong workplace policy is intentionally broader than the minimum legal threshold. Employees should not wait for behavior to become extreme before raising a concern. Early reporting gives the organization an opportunity to stop conduct, support affected people, and prevent escalation.",
         ),
+        text(
+          "How workplace policy extends the baseline",
+          "Federal law sets a minimum standard, but most employers expect employees to act sooner. Your organization may prohibit conduct that is offensive, repeated, or disruptive even when it has not yet become severe enough to violate federal law.\n\nThat broader standard matters in practice. Employees should focus on respectful conduct, early intervention, and the reporting paths named in company policy—not on guessing whether a courtroom would agree.",
+        ),
         visual(
           "From respectful conduct to prohibited conduct",
           "Not every uncomfortable exchange is identical, but every employee can use the same response framework: notice the conduct, consider its effect and context, and act through a safe workplace channel.",
@@ -111,6 +127,16 @@ const harassmentSections = [
             ["Recognize", "Repeated comments, sexual content, pressure, or targeted hostility are warning signs.", "Look at the words, actions, setting, power relationships, repetition, and effect on the people involved.", ["Conduct", "Context", "Impact"]],
             ["Respond", "Use a safe option: set a boundary, seek help, document facts, or report.", "The affected employee does not have to confront the person directly. Use the reporting path that feels safe and appropriate.", ["Safety first", "Multiple options", "Facts"]],
             ["Prevent", "Prompt organizational action can stop misconduct before it grows.", "Managers and designated contacts should receive concerns, protect against retaliation, and activate the employer's response process.", ["Prompt action", "No retaliation", "Follow policy"]],
+          ],
+        ),
+        tiles(
+          "Four response habits",
+          "Use the same habits whether the conduct feels minor or severe.",
+          [
+            { title: "Respect", body: "Honor boundaries and keep interactions work-appropriate." },
+            { title: "Recognize", body: "Notice warning signs, power differences, and workplace effect." },
+            { title: "Respond", body: "Use a safe channel—do not redistribute harmful material." },
+            { title: "Prevent", body: "Raise concerns early so the organization can act before escalation." },
           ],
         ),
         question(
@@ -155,6 +181,17 @@ const harassmentSections = [
           ],
           2,
           "Correct. A harasser may be a customer, client, vendor, contractor, or other nonemployee. Employees should use the employer's reporting process so the organization can take appropriate action.",
+        ),
+        dragdrop(
+          "Put early action in order",
+          "Arrange these steps from noticing a concern to organizational follow-through.",
+          "Drag these actions into the safest order.",
+          [
+            "Notice conduct, context, and effect on the work environment",
+            "Preserve relevant facts without spreading harmful material",
+            "Use a safe reporting or support channel",
+            "Allow the designated process to review and respond",
+          ],
         ),
         question(
           "Mastery: the right standard",
@@ -203,6 +240,10 @@ const harassmentSections = [
           "Two patterns employees should recognize",
           "One pattern links sexual cooperation to a job decision: a person with workplace power offers a benefit, threatens a consequence, or makes employment treatment depend on accepting sexual conduct. No one should have to trade personal boundaries for an assignment, schedule, evaluation, promotion, or continued employment.\n\nAnother pattern involves conduct that contributes to a hostile work environment. The analysis considers the entire situation, including severity, frequency, power, whether conduct was threatening or humiliating, and how it affected the employee's ability to work.",
         ),
+        text(
+          "Unwelcome conduct can show up in many ways",
+          "Pressure for dates, sexual jokes, unwanted touching, explicit images, humiliating comments, and exclusion after a boundary is set can all raise concerns. The setting may be a break room, a customer visit, a video meeting, or a direct message.\n\nEmployees do not need to classify the conduct perfectly before reporting. Focus on what happened, who was involved, and whether boundaries were ignored.",
+        ),
         visual(
           "Conduct, context, and impact",
           "Do not evaluate a concern by looking at one word in isolation. A responsible assessment considers what happened, the surrounding circumstances, and its workplace effect.",
@@ -213,6 +254,15 @@ const harassmentSections = [
             ["Context", "Consider power, location, audience, frequency, and prior boundaries.", "The same words can carry different significance depending on workplace power and surrounding events.", ["Power", "Setting", "Repetition"]],
             ["Impact", "Consider whether the behavior interfered with work or created intimidation or hostility.", "Intent may be relevant, but it does not erase the effect or remove the need to respond.", ["Work effect", "Safety", "Dignity"]],
             ["Pattern", "Connect related events instead of dismissing each one alone.", "Employees should report facts they know. The employer is responsible for reviewing the overall information.", ["Related events", "Escalation", "Review"]],
+          ],
+        ),
+        tiles(
+          "Three lenses for every concern",
+          "Look at the whole situation—not one comment in isolation.",
+          [
+            { title: "Conduct", body: "What was said, shown, requested, or done?" },
+            { title: "Context", body: "Who held power? How often? Where? Were boundaries ignored?" },
+            { title: "Impact", body: "Did the behavior interfere with work, safety, or dignity?" },
           ],
         ),
         scenario(
@@ -257,6 +307,17 @@ const harassmentSections = [
           ],
           1,
           "Correct. Intent does not automatically resolve the concern. Workplace response should consider the full context and apply policy consistently.",
+        ),
+        dragdrop(
+          "Put the review sequence in order",
+          "Match the assessment flow to how concerns should be examined.",
+          "Drag these steps into the most logical order.",
+          [
+            "Identify the observable conduct",
+            "Consider power, setting, frequency, and prior boundaries",
+            "Assess effect on work, safety, and dignity",
+            "Report facts through a safe channel for review",
+          ],
         ),
         question(
           "Mastery: digital conduct",
@@ -305,6 +366,10 @@ const harassmentSections = [
           "Report through a safe channel",
           "Employees should review the organization's policy and know the available reporting options. A good process identifies more than one contact so an employee is not forced to report to the person involved. Options may include a manager, human resources, an ethics line, an owner, or another designated official.\n\nA report does not need legal terminology. Useful information includes what happened, who was involved, when and where it occurred, possible witnesses, relevant messages or documents, and any immediate safety or work concerns.",
         ),
+        text(
+          "What to include in a report",
+          "You do not need legal terminology. Useful facts include what happened, who was involved, when and where it occurred, possible witnesses, relevant messages or documents, and any immediate safety concern.\n\nA report can be written or verbal. Choose the channel that feels safest when more than one option is available.",
+        ),
         visual(
           "What happens after a concern is raised",
           "The exact process depends on company policy, but an effective response follows a reliable path from receiving the concern through corrective and preventive action.",
@@ -316,6 +381,16 @@ const harassmentSections = [
             ["Review", "Use a prompt, thorough, and impartial process.", "The designated function—not an untrained manager acting alone—should gather and assess relevant information.", ["Prompt", "Thorough", "Impartial"]],
             ["Act", "Take appropriate corrective and preventive action based on findings.", "Responses should be consistent, effective, and designed to stop misconduct and prevent recurrence.", ["Correct", "Prevent", "Consistent"]],
             ["Follow up", "Check that retaliation has not occurred and that measures are working.", "Continued monitoring helps ensure the workplace is safe and the response remains effective.", ["Monitor", "Support", "Effectiveness"]],
+          ],
+        ),
+        tiles(
+          "Reporting essentials",
+          "Keep reports factual, limited, and timely.",
+          [
+            { title: "Channels", body: "Know more than one contact outside the immediate chain when possible." },
+            { title: "Facts", body: "Describe conduct, context, dates, and witnesses—not conclusions alone." },
+            { title: "Safety", body: "Flag immediate danger, retaliation concerns, or work-continuity needs." },
+            { title: "Privacy", body: "Share information only with people who need it under policy." },
           ],
         ),
         scenario(
@@ -334,6 +409,18 @@ const harassmentSections = [
         explain(
           "Protection from retaliation",
           "Retaliation can undermine any reporting system. Workplace policy and federal law protect people from adverse treatment because they raised a good-faith concern, opposed discrimination, participated in an investigation, or provided information.\n\nWarning signs can include sudden exclusion, schedule or duty changes without a legitimate reason, threats, intimidation, heightened scrutiny applied selectively, or pressure to withdraw a report. Not every workplace change is retaliation, but concerns should be reported promptly for review.",
+        ),
+        dragdrop(
+          "Put the organizational response in order",
+          "Arrange the steps an effective response typically follows.",
+          "Drag these actions into the safest order.",
+          [
+            "Receive the concern and address immediate needs",
+            "Protect against retaliation and safety risks",
+            "Review through a prompt, impartial process",
+            "Take corrective and preventive action",
+            "Follow up and monitor effectiveness",
+          ],
         ),
         scenario(
           "After participating as a witness",
@@ -408,6 +495,10 @@ const harassmentSections = [
           "Bystanders have options",
           "A bystander does not have to make a dramatic public confrontation. Depending on safety, authority, and the affected person's preferences, a bystander might redirect the conversation, check in privately, ask the conduct to stop, seek help from a manager or designated contact, or report what the bystander observed.\n\nDocumentation should be factual and handled carefully. Do not circulate humiliating material or conduct a personal investigation. Preserve information only in a lawful, policy-consistent way and provide it to the appropriate channel.",
         ),
+        text(
+          "Choose the safest useful option",
+          "Bystander action does not require a dramatic confrontation. The right choice depends on safety, authority, and the affected person's preferences.\n\nWhen in doubt, prioritize safety, limit the spread of harmful material, and connect the affected person with support or a reporting channel.",
+        ),
         visual(
           "Five practical bystander choices",
           "Choose the safest useful option rather than doing nothing simply because direct confrontation feels risky.",
@@ -419,6 +510,17 @@ const harassmentSections = [
             ["Delegate", "Bring in a person with responsibility or authority.", "A manager, HR contact, security professional, or designated official may be better positioned to act.", ["Get help", "Use channels"]],
             ["Delay", "Check in afterward and offer support.", "Ask what the person needs, explain available options, and respect that person's choices unless policy requires escalation.", ["Listen", "Support", "Options"]],
             ["Document", "Record objective facts and preserve relevant information appropriately.", "Documentation should support a proper process, not become gossip or online redistribution.", ["Facts", "Privacy", "Policy"]],
+          ],
+        ),
+        tiles(
+          "Five bystander choices",
+          "Remember: Direct, Distract, Delegate, Delay, Document.",
+          [
+            { title: "Direct", body: "Name the boundary calmly when it is safe." },
+            { title: "Distract", body: "Interrupt the moment or create an exit." },
+            { title: "Delegate", body: "Bring in a manager, HR contact, or security." },
+            { title: "Delay", body: "Check in afterward and offer support." },
+            { title: "Document", body: "Record objective facts in a policy-consistent way." },
           ],
         ),
         scenario(
@@ -437,6 +539,17 @@ const harassmentSections = [
         explain(
           "Supervisors carry added responsibility",
           "Supervisors represent the organization in daily work. When they observe possible misconduct or receive a concern, they should act promptly under policy—even if the employee asks them to “forget it,” does not use the word harassment, or provides incomplete information.\n\nA supervisor should not retaliate, blame the reporter, demand confrontation, promise a result, or conduct an off-the-books inquiry. The supervisor should document accurately, protect information, address immediate needs, and notify the designated function.",
+        ),
+        dragdrop(
+          "Put supervisor first steps in order",
+          "Arrange a manager's initial response when receiving a concern.",
+          "Drag these actions into the safest order.",
+          [
+            "Listen without blame and clarify immediate safety needs",
+            "Explain any limits on confidentiality honestly",
+            "Document accurate facts",
+            "Promptly notify the designated organizational contact",
+          ],
         ),
         scenario(
           "The informal disclosure",
@@ -518,6 +631,10 @@ harassmentSections.push(
           "Consent must be freely given",
           "Consent is a voluntary, informed, and specific agreement. It can be withdrawn. A person who is asleep, unconscious, incapacitated, coerced, threatened, or unable to understand the situation cannot freely consent. A prior relationship or prior consent does not create ongoing permission.\n\nSexual violence can include completed or attempted sexual acts without freely given consent, unwanted sexual touching, and non-contact sexual abuse. Technology may also be used for sexual coercion, stalking, threats, or sharing intimate material without permission. When conduct is connected to employment, work travel, a company event, housing, transportation, or work communications, workplace safety and reporting processes may apply in addition to criminal or civil options.",
         ),
+        text(
+          "When conduct is connected to work",
+          "Sexual violence can affect the workplace when it occurs during work travel, company events, housing, transportation, or work communications. Survivors may need both workplace and community support.\n\nIf anyone is in immediate danger, contact 911 or local emergency services. In the United States, confidential support is available 24/7 through RAINN at 800-656-HOPE or by texting HOPE to 64673.",
+        ),
         visual(
           "What consent requires",
           "Consent is more than the absence of a no. Use the same four-part test every time: freely given, specific, reversible, and given by someone who is capable of choosing.",
@@ -530,8 +647,10 @@ harassmentSections.push(
             ["Capable", "The person must be awake, aware, and able to choose.", "Sleep, unconsciousness, severe intoxication, or incapacitation remove the ability to consent.", ["Awake", "Aware", "Able to choose"]],
           ],
         ),
-        base("tiles", "learn", "Consent: what to remember", "Consent is active, specific, and reversible.", {
-          tiles: [
+        tiles(
+          "Consent: what to remember",
+          "Consent is active, specific, and reversible.",
+          [
             { title: "Freely given", body: "No coercion, threat, manipulation, or misuse of workplace power." },
             { title: "Specific", body: "Agreement to one act is not agreement to another." },
             { title: "Reversible", body: "Anyone may change their mind at any time." },
@@ -539,7 +658,7 @@ harassmentSections.push(
             { title: "Communicated", body: "Do not treat silence, freezing, or lack of resistance as a yes." },
             { title: "Ongoing", body: "Pay attention and stop when consent is withdrawn or uncertain." },
           ],
-        }),
+        ),
         scenario(
           "A disclosure after work travel",
           "A coworker says that during a work trip a colleague entered their room and touched them sexually after they said no. They appear shaken and say, “Please do not tell everyone.”",
@@ -570,16 +689,18 @@ harassmentSections.push(
             ["Follow up", "Check back and watch for retaliation.", "Offer continued support and confirm that interim measures are working.", ["Check in", "No retaliation"]],
           ],
         ),
-        base("dragdrop", "activity", "Put the first response in order", "Arrange a supportive response from first step to follow-through.", {
-          prompt: "Drag these actions into the safest order.",
-          dragItems: [
+        dragdrop(
+          "Put the first response in order",
+          "Arrange a supportive response from first step to follow-through.",
+          "Drag these actions into the safest order.",
+          [
             "Check immediate safety and urgent medical needs",
             "Listen without blame and thank the person for speaking up",
             "Explain support choices and any limits on confidentiality",
             "Follow the designated workplace process and protect privacy",
             "Check back about support and possible retaliation",
           ],
-        }),
+        ),
         scenario(
           "When danger is immediate",
           "An employee receives a message from a former partner threatening to come to the worksite with a weapon.",
@@ -635,9 +756,30 @@ harassmentSections.push(
         "Retaliation against reporters, witnesses, and participants is prohibited.",
       ],
       moments: [
-        summary(
-          "Before you begin",
-          "The exam covers consent, sexual and sex-based harassment, digital and off-site conduct, bystander options, reporting, retaliation, survivor support, and supervisor responsibilities. Choose the safest and most policy-consistent response. This is a closed-coaching assessment; feedback appears after submission.",
+        text(
+          "How to approach the exam",
+          "You will answer twelve scenario and knowledge-check questions drawn from the full course. Read each question carefully and choose the safest, most policy-consistent response.\n\nPassing requires at least ten correct answers (80%). Feedback appears after submission. This is a closed-coaching assessment.",
+        ),
+        tiles(
+          "Exam topics at a glance",
+          "The assessment integrates prevention, recognition, reporting, bystander action, consent, and supervisor response.",
+          [
+            { title: "Prevention", body: "Respect boundaries and raise concerns early." },
+            { title: "Recognition", body: "Conduct, context, impact, and digital/off-site settings." },
+            { title: "Response", body: "Reporting channels, retaliation, and survivor support." },
+            { title: "Leadership", body: "Supervisor duties and organizational follow-through." },
+          ],
+        ),
+        dragdrop(
+          "Put your reporting readiness in order",
+          "Before you begin, confirm you understand the reporting flow.",
+          "Drag these steps into the safest order.",
+          [
+            "Know your organization's reporting channels",
+            "Report facts through a safe channel",
+            "Protect confidentiality to the extent possible",
+            "Watch for and report possible retaliation",
+          ],
         ),
         question("Final 1", "Federal and workplace standards.", "Which conduct may constitute sexual harassment?", ["Only physical assault", "Unwelcome sexual advances, requests, or verbal or physical sexual conduct", "Only conduct by executives", "Only conduct reported the same day"], 1, "Sexual harassment is not limited to physical conduct or supervisors.", "mastery"),
         question("Final 2", "Consent.", "Which statement best describes consent?", ["A prior yes applies indefinitely", "Silence always means yes", "It must be freely given, specific, ongoing, and reversible", "It is unnecessary between coworkers who are dating"], 2, "Consent must be freely given and may be withdrawn.", "mastery"),
@@ -1085,7 +1227,7 @@ const courses = [
     title: "Workplace Sexual Harassment and Violence Prevention",
     slug: "workplace-sexual-harassment-prevention",
     description:
-      "Serious, trauma-informed U.S. workplace training on sexual harassment and violence prevention, consent, bystander action, reporting, survivor support, retaliation, supervisor response, and final certification.",
+      "Comprehensive example course showcasing every Mason teaching moment type—explain, text, tiles, visual, drag-to-order, scenario, question, and summary—alongside serious U.S. workplace training on sexual harassment and violence prevention, consent, bystander action, reporting, survivor support, retaliation, supervisor response, and final certification.",
     audience: "Employees and supervisors; requires company and jurisdiction-specific customization before deployment",
     theme: "clean",
     intensity: "comprehensive",
