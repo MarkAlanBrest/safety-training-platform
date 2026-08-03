@@ -31,6 +31,8 @@ export default function ClassroomShell({
   course: PublicClassroomCourse;
 }) {
   const plan = course.plan;
+  const builderConfig = plan.config;
+  const conversationMode = builderConfig?.settings.conversationMode || "interrupt-anytime";
   const [messages, setMessages] = useState<TeacherMessage[]>([]);
   const [thinking, setThinking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -64,7 +66,11 @@ export default function ClassroomShell({
       const response = await fetch("/api/mason/speech", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({
+          text,
+          voice: builderConfig?.teaching.voice,
+          speed: builderConfig?.teaching.voiceSpeed,
+        }),
       });
       if (!response.ok) throw new Error("speech failed");
       const url = URL.createObjectURL(await response.blob());
@@ -130,12 +136,21 @@ export default function ClassroomShell({
       headline: plan.title,
       body: plan.opening,
     });
-    setQuickReplies([
-      "I know a little",
-      "I'm brand new to this",
-      "I've seen this on the job",
-      "Could you start with the basics?",
-    ]);
+    setQuickReplies(
+      conversationMode === "raise-hand"
+        ? [
+            "Raise your hand",
+            "I know a little",
+            "I'm brand new to this",
+            "Could you start with the basics?",
+          ]
+        : [
+            "I know a little",
+            "I'm brand new to this",
+            "I've seen this on the job",
+            "Could you start with the basics?",
+          ],
+    );
     void speak(openingMessages[0].content);
   }
 

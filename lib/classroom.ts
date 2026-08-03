@@ -1,3 +1,5 @@
+import type { ClassroomBuilderConfig } from "@/lib/classroom-builder";
+
 export type ClassroomSlide = {
   index: number;
   title: string;
@@ -20,6 +22,7 @@ export type ClassroomPlan = {
   objectives: string[];
   topics: ClassroomTopic[];
   slides: ClassroomSlide[];
+  config?: ClassroomBuilderConfig;
 };
 
 export type PresentationView =

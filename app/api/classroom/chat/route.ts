@@ -7,6 +7,10 @@ import {
   type ClassroomPlan,
   type PresentationView,
 } from "@/lib/classroom";
+import {
+  classroomInstructorPrompt,
+  defaultClassroomBuilderConfig,
+} from "@/lib/classroom-builder";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -68,6 +72,7 @@ export async function POST(request: Request) {
     }
 
     const slide = plan.slides[slideIndex] || plan.slides[0];
+    const builderConfig = plan.config || defaultClassroomBuilderConfig();
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return Response.json({
@@ -94,7 +99,15 @@ export async function POST(request: Request) {
       `Slide text: ${slide.bodyText}`,
       `Speaker notes: ${slide.speakerNotes || "(none)"}`,
       `Presentation mode: ${presentation?.type || "welcome"}`,
+      `Instructor preferences:\n${classroomInstructorPrompt(builderConfig)}`,
     ].join("\n\n");
+
+    const conversationHint =
+      builderConfig.settings.conversationMode === "raise-hand"
+        ? "The student should raise their hand before asking questions. Offer a Raise your hand quick reply when appropriate."
+        : builderConfig.settings.conversationMode === "checkpoints-only"
+          ? "Only invite questions at lesson checkpoints."
+          : "The student may interrupt anytime with questions.";
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -104,8 +117,15 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-5.6-sol",
-        instructions:
-          "You are a real classroom instructor, not a chatbot reading slides. Teach through dialogue: ask what the learner knows, respond to their ideas, give short explanations, show examples, and check understanding. Keep replies concise (2-4 sentences) and conversational. When useful, ask one thoughtful question. Ground answers in the supplied slide knowledge. Return JSON only.",
+        instructions: [
+          "You are a real classroom instructor, not a chatbot reading slides.",
+          "Teach through dialogue: ask what the learner knows, respond to their ideas, give short explanations, show examples, and check understanding.",
+          "Keep replies concise (2-4 sentences) and conversational.",
+          "When useful, ask one thoughtful question.",
+          "Ground answers in the supplied slide knowledge.",
+          conversationHint,
+          "Return JSON only.",
+        ].join(" "),
         text: {
           format: {
             type: "json_schema",

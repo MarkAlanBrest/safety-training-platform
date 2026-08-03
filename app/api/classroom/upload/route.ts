@@ -3,7 +3,22 @@ export const runtime = "nodejs";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-session";
 import { generateClassroomPlanFromPptx } from "@/lib/classroom-generator";
+import {
+  ClassroomBuilderConfig,
+  defaultClassroomBuilderConfig,
+  estimateClassroomCourse,
+} from "@/lib/classroom-builder";
 import { slugify } from "@/lib/mason";
+
+function parseBuilderConfig(raw: string | null): ClassroomBuilderConfig {
+  if (!raw) return defaultClassroomBuilderConfig();
+  try {
+    const parsed = JSON.parse(raw) as ClassroomBuilderConfig;
+    return defaultClassroomBuilderConfig(parsed);
+  } catch {
+    return defaultClassroomBuilderConfig();
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +28,8 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const title = String(form.get("title") || "").trim();
     const description = String(form.get("description") || "").trim();
+    const published = String(form.get("published") || "false") === "true";
+    const config = parseBuilderConfig(String(form.get("config") || ""));
     const file = form.get("pptx");
 
     if (!title) {
@@ -28,8 +45,18 @@ export async function POST(request: Request) {
       );
     }
 
+    const mergedConfig = defaultClassroomBuilderConfig({
+      ...config,
+      knowledge: {
+        ...config.knowledge,
+        courseName: title,
+        description: description || config.knowledge.description,
+      },
+    });
+
     const buffer = new Uint8Array(await file.arrayBuffer());
-    const plan = await generateClassroomPlanFromPptx(buffer, title);
+    const plan = await generateClassroomPlanFromPptx(buffer, title, mergedConfig);
+    const estimates = estimateClassroomCourse(plan.slides.length, mergedConfig);
 
     let slug = slugify(title);
     const existing = await prisma.masonCourse.findUnique({ where: { slug } });
@@ -39,26 +66,38 @@ export async function POST(request: Request) {
       data: {
         title,
         slug,
-        description: description || `AI classroom lesson built from ${file.name}`,
+        description:
+          description ||
+          mergedConfig.knowledge.description ||
+          `AI classroom lesson built from ${file.name}`,
         courseType: "classroom",
         displayMode: "classroom",
-        published: false,
+        published,
+        estimatedMinutes: estimates.courseLengthMinutes,
+        intensity:
+          mergedConfig.knowledge.difficulty === "beginner"
+            ? "essentials"
+            : mergedConfig.knowledge.difficulty === "advanced"
+              ? "comprehensive"
+              : "standard",
         sections: {
           create: {
             title: plan.title,
             position: 1,
-            estimatedMinutes: Math.max(15, plan.slides.length * 4),
+            estimatedMinutes: estimates.courseLengthMinutes,
             fileName: file.name,
             lessonPlan: plan,
           },
         },
       },
-      select: { id: true, title: true, slug: true },
+      select: { id: true, title: true, slug: true, published: true },
     });
 
     return Response.json({
       course,
       slideCount: plan.slides.length,
+      published: course.published,
+      estimates,
       previewUrl: `/classroom/${course.slug}`,
       adminUrl: `/admin/courses/${course.slug}`,
     });

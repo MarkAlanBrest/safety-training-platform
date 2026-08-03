@@ -1,15 +1,27 @@
 import type { ClassroomPlan } from "@/lib/classroom";
+import type { ClassroomBuilderConfig } from "@/lib/classroom-builder";
 import { buildClassroomPlanFromSlides, parsePptx } from "@/lib/ppt-ingest";
 
 export async function generateClassroomPlanFromPptx(
   buffer: Uint8Array,
   title: string,
+  config?: ClassroomBuilderConfig,
 ): Promise<ClassroomPlan> {
   const slides = parsePptx(buffer);
   const plan = buildClassroomPlanFromSlides(slides, title);
+  const objectives =
+    config?.knowledge.objectives.filter(Boolean) || plan.objectives;
+
+  const basePlan: ClassroomPlan = {
+    ...plan,
+    title: config?.knowledge.courseName || plan.title,
+    opening: config?.knowledge.description || plan.opening,
+    objectives: objectives.length ? objectives : plan.objectives,
+    config,
+  };
 
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return plan;
+  if (!apiKey) return basePlan;
 
   const slideDigest = slides
     .map(
@@ -78,7 +90,7 @@ export async function generateClassroomPlanFromPptx(
     });
 
     const data = await response.json();
-    if (!response.ok) return plan;
+    if (!response.ok) return basePlan;
 
     const parsed = JSON.parse(data.output_text || "{}") as {
       opening?: string;
@@ -87,12 +99,12 @@ export async function generateClassroomPlanFromPptx(
     };
 
     return {
-      ...plan,
-      opening: parsed.opening?.trim() || plan.opening,
-      objectives: parsed.objectives?.length ? parsed.objectives : plan.objectives,
-      topics: parsed.topics?.length ? parsed.topics : plan.topics,
+      ...basePlan,
+      opening: parsed.opening?.trim() || basePlan.opening,
+      objectives: parsed.objectives?.length ? parsed.objectives : basePlan.objectives,
+      topics: parsed.topics?.length ? parsed.topics : basePlan.topics,
     };
   } catch {
-    return plan;
+    return basePlan;
   }
 }
