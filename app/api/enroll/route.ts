@@ -6,6 +6,7 @@ import {
   isEnrollmentCodeExpired,
   normalizeEnrollmentCode,
 } from "@/lib/enrollment-code";
+import { learnerCoursePath } from "@/lib/course-routes";
 
 export async function GET(request: Request) {
   const code = normalizeEnrollmentCode(new URL(request.url).searchParams.get("code"));
@@ -24,6 +25,7 @@ export async function GET(request: Request) {
           published: true,
           theme: true,
           estimatedMinutes: true,
+          courseType: true,
         },
       },
       enrollment: {
@@ -62,6 +64,10 @@ export async function GET(request: Request) {
     claimed: Boolean(accessCode.enrollment),
     course: accessCode.course,
     enrollment: accessCode.enrollment,
+    learnerPath: learnerCoursePath(
+      accessCode.course.slug,
+      accessCode.course.courseType,
+    ),
   });
 }
 
@@ -124,7 +130,12 @@ export async function POST(request: Request) {
           title: result.course.title,
           slug: result.course.slug,
           theme: result.course.theme,
+          courseType: result.course.courseType,
         },
+        learnerPath: learnerCoursePath(
+          result.course.slug,
+          result.course.courseType,
+        ),
       },
       { status: 201 },
     );

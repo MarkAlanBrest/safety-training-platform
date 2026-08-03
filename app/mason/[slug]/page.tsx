@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { learnerCoursePath } from "@/lib/course-routes";
 
 export default async function LegacyTrainingRedirect({
   params,
@@ -6,5 +8,9 @@ export default async function LegacyTrainingRedirect({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  redirect(`/training/${slug}`);
+  const record = await prisma.masonCourse.findUnique({
+    where: { slug },
+    select: { slug: true, courseType: true },
+  });
+  redirect(learnerCoursePath(record?.slug || slug, record?.courseType));
 }
