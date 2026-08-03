@@ -1,4 +1,14 @@
 import type { ClassroomBuilderConfig } from "@/lib/classroom-builder";
+import type {
+  ClassroomAssessmentQuestion,
+  ClassroomCheckpoint,
+  ClassroomLessonBeat,
+} from "@/lib/classroom-lesson";
+import {
+  buildFallbackAssessment,
+  buildFallbackCheckpoints,
+  buildLessonBeats,
+} from "@/lib/classroom-lesson";
 
 export type ClassroomSlide = {
   index: number;
@@ -23,8 +33,13 @@ export type ClassroomPlan = {
   objectives: string[];
   topics: ClassroomTopic[];
   slides: ClassroomSlide[];
+  checkpoints?: ClassroomCheckpoint[];
+  assessment?: ClassroomAssessmentQuestion[];
+  lessonBeats?: ClassroomLessonBeat[];
   config?: ClassroomBuilderConfig;
 };
+
+export type { ClassroomCheckpoint, ClassroomAssessmentQuestion, ClassroomLessonBeat };
 
 export type PresentationView =
   | {
@@ -49,6 +64,14 @@ export type PresentationView =
       headline: string;
       body: string;
       imageDataUrl?: string;
+    }
+  | {
+      type: "assessment";
+      headline: string;
+      prompt: string;
+      choices?: string[];
+      questionIndex?: number;
+      questionCount?: number;
     }
   | {
       type: "welcome";
@@ -122,6 +145,30 @@ const demoSlides: ClassroomSlide[] = [
   },
 ];
 
+const demoCheckpoints = buildFallbackCheckpoints(demoSlides);
+const demoAssessment = buildFallbackAssessment(demoSlides);
+const demoLessonBeats = buildLessonBeats({
+  type: "classroom",
+  title: "Ladder Safety Fundamentals",
+  opening:
+    "Welcome. I will teach this like a real class — I will show slides, ask what you already know, and adjust based on your answers.",
+  objectives: [
+    "Explain why ladder setup decisions matter",
+    "Apply the 4-to-1 rule",
+    "Describe three-point contact",
+    "Know when to stop and reassess",
+  ],
+  topics: [
+    { id: "intro", title: "Why it matters", slideStart: 0, slideEnd: 0 },
+    { id: "angle", title: "Ladder angle", slideStart: 1, slideEnd: 1 },
+    { id: "climb", title: "Climbing safely", slideStart: 2, slideEnd: 2 },
+    { id: "stop", title: "When to pause", slideStart: 3, slideEnd: 3 },
+  ],
+  slides: demoSlides,
+  checkpoints: demoCheckpoints,
+  assessment: demoAssessment,
+});
+
 export const demoClassroomCourse: PublicClassroomCourse = {
   id: 0,
   title: "AI Classroom: Ladder Safety",
@@ -147,6 +194,9 @@ export const demoClassroomCourse: PublicClassroomCourse = {
       { id: "stop", title: "When to pause", slideStart: 3, slideEnd: 3 },
     ],
     slides: demoSlides,
+    checkpoints: demoCheckpoints,
+    assessment: demoAssessment,
+    lessonBeats: demoLessonBeats,
   },
 };
 

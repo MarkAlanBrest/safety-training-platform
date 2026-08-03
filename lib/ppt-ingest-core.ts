@@ -109,34 +109,93 @@ function extractEmbeddedImageIds(xml: string) {
   ].map((match) => match[1]);
 }
 
+function collectImageTargets(xml: string, rels: Record<string, string>) {
+  const targets = new Set<string>();
+  for (const id of extractEmbeddedImageIds(xml)) {
+    const target = rels[id];
+    if (target && isImageTarget(target)) targets.add(target);
+  }
+  for (const target of Object.values(rels)) {
+    if (isImageTarget(target)) targets.add(target);
+  }
+  return [...targets];
+}
+
+function extractImagesFromRelatedParts(
+  xml: string,
+  rels: Record<string, string>,
+  sourcePath: string,
+  unpacked: Record<string, Uint8Array>,
+  maxImageBytes: number | undefined,
+  getRelationships: (path: string) => Record<string, string>,
+): ParsedSlideImage[] {
+  const images: ParsedSlideImage[] = [];
+  const seenPaths = new Set<string>();
+
+  function addFromXml(partXml: string, partPath: string, partRels: Record<string, string>) {
+    for (const target of collectImageTargets(partXml, partRels)) {
+      const mediaPath = resolveMediaPath(target, partPath);
+      if (seenPaths.has(mediaPath)) continue;
+      seenPaths.add(mediaPath);
+      const media = unpacked[mediaPath];
+      if (!media) continue;
+      if (maxImageBytes && media.byteLength > maxImageBytes) continue;
+      images.push({
+        bytes: media,
+        mimeType: mimeForPath(mediaPath),
+      });
+    }
+  }
+
+  addFromXml(xml, sourcePath, rels);
+
+  const layoutTarget = Object.values(rels).find((target) =>
+    /\/slideLayouts\/slideLayout\d+\.xml$/i.test(target),
+  );
+  if (layoutTarget) {
+    const layoutPath = resolveMediaPath(layoutTarget, sourcePath);
+    const layoutContent = unpacked[layoutPath];
+    if (layoutContent) {
+      const layoutXml = new TextDecoder().decode(layoutContent);
+      const layoutRels = getRelationships(layoutPath);
+      addFromXml(layoutXml, layoutPath, layoutRels);
+
+      const masterTarget = Object.values(layoutRels).find((target) =>
+        /\/slideMasters\/slideMaster\d+\.xml$/i.test(target),
+      );
+      if (masterTarget) {
+        const masterPath = resolveMediaPath(masterTarget, layoutPath);
+        const masterContent = unpacked[masterPath];
+        if (masterContent) {
+          const masterXml = new TextDecoder().decode(masterContent);
+          const masterRels = getRelationships(masterPath);
+          addFromXml(masterXml, masterPath, masterRels);
+        }
+      }
+    }
+  }
+
+  return images;
+}
+
 function extractSlideImage(
   xml: string,
   rels: Record<string, string>,
   slidePath: string,
   unpacked: Record<string, Uint8Array>,
-  maxImageBytes?: number,
+  maxImageBytes: number | undefined,
+  getRelationships: (path: string) => Record<string, string>,
 ): ParsedSlideImage | null {
-  const embedIds = extractEmbeddedImageIds(xml);
-  const candidates = embedIds.length
-    ? embedIds.map((id) => rels[id]).filter((target): target is string => Boolean(target))
-    : Object.values(rels).filter(isImageTarget);
-
-  let best: ParsedSlideImage | null = null;
-  for (const target of candidates) {
-    if (!isImageTarget(target)) continue;
-    const mediaPath = resolveMediaPath(target, slidePath);
-    const media = unpacked[mediaPath];
-    if (!media) continue;
-    if (maxImageBytes && media.byteLength > maxImageBytes) continue;
-    if (!best || media.byteLength > best.bytes.byteLength) {
-      best = {
-        bytes: media,
-        mimeType: mimeForPath(mediaPath),
-      };
-    }
-  }
-
-  return best;
+  const images = extractImagesFromRelatedParts(
+    xml,
+    rels,
+    slidePath,
+    unpacked,
+    maxImageBytes,
+    getRelationships,
+  );
+  if (!images.length) return null;
+  return images.sort((a, b) => b.bytes.byteLength - a.bytes.byteLength)[0];
 }
 
 function extractDiagramText(
@@ -271,12 +330,16 @@ export function parsePptxBuffer(
   }
 
   const relCache = new Map<string, Record<string, string>>();
-  function relationshipsFor(slidePath: string) {
-    if (relCache.has(slidePath)) return relCache.get(slidePath)!;
-    const relPath = slidePath.replace("ppt/slides/", "ppt/slides/_rels/") + ".rels";
+  function relationshipsFor(partPath: string) {
+    if (relCache.has(partPath)) return relCache.get(partPath)!;
+    const relPath = partPath.includes("/slides/")
+      ? partPath.replace("ppt/slides/", "ppt/slides/_rels/") + ".rels"
+      : partPath.includes("/slideLayouts/")
+        ? partPath.replace("ppt/slideLayouts/", "ppt/slideLayouts/_rels/") + ".rels"
+        : partPath.replace("ppt/slideMasters/", "ppt/slideMasters/_rels/") + ".rels";
     const relXml = unpacked[relPath] ? new TextDecoder().decode(unpacked[relPath]) : "";
     const map = parseRelationships(relXml);
-    relCache.set(slidePath, map);
+    relCache.set(partPath, map);
     return map;
   }
 
@@ -291,7 +354,14 @@ export function parsePptxBuffer(
       ? extractNotes(new TextDecoder().decode(unpacked[notesPath]))
       : "";
 
-    const image = extractSlideImage(xml, rels, path, unpacked, options?.maxImageBytes);
+    const image = extractSlideImage(
+      xml,
+      rels,
+      path,
+      unpacked,
+      options?.maxImageBytes,
+      relationshipsFor,
+    );
     const bodyText = mergeUniqueText(slideText, diagramText, layoutText);
     const title = deriveTitle(bodyText, speakerNotes, index);
 

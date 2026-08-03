@@ -1,22 +1,27 @@
 "use client";
 
-import { Lightbulb, MessageCircleQuestion, Presentation } from "lucide-react";
+import { ClipboardCheck, Lightbulb, MessageCircleQuestion, Presentation } from "lucide-react";
 import type { ClassroomPlan, PresentationView } from "@/lib/classroom";
 import { slideImageSrc } from "@/lib/classroom";
 
 export default function PresentationArea({
   plan,
   view,
+  onSelectChoice,
 }: {
   plan: ClassroomPlan;
   view: PresentationView;
+  onSelectChoice?: (choice: string) => void;
 }) {
   const safeView: PresentationView =
     view?.type === "welcome"
       ? view
       : view?.type === "slide"
         ? view
-        : view?.type === "question" || view?.type === "exercise" || view?.type === "example"
+        : view?.type === "question" ||
+            view?.type === "exercise" ||
+            view?.type === "example" ||
+            view?.type === "assessment"
           ? view
           : {
               type: "welcome",
@@ -34,34 +39,45 @@ export default function PresentationArea({
       ? safeView.headline
       : safeView.type === "question" ||
           safeView.type === "exercise" ||
-          safeView.type === "example"
+          safeView.type === "example" ||
+          safeView.type === "assessment"
         ? safeView.headline
         : safeView.headline || slide?.title || plan.title;
 
   const imageUrl =
     safeView.type === "example" && safeView.imageDataUrl
       ? safeView.imageDataUrl
-      : slide
+      : safeView.type === "slide" && slide
         ? slideImageSrc(slide)
-        : "";
+        : safeView.type === "question" ||
+            safeView.type === "exercise" ||
+            safeView.type === "assessment"
+          ? ""
+          : slide
+            ? slideImageSrc(slide)
+            : "";
 
   const eyebrow =
     safeView.type === "question"
       ? "Your instructor is asking"
       : safeView.type === "exercise"
         ? "Try this"
-        : safeView.type === "example"
-          ? "Example"
-          : safeView.type === "welcome"
-            ? "Welcome"
-            : "On screen";
+        : safeView.type === "assessment"
+          ? "Final assessment"
+          : safeView.type === "example"
+            ? "Example"
+            : safeView.type === "welcome"
+              ? "Welcome"
+              : "On screen";
 
   const Icon =
     safeView.type === "question"
       ? MessageCircleQuestion
       : safeView.type === "exercise"
         ? Lightbulb
-        : Presentation;
+        : safeView.type === "assessment"
+          ? ClipboardCheck
+          : Presentation;
 
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden bg-[#eef2f7]">
@@ -87,6 +103,24 @@ export default function PresentationArea({
               alt={headline}
               className="max-h-full max-w-full object-contain bg-slate-50"
             />
+          ) : safeView.type === "question" ||
+            safeView.type === "exercise" ||
+            safeView.type === "assessment" ? (
+            <div className="max-w-xl px-8 text-center">
+              <p className="text-sm font-bold uppercase tracking-[.16em] text-amber-600">
+                {safeView.type === "assessment" ? "Assessment question" : "Interactive checkpoint"}
+              </p>
+              <p className="mt-4 text-2xl font-semibold leading-9 text-slate-900">
+                {safeView.prompt}
+              </p>
+              {safeView.type === "assessment" &&
+              safeView.questionCount &&
+              typeof safeView.questionIndex === "number" ? (
+                <p className="mt-3 text-sm text-slate-500">
+                  Question {safeView.questionIndex + 1} of {safeView.questionCount}
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
 
@@ -106,7 +140,9 @@ export default function PresentationArea({
             </>
           )}
 
-          {(safeView.type === "question" || safeView.type === "exercise") && (
+          {(safeView.type === "question" ||
+            safeView.type === "exercise" ||
+            safeView.type === "assessment") && (
             <>
               <p className="line-clamp-3 text-base font-semibold leading-7 text-slate-900">
                 {safeView.prompt}
@@ -114,12 +150,14 @@ export default function PresentationArea({
               {safeView.choices?.length ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {safeView.choices.map((choice) => (
-                    <span
+                    <button
                       key={choice}
-                      className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700"
+                      type="button"
+                      onClick={() => onSelectChoice?.(choice)}
+                      className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-amber-300 hover:bg-amber-50"
                     >
                       {choice}
-                    </span>
+                    </button>
                   ))}
                 </div>
               ) : null}

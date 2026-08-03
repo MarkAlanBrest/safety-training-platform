@@ -11,12 +11,13 @@ import {
   classroomInstructorPrompt,
   defaultClassroomBuilderConfig,
 } from "@/lib/classroom-builder";
+import { lessonBeatSummary } from "@/lib/classroom-lesson";
 import { extractResponseOutputText } from "@/lib/parse-response";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
 type RawPresentation = {
-  type: "slide" | "question" | "exercise" | "example" | "welcome";
+  type: "slide" | "question" | "exercise" | "example" | "welcome" | "assessment";
   slideIndex: number | null;
   headline: string | null;
   prompt: string | null;
@@ -58,6 +59,13 @@ function normalizePresentation(
         body: raw.body || raw.prompt || "",
         imageDataUrl: undefined,
       };
+    case "assessment":
+      return {
+        type: "assessment",
+        headline: raw.headline || "Final assessment",
+        prompt: raw.prompt || raw.body || "Answer the question below.",
+        choices: raw.choices?.length ? raw.choices : undefined,
+      };
     default:
       return {
         type: "welcome",
@@ -80,7 +88,7 @@ const classroomTeacherTurnSchema = {
       properties: {
         type: {
           type: "string",
-          enum: ["slide", "question", "exercise", "example", "welcome"],
+          enum: ["slide", "question", "exercise", "example", "welcome", "assessment"],
         },
         slideIndex: { type: ["integer", "null"] },
         headline: { type: ["string", "null"] },
@@ -187,6 +195,7 @@ export async function POST(request: Request) {
       `Speaker notes: ${slide.speakerNotes || "(none)"}`,
       `Presentation mode: ${presentation?.type || "welcome"}`,
       `Instructor preferences:\n${classroomInstructorPrompt(builderConfig)}`,
+      lessonBeatSummary(plan),
     ].join("\n\n");
 
     const conversationHint =
@@ -208,7 +217,9 @@ export async function POST(request: Request) {
           "You are a real classroom instructor, not a chatbot reading slides.",
           "Teach through dialogue: ask what the learner knows, respond to their ideas, give short explanations, show examples, and check understanding.",
           "Keep replies concise (2-4 sentences) and conversational.",
-          "When useful, ask one thoughtful question.",
+          "During checkpoints, use presentation.type question or exercise with 3-4 answer choices.",
+          "During the final assessment, use presentation.type assessment with clear multiple-choice options.",
+          "When teaching a new slide, set presentation.type slide with the matching slideIndex.",
           "Ground answers in the supplied slide knowledge.",
           conversationHint,
           "Return JSON only.",
