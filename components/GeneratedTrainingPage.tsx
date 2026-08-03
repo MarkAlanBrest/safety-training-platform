@@ -20,6 +20,9 @@ import {
   DragOrderActivity,
   ImpactTiles,
 } from "@/components/training/ImpactBlocks";
+import FlashcardDeck from "@/components/training/FlashcardDeck";
+import HotspotActivity from "@/components/training/HotspotActivity";
+import TutorMoment from "@/components/training/TutorMoment";
 import MomentTypeLabel, {
   isExampleShowcaseCourse,
 } from "@/components/training/MomentTypeLabel";
@@ -462,7 +465,7 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
             </p>
             {showMomentLabels && sectionIndex === 0 && (
               <p className="mt-6 inline-flex rounded-full border border-[var(--accent)]/35 bg-[var(--pale)] px-4 py-2 text-sm font-semibold text-[var(--ink)]">
-                Example course — scroll to see labeled explain, text, tiles, visual, drag, scenario, question, and summary moments.
+                Example course — includes AI instructor slides, flash cards, click-to-explore images, and more reading with fewer multiple-choice gates.
               </p>
             )}
           </div>
@@ -531,6 +534,37 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
                   <div key={`${moment.title}-${index}`}>
                     {label}
                     <DragOrderActivity moment={moment} />
+                  </div>
+                );
+              }
+
+              if (moment.kind === "flashcard") {
+                return (
+                  <div key={`${moment.title}-${index}`}>
+                    {label}
+                    <FlashcardDeck moment={moment} />
+                  </div>
+                );
+              }
+
+              if (moment.kind === "hotspot") {
+                return (
+                  <div key={`${moment.title}-${index}`}>
+                    {label}
+                    <HotspotActivity moment={moment} />
+                  </div>
+                );
+              }
+
+              if (moment.kind === "tutor") {
+                return (
+                  <div key={`${moment.title}-${index}`}>
+                    {label}
+                    <TutorMoment
+                      moment={moment}
+                      courseSlug={course.slug}
+                      sectionIndex={sectionIndex}
+                    />
                   </div>
                 );
               }

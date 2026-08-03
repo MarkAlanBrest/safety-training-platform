@@ -5,6 +5,9 @@ export type LessonMoment = {
     | "tiles"
     | "dragdrop"
     | "visual"
+    | "flashcard"
+    | "hotspot"
+    | "tutor"
     | "question"
     | "scenario"
     | "summary";
@@ -27,6 +30,13 @@ export type LessonMoment = {
   visualItems?: string[] | null;
   tiles?: Array<{ title: string; body: string }> | null;
   dragItems?: string[] | null;
+  flashcards?: Array<{ front: string; back: string }> | null;
+  hotspotPoints?: Array<{
+    x: number;
+    y: number;
+    label: string;
+    text: string;
+  }> | null;
   explainerStyle?: "flipbook" | "guided-focus" | "compare-reveal" | "step-build" | null;
   explainerFrames?: Array<{
     title: string;

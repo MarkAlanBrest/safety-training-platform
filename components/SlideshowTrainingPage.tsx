@@ -17,6 +17,9 @@ import {
   DragOrderActivity,
   ImpactTiles,
 } from "@/components/training/ImpactBlocks";
+import FlashcardDeck from "@/components/training/FlashcardDeck";
+import HotspotActivity from "@/components/training/HotspotActivity";
+import TutorMoment from "@/components/training/TutorMoment";
 import {
   buildPlayerFrames,
   type LessonMoment,
@@ -299,6 +302,22 @@ export default function SlideshowTrainingPage({
               ) : slide.moment.kind === "tiles" ? (
                 <div className="mx-auto w-full max-w-5xl">
                   <ImpactTiles moment={slide.moment} />
+                </div>
+              ) : slide.moment.kind === "flashcard" ? (
+                <div className="mx-auto w-full max-w-4xl">
+                  <FlashcardDeck moment={slide.moment} />
+                </div>
+              ) : slide.moment.kind === "hotspot" ? (
+                <div className="mx-auto w-full max-w-4xl">
+                  <HotspotActivity moment={slide.moment} />
+                </div>
+              ) : slide.moment.kind === "tutor" ? (
+                <div className="mx-auto w-full max-w-5xl">
+                  <TutorMoment
+                    moment={slide.moment}
+                    courseSlug={course.slug}
+                    sectionIndex={sectionIndex}
+                  />
                 </div>
               ) : slide.moment.kind === "question" ||
               slide.moment.kind === "scenario" ? (

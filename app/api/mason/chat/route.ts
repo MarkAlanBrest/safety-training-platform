@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 
 import { prisma } from "@/lib/prisma";
+import { lessonPlanForChat } from "@/lib/mason-chat";
 import type { LessonPlan } from "@/lib/mason";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -9,6 +10,9 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const sectionId = Number(body.sectionId);
+    const sectionIndex = Number(body.sectionIndex);
+    const courseSlug =
+      typeof body.courseSlug === "string" ? body.courseSlug : undefined;
     const messages = (Array.isArray(body.messages) ? body.messages : [])
       .filter(
         (item: ChatMessage) =>
@@ -21,29 +25,30 @@ export async function POST(request: Request) {
       return Response.json({ error: "A question is required." }, { status: 400 });
     }
 
-    let plan: LessonPlan | null = null;
-    if (sectionId === 0) {
-      const { demoCourse } = await import("@/lib/mason");
-      plan = demoCourse.sections[0].lessonPlan;
-    } else {
+    let plan: LessonPlan | null = lessonPlanForChat({
+      courseSlug,
+      sectionIndex: Number.isInteger(sectionIndex) ? sectionIndex : undefined,
+      sectionId: Number.isInteger(sectionId) ? sectionId : undefined,
+    });
+
+    if (!plan && Number.isInteger(sectionId)) {
       const section = await prisma.masonSection.findUnique({
         where: { id: sectionId },
         select: { lessonPlan: true },
       });
       plan = section?.lessonPlan as unknown as LessonPlan | null;
     }
+
     if (!plan) {
       return Response.json({ error: "Lesson section not found." }, { status: 404 });
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return Response.json(
-        {
-          reply:
-            "I’m ready to discuss this lesson once the OpenAI API key is connected. You can still continue through the prepared teaching activities.",
-        },
-      );
+      return Response.json({
+        reply:
+          "I'm ready to discuss this lesson once the OpenAI API key is connected. You can still continue through the prepared teaching activities.",
+      });
     }
 
     const source = [
