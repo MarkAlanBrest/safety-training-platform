@@ -249,6 +249,19 @@ const CURATED_EXPLAINER_IMAGES: Record<string, Record<string, string>> = {
     Delay: "/course-assets/workplace-harassment/visual-explainer/impact.png",
     Document: "/course-assets/workplace-harassment/visual-explainer/review.png",
   },
+  "What consent requires": {
+    "Freely given": "/course-assets/workplace-harassment/visual-explainer/respect.png",
+    Specific: "/course-assets/workplace-harassment/visual-explainer/conduct.png",
+    Reversible: "/course-assets/workplace-harassment/visual-explainer/context.png",
+    Capable: "/course-assets/workplace-harassment/visual-explainer/recognize.png",
+  },
+  "A survivor-centered first response": {
+    Listen: "/course-assets/workplace-harassment/visual-explainer/receive.png",
+    Safety: "/course-assets/workplace-harassment/visual-explainer/protect.png",
+    Options: "/course-assets/workplace-harassment/visual-explainer/respond.png",
+    Privacy: "/course-assets/workplace-harassment/visual-explainer/respect.png",
+    "Follow up": "/course-assets/workplace-harassment/visual-explainer/follow-up.png",
+  },
 };
 
 export function sanitizeVisualMomentForLearner(moment: LessonMoment): LessonMoment {
