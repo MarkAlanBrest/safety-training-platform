@@ -85,7 +85,8 @@ export const demoCourse: PublicMasonCourse = {
   id: 0,
   title: "Interactive Ladder Safety",
   slug: "demo",
-  description: "A short preview of an AI-guided teaching experience.",
+  description:
+    "A preview of every teaching moment type: explain, text, tiles, visual, drag-to-order, scenario, question, and summary.",
   published: true,
   sections: [
     {
@@ -93,6 +94,7 @@ export const demoCourse: PublicMasonCourse = {
       title: "Safe Ladder Setup",
       position: 1,
       fileName: "demo.pdf",
+      estimatedMinutes: 12,
       lessonPlan: {
         sectionTitle: "Safe Ladder Setup",
         opening:
@@ -100,6 +102,7 @@ export const demoCourse: PublicMasonCourse = {
         objectives: [
           "Recognize a stable setup surface",
           "Apply the 4-to-1 rule",
+          "Sequence setup steps in the safest order",
           "Know when a ladder should not be used",
         ],
         summary:
@@ -112,9 +115,10 @@ export const demoCourse: PublicMasonCourse = {
         moments: [
           {
             kind: "explain",
+            phase: "learn",
             title: "Before your feet leave the ground",
             narration:
-              "Most ladder incidents begin before anyone climbs. Start by checking the ladder, the surface, and the space around the work.",
+              "Most ladder incidents begin before anyone climbs. Start by checking the ladder, the surface, and the space around the work.\n\nA quick pre-use inspection takes less than a minute. Look at side rails, rungs, feet, locks, and labels. If anything is bent, cracked, or missing, tag the ladder and remove it from service before someone else reaches for it.",
             prompt: null,
             choices: null,
             correctAnswer: null,
@@ -122,23 +126,120 @@ export const demoCourse: PublicMasonCourse = {
             pageNumber: null,
           },
           {
-            kind: "visual",
-            title: "The 4-to-1 rule",
+            kind: "text",
+            phase: "learn",
+            title: "Build the setup from the ground up",
             narration:
-              "Picture an extension ladder reaching sixteen feet high. Its base should be four feet away from the wall. This creates a stable climbing angle.",
-            cue: "I want to show you why the angle matters. Watch what happens at the base of the ladder.",
-            visualAction: "zoom",
-            focusX: 46,
-            focusY: 72,
-            focusScale: 1.45,
-            prompt: "What changes if the ladder reaches twenty feet?",
+              "Clear the area and examine the support surface before raising the ladder. The feet need stable, level support.\n\nDo not place a ladder on boxes, barrels, loose material, or makeshift blocks to gain height. Slippery surfaces require effective securing or slip-resistant feet, and those feet do not replace careful placement.\n\nAt the top, both rails of a non-self-supporting ladder should be supported equally. Keep the top and bottom areas clear before anyone climbs.",
+            prompt: null,
             choices: null,
             correctAnswer: null,
             feedback: null,
             pageNumber: null,
           },
           {
+            kind: "tiles",
+            phase: "learn",
+            title: "Three setup checks",
+            narration:
+              "Use the same three-part check every time you set a ladder.",
+            prompt: null,
+            choices: null,
+            correctAnswer: null,
+            feedback: null,
+            pageNumber: null,
+            tiles: [
+              {
+                title: "Surface",
+                body: "Firm, level ground with no loose debris, oil, or unstable fill under the feet.",
+              },
+              {
+                title: "Angle",
+                body: "About one foot out for every four feet of working length along the ladder.",
+              },
+              {
+                title: "Security",
+                body: "Top and bottom secured or barricaded when traffic, doors, or wind could move the ladder.",
+              },
+            ],
+          },
+          {
+            kind: "visual",
+            phase: "learn",
+            title: "The 4-to-1 rule",
+            narration:
+              "Picture an extension ladder reaching sixteen feet high. Its base should be four feet away from the wall. This creates a stable climbing angle.",
+            cue: "Watch how working length, base distance, and angle work together.",
+            visualAction: "zoom",
+            focusX: 46,
+            focusY: 72,
+            focusScale: 1.45,
+            visualType: "formula",
+            visualItems: ["Working length ÷ 4", "Base distance", "Stable angle"],
+            explainerStyle: "flipbook",
+            explainerFrames: [
+              {
+                title: "Inspect",
+                caption: "Check the ladder and landing area first.",
+                narration:
+                  "Before you measure the angle, confirm the ladder is sound and the support surface is stable.",
+                visualItems: ["Rails", "Rungs", "Feet"],
+                focusX: 30,
+                focusY: 40,
+                focusScale: 1.35,
+                sourceImage: "/course-assets/ladder-safety/ladder-inspection.png",
+              },
+              {
+                title: "Measure",
+                caption: "Estimate working length from foot to top support.",
+                narration:
+                  "Working length runs along the ladder from its foot to the top support—not simply the height of the wall.",
+                visualItems: ["Foot", "Top support", "Working length"],
+                focusX: 50,
+                focusY: 55,
+                focusScale: 1.4,
+                sourceImage: "/course-assets/ladder-safety/four-to-one-setup.png",
+              },
+              {
+                title: "Place",
+                caption: "Set the base at working length divided by four.",
+                narration:
+                  "A sixteen-foot working length calls for a base about four feet out. Too close increases tipping risk; too far increases sliding.",
+                visualItems: ["16 ÷ 4 = 4", "Base distance"],
+                focusX: 70,
+                focusY: 72,
+                focusScale: 1.45,
+                sourceImage: "/course-assets/ladder-safety/four-to-one-setup.png",
+              },
+            ],
+            prompt: null,
+            choices: null,
+            correctAnswer: null,
+            feedback: null,
+            pageNumber: null,
+          },
+          {
+            kind: "dragdrop",
+            phase: "activity",
+            title: "Put the setup in order",
+            narration:
+              "Arrange these setup actions from first step to final check.",
+            prompt: "Drag these actions into the safest order.",
+            choices: null,
+            correctAnswer: null,
+            feedback: null,
+            pageNumber: null,
+            dragItems: [
+              "Clear the area and inspect the ladder",
+              "Place the feet on firm, level support",
+              "Set the base using the four-to-one ratio",
+              "Secure the top and bottom against displacement",
+              "Verify the setup before climbing",
+            ],
+          },
+          {
             kind: "scenario",
+            phase: "activity",
             title: "You arrive at the job",
             narration:
               "The only available ground is uneven gravel. A coworker suggests placing scrap wood under one foot of the ladder.",
@@ -155,6 +256,7 @@ export const demoCourse: PublicMasonCourse = {
           },
           {
             kind: "question",
+            phase: "activity",
             title: "Quick check",
             narration: "Let’s make sure the setup ratio is clear.",
             prompt:
@@ -166,7 +268,26 @@ export const demoCourse: PublicMasonCourse = {
             pageNumber: null,
           },
           {
+            kind: "question",
+            phase: "mastery",
+            title: "Mastery: setup readiness",
+            narration:
+              "A worker sets a ladder on firm ground, applies the four-to-one ratio, and secures the top—but leaves the base in front of an active doorway.",
+            prompt: "What is still missing?",
+            choices: [
+              "Nothing; the angle is correct",
+              "A barricade or securing control to keep traffic away from the ladder",
+              "A second ladder at the top",
+              "Permission from the building owner",
+            ],
+            correctAnswer: 1,
+            feedback:
+              "Correct. Ladders exposed to doorways or workplace traffic must be secured against displacement or protected by a barricade.",
+            pageNumber: null,
+          },
+          {
             kind: "summary",
+            phase: "learn",
             title: "Your setup habit",
             narration:
               "Inspect first, choose firm and level ground, set the correct angle, and secure the ladder. If any part feels improvised, stop and correct it.",
