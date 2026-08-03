@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ClassroomPlan,
   PresentationView,
   PublicClassroomCourse,
 } from "@/lib/classroom";
+import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
 import ClassroomNav from "@/components/classroom/ClassroomNav";
 import PresentationArea from "@/components/classroom/PresentationArea";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
@@ -32,10 +33,22 @@ export default function ClassroomShell({
 }) {
   const plan = course.plan;
   const builderConfig = plan.config;
-  const conversationMode = builderConfig?.settings.conversationMode || "interrupt-anytime";
+  const conversationMode =
+    builderConfig?.settings.conversationMode || "interrupt-anytime";
+  const voiceSettings = useMemo(() => {
+    const defaults = defaultClassroomBuilderConfig().teaching;
+    const settings = defaultClassroomBuilderConfig().settings;
+    return {
+      voice: builderConfig?.teaching.voice ?? defaults.voice,
+      speed: builderConfig?.teaching.voiceSpeed ?? defaults.voiceSpeed,
+      enabled: builderConfig?.settings.speechVoice ?? settings.speechVoice,
+    };
+  }, [builderConfig]);
+
   const [messages, setMessages] = useState<TeacherMessage[]>([]);
   const [thinking, setThinking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
   const [completedTopicIds, setCompletedTopicIds] = useState<string[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -45,12 +58,27 @@ export default function ClassroomShell({
     body: plan.opening,
   });
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
   const startedRef = useRef(false);
+  const audioUnlockedRef = useRef(false);
+  const pendingSpeechRef = useRef<string | null>(null);
+  const speakQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const speakRef = useRef<(text: string) => Promise<void>>(async () => undefined);
 
   const activeTopic = useMemo(
     () => topicForSlide(plan, currentSlideIndex),
     [plan, currentSlideIndex],
   );
+
+  const unlockAudio = useCallback(() => {
+    audioUnlockedRef.current = true;
+    const pending = pendingSpeechRef.current;
+    if (pending) {
+      pendingSpeechRef.current = null;
+      setNeedsAudioUnlock(false);
+      void speakRef.current(pending);
+    }
+  }, []);
 
   useEffect(() => {
     if (startedRef.current) return;
@@ -58,36 +86,75 @@ export default function ClassroomShell({
     void beginClass();
   }, []);
 
-  async function speak(text: string) {
-    if (!text.trim()) return;
-    audioRef.current?.pause();
-    setSpeaking(true);
-    try {
-      const response = await fetch("/api/mason/speech", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text,
-          voice: builderConfig?.teaching.voice,
-          speed: builderConfig?.teaching.voiceSpeed,
-        }),
-      });
-      if (!response.ok) throw new Error("speech failed");
-      const url = URL.createObjectURL(await response.blob());
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => {
-        setSpeaking(false);
-        URL.revokeObjectURL(url);
-      };
-      await audio.play();
-    } catch {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.onend = () => setSpeaking(false);
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+      }
       window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utterance);
-    }
+    };
+  }, []);
+
+  async function speak(text: string) {
+    if (!voiceSettings.enabled || !text.trim()) return;
+
+    const run = async () => {
+      window.speechSynthesis.cancel();
+      audioRef.current?.pause();
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+
+      setSpeaking(true);
+      try {
+        const response = await fetch("/api/mason/speech", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text,
+            voice: voiceSettings.voice,
+            speed: voiceSettings.speed,
+          }),
+        });
+        if (!response.ok) throw new Error("speech failed");
+
+        const url = URL.createObjectURL(await response.blob());
+        audioUrlRef.current = url;
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        audio.onended = () => {
+          setSpeaking(false);
+          if (audioUrlRef.current === url) {
+            URL.revokeObjectURL(url);
+            audioUrlRef.current = null;
+          }
+        };
+
+        if (!audioUnlockedRef.current) {
+          try {
+            await audio.play();
+            audioUnlockedRef.current = true;
+          } catch {
+            pendingSpeechRef.current = text;
+            setNeedsAudioUnlock(true);
+            setSpeaking(false);
+            return;
+          }
+        } else {
+          await audio.play();
+        }
+      } catch {
+        setSpeaking(false);
+      }
+    };
+
+    speakQueueRef.current = speakQueueRef.current.then(run).catch(() => undefined);
+    await speakQueueRef.current;
   }
+
+  speakRef.current = speak;
 
   async function sendToTeacher(
     nextMessages: TeacherMessage[],
@@ -168,12 +235,14 @@ export default function ClassroomShell({
   }
 
   async function handleSend(message: string) {
+    unlockAudio();
     const next: TeacherMessage[] = [...messages, { role: "user", content: message }];
     setMessages(next);
     await sendToTeacher(next);
   }
 
   function handleSelectTopic(topic: (typeof plan.topics)[number]) {
+    unlockAudio();
     setCurrentSlideIndex(topic.slideStart);
     setPresentation({
       type: "slide",
@@ -242,8 +311,10 @@ export default function ClassroomShell({
           quickReplies={quickReplies}
           thinking={thinking}
           speaking={speaking}
+          needsAudioUnlock={needsAudioUnlock}
           onSend={handleSend}
           onSpeak={speak}
+          onInteract={unlockAudio}
         />
       </div>
     </main>

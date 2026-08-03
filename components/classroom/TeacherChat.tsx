@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Bot, Hand, Send, Volume2 } from "lucide-react";
 import { DEFAULT_QUICK_REPLIES } from "@/lib/classroom";
 
@@ -14,32 +14,43 @@ export default function TeacherChat({
   quickReplies,
   thinking,
   speaking,
+  needsAudioUnlock = false,
   onSend,
   onSpeak,
+  onInteract,
 }: {
   messages: TeacherMessage[];
   quickReplies: string[];
   thinking: boolean;
   speaking: boolean;
+  needsAudioUnlock?: boolean;
   onSend: (message: string) => Promise<void>;
   onSpeak: (text: string) => Promise<void>;
+  onInteract?: () => void;
 }) {
   const [draft, setDraft] = useState("");
-  const listRef = useRef<HTMLDivElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [messages, thinking, speaking]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     const clean = draft.trim();
     if (!clean || thinking) return;
+    onInteract?.();
     setDraft("");
     await onSend(clean);
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }
 
   async function sendQuickReply(reply: string) {
     if (thinking) return;
+    onInteract?.();
     await onSend(reply);
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }
 
   const replies = quickReplies.length ? quickReplies : DEFAULT_QUICK_REPLIES;
@@ -54,13 +65,19 @@ export default function TeacherChat({
           <div>
             <p className="font-bold text-slate-900">AI Teacher</p>
             <p className="text-xs text-emerald-600">
-              {thinking ? "Thinking…" : speaking ? "Speaking…" : "Ready to talk"}
+              {needsAudioUnlock
+                ? "Tap a reply to hear your instructor"
+                : thinking
+                  ? "Thinking…"
+                  : speaking
+                    ? "Speaking…"
+                    : "Ready to talk"}
             </p>
           </div>
         </div>
       </div>
 
-      <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {!messages.length && (
           <div className="rounded-2xl bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-600">
             Your instructor will teach, ask questions, and respond to you here. Use the
@@ -80,7 +97,10 @@ export default function TeacherChat({
             {message.role === "assistant" ? (
               <button
                 type="button"
-                onClick={() => void onSpeak(message.content)}
+                onClick={() => {
+                  onInteract?.();
+                  void onSpeak(message.content);
+                }}
                 className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-slate-500"
               >
                 <Volume2 size={14} />
@@ -89,6 +109,12 @@ export default function TeacherChat({
             ) : null}
           </div>
         ))}
+        {thinking ? (
+          <div className="rounded-2xl bg-[#f1f5f9] px-4 py-3 text-sm leading-7 text-slate-500">
+            Instructor is thinking…
+          </div>
+        ) : null}
+        <div ref={bottomRef} aria-hidden="true" className="h-px shrink-0" />
       </div>
 
       <div className="border-t border-slate-200 px-4 py-4">
@@ -117,6 +143,7 @@ export default function TeacherChat({
           <input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
+            onFocus={() => onInteract?.()}
             placeholder="Talk with your instructor…"
             className="min-w-0 flex-1 rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-amber-400"
           />
