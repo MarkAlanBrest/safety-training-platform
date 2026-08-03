@@ -14,6 +14,7 @@ import {
   KeyRound,
   LoaderCircle,
   ImagePlus,
+  PackageCheck,
   Plus,
   RefreshCw,
   Save,
@@ -78,6 +79,9 @@ type Course = {
   logoData: string | null;
   accentColor: string | null;
   displayMode: "webpage" | "slideshow";
+  courseType: "pdf" | "scorm";
+  scormVersion: string | null;
+  scormEntryPoint: string | null;
   intensity: string;
   estimatedMinutes: number;
   published: boolean;
@@ -430,7 +434,17 @@ export default function CourseEditorPage() {
         </div>
       )}
 
-      {tab === "content" && (
+      {tab === "content" && (course.courseType === "scorm" ? (
+        <section className="rounded-3xl border border-[#10283f]/10 bg-white p-10 text-center shadow-sm">
+          <PackageCheck className="mx-auto text-[#c68b1b]" size={46} />
+          <p className="mt-5 text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">Imported package</p>
+          <h2 className="mt-2 font-serif text-3xl font-semibold text-[#10283f]">SCORM {course.scormVersion} course</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#69757e]">
+            This course uses the lessons and assessment inside the uploaded SCORM package. Enrollment codes, learner progress, completion, and certificates are managed here.
+          </p>
+          <p className="mt-5 text-sm font-semibold text-[#10283f]">Publish the course and open it through a claimed enrollment code to test learner tracking.</p>
+        </section>
+      ) : (
         <div className="grid gap-7 xl:grid-cols-[1fr_380px]">
           <section>
             <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
@@ -595,7 +609,7 @@ export default function CourseEditorPage() {
             </form>
           </aside>
         </div>
-      )}
+      ))}
 
       {tab === "settings" && (
         <form onSubmit={saveSettings} className="grid gap-7 xl:grid-cols-[1fr_.8fr]">

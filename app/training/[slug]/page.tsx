@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import GeneratedTrainingPage from "@/components/GeneratedTrainingPage";
+import ScormPlayer from "@/components/ScormPlayer";
 import { prisma } from "@/lib/prisma";
 import {
   demoCourse,
@@ -36,7 +37,19 @@ export default async function TrainingCoursePage({
       },
     },
   });
-  if (!record || record.sections.length === 0) notFound();
+  if (!record) notFound();
+  if (record.courseType === "scorm") {
+    if (!record.scormEntryPoint || !record.scormVersion) notFound();
+    return (
+      <ScormPlayer
+        title={record.title}
+        slug={record.slug}
+        entryPoint={record.scormEntryPoint}
+        version={record.scormVersion}
+      />
+    );
+  }
+  if (record.sections.length === 0) notFound();
 
   const course: PublicMasonCourse = sanitizeCourseForLearner({
     ...record,

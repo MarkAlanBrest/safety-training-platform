@@ -39,6 +39,9 @@ model MasonCourse {
   logoData         String?            @db.Text
   accentColor      String?
   displayMode      String             @default("webpage")
+  courseType       String             @default("pdf")
+  scormVersion     String?
+  scormEntryPoint  String?
   intensity        String             @default("standard")
   estimatedMinutes Int                @default(60)
   published        Boolean            @default(false)
@@ -47,6 +50,19 @@ model MasonCourse {
   sections         MasonSection[]
   enrollmentCodes EnrollmentCode[]
   enrollments      CourseEnrollment[]
+  scormAssets      ScormAsset[]
+}
+
+model ScormAsset {
+  id        Int         @id @default(autoincrement())
+  courseId  Int
+  path      String
+  mimeType  String
+  content   Bytes
+  course    MasonCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, path])
+  @@index([courseId])
 }
 
 model MasonSection {
@@ -94,6 +110,8 @@ model CourseEnrollment {
   enrolledAt     DateTime       @default(now())
   lastAccessedAt DateTime       @default(now())
   completedAt    DateTime?
+  scormData      Json?
+  score          Int?
   course         MasonCourse    @relation(fields: [courseId], references: [id], onDelete: Cascade)
   code           EnrollmentCode @relation(fields: [codeId], references: [id], onDelete: Restrict)
 
