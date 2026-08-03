@@ -3,12 +3,14 @@
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, BookOpen, LoaderCircle, ShieldCheck } from "lucide-react";
+import { learnerCoursePath } from "@/lib/course-routes";
 
 type CourseSummary = {
   title: string;
   slug: string;
   description: string | null;
   estimatedMinutes: number;
+  courseType?: string | null;
 };
 
 function EnrollForm() {
@@ -29,7 +31,11 @@ function EnrollForm() {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "This code is not valid.");
         if (data.claimed) {
-          router.replace(`/training/${data.course.slug}?code=${encodeURIComponent(code)}`);
+          router.replace(
+            data.learnerPath ||
+              learnerCoursePath(data.course.slug, data.course.courseType) +
+                `?code=${encodeURIComponent(code)}`,
+          );
           return;
         }
         setCourse(data.course);
@@ -61,7 +67,11 @@ function EnrollForm() {
       setSubmitting(false);
       return;
     }
-    router.push(`/training/${data.course.slug}?code=${encodeURIComponent(code)}`);
+    router.push(
+      data.learnerPath ||
+        learnerCoursePath(data.course.slug, data.course.courseType) +
+          `?code=${encodeURIComponent(code)}`,
+    );
   }
 
   if (loading) {

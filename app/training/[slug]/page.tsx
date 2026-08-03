@@ -1,7 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import GeneratedTrainingPage from "@/components/GeneratedTrainingPage";
 import ScormPlayer from "@/components/ScormPlayer";
 import { prisma } from "@/lib/prisma";
+import { learnerCoursePath } from "@/lib/course-routes";
 import {
   demoCourse,
   sanitizeCourseForLearner,
@@ -46,6 +47,9 @@ export default async function TrainingCoursePage({
     },
   });
   if (!record) notFound();
+  if (record.courseType === "classroom") {
+    redirect(learnerCoursePath(record.slug, record.courseType));
+  }
   if (record.courseType === "scorm") {
     if (!record.scormEntryPoint || !record.scormVersion) notFound();
     return (

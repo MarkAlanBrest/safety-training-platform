@@ -433,6 +433,10 @@ export function sanitizeVisualMomentForLearner(moment: LessonMoment): LessonMome
 }
 
 export function sanitizeLessonPlanForLearner(plan: LessonPlan): LessonPlan {
+  if (!Array.isArray(plan.moments)) {
+    return plan;
+  }
+
   return {
     ...plan,
     moments: plan.moments.map((moment) => sanitizeVisualMomentForLearner(moment)),

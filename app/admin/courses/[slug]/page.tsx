@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import AdminShell from "@/components/AdminShell";
 import { courseIntensities, courseThemes } from "@/lib/course-options";
+import { learnerCoursePath } from "@/lib/course-routes";
 import { parseJsonResponse } from "@/lib/parse-response";
 
 type Section = {
@@ -79,7 +80,7 @@ type Course = {
   logoData: string | null;
   accentColor: string | null;
   displayMode: "webpage" | "slideshow";
-  courseType: "pdf" | "scorm";
+  courseType: "pdf" | "scorm" | "classroom";
   scormVersion: string | null;
   scormEntryPoint: string | null;
   intensity: string;
@@ -380,7 +381,7 @@ export default function CourseEditorPage() {
       eyebrow={course.published ? "Published program" : "Draft program"}
       actions={
         <a
-          href={`/training/${course.slug}?preview=${encodeURIComponent(course.updatedAt)}`}
+          href={`${learnerCoursePath(course.slug, course.courseType)}?preview=${encodeURIComponent(course.updatedAt)}`}
           target="_blank"
           rel="noreferrer"
           className="rounded-xl border border-[#10283f]/15 bg-white px-4 py-3 text-sm font-bold text-[#10283f]"

@@ -19,6 +19,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
+import { learnerCoursePath } from "@/lib/course-routes";
 
 const trainingTypes = [
   {
@@ -89,7 +90,10 @@ export default function HomePage() {
       }
 
       if (data.claimed) {
-        router.push(`/training/${data.course.slug}?code=${encodeURIComponent(code)}`);
+        const path =
+          data.learnerPath ||
+          learnerCoursePath(data.course.slug, data.course.courseType);
+        router.push(`${path}?code=${encodeURIComponent(code)}`);
       } else {
         router.push(`/enroll?code=${encodeURIComponent(code)}`);
       }
