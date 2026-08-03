@@ -37,3 +37,43 @@ export function slidesForClassroomPlan(
         ),
   }));
 }
+
+export async function parsedSlidesFromUploadFormAsync(
+  form: FormData,
+): Promise<ParsedClassroomSlide[]> {
+  const raw = String(form.get("slides") || "");
+  if (!raw) {
+    throw new Error("Prepared slide data is required.");
+  }
+
+  const metadata = JSON.parse(raw) as Array<{
+    index: number;
+    title: string;
+    bodyText: string;
+    speakerNotes: string;
+    hasImage: boolean;
+  }>;
+
+  const slides: ParsedClassroomSlide[] = [];
+  for (const slide of metadata) {
+    let image: ParsedClassroomSlide["image"] = null;
+    if (slide.hasImage) {
+      const file = form.get(`slide-image-${slide.index}`);
+      if (file instanceof File && file.size > 0) {
+        image = {
+          bytes: new Uint8Array(await file.arrayBuffer()),
+          mimeType: file.type || "image/jpeg",
+        };
+      }
+    }
+    slides.push({
+      index: slide.index,
+      title: slide.title,
+      bodyText: slide.bodyText,
+      speakerNotes: slide.speakerNotes,
+      image,
+    });
+  }
+
+  return slides;
+}
