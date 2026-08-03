@@ -496,7 +496,7 @@ harassmentSections[3].lessonPlan.sectionTitle = "Bystander Action and Supervisor
 harassmentSections.push(
   {
     title: "Sexual Violence, Consent, and Survivor Support",
-    estimatedMinutes: 18,
+    estimatedMinutes: 22,
     lessonPlan: {
       sectionTitle: "Sexual Violence, Consent, and Survivor Support",
       opening:
@@ -517,6 +517,18 @@ harassmentSections.push(
         explain(
           "Consent must be freely given",
           "Consent is a voluntary, informed, and specific agreement. It can be withdrawn. A person who is asleep, unconscious, incapacitated, coerced, threatened, or unable to understand the situation cannot freely consent. A prior relationship or prior consent does not create ongoing permission.\n\nSexual violence can include completed or attempted sexual acts without freely given consent, unwanted sexual touching, and non-contact sexual abuse. Technology may also be used for sexual coercion, stalking, threats, or sharing intimate material without permission. When conduct is connected to employment, work travel, a company event, housing, transportation, or work communications, workplace safety and reporting processes may apply in addition to criminal or civil options.",
+        ),
+        visual(
+          "What consent requires",
+          "Consent is more than the absence of a no. Use the same four-part test every time: freely given, specific, reversible, and given by someone who is capable of choosing.",
+          "sequence",
+          ["Freely given", "Specific", "Reversible", "Capable"],
+          [
+            ["Freely given", "No coercion, threats, manipulation, or misuse of workplace power.", "A yes obtained through fear, job pressure, or intoxication is not freely given consent.", ["No pressure", "No threats", "No power abuse"]],
+            ["Specific", "Agreement to one act is not agreement to another.", "Consent must match the actual conduct. Do not assume permission carries over to new situations.", ["One act at a time", "Clear agreement"]],
+            ["Reversible", "Anyone may change their mind at any time.", "If consent is withdrawn or becomes uncertain, stop immediately and check in.", ["Can stop", "Can change mind"]],
+            ["Capable", "The person must be awake, aware, and able to choose.", "Sleep, unconsciousness, severe intoxication, or incapacitation remove the ability to consent.", ["Awake", "Aware", "Able to choose"]],
+          ],
         ),
         base("tiles", "learn", "Consent: what to remember", "Consent is active, specific, and reversible.", {
           tiles: [
@@ -544,6 +556,19 @@ harassmentSections.push(
         explain(
           "A trauma-informed first response",
           "A calm first response can reduce harm. Thank the person for telling you. Say that what happened is not their fault. Ask what they need right now and whether they are safe. Offer choices instead of taking control away. Do not demand a complete timeline, question why they did not leave, or ask why they waited.\n\nDo not promise absolute confidentiality if your role or policy requires escalation. Explain clearly who must be told and why, share information only with people who need it, and involve trained personnel. Preserve relevant messages or records when safe and lawful, but do not pressure the person to collect evidence or report to law enforcement. Those choices belong to the affected person except where law or policy creates a specific duty.",
+        ),
+        visual(
+          "A survivor-centered first response",
+          "When someone discloses sexual violence, your first job is support—not investigation. Follow a calm path that protects safety, dignity, and choice.",
+          "process",
+          ["Listen", "Safety", "Options", "Privacy", "Follow up"],
+          [
+            ["Listen", "Thank the person and respond without blame.", "Say that what happened is not their fault. Do not demand a complete timeline or question their choices.", ["No blame", "Believe", "Patient"]],
+            ["Safety", "Ask about immediate safety and urgent needs.", "If there is an active threat, contact emergency services and activate site security procedures.", ["Immediate danger", "Medical needs"]],
+            ["Options", "Explain support paths honestly.", "Share workplace, confidential, and community resources. Do not pressure a specific next step.", ["RAINN", "Workplace", "911"]],
+            ["Privacy", "Share information only with people who need it.", "Explain any limits on confidentiality under policy. Do not circulate the disclosure.", ["Need to know", "Policy limits"]],
+            ["Follow up", "Check back and watch for retaliation.", "Offer continued support and confirm that interim measures are working.", ["Check in", "No retaliation"]],
+          ],
         ),
         base("dragdrop", "activity", "Put the first response in order", "Arrange a supportive response from first step to follow-through.", {
           prompt: "Drag these actions into the safest order.",
