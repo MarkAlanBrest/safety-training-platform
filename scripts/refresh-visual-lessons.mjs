@@ -1,7 +1,10 @@
 import "dotenv/config";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "@prisma/client";
-import { embedVisualFrameImages } from "./visual-frame-art.mjs";
+import { embedLessonVisuals } from "./visual-frame-art.mjs";
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not configured.");
@@ -10,10 +13,25 @@ if (!process.env.DATABASE_URL) {
 const prisma = new PrismaClient({
   adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL }),
 });
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(scriptDir, "..");
 
 function themeForCourse(slug) {
   if (String(slug).includes("ladder")) return "ladder";
   return "harassment";
+}
+
+function resolveSourcePptx(slug) {
+  const candidates = [
+    path.join(repoRoot, "lib/seed/sources", `${slug}.pptx`),
+    path.join(repoRoot, "course-sources", `${slug}.pptx`),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  return null;
 }
 
 async function main() {
@@ -35,6 +53,8 @@ async function main() {
 
   for (const course of courses) {
     const theme = themeForCourse(course.slug);
+    const pptxPath = resolveSourcePptx(course.slug);
+    const pptxBuffer = pptxPath ? fs.readFileSync(pptxPath) : null;
 
     for (const section of course.sections) {
       const lessonPlan = section.lessonPlan;
@@ -45,7 +65,10 @@ async function main() {
         : 0;
       if (!visualCount) continue;
 
-      const nextPlan = embedVisualFrameImages(lessonPlan, theme);
+      const nextPlan = await embedLessonVisuals(lessonPlan, {
+        theme,
+        pptxBuffer,
+      });
       await prisma.masonSection.update({
         where: { id: section.id },
         data: {

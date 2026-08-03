@@ -7,7 +7,7 @@
     "build": "next build",
     "vercel-build": "prisma generate && prisma db push && npm run courses:install && next build",
     "db:init": "prisma db push",
-    "courses:install": "node scripts/install-complete-courses.mjs",
+    "courses:install": "node --experimental-strip-types scripts/install-complete-courses.mjs",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate"

@@ -173,6 +173,13 @@ export function buildFramePicture(theme, frameIndex, frameCount, title = "") {
   return `data:image/jpeg;base64,${canvas.toBuffer("image/jpeg", JPEG_QUALITY).toString("base64")}`;
 }
 
+function hasEmbeddedFrameImage(frame) {
+  return (
+    typeof frame.sourceImage === "string" &&
+    (frame.sourceImage.startsWith("data:") || frame.sourceImage.startsWith("/"))
+  );
+}
+
 export function embedVisualFrameImages(lessonPlan, theme = "harassment") {
   return {
     ...lessonPlan,
@@ -187,9 +194,8 @@ export function embedVisualFrameImages(lessonPlan, theme = "harassment") {
         focusX: frame.focusX ?? 50,
         focusY: frame.focusY ?? 50,
         focusScale: frame.focusScale ?? 1.35,
-        sourceImage:
-          frame.sourceImage?.startsWith("data:") ?
-            frame.sourceImage
+        sourceImage: hasEmbeddedFrameImage(frame)
+          ? frame.sourceImage
           : buildFramePicture(theme, index, frames.length, frame.title),
       }));
 
@@ -202,4 +208,16 @@ export function embedVisualFrameImages(lessonPlan, theme = "harassment") {
       };
     }),
   };
+}
+
+export async function embedLessonVisuals(lessonPlan, options = {}) {
+  const theme = options.theme || "harassment";
+  let plan = lessonPlan;
+
+  if (options.pptxBuffer?.byteLength) {
+    const { attachPptxVisuals } = await import("../lib/ppt-visuals.mjs");
+    plan = await attachPptxVisuals(options.pptxBuffer, plan);
+  }
+
+  return embedVisualFrameImages(plan, theme);
 }

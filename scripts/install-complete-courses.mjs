@@ -1,7 +1,10 @@
 import "dotenv/config";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "@prisma/client";
-import { embedVisualFrameImages } from "./visual-frame-art.mjs";
+import { embedLessonVisuals } from "./visual-frame-art.mjs";
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not configured.");
@@ -10,6 +13,8 @@ if (!process.env.DATABASE_URL) {
 const prisma = new PrismaClient({
   adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL }),
 });
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(scriptDir, "..");
 import {
   explain,
   summary,
@@ -441,6 +446,32 @@ function themeForCourse(slug) {
   return "harassment";
 }
 
+function resolveSourcePptx(definition) {
+  const candidates = [
+    definition.sourcePptx,
+    path.join(repoRoot, "lib/seed/sources", `${definition.slug}.pptx`),
+    path.join(repoRoot, "course-sources", `${definition.slug}.pptx`),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    const resolved = path.isAbsolute(candidate)
+      ? candidate
+      : path.join(repoRoot, candidate);
+    if (fs.existsSync(resolved)) return resolved;
+  }
+
+  return null;
+}
+
+async function loadSourcePptx(definition) {
+  const pptxPath = resolveSourcePptx(definition);
+  if (!pptxPath) return null;
+  return {
+    path: pptxPath,
+    buffer: fs.readFileSync(pptxPath),
+  };
+}
+
 const courses = [
   harassmentCourseDefinition,
   {
@@ -459,6 +490,8 @@ const courses = [
 ];
 
 async function installCourse(definition) {
+  const sourcePptx = await loadSourcePptx(definition);
+
   const course = await prisma.masonCourse.upsert({
     where: { slug: definition.slug },
     create: {
@@ -486,10 +519,10 @@ async function installCourse(definition) {
   });
 
   for (const [index, section] of definition.sections.entries()) {
-    const lessonPlan = embedVisualFrameImages(
-      section.lessonPlan,
-      themeForCourse(definition.slug),
-    );
+    const lessonPlan = await embedLessonVisuals(section.lessonPlan, {
+      theme: themeForCourse(definition.slug),
+      pptxBuffer: sourcePptx?.buffer || null,
+    });
 
     await prisma.masonSection.upsert({
       where: {
@@ -520,6 +553,7 @@ async function installCourse(definition) {
     title: course.title,
     slug: course.slug,
     sections: definition.sections.length,
+    sourcePptx: sourcePptx?.path || null,
   };
 }
 
