@@ -442,7 +442,12 @@ export default function CourseEditorPage() {
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#69757e]">
             This course uses the lessons and assessment inside the uploaded SCORM package. Enrollment codes, learner progress, completion, and certificates are managed here.
           </p>
-          <p className="mt-5 text-sm font-semibold text-[#10283f]">Publish the course and open it through a claimed enrollment code to test learner tracking.</p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Link href={`/admin/scorm-preview/${course.slug}`} target="_blank" className="inline-flex rounded-xl bg-[#10283f] px-5 py-3 font-bold text-white">
+              Preview SCORM course
+            </Link>
+          </div>
+          <p className="mt-4 text-xs text-[#69757e]">Preview mode does not alter learner progress or issue a certificate.</p>
         </section>
       ) : (
         <div className="grid gap-7 xl:grid-cols-[1fr_380px]">

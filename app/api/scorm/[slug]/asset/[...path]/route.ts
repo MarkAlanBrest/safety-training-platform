@@ -2,9 +2,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
+import { getAdminSession } from "@/lib/admin-session";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ slug: string; path: string[] }> },
 ) {
   const { slug, path } = await params;
@@ -15,7 +16,8 @@ export async function GET(
     where: { slug },
     select: { id: true, published: true, courseType: true },
   });
-  if (!course || course.courseType !== "scorm" || !course.published) {
+  const admin = course && !course.published ? await getAdminSession(request) : null;
+  if (!course || course.courseType !== "scorm" || (!course.published && !admin)) {
     return new Response("Course not found.", { status: 404 });
   }
   const asset = await prisma.scormAsset.findUnique({

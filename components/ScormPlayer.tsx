@@ -11,11 +11,13 @@ export default function ScormPlayer({
   slug,
   entryPoint,
   version,
+  preview = false,
 }: {
   title: string;
   slug: string;
   entryPoint: string;
   version: string;
+  preview?: boolean;
 }) {
   const searchParams = useSearchParams();
   const code = searchParams?.get("code") || "";
@@ -27,6 +29,11 @@ export default function ScormPlayer({
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
+    if (preview) {
+      dataRef.current = {};
+      setReady(true);
+      return;
+    }
     if (!code) {
       setError("Open this course using your claimed enrollment code.");
       return;
@@ -46,7 +53,7 @@ export default function ScormPlayer({
       })
       .catch((reason) => active && setError(reason instanceof Error ? reason.message : "Course could not be opened."));
     return () => { active = false; };
-  }, [code, slug]);
+  }, [code, preview, slug]);
 
   useEffect(() => {
     if (!ready) return;
@@ -55,6 +62,7 @@ export default function ScormPlayer({
     let saveAgain = false;
 
     const save = async () => {
+      if (preview) return;
       if (saving) {
         saveAgain = true;
         return;
@@ -137,7 +145,7 @@ export default function ScormPlayer({
       delete runtimeWindow.API;
       delete runtimeWindow.API_1484_11;
     };
-  }, [code, ready, slug]);
+  }, [code, preview, ready, slug]);
 
   const launchUrl = `/api/scorm/${encodeURIComponent(slug)}/asset/${entryPoint.split("/").map(encodeURIComponent).join("/")}`;
 
@@ -145,11 +153,13 @@ export default function ScormPlayer({
     <main className="min-h-screen bg-[#0b1f33] text-white">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-[#e8b84f]">SCORM {version}</p>
+          <p className="text-xs font-bold uppercase tracking-[.18em] text-[#e8b84f]">
+            SCORM {version}{preview ? " · Administrator preview" : ""}
+          </p>
           <h1 className="mt-1 text-lg font-semibold">{title}</h1>
         </div>
         <div className="flex items-center gap-3">
-          {certificateUrl && (
+          {!preview && certificateUrl && (
             <a href={certificateUrl} className="inline-flex items-center gap-2 rounded-full bg-[#d9a036] px-4 py-2 text-sm font-bold text-[#10283f]">
               <Award size={17} /> Certificate earned
             </a>
