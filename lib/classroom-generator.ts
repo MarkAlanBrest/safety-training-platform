@@ -1,5 +1,6 @@
 import type { ClassroomPlan, ClassroomSlide, ClassroomTopic } from "@/lib/classroom";
 import type { ClassroomBuilderConfig } from "@/lib/classroom-builder";
+import { analyzeSlideHotspots } from "@/lib/classroom-hotspots";
 import { mergeEnhancedSlide } from "@/lib/classroom-slide-content";
 import {
   buildFallbackAssessment,
@@ -133,7 +134,7 @@ async function enrichPlanWithAi(
                       highlight: { type: ["string", "null"] },
                       layout: {
                         type: "string",
-                        enum: ["title", "content", "image", "split"],
+                        enum: ["title", "content", "image", "split", "blueprint"],
                       },
                     },
                   },
@@ -149,7 +150,8 @@ async function enrichPlanWithAi(
               `Course title: ${title}`,
               "Create a warm instructor opening, 3-5 learning objectives, topic groupings, and polished on-screen slides.",
               "For each slide, write a clear title, short subtitle, 2-5 learner-friendly bullets, one highlight callout, and a layout.",
-              "Use layout title for opener slides, split when an image is present, image for photo-heavy slides, content for text slides.",
+              "Use layout blueprint when the slide image (diagram, blueprint, photo) is the main teaching surface.",
+              "Use layout title for opener slides, content only when there is no meaningful image.",
               "Do not invent facts that are not supported by the source slide text.",
               slideDigest,
             ].join("\n\n"),
@@ -209,6 +211,20 @@ export async function generateClassroomPlan(
   title: string,
   config?: ClassroomBuilderConfig,
 ): Promise<ClassroomPlan> {
-  const basePlan = buildClassroomPlanFromSlides(slides, title, config);
+  const slidesWithHotspots = await Promise.all(
+    slides.map(async (slide, index) => ({
+      ...slide,
+      hotspots: parsedSlides[index]?.image
+        ? await analyzeSlideHotspots({
+            title: slide.title,
+            bodyText: slide.bodyText,
+            speakerNotes: slide.speakerNotes,
+            image: parsedSlides[index].image,
+          })
+        : slide.hotspots || [],
+    })),
+  );
+
+  const basePlan = buildClassroomPlanFromSlides(slidesWithHotspots, title, config);
   return enrichPlanWithAi(basePlan, parsedSlides, title);
 }

@@ -3,7 +3,9 @@
 import { ClipboardCheck, Lightbulb, MessageCircleQuestion, Presentation } from "lucide-react";
 import type { ClassroomPlan, PresentationView } from "@/lib/classroom";
 import { structureClassroomSlide } from "@/lib/classroom-slide-content";
+import { slideImageSrc } from "@/lib/classroom";
 import SlideCanvas from "@/components/classroom/SlideCanvas";
+import SlideImageStage from "@/components/classroom/SlideImageStage";
 
 export default function PresentationArea({
   plan,
@@ -35,6 +37,13 @@ export default function PresentationArea({
       ? plan.slides[safeView.slideIndex] || plan.slides[0]
       : plan.slides[0];
   const structuredSlide = slide ? structureClassroomSlide(slide) : null;
+  const slideImage = structuredSlide ? slideImageSrc(structuredSlide) : "";
+  const useImageStage =
+    safeView.type === "slide" &&
+    Boolean(slideImage) &&
+    (structuredSlide?.layout === "blueprint" ||
+      structuredSlide?.layout === "image" ||
+      structuredSlide?.layout === "split");
 
   const headline =
     safeView.type === "welcome"
@@ -93,6 +102,13 @@ export default function PresentationArea({
               <h2 className="mt-4 max-w-3xl text-4xl font-bold leading-tight">{safeView.headline}</h2>
               <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-200">{safeView.body}</p>
             </div>
+          ) : useImageStage && structuredSlide ? (
+            <SlideImageStage
+              imageUrl={slideImage}
+              title={structuredSlide.title}
+              focus={safeView.type === "slide" ? safeView.focus : undefined}
+              hotspots={structuredSlide.hotspots}
+            />
           ) : safeView.type === "slide" && structuredSlide ? (
             <SlideCanvas slide={structuredSlide} courseTitle={plan.title} />
           ) : safeView.type === "question" ||
@@ -122,6 +138,16 @@ export default function PresentationArea({
           {safeView.type === "welcome" && (
             <p className="line-clamp-3 text-base leading-7 text-slate-700">{safeView.body}</p>
           )}
+
+          {safeView.type === "slide" && structuredSlide && !useImageStage ? (
+            <div className="space-y-2">
+              {structuredSlide.bullets.slice(0, 3).map((bullet) => (
+                <p key={bullet} className="text-sm leading-6 text-slate-700">
+                  {bullet}
+                </p>
+              ))}
+            </div>
+          ) : null}
 
           {safeView.type === "slide" && slide?.speakerNotes ? (
             <p className="text-sm leading-6 text-slate-500">

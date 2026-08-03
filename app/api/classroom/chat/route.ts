@@ -12,6 +12,7 @@ import {
   defaultClassroomBuilderConfig,
 } from "@/lib/classroom-builder";
 import { lessonBeatSummary } from "@/lib/classroom-lesson";
+import { hotspotsSummary, normalizeFocus } from "@/lib/classroom-focus";
 import { extractResponseOutputText } from "@/lib/parse-response";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -23,11 +24,17 @@ type RawPresentation = {
   prompt: string | null;
   body: string | null;
   choices: string[] | null;
+  focusX: number | null;
+  focusY: number | null;
+  focusScale: number | null;
+  hotspotId: string | null;
+  focusLabel: string | null;
 };
 
 function normalizePresentation(
   raw: RawPresentation | null | undefined,
   fallbackSlideIndex: number,
+  hotspots = undefined as ClassroomPlan["slides"][number]["hotspots"],
 ): PresentationView {
   if (!raw?.type) {
     return {
@@ -43,6 +50,16 @@ function normalizePresentation(
         slideIndex:
           typeof raw.slideIndex === "number" ? raw.slideIndex : fallbackSlideIndex,
         headline: raw.headline || undefined,
+        focus: normalizeFocus(
+          {
+            x: raw.focusX ?? undefined,
+            y: raw.focusY ?? undefined,
+            scale: raw.focusScale ?? undefined,
+            hotspotId: raw.hotspotId ?? undefined,
+            label: raw.focusLabel ?? undefined,
+          },
+          hotspots,
+        ),
       };
     case "question":
     case "exercise":
@@ -84,7 +101,19 @@ const classroomTeacherTurnSchema = {
     presentation: {
       type: "object",
       additionalProperties: false,
-      required: ["type", "slideIndex", "headline", "prompt", "body", "choices"],
+      required: [
+        "type",
+        "slideIndex",
+        "headline",
+        "prompt",
+        "body",
+        "choices",
+        "focusX",
+        "focusY",
+        "focusScale",
+        "hotspotId",
+        "focusLabel",
+      ],
       properties: {
         type: {
           type: "string",
@@ -98,6 +127,11 @@ const classroomTeacherTurnSchema = {
           type: ["array", "null"],
           items: { type: "string" },
         },
+        focusX: { type: ["number", "null"], minimum: 0, maximum: 100 },
+        focusY: { type: ["number", "null"], minimum: 0, maximum: 100 },
+        focusScale: { type: ["number", "null"], minimum: 1, maximum: 2.5 },
+        hotspotId: { type: ["string", "null"] },
+        focusLabel: { type: ["string", "null"] },
       },
     },
     quickReplies: {
@@ -193,6 +227,7 @@ export async function POST(request: Request) {
       `Current slide (${slide.index + 1}/${plan.slides.length}): ${slide.title}`,
       `Slide text: ${slide.bodyText}`,
       `Speaker notes: ${slide.speakerNotes || "(none)"}`,
+      `Slide hotspots:\n${hotspotsSummary(slide.hotspots)}`,
       `Presentation mode: ${presentation?.type || "welcome"}`,
       `Instructor preferences:\n${classroomInstructorPrompt(builderConfig)}`,
       lessonBeatSummary(plan),
@@ -219,7 +254,9 @@ export async function POST(request: Request) {
           "Keep replies concise (2-4 sentences) and conversational.",
           "During checkpoints, use presentation.type question or exercise with 3-4 answer choices.",
           "During the final assessment, use presentation.type assessment with clear multiple-choice options.",
-          "When teaching a new slide, set presentation.type slide with the matching slideIndex.",
+          "When discussing a specific line, symbol, or region on the slide image, set presentation.type slide and use hotspotId when possible.",
+          "Otherwise set focusX, focusY (0-100), focusScale (1.2-2.2), and focusLabel to direct attention.",
+          "Keep the slide visible while pointing; do not replace image slides with text-only layouts.",
           "Ground answers in the supplied slide knowledge.",
           conversationHint,
           "Return JSON only.",
@@ -263,6 +300,7 @@ export async function POST(request: Request) {
     const presentationView = normalizePresentation(
       parsed.presentation,
       slide.index,
+      slide.hotspots,
     );
 
     if (

@@ -1,4 +1,5 @@
 import type { ClassroomBuilderConfig } from "@/lib/classroom-builder";
+import type { ClassroomSlideHotspot, ClassroomSlideFocus } from "@/lib/classroom-focus";
 import type {
   ClassroomAssessmentQuestion,
   ClassroomCheckpoint,
@@ -18,10 +19,13 @@ export type ClassroomSlide = {
   subtitle?: string;
   bullets?: string[];
   highlight?: string;
-  layout?: "title" | "content" | "image" | "split";
+  layout?: "title" | "content" | "image" | "split" | "blueprint";
+  hotspots?: ClassroomSlideHotspot[];
   imageDataUrl?: string;
   imageUrl?: string;
 };
+
+export type { ClassroomSlideHotspot, ClassroomSlideFocus };
 
 export type ClassroomTopic = {
   id: string;
@@ -50,6 +54,7 @@ export type PresentationView =
       type: "slide";
       slideIndex: number;
       headline?: string;
+      focus?: ClassroomSlideFocus;
     }
   | {
       type: "question";
@@ -119,6 +124,23 @@ const demoSlides: ClassroomSlide[] = [
     speakerNotes:
       "Open with a question: ask what the learner has seen on a job site before explaining statistics.",
     imageUrl: demoSlideImages[0],
+    layout: "blueprint",
+    hotspots: [
+      {
+        id: "ladder",
+        label: "Extension ladder",
+        description: "The main access point where fall risk is highest.",
+        x: 52,
+        y: 46,
+      },
+      {
+        id: "worker",
+        label: "Worker position",
+        description: "Body orientation and reach matter for balance.",
+        x: 63,
+        y: 58,
+      },
+    ],
   },
   {
     index: 1,
@@ -128,6 +150,23 @@ const demoSlides: ClassroomSlide[] = [
     speakerNotes:
       "Walk through a quick example with a 16-foot working height. Ask the learner to predict the base distance before revealing the answer.",
     imageUrl: demoSlideImages[1],
+    layout: "blueprint",
+    hotspots: [
+      {
+        id: "base-distance",
+        label: "Base distance",
+        description: "This horizontal distance should be one quarter of the working height.",
+        x: 42,
+        y: 72,
+      },
+      {
+        id: "working-height",
+        label: "Working height",
+        description: "Measure from the ground support point to the top support point.",
+        x: 68,
+        y: 34,
+      },
+    ],
   },
   {
     index: 2,
@@ -137,6 +176,23 @@ const demoSlides: ClassroomSlide[] = [
     speakerNotes:
       "Use a scenario: learner is carrying a drill while climbing. Ask whether that setup is acceptable.",
     imageUrl: demoSlideImages[2],
+    layout: "blueprint",
+    hotspots: [
+      {
+        id: "hands",
+        label: "Hand placement",
+        description: "Two secure handholds maintain control while climbing.",
+        x: 48,
+        y: 40,
+      },
+      {
+        id: "foot",
+        label: "Foot placement",
+        description: "One foot stays planted while the other moves.",
+        x: 55,
+        y: 68,
+      },
+    ],
   },
   {
     index: 3,
@@ -146,6 +202,23 @@ const demoSlides: ClassroomSlide[] = [
     speakerNotes:
       "Close by asking the learner to name one situation where they would pause and reassess.",
     imageUrl: demoSlideImages[3],
+    layout: "blueprint",
+    hotspots: [
+      {
+        id: "hard-hat",
+        label: "PPE check",
+        description: "Pause if protection or equipment is missing or damaged.",
+        x: 50,
+        y: 42,
+      },
+      {
+        id: "hazard-scan",
+        label: "Hazard scan",
+        description: "Look for changing conditions before continuing work.",
+        x: 72,
+        y: 55,
+      },
+    ],
   },
 ];
 

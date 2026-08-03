@@ -1,6 +1,6 @@
 import type { ClassroomSlide } from "@/lib/classroom";
 
-export type ClassroomSlideLayout = "title" | "content" | "image" | "split";
+export type ClassroomSlideLayout = "title" | "content" | "image" | "split" | "blueprint";
 
 export type StructuredClassroomSlide = ClassroomSlide & {
   subtitle?: string;
@@ -38,13 +38,11 @@ export function structureClassroomSlide(slide: ClassroomSlide): StructuredClassr
   const hasImage = Boolean(slide.imageUrl || slide.imageDataUrl);
   const layout: ClassroomSlideLayout =
     slide.layout ||
-    (slide.index === 0 && bullets.length <= 1
-      ? "title"
-      : hasImage && bullets.length
-        ? "split"
-        : hasImage
-          ? "image"
-          : "content");
+    (hasImage
+      ? "blueprint"
+      : slide.index === 0 && bullets.length <= 1
+        ? "title"
+        : "content");
 
   return {
     ...slide,
@@ -68,5 +66,11 @@ export function mergeEnhancedSlide(
     highlight: enhanced?.highlight?.trim() || slide.highlight,
     layout: enhanced?.layout || slide.layout,
   };
+  if (merged.imageUrl || merged.imageDataUrl) {
+    merged.layout =
+      enhanced?.layout && enhanced.layout !== "content" && enhanced.layout !== "title"
+        ? enhanced.layout
+        : "blueprint";
+  }
   return structureClassroomSlide(merged);
 }
