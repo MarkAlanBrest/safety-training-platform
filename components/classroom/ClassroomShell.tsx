@@ -113,11 +113,24 @@ export default function ClassroomShell({
 
       setMessages([...nextMessages, { role: "assistant", content: reply }]);
       if (data.presentation) setPresentation(data.presentation);
-      if (typeof data.presentation?.type === "string" && data.presentation.type === "slide") {
+      if (
+        data.presentation?.type === "slide" &&
+        typeof data.presentation.slideIndex === "number"
+      ) {
         setCurrentSlideIndex(data.presentation.slideIndex);
       }
       if (data.quickReplies?.length) setQuickReplies(data.quickReplies);
       void speak(reply);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "The instructor could not respond.";
+      setMessages([
+        ...nextMessages,
+        {
+          role: "assistant",
+          content: message,
+        },
+      ]);
     } finally {
       setThinking(false);
     }
