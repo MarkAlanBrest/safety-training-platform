@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
 import { demoCourse } from "@/lib/mason";
+import { workplaceHarassmentExampleCourse } from "@/lib/workplace-harassment-example";
 import { requireAdmin } from "@/lib/admin-session";
 
 export async function GET(
@@ -11,6 +12,9 @@ export async function GET(
 ) {
   const { slug } = await params;
   if (slug === "demo") return Response.json(demoCourse);
+  if (slug === "workplace-sexual-harassment-prevention") {
+    return Response.json(workplaceHarassmentExampleCourse);
+  }
 
   const course = await prisma.masonCourse.findUnique({
     where: { slug },

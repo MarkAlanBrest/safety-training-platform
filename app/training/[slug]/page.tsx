@@ -8,6 +8,7 @@ import {
   type LessonPlan,
   type PublicMasonCourse,
 } from "@/lib/mason";
+import { workplaceHarassmentExampleCourse } from "@/lib/workplace-harassment-example";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,13 @@ export default async function TrainingCoursePage({
   const { slug } = await params;
   if (slug === "demo") {
     return <GeneratedTrainingPage course={sanitizeCourseForLearner(demoCourse)} />;
+  }
+  if (slug === "workplace-sexual-harassment-prevention") {
+    return (
+      <GeneratedTrainingPage
+        course={sanitizeCourseForLearner(workplaceHarassmentExampleCourse)}
+      />
+    );
   }
 
   const record = await prisma.masonCourse.findUnique({
