@@ -10,9 +10,9 @@ export default function NewClassroomPage() {
             Content slide builder
           </p>
           <p className="mt-2 max-w-3xl text-sm leading-7 text-white/80">
-            Export slide pictures as a ZIP, attach your PowerPoint for speaker notes, and the AI
-            will teach from your notes while showing your exact images. Insert formative checks and
-            activities anywhere in the lesson lineup.
+            Upload a PowerPoint and we&apos;ll render accurate slide pictures on the server and pull
+            speaker notes for the AI instructor. Or export your own slide images as a ZIP and attach
+            the PPT for notes.
           </p>
         </div>
         <ContentSlideBuilderForm />
