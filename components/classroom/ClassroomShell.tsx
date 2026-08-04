@@ -12,7 +12,6 @@ import {
   navLabelForBeat,
   presentationForBeat,
 } from "@/lib/classroom-lesson";
-import { speechChunks } from "@/lib/classroom-teacher";
 import ClassroomTopBar from "@/components/classroom/ClassroomTopBar";
 import PresentationArea from "@/components/classroom/PresentationArea";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
@@ -171,13 +170,22 @@ export default function ClassroomShell({
         audioUrlRef.current = url;
         const audio = new Audio(url);
         audioRef.current = audio;
-        audio.onended = () => {
-          setSpeaking(false);
-          if (audioUrlRef.current === url) {
-            URL.revokeObjectURL(url);
-            audioUrlRef.current = null;
-          }
-        };
+
+        // Resolve only when playback finishes so queued chunks never cut
+        // each other off mid-sentence.
+        const finished = new Promise<void>((resolve) => {
+          const done = () => {
+            setSpeaking(false);
+            if (audioUrlRef.current === url) {
+              URL.revokeObjectURL(url);
+              audioUrlRef.current = null;
+            }
+            resolve();
+          };
+          audio.addEventListener("ended", done, { once: true });
+          audio.addEventListener("error", done, { once: true });
+          controller.signal.addEventListener("abort", () => resolve(), { once: true });
+        });
 
         if (!audioUnlockedRef.current) {
           try {
@@ -192,6 +200,8 @@ export default function ClassroomShell({
         } else {
           await audio.play();
         }
+
+        await finished;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         setSpeaking(false);
@@ -203,10 +213,9 @@ export default function ClassroomShell({
   }
 
   function speakNatural(text: string) {
-    const chunks = speechChunks(text);
-    for (const chunk of chunks) {
-      void speak(chunk);
-    }
+    // Speak the whole reply as one clip so nothing gets cut off — chunked
+    // playback dropped parts of the narration when autoplay was blocked.
+    void speak(text);
   }
 
   function applyTeacherPresentation(view: PresentationView) {
