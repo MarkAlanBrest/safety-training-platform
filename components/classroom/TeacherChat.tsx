@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Bot, Hand, Mic, MicOff, Send, Volume2 } from "lucide-react";
+import { Bot, Hand, Mic, MicOff, Radio, Send, Volume2 } from "lucide-react";
 import { DEFAULT_QUICK_REPLIES } from "@/lib/classroom";
+import type { RealtimeTeacherStatus } from "@/components/classroom/ClassroomShell";
 
 export type TeacherMessage = {
   role: "user" | "assistant";
@@ -52,6 +53,9 @@ export default function TeacherChat({
   onSpeak,
   onInteract,
   focusRequest = 0,
+  realtimeStatus = "off",
+  realtimeError,
+  onToggleRealtime,
 }: {
   messages: TeacherMessage[];
   quickReplies: string[];
@@ -63,6 +67,9 @@ export default function TeacherChat({
   onSpeak: (text: string) => Promise<void>;
   onInteract?: () => void;
   focusRequest?: number;
+  realtimeStatus?: RealtimeTeacherStatus;
+  realtimeError?: string | null;
+  onToggleRealtime?: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const [listening, setListening] = useState(false);
@@ -137,6 +144,25 @@ export default function TeacherChat({
 
   const replies = quickReplies.length ? quickReplies : DEFAULT_QUICK_REPLIES;
   const showMic = speechToTextEnabled && speechSupported;
+  const realtimeActive = !["off", "error"].includes(realtimeStatus);
+  const teacherState =
+    realtimeStatus === "connecting"
+      ? "Connecting to your instructor…"
+      : realtimeStatus === "listening"
+        ? "Listening—go ahead"
+        : realtimeStatus === "thinking"
+          ? "Thinking…"
+          : realtimeStatus === "speaking"
+            ? "Speaking—you can interrupt"
+            : needsAudioUnlock
+              ? "Tap a reply to hear your instructor"
+              : thinking
+                ? "Thinking…"
+                : speaking
+                  ? "Speaking…"
+                  : listening
+                    ? "Listening…"
+                    : "Ready to talk";
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white">
