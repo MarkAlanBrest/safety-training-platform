@@ -205,7 +205,7 @@ export default function ClassroomNav({
                       </p>
                     ) : (
                       <p className="text-[10px] font-bold uppercase tracking-[.12em] text-slate-500">
-                        Slide {beat.kind === "slide" ? beat.slideIndex + 1 : ""}
+                        Section {beat.kind === "slide" ? beat.slideIndex + 1 : ""}
                       </p>
                     )}
                     <p
