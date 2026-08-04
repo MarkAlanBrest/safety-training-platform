@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
-  ClassroomPlan,
   PresentationView,
   PublicClassroomCourse,
 } from "@/lib/classroom";
@@ -10,9 +9,6 @@ import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
 import {
   beatIndexForSlide,
   buildLessonBeats,
-  navLabelForBeat,
-  presentationForBeat,
-  type ClassroomLessonBeat,
 } from "@/lib/classroom-lesson";
 import PresentationArea from "@/components/classroom/PresentationArea";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
@@ -24,37 +20,6 @@ type ChatApiResponse = {
   error?: string;
 };
 
-function pinSlidePresentation(
-  plan: ClassroomPlan,
-  presentation: PresentationView | undefined,
-  slideIndex: number,
-  lockedPresentation?: PresentationView,
-): PresentationView | undefined {
-  if (lockedPresentation?.type === "slide") {
-    if (presentation?.type === "slide") {
-      return {
-        ...lockedPresentation,
-        headline: presentation.headline || lockedPresentation.headline,
-      };
-    }
-    return lockedPresentation;
-  }
-  if (!presentation || presentation.type !== "slide") {
-    return {
-      type: "slide",
-      slideIndex,
-      headline: plan.slides[slideIndex]?.title,
-    };
-  }
-  const slide = plan.slides[slideIndex];
-  if (!slide) return presentation;
-  return {
-    ...presentation,
-    slideIndex,
-    headline: presentation.headline || slide.title,
-  };
-}
-
 export default function ClassroomShell({
   course,
 }: {
@@ -62,8 +27,6 @@ export default function ClassroomShell({
 }) {
   const plan = course.plan;
   const builderConfig = plan.config;
-  const conversationMode =
-    builderConfig?.settings.conversationMode || "interrupt-anytime";
   const voiceSettings = useMemo(() => {
     const defaults = defaultClassroomBuilderConfig().teaching;
     const settings = defaultClassroomBuilderConfig().settings;
@@ -100,10 +63,9 @@ export default function ClassroomShell({
   const audioUnlockedRef = useRef(false);
   const pendingAudioRef = useRef<HTMLAudioElement | null>(null);
   const speakQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const speakRef = useRef<(text: string) => Promise<void>>(async () => undefined);
-  const navRequestIdRef = useRef(0);
   const chatAbortRef = useRef<AbortController | null>(null);
   const speechAbortRef = useRef<AbortController | null>(null);
+  const turnRequestIdRef = useRef(0);
 
   function markSlideTaught(slideIndex: number) {
     setTaughtSlideIndices((current) =>
@@ -130,7 +92,6 @@ export default function ClassroomShell({
     if (startedRef.current) return;
     startedRef.current = true;
     void beginClass();
-    // The class should begin only once when this classroom mounts.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -235,48 +196,38 @@ export default function ClassroomShell({
     await speakQueueRef.current;
   }
 
-  speakRef.current = speak;
-
-  function applyBeat(
-    beat: ClassroomLessonBeat,
-    options?: { assessmentIndex?: number },
-  ) {
-    const view = presentationForBeat(
-      plan,
-      beat,
-      options?.assessmentIndex ?? assessmentQuestionIndex,
-    );
+  function applyTeacherPresentation(view: PresentationView) {
     setPresentation(view);
     if (view.type === "slide") {
       setCurrentSlideIndex(view.slideIndex);
       markSlideTaught(view.slideIndex);
+      const nextBeat = beatIndexForSlide(lessonBeats, view.slideIndex);
+      if (nextBeat >= 0) setBeatIndex(nextBeat);
     }
     if (
-      view.type === "question" ||
-      view.type === "exercise" ||
-      view.type === "assessment"
+      view.type === "assessment" &&
+      typeof view.questionIndex === "number"
     ) {
-      setQuickReplies(view.choices || []);
+      setAssessmentQuestionIndex(view.questionIndex);
+      const assessmentBeat = lessonBeats.findIndex((beat) => beat.kind === "assessment");
+      if (assessmentBeat >= 0) setBeatIndex(assessmentBeat);
+    }
+    if (view.type === "question" || view.type === "exercise") {
+      if (view.choices?.length) setQuickReplies(view.choices);
     }
     if (view.type === "flashcard" || view.type === "dragdrop") {
-      setQuickReplies(["I'm ready to continue"]);
+      setQuickReplies([]);
     }
-    return view;
   }
 
   async function sendToTeacher(
     nextMessages: TeacherMessage[],
-    options?: {
-      slideIndex?: number;
-      presentation?: PresentationView;
-      lockPresentation?: PresentationView;
-      requestId?: number;
-    },
+    options?: { presentation?: PresentationView },
   ) {
     chatAbortRef.current?.abort();
     const controller = new AbortController();
     chatAbortRef.current = controller;
-    const requestId = options?.requestId ?? navRequestIdRef.current;
+    const requestId = ++turnRequestIdRef.current;
 
     setThinking(true);
     try {
@@ -285,13 +236,15 @@ export default function ClassroomShell({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           courseSlug: course.slug,
-          slideIndex: options?.slideIndex ?? currentSlideIndex,
+          slideIndex: currentSlideIndex,
+          beatIndex,
+          assessmentQuestionIndex,
           presentation: options?.presentation ?? presentation,
           messages: nextMessages,
         }),
         signal: controller.signal,
       });
-      if (controller.signal.aborted || requestId !== navRequestIdRef.current) {
+      if (controller.signal.aborted || requestId !== turnRequestIdRef.current) {
         return;
       }
 
@@ -301,41 +254,24 @@ export default function ClassroomShell({
         data.error ||
         "Let's keep going. Tell me what you're thinking so far.";
 
-      const targetSlideIndex = options?.slideIndex ?? currentSlideIndex;
-      const pinnedPresentation = pinSlidePresentation(
-        plan,
-        data.presentation,
-        targetSlideIndex,
-        options?.lockPresentation,
-      );
-
-      if (requestId !== navRequestIdRef.current) {
-        return;
-      }
+      if (requestId !== turnRequestIdRef.current) return;
 
       setMessages([...nextMessages, { role: "assistant", content: reply }]);
-      if (pinnedPresentation) setPresentation(pinnedPresentation);
-      if (pinnedPresentation?.type === "slide") {
-        setCurrentSlideIndex(pinnedPresentation.slideIndex);
-        markSlideTaught(pinnedPresentation.slideIndex);
+      if (data.presentation) {
+        applyTeacherPresentation(data.presentation);
       }
       if (data.quickReplies?.length) {
         setQuickReplies(data.quickReplies);
-      } else if (lessonBeats[beatIndex]?.kind === "slide") {
-        setQuickReplies(["Continue to next section", "I have a question"]);
       }
       void speak(reply);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       const message =
         error instanceof Error ? error.message : "The instructor could not respond.";
-      if (requestId !== navRequestIdRef.current) return;
+      if (requestId !== turnRequestIdRef.current) return;
       setMessages([
         ...nextMessages,
-        {
-          role: "assistant",
-          content: message,
-        },
+        { role: "assistant", content: message },
       ]);
     } finally {
       if (chatAbortRef.current === controller) {
@@ -344,142 +280,44 @@ export default function ClassroomShell({
     }
   }
 
-  async function teachSlideBeat(index: number, beat: ClassroomLessonBeat, baseMessages: TeacherMessage[]) {
-    if (beat.kind !== "slide") return;
-    const slide = plan.slides[beat.slideIndex];
-    const view = applyBeat(beat);
-    const lockedView: PresentationView =
-      view.type === "slide"
-        ? {
-            type: "slide",
-            slideIndex: beat.slideIndex,
-            headline: slide.title,
-          }
-        : view;
-    if (lockedView.type === "slide") {
-      setPresentation(lockedView);
-    }
-    await sendToTeacher(
-      [
-        ...baseMessages,
-        {
-          role: "user",
-          content: slide.speakerNotes?.trim()
-            ? `Please teach slide ${beat.slideIndex + 1}: ${slide.title}. Use the speaker notes as your guide.`
-            : `Please teach slide ${beat.slideIndex + 1}: ${slide.title}.`,
-        },
-      ],
-      {
-        slideIndex: beat.slideIndex,
-        presentation: lockedView.type === "slide" ? lockedView : view,
-        lockPresentation: lockedView.type === "slide" ? lockedView : undefined,
-        requestId: navRequestIdRef.current,
-      },
-    );
-  }
-
-  async function moveToBeat(
-    nextIndex: number,
-    baseMessages?: TeacherMessage[],
-    options?: { assessmentIndex?: number },
-  ) {
-    const beat = lessonBeats[nextIndex];
-    if (!beat) return;
-    setBeatIndex(nextIndex);
-    if (typeof options?.assessmentIndex === "number") {
-      setAssessmentQuestionIndex(options.assessmentIndex);
-    }
-
-    if (beat.kind === "checkpoint" || beat.kind === "assessment") {
-      applyBeat(beat, options);
-      return;
-    }
-
-    if (beat.kind === "slide") {
-      await teachSlideBeat(nextIndex, beat, baseMessages || messages);
-      return;
-    }
-
-    applyBeat(beat, options);
-  }
-
-  async function advanceLesson(baseMessages: TeacherMessage[]) {
-    const currentBeat = lessonBeats[beatIndex];
-    if (currentBeat?.kind === "assessment") {
-      const questions = plan.assessment || [];
-      const nextQuestionIndex = assessmentQuestionIndex + 1;
-      if (nextQuestionIndex < questions.length) {
-        setAssessmentQuestionIndex(nextQuestionIndex);
-        applyBeat(currentBeat, { assessmentIndex: nextQuestionIndex });
-        return;
-      }
-    }
-
-    const nextIndex = beatIndex + 1;
-    if (nextIndex >= lessonBeats.length) {
-      setQuickReplies(["That was helpful", "Can we review the key points?"]);
-      return;
-    }
-    await moveToBeat(nextIndex, baseMessages);
-  }
-
   async function beginClass() {
-    const openingMessages: TeacherMessage[] = [
-      {
-        role: "assistant",
-        content: `${plan.opening}\n\nBefore we dive in — what do you already know about ${plan.title.toLowerCase()}?`,
-      },
-    ];
-    setMessages(openingMessages);
-    setPresentation({
+    const welcomeView: PresentationView = {
       type: "welcome",
       headline: plan.title,
       body: plan.opening,
-    });
-    setQuickReplies(
-      conversationMode === "raise-hand"
-        ? [
-            "Raise your hand",
-            "I know a little",
-            "I'm brand new to this",
-            "Could you start with the basics?",
-          ]
-        : [
-            "I know a little",
-            "I'm brand new to this",
-            "I've seen this on the job",
-            "Could you start with the basics?",
-          ],
-    );
-    void speak(openingMessages[0].content.split("\n\n")[0] || openingMessages[0].content);
+    };
+    setPresentation(welcomeView);
+    setQuickReplies([
+      "I'm brand new to this",
+      "I know a little",
+      "I've seen this on the job",
+    ]);
+
+    const bootstrap: TeacherMessage[] = [
+      {
+        role: "user",
+        content:
+          "Begin the lesson. Welcome me briefly, then ask what I already know about this topic. Stay on the welcome screen until I respond.",
+      },
+    ];
+    await sendToTeacher(bootstrap, { presentation: welcomeView });
   }
 
   async function handleSend(message: string) {
     unlockAudio();
     const next: TeacherMessage[] = [...messages, { role: "user", content: message }];
     setMessages(next);
-
-    if (message === "Continue to next section") {
-      await advanceLesson(next);
-      return;
-    }
-
-    const currentBeat = lessonBeats[beatIndex];
-    if (currentBeat?.kind === "checkpoint" || currentBeat?.kind === "assessment") {
-      await sendToTeacher(next);
-      await advanceLesson(next);
-      return;
-    }
-
-    if (message === "I'm ready to continue") {
-      await advanceLesson(next);
-      return;
-    }
-
     await sendToTeacher(next);
-    if (currentBeat?.kind === "welcome") {
-      await moveToBeat(1, next);
-    }
+  }
+
+  async function handleAskQuestion() {
+    unlockAudio();
+    const next: TeacherMessage[] = [
+      ...messages,
+      { role: "user", content: "I have a question." },
+    ];
+    setMessages(next);
+    await sendToTeacher(next);
   }
 
   async function handleSelectChoice(choice: string) {
@@ -487,78 +325,13 @@ export default function ClassroomShell({
   }
 
   async function handleActivityComplete() {
-    await advanceLesson(messages);
-  }
-
-  async function goToBeat(targetBeatIndex: number) {
-    if (targetBeatIndex < 0 || targetBeatIndex >= lessonBeats.length) return;
-    const beat = lessonBeats[targetBeatIndex];
     unlockAudio();
-    cancelSpeech();
-
-    if (beat.kind === "slide") {
-      goToSlide(beat.slideIndex);
-      return;
-    }
-
-    setBeatIndex(targetBeatIndex);
-    if (beat.kind === "assessment") {
-      setAssessmentQuestionIndex(0);
-      applyBeat(beat, { assessmentIndex: 0 });
-    } else {
-      applyBeat(beat);
-    }
-
-    const label = navLabelForBeat(beat, plan);
-    setMessages((current) => [
-      ...current,
-      {
-        role: "user",
-        content:
-          beat.kind === "welcome"
-            ? "Let's start the lesson."
-            : `Let's open ${label}.`,
-      },
-    ]);
-  }
-
-  function goToSlide(slideIndex: number) {
-    if (slideIndex < 0 || slideIndex >= plan.slides.length) return;
-    unlockAudio();
-    cancelSpeech();
-
-    const requestId = ++navRequestIdRef.current;
-    const nextBeatIndex = beatIndexForSlide(lessonBeats, slideIndex);
-    if (nextBeatIndex >= 0) {
-      setBeatIndex(nextBeatIndex);
-    }
-
-    const slide = plan.slides[slideIndex];
-    const view: PresentationView = {
-      type: "slide",
-      slideIndex,
-      headline: slide?.title,
-    };
-    setCurrentSlideIndex(slideIndex);
-    setPresentation(view);
-    markSlideTaught(slideIndex);
-
-    setMessages((current) => {
-      const nextMessages: TeacherMessage[] = [
-        ...current,
-        {
-          role: "user",
-          content: `Let's look at slide ${slideIndex + 1}: ${slide?.title}.`,
-        },
-      ];
-      void sendToTeacher(nextMessages, {
-        slideIndex,
-        presentation: view,
-        lockPresentation: view,
-        requestId,
-      });
-      return nextMessages;
-    });
+    const next: TeacherMessage[] = [
+      ...messages,
+      { role: "user", content: "I finished the practice activity." },
+    ];
+    setMessages(next);
+    await sendToTeacher(next);
   }
 
   return (
@@ -568,9 +341,6 @@ export default function ClassroomShell({
           plan={plan}
           view={presentation}
           activeSlideIndex={currentSlideIndex}
-          lessonBeats={lessonBeats}
-          activeBeatIndex={beatIndex}
-          onSelectBeat={(index) => void goToBeat(index)}
           onToggleBreak={toggleBreak}
           paused={paused}
           onSelectChoice={(choice) => void handleSelectChoice(choice)}
@@ -587,6 +357,7 @@ export default function ClassroomShell({
           onSend={handleSend}
           onSpeak={speak}
           onInteract={unlockAudio}
+          onAskQuestion={() => void handleAskQuestion()}
         />
       </div>
     </main>

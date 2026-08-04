@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Bot, Hand, Mic, MicOff, Send, Volume2 } from "lucide-react";
+import { Bot, Hand, MessageCircleQuestion, Mic, MicOff, Send, Volume2 } from "lucide-react";
 import { DEFAULT_QUICK_REPLIES } from "@/lib/classroom";
 
 export type TeacherMessage = {
@@ -51,6 +51,7 @@ export default function TeacherChat({
   onSend,
   onSpeak,
   onInteract,
+  onAskQuestion,
 }: {
   messages: TeacherMessage[];
   quickReplies: string[];
@@ -61,6 +62,7 @@ export default function TeacherChat({
   onSend: (message: string) => Promise<void>;
   onSpeak: (text: string) => Promise<void>;
   onInteract?: () => void;
+  onAskQuestion?: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const [listening, setListening] = useState(false);
@@ -138,7 +140,7 @@ export default function TeacherChat({
         ? "Speaking…"
         : listening
           ? "Listening…"
-          : "Ready to talk";
+          : "Leading the lesson";
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white">
@@ -152,6 +154,20 @@ export default function TeacherChat({
             <p className="truncate text-xs text-emerald-600">{teacherState}</p>
           </div>
         </div>
+        {onAskQuestion ? (
+          <button
+            type="button"
+            onClick={() => {
+              onInteract?.();
+              onAskQuestion();
+            }}
+            disabled={thinking}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-amber-300 hover:bg-amber-50 disabled:opacity-50"
+          >
+            <MessageCircleQuestion size={16} />
+            Ask a question
+          </button>
+        ) : null}
       </div>
 
       <div
@@ -160,8 +176,8 @@ export default function TeacherChat({
       >
         {!messages.length && (
           <div className="rounded-2xl bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-600">
-            Your instructor will teach from your PowerPoint slides, ask questions, and respond here.
-            {showMic ? " Tap the microphone to speak your answer." : " Type or use quick replies."}
+            Your instructor leads this session. Respond when prompted, or ask a question anytime.
+            {showMic ? " Tap the microphone to speak your answer." : ""}
           </div>
         )}
         {messages.map((message, index) => (
@@ -197,33 +213,35 @@ export default function TeacherChat({
       </div>
 
       <div className="shrink-0 border-t border-slate-200 px-4 py-4">
-        <div className="mb-3 flex flex-wrap gap-2">
-          {replies.map((reply) => (
-            <button
-              key={reply}
-              type="button"
-              disabled={thinking}
-              onClick={() => void sendQuickReply(reply)}
-              className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-white disabled:opacity-40"
-            >
-              {reply === "Raise your hand" ? (
-                <span className="inline-flex items-center gap-1">
-                  <Hand size={12} />
-                  {reply}
-                </span>
-              ) : (
-                reply
-              )}
-            </button>
-          ))}
-        </div>
+        {replies.length ? (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {replies.map((reply) => (
+              <button
+                key={reply}
+                type="button"
+                disabled={thinking}
+                onClick={() => void sendQuickReply(reply)}
+                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-white disabled:opacity-40"
+              >
+                {reply === "Raise your hand" ? (
+                  <span className="inline-flex items-center gap-1">
+                    <Hand size={12} />
+                    {reply}
+                  </span>
+                ) : (
+                  reply
+                )}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         <form onSubmit={submit} className="flex gap-2">
           <input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onFocus={() => onInteract?.()}
-            placeholder={listening ? "Listening…" : "Talk with your instructor…"}
+            placeholder={listening ? "Listening…" : "Your response…"}
             className="min-w-0 flex-1 rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-amber-400"
           />
           {showMic ? (

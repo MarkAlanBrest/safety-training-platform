@@ -12,13 +12,23 @@ import {
   defaultClassroomBuilderConfig,
 } from "@/lib/classroom-builder";
 import { lessonBeatSummary } from "@/lib/classroom-lesson";
-import { normalizeFocus } from "@/lib/classroom-focus";
+import { hotspotsSummary, normalizeFocus } from "@/lib/classroom-focus";
 import { extractResponseOutputText } from "@/lib/parse-response";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
+type RawFlashcard = { front: string; back: string };
+
 type RawPresentation = {
-  type: "slide" | "question" | "exercise" | "example" | "welcome" | "assessment";
+  type:
+    | "slide"
+    | "question"
+    | "exercise"
+    | "example"
+    | "welcome"
+    | "assessment"
+    | "flashcard"
+    | "dragdrop";
   slideIndex: number | null;
   headline: string | null;
   prompt: string | null;
@@ -30,10 +40,15 @@ type RawPresentation = {
   hotspotId: string | null;
   focusLabel: string | null;
   imageIndex: number | null;
+  flashcards: RawFlashcard[] | null;
+  dragItems: string[] | null;
+  questionIndex: number | null;
+  questionCount: number | null;
 };
 
 function normalizePresentation(
   raw: RawPresentation | null | undefined,
+  plan: ClassroomPlan,
   fallbackSlideIndex: number,
   hotspots = undefined as ClassroomPlan["slides"][number]["hotspots"],
 ): PresentationView {
@@ -44,11 +59,19 @@ function normalizePresentation(
     };
   }
 
+  const slideCount = plan.slides.length;
+  const clampSlideIndex = (index: number | null | undefined) => {
+    if (typeof index !== "number" || !Number.isFinite(index)) return fallbackSlideIndex;
+    return Math.min(slideCount - 1, Math.max(0, Math.floor(index)));
+  };
+
   switch (raw.type) {
-    case "slide":
+    case "slide": {
+      const slideIndex = clampSlideIndex(raw.slideIndex);
+      const slideHotspots = plan.slides[slideIndex]?.hotspots ?? hotspots;
       return {
         type: "slide",
-        slideIndex: fallbackSlideIndex,
+        slideIndex,
         headline: raw.headline || undefined,
         imageIndex:
           typeof raw.imageIndex === "number" && raw.imageIndex >= 0
@@ -62,9 +85,10 @@ function normalizePresentation(
             hotspotId: raw.hotspotId ?? undefined,
             label: raw.focusLabel ?? undefined,
           },
-          hotspots,
+          slideHotspots,
         ),
       };
+    }
     case "question":
     case "exercise":
       return {
@@ -72,6 +96,26 @@ function normalizePresentation(
         headline: raw.headline || "Let's check in",
         prompt: raw.prompt || raw.body || "What do you think?",
         choices: raw.choices?.length ? raw.choices : undefined,
+      };
+    case "flashcard":
+      return {
+        type: "flashcard",
+        headline: raw.headline || "Practice",
+        prompt: raw.prompt || raw.body || undefined,
+        flashcards:
+          raw.flashcards?.length
+            ? raw.flashcards.map((card) => ({
+                front: card.front.trim(),
+                back: card.back.trim(),
+              }))
+            : [{ front: "Key idea", back: "Review this topic." }],
+      };
+    case "dragdrop":
+      return {
+        type: "dragdrop",
+        headline: raw.headline || "Practice",
+        prompt: raw.prompt || raw.body || "Put these in the correct order.",
+        dragItems: raw.dragItems?.length ? raw.dragItems : ["Step one", "Step two", "Step three"],
       };
     case "example":
       return {
@@ -86,12 +130,20 @@ function normalizePresentation(
         headline: raw.headline || "Final assessment",
         prompt: raw.prompt || raw.body || "Answer the question below.",
         choices: raw.choices?.length ? raw.choices : undefined,
+        questionIndex:
+          typeof raw.questionIndex === "number" && raw.questionIndex >= 0
+            ? raw.questionIndex
+            : undefined,
+        questionCount:
+          typeof raw.questionCount === "number" && raw.questionCount > 0
+            ? raw.questionCount
+            : plan.assessment?.length || undefined,
       };
     default:
       return {
         type: "welcome",
-        headline: raw.headline || "Welcome",
-        body: raw.body || raw.prompt || "",
+        headline: raw.headline || plan.title,
+        body: raw.body || raw.prompt || plan.opening,
       };
   }
 }
@@ -118,11 +170,24 @@ const classroomTeacherTurnSchema = {
         "hotspotId",
         "focusLabel",
         "imageIndex",
+        "flashcards",
+        "dragItems",
+        "questionIndex",
+        "questionCount",
       ],
       properties: {
         type: {
           type: "string",
-          enum: ["slide", "question", "exercise", "example", "welcome", "assessment"],
+          enum: [
+            "slide",
+            "question",
+            "exercise",
+            "example",
+            "welcome",
+            "assessment",
+            "flashcard",
+            "dragdrop",
+          ],
         },
         slideIndex: { type: ["integer", "null"] },
         headline: { type: ["string", "null"] },
@@ -138,13 +203,31 @@ const classroomTeacherTurnSchema = {
         hotspotId: { type: ["string", "null"] },
         focusLabel: { type: ["string", "null"] },
         imageIndex: { type: ["integer", "null"], minimum: 0 },
+        flashcards: {
+          type: ["array", "null"],
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["front", "back"],
+            properties: {
+              front: { type: "string" },
+              back: { type: "string" },
+            },
+          },
+        },
+        dragItems: {
+          type: ["array", "null"],
+          items: { type: "string" },
+        },
+        questionIndex: { type: ["integer", "null"], minimum: 0 },
+        questionCount: { type: ["integer", "null"], minimum: 1 },
       },
     },
     quickReplies: {
       type: "array",
       items: { type: "string" },
-      minItems: 3,
-      maxItems: 6,
+      minItems: 2,
+      maxItems: 5,
     },
   },
 } as const;
@@ -178,6 +261,23 @@ async function resolvePlan(
   return isClassroomPlan(section?.lessonPlan) ? section.lessonPlan : null;
 }
 
+function filterQuickReplies(replies: string[] | undefined) {
+  const blocked = [
+    "continue to next section",
+    "continue to next",
+    "i'm ready to continue",
+    "next slide",
+    "next section",
+  ];
+  const cleaned = (replies || []).filter((reply) => {
+    const lower = reply.toLowerCase().trim();
+    return lower && !blocked.some((pattern) => lower.includes(pattern));
+  });
+  return cleaned.length >= 2
+    ? cleaned.slice(0, 5)
+    : ["That makes sense", "I'm not sure yet", "Could you explain differently?"];
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -185,6 +285,10 @@ export async function POST(request: Request) {
       typeof body.courseSlug === "string" ? body.courseSlug : undefined;
     const sectionId = Number(body.sectionId);
     const slideIndex = Number.isInteger(body.slideIndex) ? body.slideIndex : 0;
+    const beatIndex = Number.isInteger(body.beatIndex) ? body.beatIndex : 0;
+    const assessmentQuestionIndex = Number.isInteger(body.assessmentQuestionIndex)
+      ? body.assessmentQuestionIndex
+      : 0;
     const presentation = body.presentation as PresentationView | undefined;
     const messages = (Array.isArray(body.messages) ? body.messages : [])
       .filter(
@@ -218,34 +322,29 @@ export async function POST(request: Request) {
           slideIndex: slide.index,
           headline: slide.title,
         },
-        quickReplies: [
-          "That makes sense",
-          "Could you rephrase that?",
-          "Raise your hand",
-        ],
+        quickReplies: ["That makes sense", "I'm not sure yet", "Could you explain differently?"],
       });
     }
 
+    const assessmentCount = plan.assessment?.length || 0;
     const source = [
       `Course: ${plan.title}`,
       `Opening: ${plan.opening}`,
       `Objectives:\n- ${plan.objectives.join("\n- ")}`,
+      `Teaching position: slide ${slide.index + 1} of ${plan.slides.length} (beat ${beatIndex}).`,
+      assessmentCount
+        ? `Final assessment has ${assessmentCount} question(s). Current assessment question index: ${assessmentQuestionIndex + 1}.`
+        : "No final assessment configured.",
       `Current slide (${slide.index + 1}/${plan.slides.length}): ${slide.title}`,
       `On-slide text (learner can see this — do not read verbatim): ${slide.bodyText}`,
       slide.speakerNotes?.trim()
         ? `INSTRUCTOR SCRIPT (speaker notes — follow this closely to guide your teaching, examples, and questions):\n${slide.speakerNotes}`
         : "INSTRUCTOR SCRIPT: No speaker notes on this slide. Teach from the slide content conversationally.",
-      `Presentation mode: ${presentation?.type || "welcome"}`,
+      `Hotspots on this slide:\n${hotspotsSummary(slide.hotspots)}`,
+      `Current presentation mode on screen: ${presentation?.type || "welcome"}`,
       `Instructor preferences:\n${classroomInstructorPrompt(builderConfig)}`,
       lessonBeatSummary(plan),
     ].join("\n\n");
-
-    const conversationHint =
-      builderConfig.settings.conversationMode === "raise-hand"
-        ? "The student should raise their hand before asking questions. Offer a Raise your hand quick reply when appropriate."
-        : builderConfig.settings.conversationMode === "checkpoints-only"
-          ? "Only invite questions at lesson checkpoints."
-          : "The student may interrupt anytime with questions.";
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -256,17 +355,21 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-5.6-sol",
         instructions: [
-          "You are a real classroom instructor. The learner sees the original PowerPoint slide on screen.",
-          "Your speaker notes are your private teaching script — follow them to decide what to explain, emphasize, ask, and example.",
-          "Explain conversationally in your own words. Ask questions and respond to the student like a real teacher.",
-          "Never read on-screen bullet points or slide text verbatim — the student can already see the slide.",
-          "If speaker notes suggest a question or activity, weave it naturally into your reply.",
-          "Keep replies concise (2-4 sentences) unless the student asks for more.",
-          "During checkpoints, use presentation.type question, exercise, flashcard, or dragdrop as appropriate.",
-          "During the final assessment, use presentation.type assessment with clear multiple-choice options.",
-          "While teaching a slide, keep presentation.type slide so the PowerPoint stays visible.",
-          "Always keep presentation.slideIndex on the current teaching slide unless the student explicitly asks to jump.",
-          conversationHint,
+          "You are the classroom instructor. YOU control the screen and pacing — the student does not click through slides.",
+          "Teach conversationally in your own words. Never read on-screen bullet points verbatim.",
+          "Use speaker notes as your private script for emphasis, examples, and questions.",
+          "Signal importance in your reply: say things like pay attention to this part, this might be on the test, or give a real job-site example when it helps.",
+          "While teaching, keep presentation.type slide and set presentation.slideIndex to the slide you are teaching.",
+          "Point on the slide with focusX, focusY, focusScale (1.2–2.2 zoom), hotspotId, or focusLabel when you say look here or pay attention to this part.",
+          "Ask formative questions in your reply, then use presentation.type question or exercise with choices when you want a structured check.",
+          "Use presentation.type flashcard or dragdrop when a practice activity is the right next move.",
+          "Use presentation.type assessment only for the final test. Set questionIndex and questionCount when advancing through final questions.",
+          "Advance slides only when the student seems ready — wrong or unsure answers mean reteach, explain differently, or practice before moving on.",
+          "If the student says they have a question, answer it clearly without advancing unless they are ready.",
+          "If the student completes a practice activity, decide whether to continue teaching, practice more, or move forward.",
+          "Cover all objectives before the final assessment.",
+          "quickReplies are short learner responses to YOUR question — never navigation like continue or next slide.",
+          "Keep replies concise (2–4 sentences) unless the student asks for more.",
           "Return JSON only.",
         ].join(" "),
         text: {
@@ -307,31 +410,15 @@ export async function POST(request: Request) {
       "Let's keep going — tell me what you're thinking so far.";
     const presentationView = normalizePresentation(
       parsed.presentation,
+      plan,
       slide.index,
       slide.hotspots,
     );
 
-    if (
-      presentationView.type === "slide" &&
-      plan.slides[presentationView.slideIndex]
-    ) {
-      const activeSlide = plan.slides[slide.index];
-      presentationView.slideIndex = slide.index;
-      presentationView.headline = presentationView.headline || activeSlide.title;
-      delete presentationView.imageIndex;
-      delete presentationView.focus;
-    }
-
     return Response.json({
       reply,
       presentation: presentationView,
-      quickReplies: parsed.quickReplies?.length
-        ? parsed.quickReplies
-        : [
-            "That makes sense",
-            "Could you rephrase that?",
-            "Raise your hand",
-          ],
+      quickReplies: filterQuickReplies(parsed.quickReplies),
     });
   } catch (error) {
     console.error("Classroom chat failed:", error);

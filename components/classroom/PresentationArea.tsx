@@ -2,8 +2,6 @@
 
 import {
   Coffee,
-  ChevronLeft,
-  ChevronRight,
   ClipboardCheck,
   Lightbulb,
   MessageCircleQuestion,
@@ -15,16 +13,11 @@ import ClassroomDragOrder from "@/components/classroom/ClassroomDragOrder";
 import ClassroomFlashcards from "@/components/classroom/ClassroomFlashcards";
 import PptxSlideViewer from "@/components/classroom/PptxSlideViewer";
 import SlideImageStage from "@/components/classroom/SlideImageStage";
-import LessonFlowSelect from "@/components/classroom/LessonFlowSelect";
-import { buildLessonBeats, type ClassroomLessonBeat } from "@/lib/classroom-lesson";
 
 export default function PresentationArea({
   plan,
   view,
   activeSlideIndex,
-  lessonBeats,
-  activeBeatIndex,
-  onSelectBeat,
   onToggleBreak,
   paused = false,
   onSelectChoice,
@@ -33,9 +26,6 @@ export default function PresentationArea({
   plan: ClassroomPlan;
   view: PresentationView;
   activeSlideIndex: number;
-  lessonBeats?: ClassroomLessonBeat[];
-  activeBeatIndex: number;
-  onSelectBeat: (beatIndex: number) => void;
   onToggleBreak: () => void;
   paused?: boolean;
   onSelectChoice?: (choice: string) => void;
@@ -97,7 +87,9 @@ export default function PresentationArea({
                 ? "Example"
                 : safeView.type === "welcome"
                   ? "Welcome"
-                  : null;
+                  : safeView.type === "slide"
+                    ? `Topic ${displaySlideIndex + 1} of ${plan.slides.length}`
+                    : null;
 
   const Icon =
     safeView.type === "question"
@@ -108,69 +100,32 @@ export default function PresentationArea({
           ? ClipboardCheck
           : Presentation;
 
-  const navigationBeats = lessonBeats || plan.lessonBeats || buildLessonBeats(plan);
-  const canGoToPreviousItem = activeBeatIndex > 0;
-  const canGoToNextItem = activeBeatIndex < navigationBeats.length - 1;
-
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden bg-[#eef2f7]">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[.16em] text-slate-500">
-            Presentation
+            AI instructor
           </p>
           <h1 className="truncate text-xl font-bold text-slate-900">{headline}</h1>
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
-            <button
-              type="button"
-              onClick={onToggleBreak}
-              className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-bold transition ${
-                paused
-                  ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-amber-300 hover:bg-amber-50"
-              }`}
-            >
-              <Coffee size={15} />
-              {paused ? "Resume class" : "Take a break"}
-            </button>
-          </div>
-          <LessonFlowSelect
-            plan={plan}
-            lessonBeats={lessonBeats}
-            activeBeatIndex={activeBeatIndex}
-            onSelectBeat={onSelectBeat}
-          />
-          <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
-            <button
-              type="button"
-              disabled={!canGoToPreviousItem}
-              onClick={() => onSelectBeat(activeBeatIndex - 1)}
-              className="grid h-8 w-8 place-items-center rounded-full text-slate-600 transition hover:bg-white disabled:opacity-30"
-              aria-label="Previous lesson item"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <span className="px-2 text-xs font-semibold text-slate-600">
-              {safeView.type === "slide"
-                ? `${displaySlideIndex + 1} / ${plan.slides.length}`
-                : `${activeBeatIndex + 1} / ${navigationBeats.length}`}
-            </span>
-            <button
-              type="button"
-              disabled={!canGoToNextItem}
-              onClick={() => onSelectBeat(activeBeatIndex + 1)}
-              className="grid h-8 w-8 place-items-center rounded-full text-slate-600 transition hover:bg-white disabled:opacity-30"
-              aria-label="Next lesson item"
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onToggleBreak}
+            className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-bold transition ${
+              paused
+                ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                : "border-slate-200 bg-white text-slate-700 hover:border-amber-300 hover:bg-amber-50"
+            }`}
+          >
+            <Coffee size={15} />
+            {paused ? "Resume class" : "Take a break"}
+          </button>
 
           {eyebrow ? (
-            <div className="hidden items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 sm:flex">
+            <div className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
               <Icon size={14} />
               {eyebrow}
             </div>
@@ -204,6 +159,9 @@ export default function PresentationArea({
                 {safeView.headline}
               </h2>
               <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-200">{safeView.body}</p>
+              <p className="mt-6 max-w-xl text-sm text-slate-300">
+                Your instructor will guide this session — respond in the chat when prompted.
+              </p>
             </div>
           ) : safeView.type === "slide" && slideImage ? (
             <SlideImageStage
@@ -225,8 +183,7 @@ export default function PresentationArea({
                   {displaySlideIndex + 1}. {slide?.title}
                 </p>
                 <p className="mt-3 text-sm text-slate-500">
-                  This slide image is missing. Re-upload the PowerPoint to restore the original
-                  slides.
+                  This visual is missing. Re-upload the source file to restore it.
                 </p>
               </div>
             </div>
@@ -248,7 +205,7 @@ export default function PresentationArea({
             <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-amber-50 via-white to-slate-50 px-8 py-10">
               <div className="max-w-2xl text-center">
                 <p className="text-sm font-bold uppercase tracking-[.16em] text-amber-600">
-                  {safeView.type === "assessment" ? "Final assessment" : "Interactive checkpoint"}
+                  {safeView.type === "assessment" ? "Final assessment" : "Check your understanding"}
                 </p>
                 <p className="mt-4 text-3xl font-semibold leading-10 text-slate-900">
                   {safeView.prompt}
