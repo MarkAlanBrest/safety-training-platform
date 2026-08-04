@@ -78,6 +78,16 @@ export default function ClassroomShell({
   const pausedRef = useRef(false);
   const messagesRef = useRef<TeacherMessage[]>([]);
   const autoContinueRef = useRef(false);
+  const thinkingRef = useRef(false);
+  const quickRepliesRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    thinkingRef.current = thinking;
+  }, [thinking]);
+
+  useEffect(() => {
+    quickRepliesRef.current = quickReplies;
+  }, [quickReplies]);
 
   useEffect(() => {
     expectsResponseRef.current = expectsResponse;
@@ -258,7 +268,7 @@ export default function ClassroomShell({
         if (
           autoContinueRef.current ||
           pausedRef.current ||
-          chatAbortRef.current?.signal.aborted
+          thinkingRef.current
         ) {
           return;
         }
@@ -266,6 +276,7 @@ export default function ClassroomShell({
           !shouldAutoContinueTeaching(
             expectsResponseRef.current,
             presentationRef.current,
+            quickRepliesRef.current,
           )
         ) {
           return;
@@ -331,13 +342,15 @@ export default function ClassroomShell({
       if (data.presentation) {
         applyTeacherPresentation(data.presentation);
       }
-      if (data.quickReplies?.length) {
-        setQuickReplies(data.quickReplies);
-      } else {
-        setQuickReplies([]);
-      }
       const activePresentation = data.presentation ?? presentationRef.current;
-      const needsResponse = inferExpectsResponse(reply, activePresentation);
+      const nextQuickReplies = data.quickReplies?.length ? data.quickReplies : [];
+      setQuickReplies(nextQuickReplies);
+      quickRepliesRef.current = nextQuickReplies;
+      const needsResponse = inferExpectsResponse(
+        reply,
+        activePresentation,
+        nextQuickReplies,
+      );
       setExpectsResponse(needsResponse);
       expectsResponseRef.current = needsResponse;
       speakNatural(reply);

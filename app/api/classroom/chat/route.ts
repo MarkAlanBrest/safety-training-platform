@@ -16,6 +16,7 @@ import { hotspotsSummary, normalizeFocus } from "@/lib/classroom-focus";
 import {
   inferExpectsResponse,
   resolveSlideImageDataUrl,
+  sanitizeQuickReplies,
   sanitizeTeacherSlidePresentation,
 } from "@/lib/classroom-teacher";
 import { extractResponseOutputText } from "@/lib/parse-response";
@@ -237,7 +238,7 @@ const classroomTeacherTurnSchema = {
       type: "array",
       items: { type: "string" },
       minItems: 0,
-      maxItems: 3,
+      maxItems: 4,
     },
   },
 } as const;
@@ -271,9 +272,11 @@ async function resolvePlan(
   return isClassroomPlan(section?.lessonPlan) ? section.lessonPlan : null;
 }
 
-function filterQuickReplies(_replies: string[] | undefined) {
-  // Learners type or speak answers — do not surface choice menus in the UI.
-  return [];
+function filterQuickReplies(
+  replies: string[] | undefined,
+  presentation: PresentationView,
+) {
+  return sanitizeQuickReplies(replies, presentation);
 }
 
 export async function POST(request: Request) {
@@ -374,8 +377,10 @@ export async function POST(request: Request) {
           "Ask a question only when you genuinely want to check understanding, every few slides, or when the topic is easy to misunderstand.",
           "When you are only teaching or transitioning to the next slide, set expectsResponse to false and do not end with a question.",
           "When you ask a question or need an answer, set expectsResponse to true.",
-          "Ask open-ended questions in your reply and wait for the student to type or speak — do not list answer options.",
-          "Do not set presentation.choices or quickReplies that reveal answers.",
+          "Ask open-ended questions when you want the student to explain or reflect — leave quickReplies empty so they type or speak.",
+          "Use quickReplies (2–4 short buttons) for confidence checks, pacing, and simple acknowledgments — e.g. Somewhat familiar, New to this, I'm ready, Keep going, Go slower, Not sure yet.",
+          "Never put correct assessment answers, letter choices (A/B/C), or presentation.choices text in quickReplies.",
+          "Do not set presentation.choices on screen — learners answer in the chat panel.",
           "For formative checks, keep presentation.type slide (or welcome) while you ask the question in reply.",
           "Use presentation.type question or exercise only without choices when the center screen should show the question — never include choices.",
           "Use presentation.type assessment for the final test with prompt only — no choices in presentation.",
@@ -385,7 +390,6 @@ export async function POST(request: Request) {
           "Use presentation.type flashcard or dragdrop when a practice activity is the right next move.",
           "Set questionIndex and questionCount when advancing through final assessment questions.",
           "Cover all objectives before the final assessment.",
-          "Return an empty quickReplies array unless you have a rare non-answer helper.",
           "Keep replies concise (2–3 sentences) unless the student asks for more.",
           "Return JSON only.",
         ].join(" "),
@@ -452,12 +456,13 @@ export async function POST(request: Request) {
       ),
       slide,
     );
+    const quickReplies = filterQuickReplies(parsed.quickReplies, presentationView);
 
     return Response.json({
       reply,
       presentation: presentationView,
-      quickReplies: filterQuickReplies(parsed.quickReplies),
-      expectsResponse: inferExpectsResponse(reply, presentationView),
+      quickReplies,
+      expectsResponse: inferExpectsResponse(reply, presentationView, quickReplies),
     });
   } catch (error) {
     console.error("Classroom chat failed:", error);
