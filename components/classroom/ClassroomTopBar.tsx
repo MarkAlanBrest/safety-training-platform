@@ -5,6 +5,7 @@ import {
   Check,
   ChevronDown,
   ClipboardCheck,
+  Coffee,
   GraduationCap,
   GripVertical,
   Layers,
@@ -101,11 +102,15 @@ export default function ClassroomTopBar({
   lessonBeats,
   activeBeatIndex,
   onSelectBeat,
+  paused = false,
+  onToggleBreak,
 }: {
   plan: ClassroomPlan;
   lessonBeats: ClassroomLessonBeat[];
   activeBeatIndex: number;
   onSelectBeat: (beatIndex: number) => void;
+  paused?: boolean;
+  onToggleBreak?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -223,6 +228,20 @@ export default function ClassroomTopBar({
       </div>
 
       <div className="flex shrink-0 items-center gap-3">
+        {onToggleBreak ? (
+          <button
+            type="button"
+            onClick={onToggleBreak}
+            className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
+              paused
+                ? "border-emerald-300/60 bg-emerald-400/20 text-emerald-100"
+                : "border-white/15 bg-white/10 text-white hover:bg-white/20"
+            }`}
+          >
+            <Coffee size={14} />
+            <span className="hidden sm:inline">{paused ? "Resume class" : "Take a break"}</span>
+          </button>
+        ) : null}
         <div className="hidden w-36 sm:block md:w-48">
           <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[.12em] text-amber-200/90">
             <span>Progress</span>

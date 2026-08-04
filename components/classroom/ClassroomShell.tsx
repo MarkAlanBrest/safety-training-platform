@@ -408,6 +408,8 @@ export default function ClassroomShell({
         lessonBeats={lessonBeats}
         activeBeatIndex={beatIndex}
         onSelectBeat={(index) => void handleSelectBeat(index)}
+        paused={paused}
+        onToggleBreak={toggleBreak}
       />
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
         <PresentationArea
