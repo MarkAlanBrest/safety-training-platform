@@ -18,6 +18,7 @@ type ChatApiResponse = {
   reply?: string;
   presentation?: PresentationView;
   quickReplies?: string[];
+  expectsResponse?: boolean;
   error?: string;
 };
 
@@ -53,6 +54,7 @@ export default function ClassroomShell({
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [beatIndex, setBeatIndex] = useState(0);
   const [assessmentQuestionIndex, setAssessmentQuestionIndex] = useState(0);
+  const [expectsResponse, setExpectsResponse] = useState(false);
   const [presentation, setPresentation] = useState<PresentationView>({
     type: "welcome",
     headline: plan.title,
@@ -271,6 +273,12 @@ export default function ClassroomShell({
       } else {
         setQuickReplies([]);
       }
+      const needsResponse =
+        data.expectsResponse ??
+        (data.presentation?.type === "question" ||
+          data.presentation?.type === "exercise" ||
+          data.presentation?.type === "assessment");
+      setExpectsResponse(Boolean(needsResponse));
       speakNatural(reply);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
@@ -296,6 +304,7 @@ export default function ClassroomShell({
     };
     setPresentation(welcomeView);
     setQuickReplies([]);
+    setExpectsResponse(true);
 
     const bootstrap: TeacherMessage[] = [
       {
@@ -334,7 +343,14 @@ export default function ClassroomShell({
     await sendToTeacher(next);
   }
 
-  const awaitingInput = !paused && !thinking && !speaking;
+  const awaitingInput =
+    !paused &&
+    !thinking &&
+    !speaking &&
+    (expectsResponse ||
+      presentation.type === "question" ||
+      presentation.type === "exercise" ||
+      presentation.type === "assessment");
   const inputPrompt =
     presentation.type === "question" ||
     presentation.type === "exercise" ||

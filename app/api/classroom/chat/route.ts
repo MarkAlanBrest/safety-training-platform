@@ -155,9 +155,14 @@ function normalizePresentation(
 const classroomTeacherTurnSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["reply", "presentation", "quickReplies"],
+  required: ["reply", "presentation", "quickReplies", "expectsResponse"],
   properties: {
     reply: { type: "string" },
+    expectsResponse: {
+      type: "boolean",
+      description:
+        "True only when the student should answer now (you asked a question or posed a check). False when you are only teaching or transitioning.",
+    },
     presentation: {
       type: "object",
       additionalProperties: false,
@@ -315,6 +320,7 @@ export async function POST(request: Request) {
           headline: slide.title,
         },
         quickReplies: [],
+        expectsResponse: false,
       });
     }
 
@@ -363,6 +369,10 @@ export async function POST(request: Request) {
           "To point at the slide: ONLY set presentation.hotspotId to an id from the Hotspots catalog when you say look here or pay attention. Never invent focusX or focusY.",
           "Leave focusX, focusY, focusScale, hotspotId, and focusLabel null unless you are deliberately highlighting a cataloged hotspot.",
           "Use focusScale around 1.4 only when hotspotId is set and you want emphasis.",
+          "Teach most slides without forcing a question — explain, emphasize, give examples, then move on when the idea lands.",
+          "Ask a question only when you genuinely want to check understanding, every few slides, or when the topic is easy to misunderstand.",
+          "When you are only teaching or transitioning to the next slide, set expectsResponse to false and do not end with a question.",
+          "When you ask a question or need an answer, set expectsResponse to true.",
           "Ask open-ended questions in your reply and wait for the student to type or speak — do not list answer options.",
           "Do not set presentation.choices or quickReplies that reveal answers.",
           "For formative checks, keep presentation.type slide (or welcome) while you ask the question in reply.",
@@ -426,6 +436,7 @@ export async function POST(request: Request) {
       reply?: string;
       presentation?: RawPresentation;
       quickReplies?: string[];
+      expectsResponse?: boolean;
     };
 
     const reply =
@@ -445,6 +456,7 @@ export async function POST(request: Request) {
       reply,
       presentation: presentationView,
       quickReplies: filterQuickReplies(parsed.quickReplies),
+      expectsResponse: Boolean(parsed.expectsResponse),
     });
   } catch (error) {
     console.error("Classroom chat failed:", error);
