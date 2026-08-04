@@ -219,6 +219,61 @@ export function beatIndexForSlide(
   );
 }
 
+export function navLabelForBeat(beat: ClassroomLessonBeat, plan: ClassroomPlan): string {
+  switch (beat.kind) {
+    case "welcome":
+      return "Introduction";
+    case "slide": {
+      const slide = plan.slides[beat.slideIndex];
+      return slide?.title || `Slide ${beat.slideIndex + 1}`;
+    }
+    case "checkpoint": {
+      const checkpoint = plan.checkpoints?.find((item) => item.id === beat.checkpointId);
+      if (!checkpoint) return "Activity";
+      if (checkpoint.type === "flashcard") return "Flash cards";
+      if (checkpoint.type === "dragdrop") return "Drag & drop";
+      if (checkpoint.type === "exercise") return "Try this";
+      return checkpoint.headline || "Quick check";
+    }
+    case "assessment":
+      return "Final assessment";
+    default:
+      return "Lesson";
+  }
+}
+
+export function navShortLabelForBeat(beat: ClassroomLessonBeat, plan: ClassroomPlan): string {
+  switch (beat.kind) {
+    case "welcome":
+      return "Intro";
+    case "slide":
+      return String(beat.slideIndex + 1);
+    case "checkpoint": {
+      const checkpoint = plan.checkpoints?.find((item) => item.id === beat.checkpointId);
+      if (checkpoint?.type === "flashcard") return "Cards";
+      if (checkpoint?.type === "dragdrop") return "Order";
+      return "Quiz";
+    }
+    case "assessment":
+      return "Test";
+    default:
+      return "•";
+  }
+}
+
+export type ClassroomNavBeatKind = ClassroomLessonBeat["kind"] | "checkpoint-flashcard" | "checkpoint-dragdrop" | "checkpoint-question";
+
+export function navBeatKind(
+  beat: ClassroomLessonBeat,
+  plan: ClassroomPlan,
+): ClassroomNavBeatKind {
+  if (beat.kind !== "checkpoint") return beat.kind;
+  const checkpoint = plan.checkpoints?.find((item) => item.id === beat.checkpointId);
+  if (checkpoint?.type === "flashcard") return "checkpoint-flashcard";
+  if (checkpoint?.type === "dragdrop") return "checkpoint-dragdrop";
+  return "checkpoint-question";
+}
+
 export function presentationForBeat(
   plan: ClassroomPlan,
   beat: ClassroomLessonBeat,
