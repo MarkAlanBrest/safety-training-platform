@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Mic, MicOff, Send, Volume2 } from "lucide-react";
+import { ArrowRight, MessageCircleQuestion, Mic, MicOff, Send, Volume2, X } from "lucide-react";
 
 export type TeacherMessage = {
   role: "user" | "assistant";
@@ -54,6 +54,7 @@ export default function TeacherChat({
   onSend,
   onSpeak,
   onInteract,
+  onContinue,
 }: {
   messages: TeacherMessage[];
   quickReplies: string[];
@@ -66,13 +67,17 @@ export default function TeacherChat({
   onSend: (message: string) => Promise<void>;
   onSpeak: (text: string) => Promise<void>;
   onInteract?: () => void;
+  onContinue?: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const [listening, setListening] = useState(false);
+  const [asking, setAsking] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const speechSupported = Boolean(getSpeechRecognition());
+
+  const showInput = awaitingInput || asking;
 
   useEffect(() => {
     const list = listRef.current;
@@ -87,10 +92,14 @@ export default function TeacherChat({
   }, []);
 
   useEffect(() => {
-    if (awaitingInput && !thinking) {
+    if (showInput && !thinking) {
       inputRef.current?.focus();
     }
-  }, [awaitingInput, thinking, inputPrompt]);
+  }, [showInput, thinking, inputPrompt]);
+
+  useEffect(() => {
+    if (awaitingInput) setAsking(false);
+  }, [awaitingInput]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -98,6 +107,7 @@ export default function TeacherChat({
     if (!clean || thinking) return;
     onInteract?.();
     setDraft("");
+    setAsking(false);
     await onSend(clean);
   }
 
@@ -144,8 +154,8 @@ export default function TeacherChat({
       >
         {!messages.length && (
           <div className="rounded-2xl bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-600">
-            Your instructor leads this session. When it is your turn, type or speak in the
-            response box below.
+            Your instructor leads this session. Press Continue to move ahead, or Ask a
+            question at any time.
           </div>
         )}
         {messages
@@ -205,53 +215,95 @@ export default function TeacherChat({
           </div>
         ) : null}
 
-        <form onSubmit={submit} className="flex gap-2">
-          <input
-            ref={inputRef}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onFocus={() => onInteract?.()}
-            placeholder={
-              listening
-                ? "Listening…"
-                : awaitingInput
-                  ? "Type your answer here…"
-                  : "Type or speak when ready…"
-            }
-            className={`min-w-0 flex-1 rounded-2xl border px-4 py-3.5 text-sm font-medium outline-none transition ${
-              awaitingInput
-                ? "border-amber-400 bg-white ring-2 ring-amber-200 focus:border-amber-500 focus:ring-amber-300"
-                : "border-slate-300 bg-white focus:border-amber-400"
-            }`}
-          />
-          {showMic ? (
+        {showInput ? (
+          <form onSubmit={submit} className="flex gap-2">
+            <input
+              ref={inputRef}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onFocus={() => onInteract?.()}
+              placeholder={
+                listening
+                  ? "Listening…"
+                  : awaitingInput
+                    ? "Type your answer here…"
+                    : "Type your question here…"
+              }
+              className={`min-w-0 flex-1 rounded-2xl border px-4 py-3.5 text-sm font-medium outline-none transition ${
+                awaitingInput
+                  ? "border-amber-400 bg-white ring-2 ring-amber-200 focus:border-amber-500 focus:ring-amber-300"
+                  : "border-slate-300 bg-white focus:border-amber-400"
+              }`}
+            />
+            {showMic ? (
+              <button
+                type="button"
+                onClick={toggleListening}
+                disabled={thinking}
+                className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl border ${
+                  listening
+                    ? "border-rose-400 bg-rose-50 text-rose-600 ring-2 ring-rose-200"
+                    : awaitingInput
+                      ? "border-amber-400 bg-amber-100 text-amber-800"
+                      : "border-slate-200 bg-slate-50 text-slate-600"
+                }`}
+                aria-label={listening ? "Stop listening" : "Speak your answer"}
+              >
+                {listening ? <MicOff size={18} /> : <Mic size={18} />}
+              </button>
+            ) : null}
+            <button
+              type="submit"
+              disabled={thinking || !draft.trim()}
+              className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-white transition disabled:opacity-40 ${
+                awaitingInput ? "bg-amber-600 hover:bg-amber-700" : "bg-[#0f2b46]"
+              }`}
+              aria-label="Send message"
+            >
+              <Send size={18} />
+            </button>
+            {asking && !awaitingInput ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setAsking(false);
+                  setDraft("");
+                }}
+                className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-500"
+                aria-label="Cancel question"
+              >
+                <X size={18} />
+              </button>
+            ) : null}
+          </form>
+        ) : (
+          <div className="flex gap-2">
             <button
               type="button"
-              onClick={toggleListening}
-              disabled={thinking}
-              className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl border ${
-                listening
-                  ? "border-rose-400 bg-rose-50 text-rose-600 ring-2 ring-rose-200"
-                  : awaitingInput
-                    ? "border-amber-400 bg-amber-100 text-amber-800"
-                    : "border-slate-200 bg-slate-50 text-slate-600"
-              }`}
-              aria-label={listening ? "Stop listening" : "Speak your answer"}
+              onClick={() => {
+                onInteract?.();
+                onContinue?.();
+              }}
+              disabled={thinking || !onContinue}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#0f2b46] px-4 py-3.5 text-sm font-bold text-white transition hover:bg-[#163a5d] disabled:opacity-50"
             >
-              {listening ? <MicOff size={18} /> : <Mic size={18} />}
+              Continue
+              <ArrowRight size={16} />
             </button>
-          ) : null}
-          <button
-            type="submit"
-            disabled={thinking || !draft.trim()}
-            className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-white transition disabled:opacity-40 ${
-              awaitingInput ? "bg-amber-600 hover:bg-amber-700" : "bg-[#0f2b46]"
-            }`}
-            aria-label="Send message"
-          >
-            <Send size={18} />
-          </button>
-        </form>
+            <button
+              type="button"
+              onClick={() => {
+                onInteract?.();
+                setAsking(true);
+              }}
+              disabled={thinking}
+              className="flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3.5 text-sm font-bold text-slate-700 transition hover:border-amber-300 hover:bg-amber-50 disabled:opacity-50"
+            >
+              <MessageCircleQuestion size={16} />
+              Ask a question
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );
