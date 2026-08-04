@@ -45,6 +45,71 @@ export function teachingContentFromParsedSlide(slide: ParsedClassroomSlide) {
   return "";
 }
 
+export type ParsedTeachingSlide = {
+  title: string;
+  teachingContent: string;
+};
+
+/** Read speaker notes and titles from a PowerPoint without rendering slide images. */
+export async function parsePptxTeachingNotes(file: File): Promise<ParsedTeachingSlide[]> {
+  assertPptxFile(file);
+  const parsed = parsePptxBuffer(new Uint8Array(await file.arrayBuffer()));
+  return parsed.map((slide) => ({
+    title: slide.title,
+    teachingContent: teachingContentFromParsedSlide(slide),
+  }));
+}
+
+function contentSlidesFromImagesAndNotes(
+  images: Array<{ bytes: Uint8Array; mimeType: string }>,
+  notes: ParsedTeachingSlide[],
+): PreparedContentSlide[] {
+  if (notes.length && notes.length !== images.length) {
+    throw new Error(
+      `The ZIP has ${images.length} slide image${images.length === 1 ? "" : "s"}, but the PowerPoint has ${notes.length}. Export the same number of pictures as slides, in order.`,
+    );
+  }
+
+  return images.map((image, index) => {
+    const note = notes[index];
+    const { imageFile, previewUrl } = fileFromImageBytes(image, index);
+    return {
+      index,
+      title: note?.title || `Slide ${index + 1}`,
+      teachingContent: note?.teachingContent || "",
+      imageFile,
+      previewUrl,
+    };
+  });
+}
+
+/**
+ * Build content slides from exported slide images plus optional PowerPoint notes.
+ */
+export async function prepareContentSlidesFromZipAndPptx(
+  zipFile: File,
+  pptxFile: File | null,
+  onProgress?: (message: string) => void,
+): Promise<PreparedContentSlide[]> {
+  const { extractImagesFromZip } = await import("@/lib/ppt-slide-images");
+
+  onProgress?.("Reading slide images…");
+  const images = extractImagesFromZip(new Uint8Array(await zipFile.arrayBuffer()));
+  if (!images.length) {
+    throw new Error("No slide images were found in the ZIP.");
+  }
+
+  let notes: ParsedTeachingSlide[] = [];
+  if (pptxFile) {
+    onProgress?.("Reading speaker notes from PowerPoint…");
+    notes = await parsePptxTeachingNotes(pptxFile);
+  }
+
+  const prepared = contentSlidesFromImagesAndNotes(images, notes);
+  onProgress?.(`Ready — ${prepared.length} content slides prepared.`);
+  return prepared;
+}
+
 /**
  * Parse a PowerPoint deck, render each slide to an image, and map speaker notes
  * into content-slide teaching scripts.

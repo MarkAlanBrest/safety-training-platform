@@ -28,13 +28,16 @@ import {
   BuilderTextarea,
 } from "@/components/classroom/builder/BuilderSection";
 import { parseJsonResponse } from "@/lib/parse-response";
-import { extractImagesFromZip } from "@/lib/ppt-slide-images";
-import { prepareContentSlidesFromPptx } from "@/lib/ppt-ingest-client";
+import {
+  parsePptxTeachingNotes,
+  prepareContentSlidesFromPptx,
+  prepareContentSlidesFromZipAndPptx,
+} from "@/lib/ppt-ingest-client";
 import {
   completeClassroomAssetUpload,
   uploadClassroomAsset,
 } from "@/lib/classroom-asset-upload-client";
-import { classroomChapterSlideAssetPath } from "@/lib/classroom-chapters";
+import { classroomChapterDeckAssetPath, classroomChapterSlideAssetPath } from "@/lib/classroom-chapters";
 import {
   emptyActivity,
   emptyContentSlide,
@@ -65,6 +68,7 @@ function isContentSlide(item: LineupDraftItem): item is ContentSlideDraft {
 export default function ContentSlideBuilderForm() {
   const [config, setConfig] = useState<ClassroomBuilderConfig>(defaultClassroomBuilderConfig());
   const [lineup, setLineup] = useState<LineupDraftItem[]>([emptyContentSlide("Slide 1")]);
+  const [sourcePptx, setSourcePptx] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState("");
@@ -131,6 +135,114 @@ export default function ContentSlideBuilderForm() {
     );
   }
 
+  function applyImportedContentSlides(contentSlides: ContentSlideDraft[], pptxFile?: File | null) {
+    updateLineup((current) => {
+      const preserved = current.filter((item) => item.kind !== "content");
+      return [...contentSlides, ...preserved];
+    });
+    if (pptxFile) setSourcePptx(pptxFile);
+  }
+
+  async function handleZipAndPptxImport(zipFile: File | null, pptxFile: File | null) {
+    if (!zipFile) {
+      setError("Choose a ZIP of slide images first.");
+      return;
+    }
+
+    setImporting(true);
+    setImportProgress("Importing slide images…");
+    setError("");
+
+    try {
+      const imported = await prepareContentSlidesFromZipAndPptx(
+        zipFile,
+        pptxFile,
+        setImportProgress,
+      );
+      const contentSlides: ContentSlideDraft[] = imported.map((slide) => ({
+        kind: "content",
+        id: createLineupId("content"),
+        title: slide.title,
+        teachingContent: slide.teachingContent,
+        imageFile: slide.imageFile,
+        previewUrl: slide.previewUrl,
+      }));
+
+      applyImportedContentSlides(contentSlides, pptxFile);
+
+      const nameSource = pptxFile?.name || zipFile.name;
+      if (!config.knowledge.courseName.trim()) {
+        const courseName = nameSource
+          .replace(/\.(pptx|zip)$/i, "")
+          .replace(/[-_]+/g, " ")
+          .trim();
+        setConfig((current) => ({
+          ...current,
+          knowledge: { ...current.knowledge, courseName },
+        }));
+      }
+    } catch (importError) {
+      setError(importError instanceof Error ? importError.message : "Could not import this package.");
+    } finally {
+      setImporting(false);
+      setImportProgress("");
+    }
+  }
+
+  async function handleAttachPptxNotes(file: File | null) {
+    if (!file) return;
+
+    setImporting(true);
+    setImportProgress("Reading speaker notes…");
+    setError("");
+
+    try {
+      const notes = await parsePptxTeachingNotes(file);
+      const contentSlides = lineup.filter(isContentSlide);
+
+      if (!contentSlides.length) {
+        throw new Error("Import slide images first, then attach the PowerPoint for speaker notes.");
+      }
+
+      if (notes.length !== contentSlides.length) {
+        throw new Error(
+          `The PowerPoint has ${notes.length} slides but you have ${contentSlides.length} content slides. The counts must match.`,
+        );
+      }
+
+      updateLineup((current) => {
+        let contentIndex = 0;
+        return current.map((item) => {
+          if (!isContentSlide(item)) return item;
+          const note = notes[contentIndex];
+          contentIndex += 1;
+          return {
+            ...item,
+            title: note?.title || item.title,
+            teachingContent: note?.teachingContent || item.teachingContent,
+          };
+        });
+      });
+
+      setSourcePptx(file);
+
+      if (!config.knowledge.courseName.trim()) {
+        const courseName = file.name.replace(/\.pptx$/i, "").replace(/[-_]+/g, " ").trim();
+        setConfig((current) => ({
+          ...current,
+          knowledge: { ...current.knowledge, courseName },
+        }));
+      }
+    } catch (importError) {
+      setError(
+        importError instanceof Error ? importError.message : "Could not read speaker notes.",
+      );
+    } finally {
+      setImporting(false);
+      setImportProgress("");
+    }
+  }
+
   async function handlePptxImport(file: File | null) {
     if (!file) return;
     setImporting(true);
@@ -147,10 +259,7 @@ export default function ContentSlideBuilderForm() {
         previewUrl: slide.previewUrl,
       }));
 
-      updateLineup((current) => {
-        const preserved = current.filter((item) => item.kind !== "content");
-        return [...contentSlides, ...preserved];
-      });
+      applyImportedContentSlides(contentSlides, file);
 
       if (!config.knowledge.courseName.trim()) {
         const courseName = file.name.replace(/\.pptx$/i, "").replace(/[-_]+/g, " ").trim();
@@ -163,31 +272,6 @@ export default function ContentSlideBuilderForm() {
       setError(
         importError instanceof Error ? importError.message : "Could not import this PowerPoint.",
       );
-    } finally {
-      setImporting(false);
-      setImportProgress("");
-    }
-  }
-
-  async function handleBulkZipImport(file: File | null) {
-    if (!file) return;
-    setImporting(true);
-    setImportProgress("Importing slide images…");
-    setError("");
-    try {
-      const images = extractImagesFromZip(new Uint8Array(await file.arrayBuffer()));
-      const imported: ContentSlideDraft[] = images.map((image, index) => {
-        const blob = new Blob([new Uint8Array(image.bytes)], { type: image.mimeType });
-        const imageFile = new File([blob], `slide-${index + 1}.jpg`, { type: image.mimeType });
-        return {
-          ...emptyContentSlide(`Slide ${lineup.filter(isContentSlide).length + index + 1}`),
-          imageFile,
-          previewUrl: URL.createObjectURL(blob),
-        };
-      });
-      updateLineup((current) => [...current.filter((item) => !isContentSlide(item) || item.imageFile), ...imported]);
-    } catch (importError) {
-      setError(importError instanceof Error ? importError.message : "Could not import slide images.");
     } finally {
       setImporting(false);
       setImportProgress("");
@@ -282,6 +366,16 @@ export default function ContentSlideBuilderForm() {
         slideIndex += 1;
       }
 
+      if (sourcePptx) {
+        setUploadProgress("Saving PowerPoint source file…");
+        await uploadClassroomAsset(
+          data.course.slug,
+          classroomChapterDeckAssetPath(1),
+          sourcePptx,
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        );
+      }
+
       setUploadProgress("Finishing course…");
       await completeClassroomAssetUpload(data.course.slug, mode === "publish");
       data.published = mode === "publish";
@@ -357,45 +451,20 @@ export default function ContentSlideBuilderForm() {
       <BuilderSection number={2} title="Lesson lineup">
         <div className="rounded-2xl border border-[#10283f]/10 bg-[#faf8f3] px-4 py-4 text-sm leading-6 text-[#69757e]">
           <p>
-            Build your lesson in order. Each <strong>content slide</strong> pairs a slide image with
-            teaching notes for the AI. Need a zoom or a circle? Add a separate slide image in
-            PowerPoint with that view already baked in.
+            <strong>Recommended:</strong> export your slides from PowerPoint as PNG or JPEG, ZIP the
+            pictures, and attach the original <strong>.pptx</strong> for speaker notes. The AI
+            teaches from your notes while learners see your exact slide images.
           </p>
           <p className="mt-2">
+            Need a zoom or a circle? Add a separate slide image with that view already baked in.
             Insert <strong>formative checks</strong> or <strong>activities</strong> anywhere in the
             sequence.
           </p>
         </div>
 
         <BuilderField
-          label="Import from PowerPoint (.pptx)"
-          hint="Upload your deck and we'll convert each slide to a picture and pull speaker notes into the teaching field. If conversion fails, export slides as PNG/JPEG from PowerPoint and use the ZIP import below."
-        >
-          <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-white px-5 py-5 text-center">
-            <UploadCloud className="mx-auto text-[#a06e16]" size={24} />
-            <input
-              type="file"
-              accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-              disabled={importing}
-              onChange={(event) => void handlePptxImport(event.target.files?.[0] || null)}
-              className="mt-3 block w-full text-sm text-[#69757e]"
-            />
-            {importing && importProgress ? (
-              <p className="mt-2 inline-flex items-center justify-center gap-2 text-sm text-[#69757e]">
-                <LoaderCircle className="animate-spin" size={14} />
-                {importProgress}
-              </p>
-            ) : (
-              <p className="mt-2 text-xs text-[#69757e]">
-                Speaker notes become your AI teaching script. Slides without notes use on-slide text.
-              </p>
-            )}
-          </div>
-        </BuilderField>
-
-        <BuilderField
-          label="Or import slide images from ZIP"
-          hint="Export slides from PowerPoint as PNG or JPEG, ZIP them, and import in order. You can still edit teaching notes after import."
+          label="Slide images (.zip)"
+          hint="Export slides from PowerPoint as PNG or JPEG, then ZIP them in slide order (slide 1, slide 2, …)."
         >
           <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-white px-5 py-5 text-center">
             <UploadCloud className="mx-auto text-[#a06e16]" size={24} />
@@ -403,21 +472,79 @@ export default function ContentSlideBuilderForm() {
               type="file"
               accept=".zip,application/zip"
               disabled={importing}
-              onChange={(event) => void handleBulkZipImport(event.target.files?.[0] || null)}
+              onChange={(event) => {
+                const zipFile = event.target.files?.[0] || null;
+                if (zipFile) void handleZipAndPptxImport(zipFile, sourcePptx);
+              }}
               className="mt-3 block w-full text-sm text-[#69757e]"
             />
-            {importing && importProgress ? (
-              <p className="mt-2 inline-flex items-center justify-center gap-2 text-sm text-[#69757e]">
-                <LoaderCircle className="animate-spin" size={14} />
-                {importProgress}
+          </div>
+        </BuilderField>
+
+        <BuilderField
+          label="PowerPoint for speaker notes (.pptx)"
+          hint="Attach the original deck so we can pull speaker notes into each content slide. Slide count must match your ZIP."
+        >
+          <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-white px-5 py-5 text-center">
+            <UploadCloud className="mx-auto text-[#a06e16]" size={24} />
+            <input
+              type="file"
+              accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              disabled={importing}
+              onChange={(event) => {
+                const pptxFile = event.target.files?.[0] || null;
+                if (!pptxFile) return;
+                const hasContentSlides = lineup.some(isContentSlide);
+                if (hasContentSlides) {
+                  void handleAttachPptxNotes(pptxFile);
+                } else {
+                  setSourcePptx(pptxFile);
+                  setImportProgress("");
+                }
+              }}
+              className="mt-3 block w-full text-sm text-[#69757e]"
+            />
+            {sourcePptx ? (
+              <p className="mt-2 text-sm font-medium text-emerald-700">
+                Attached — {sourcePptx.name}
+                {lineup.some(isContentSlide) ? " · notes applied to content slides" : " · import slide images next"}
               </p>
             ) : (
               <p className="mt-2 text-xs text-[#69757e]">
-                PNG, JPEG, and WebP slide images are supported.
+                Speaker notes become the AI teaching script for each slide.
               </p>
             )}
           </div>
         </BuilderField>
+
+        {importing && importProgress ? (
+          <p className="inline-flex items-center gap-2 text-sm text-[#69757e]">
+            <LoaderCircle className="animate-spin" size={14} />
+            {importProgress}
+          </p>
+        ) : null}
+
+        <details className="rounded-2xl border border-[#10283f]/10 bg-white px-4 py-4">
+          <summary className="cursor-pointer text-sm font-semibold text-[#10283f]">
+            Alternative: auto-convert PowerPoint to pictures
+          </summary>
+          <div className="mt-4">
+            <BuilderField
+              label="Import from PowerPoint only"
+              hint="We'll try to render slide pictures in your browser. If they look wrong, use the ZIP + PPT workflow above instead."
+            >
+              <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-[#faf8f3] px-5 py-5 text-center">
+                <input
+                  type="file"
+                  accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                  disabled={importing}
+                  onChange={(event) => void handlePptxImport(event.target.files?.[0] || null)}
+                  className="mt-1 block w-full text-sm text-[#69757e]"
+                />
+              </div>
+            </BuilderField>
+          </div>
+        </details>
 
         <div className="space-y-4">
           {lineup.map((item, index) => (
