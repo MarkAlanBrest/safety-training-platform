@@ -6,6 +6,8 @@ import { Mic, MicOff, Send, Volume2 } from "lucide-react";
 export type TeacherMessage = {
   role: "user" | "assistant";
   content: string;
+  /** Internal control messages are sent to the AI but never shown in the chat window. */
+  hidden?: boolean;
 };
 
 type SpeechRecognitionResultLike = {
@@ -146,7 +148,9 @@ export default function TeacherChat({
             response box below.
           </div>
         )}
-        {messages.map((message, index) => (
+        {messages
+          .filter((message) => !message.hidden)
+          .map((message, index) => (
           <div
             key={`${message.role}-${index}`}
             className={`rounded-2xl px-4 py-3 text-sm leading-7 ${

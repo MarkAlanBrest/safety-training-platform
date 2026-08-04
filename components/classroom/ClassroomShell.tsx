@@ -311,13 +311,14 @@ export default function ClassroomShell({
     };
     setPresentation(welcomeView);
     setQuickReplies([]);
-    setExpectsResponse(true);
+    setExpectsResponse(false);
 
     const bootstrap: TeacherMessage[] = [
       {
         role: "user",
+        hidden: true,
         content:
-          "Begin the lesson. Welcome me briefly, then ask what I already know about this topic. Stay on the welcome screen until I respond.",
+          "Begin the lesson now. Greet the student with one short sentence, then move to slide 1 and start teaching it. Do not ask what the student already knows and do not add any icebreaker questions.",
       },
     ];
     await sendToTeacher(bootstrap, { presentation: welcomeView });
@@ -334,7 +335,7 @@ export default function ClassroomShell({
     unlockAudio();
     const next: TeacherMessage[] = [
       ...messages,
-      { role: "user", content: "I finished the practice activity." },
+      { role: "user", hidden: true, content: "I finished the practice activity." },
     ];
     setMessages(next);
     await sendToTeacher(next);
@@ -366,7 +367,11 @@ export default function ClassroomShell({
     const label = navLabelForBeat(beat, plan);
     const next: TeacherMessage[] = [
       ...messages,
-      { role: "user", content: `Let's go to "${label}" — continue teaching from there.` },
+      {
+        role: "user",
+        hidden: true,
+        content: `Let's go to "${label}" — continue teaching from there.`,
+      },
     ];
     setMessages(next);
     await sendToTeacher(next, {
