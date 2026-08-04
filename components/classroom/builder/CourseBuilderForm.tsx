@@ -703,20 +703,6 @@ export default function CourseBuilderForm() {
           <label className="flex items-center gap-3 rounded-xl border border-[#10283f]/10 px-4 py-3 text-sm">
             <input
               type="checkbox"
-              checked={config.settings.speechText}
-              onChange={(event) =>
-                setConfig((current) => ({
-                  ...current,
-                  settings: { ...current.settings, speechText: event.target.checked },
-                }))
-              }
-              className="accent-[#c68b1b]"
-            />
-            Text
-          </label>
-          <label className="flex items-center gap-3 rounded-xl border border-[#10283f]/10 px-4 py-3 text-sm">
-            <input
-              type="checkbox"
               checked={config.settings.speechVoice}
               onChange={(event) =>
                 setConfig((current) => ({
@@ -726,23 +712,7 @@ export default function CourseBuilderForm() {
               }
               className="accent-[#c68b1b]"
             />
-            Voice
-          </label>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <label className="flex items-center gap-3 rounded-xl border border-[#10283f]/10 px-4 py-3 text-sm">
-            <input
-              type="checkbox"
-              checked={config.settings.captions}
-              onChange={(event) =>
-                setConfig((current) => ({
-                  ...current,
-                  settings: { ...current.settings, captions: event.target.checked },
-                }))
-              }
-              className="accent-[#c68b1b]"
-            />
-            Captions On
+            Instructor voice
           </label>
           <label className="flex items-center gap-3 rounded-xl border border-[#10283f]/10 px-4 py-3 text-sm">
             <input

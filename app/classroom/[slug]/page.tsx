@@ -3,6 +3,7 @@ import ClassroomShell from "@/components/classroom/ClassroomShell";
 import { prisma } from "@/lib/prisma";
 import {
   classroomCourseForSlug,
+  hydrateClassroomPlan,
   isClassroomPlan,
   type PublicClassroomCourse,
 } from "@/lib/classroom";
@@ -28,12 +29,21 @@ export default async function ClassroomPage({
         take: 1,
         select: { lessonPlan: true },
       },
+      scormAssets: {
+        where: { path: { startsWith: "classroom/slides/" } },
+        select: { path: true },
+      },
     },
   });
 
   if (!record || record.courseType !== "classroom") notFound();
-  const plan = record.sections[0]?.lessonPlan;
-  if (!isClassroomPlan(plan)) notFound();
+  const rawPlan = record.sections[0]?.lessonPlan;
+  if (!isClassroomPlan(rawPlan)) notFound();
+  const plan = hydrateClassroomPlan(
+    rawPlan,
+    slug,
+    record.scormAssets.map((asset) => asset.path),
+  );
 
   const course: PublicClassroomCourse = {
     id: record.id,

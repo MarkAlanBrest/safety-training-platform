@@ -62,19 +62,6 @@ function pinSlidePresentation(
   };
 }
 
-function slideIntroText(slide: ClassroomSlide) {
-  const notes = slide.speakerNotes?.trim();
-  if (notes) {
-    const firstSentence = notes.split(/(?<=[.!?])\s+/)[0]?.trim();
-    if (firstSentence) return firstSentence;
-  }
-  const bullets = slide.bullets?.filter(Boolean) || [];
-  if (bullets.length) {
-    return `Let's look at ${slide.title}. ${bullets[0]}`;
-  }
-  return `Let's look at slide ${slide.index + 1}: ${slide.title}.`;
-}
-
 function imageIndexForSlide(slide: ClassroomSlide, topic?: string): number | undefined {
   if (!slide.visuals?.length) return undefined;
   const index = visualIndexForTopic(slide, topic || slide.title);
@@ -145,7 +132,6 @@ export default function ClassroomShell({
   const navRequestIdRef = useRef(0);
   const chatAbortRef = useRef<AbortController | null>(null);
   const speechAbortRef = useRef<AbortController | null>(null);
-  const instantSpeechRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   function markSlideTaught(slideIndex: number) {
     setTaughtSlideIndices((current) =>
@@ -185,29 +171,12 @@ export default function ClassroomShell({
     speechAbortRef.current?.abort();
     speechAbortRef.current = null;
     window.speechSynthesis.cancel();
-    if (instantSpeechRef.current) {
-      instantSpeechRef.current = null;
-    }
     audioRef.current?.pause();
     if (audioUrlRef.current) {
       URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
     }
     setSpeaking(false);
-  }
-
-  function speakImmediate(text: string) {
-    if (!voiceSettings.enabled || !text.trim() || typeof window === "undefined") return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text.slice(0, 280));
-    utterance.rate = Math.min(1.1, Math.max(0.85, voiceSettings.speed));
-    instantSpeechRef.current = utterance;
-    utterance.onend = () => {
-      if (instantSpeechRef.current === utterance) {
-        instantSpeechRef.current = null;
-      }
-    };
-    window.speechSynthesis.speak(utterance);
   }
 
   async function speak(text: string) {
@@ -245,9 +214,6 @@ export default function ClassroomShell({
         }
 
         window.speechSynthesis.cancel();
-        if (instantSpeechRef.current) {
-          instantSpeechRef.current = null;
-        }
         audioUrlRef.current = url;
         const audio = new Audio(url);
         audioRef.current = audio;
@@ -410,8 +376,6 @@ export default function ClassroomShell({
     if (lockedView.type === "slide") {
       setPresentation(lockedView);
     }
-    const intro = slideIntroText(slide);
-    speakImmediate(intro);
     await sendToTeacher(
       [
         ...baseMessages,
@@ -502,7 +466,6 @@ export default function ClassroomShell({
             "Could you start with the basics?",
           ],
     );
-    speakImmediate(openingMessages[0].content.split("\n\n")[0] || openingMessages[0].content);
     void speak(openingMessages[0].content.split("\n\n")[0] || openingMessages[0].content);
   }
 
@@ -555,9 +518,6 @@ export default function ClassroomShell({
     setCurrentSlideIndex(slideIndex);
     setPresentation(view);
     markSlideTaught(slideIndex);
-
-    const intro = slideIntroText(slide);
-    speakImmediate(intro);
 
     setMessages((current) => {
       const nextMessages: TeacherMessage[] = [

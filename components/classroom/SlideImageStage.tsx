@@ -29,23 +29,21 @@ export default function SlideImageStage({
           {hotspots?.map((hotspot) => {
             const active = focus?.hotspotId === hotspot.id;
             return (
-              <button
+              <span
                 key={hotspot.id}
-                type="button"
-                className={`absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition ${
+                className={`absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 ${
                   active
                     ? "border-amber-300 bg-amber-400 shadow-[0_0_0_8px_rgba(251,191,36,.25)]"
                     : "border-white/70 bg-amber-500/80 opacity-60"
                 }`}
                 style={{ left: `${hotspot.x}%`, top: `${hotspot.y}%` }}
-                aria-label={hotspot.label}
               />
             );
           })}
 
           {focus ? (
             <>
-              <div
+              <span
                 className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-amber-300 shadow-[0_0_24px_rgba(251,191,36,.45)]"
                 style={{
                   left: `${focus.x}%`,
@@ -54,21 +52,10 @@ export default function SlideImageStage({
                   height: "72px",
                 }}
               />
-              <div
+              <span
                 className="absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-300 shadow-[0_0_14px_rgba(251,191,36,.9)]"
                 style={{ left: `${focus.x}%`, top: `${focus.y}%` }}
               />
-              {focus.label ? (
-                <div
-                  className="absolute max-w-[min(18rem,80%)] -translate-x-1/2 rounded-xl bg-[#07111f]/90 px-3 py-1.5 text-xs font-semibold text-amber-100 shadow-lg backdrop-blur sm:text-sm"
-                  style={{
-                    left: `${focus.x}%`,
-                    top: `min(88%, ${focus.y + 6}%)`,
-                  }}
-                >
-                  {focus.label}
-                </div>
-              ) : null}
             </>
           ) : null}
         </div>
