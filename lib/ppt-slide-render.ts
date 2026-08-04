@@ -3,7 +3,6 @@ import type { ParsedClassroomSlide } from "@/lib/ppt-ingest-core";
 
 const SLIDE_WIDTH = 960;
 const SLIDE_HEIGHT = 540;
-const MIN_FULL_SLIDE_BYTES = 12 * 1024;
 
 function wrapText(
   context: ReturnType<ReturnType<typeof createCanvas>["getContext"]>,
@@ -54,7 +53,7 @@ export async function renderSlideAsset(
   }
 
   const primary = slide.image;
-  if (primary && primary.bytes.byteLength >= MIN_FULL_SLIDE_BYTES) {
+  if (primary?.bytes.byteLength) {
     return { bytes: primary.bytes, mimeType: primary.mimeType };
   }
 
@@ -63,20 +62,27 @@ export async function renderSlideAsset(
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, SLIDE_WIDTH, SLIDE_HEIGHT);
 
-  let drewImage = false;
-  for (const image of slide.images) {
+  const bestImage = slide.images.reduce<ParsedClassroomSlide["image"]>((best, image) => {
+    if (!best || image.bytes.byteLength > best.bytes.byteLength) return image;
+    return best;
+  }, null);
+
+  if (bestImage) {
     try {
-      const bitmap = await loadImage(Buffer.from(image.bytes));
+      const bitmap = await loadImage(Buffer.from(bestImage.bytes));
       drawContainedImage(context, bitmap, (x, y, width, height) => {
         context.drawImage(bitmap, x, y, width, height);
-        drewImage = true;
       });
+      return {
+        bytes: new Uint8Array(canvas.toBuffer("image/jpeg", 90)),
+        mimeType: "image/jpeg",
+      };
     } catch {
-      // Skip undecodable images and continue with text fallback.
+      // Fall through to text-only placeholder.
     }
   }
 
-  if (!drewImage || slide.bullets.length || slide.bodyText) {
+  if (slide.bullets.length || slide.bodyText) {
     context.fillStyle = "#0f172a";
     context.font = "bold 34px Arial";
     context.fillText(slide.title.slice(0, 90), 56, 80, SLIDE_WIDTH - 112);
