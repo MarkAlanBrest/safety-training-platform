@@ -36,6 +36,10 @@ export function structureClassroomSlide(slide: ClassroomSlide): StructuredClassr
     splitBodyIntoBullets(slide.bodyText).filter((bullet) => bullet !== slide.title);
 
   const hasImage = Boolean(slide.imageUrl || slide.imageDataUrl);
+  const visuals =
+    slide.visuals?.length || !slide.imageUrl
+      ? slide.visuals
+      : [{ label: slide.title, imageUrl: slide.imageUrl }];
   const layout: ClassroomSlideLayout =
     slide.layout ||
     (hasImage
@@ -46,6 +50,7 @@ export function structureClassroomSlide(slide: ClassroomSlide): StructuredClassr
 
   return {
     ...slide,
+    visuals,
     subtitle: slide.subtitle,
     bullets: bullets.length ? bullets : splitBodyIntoBullets(slide.bodyText).slice(0, 4),
     highlight: slide.highlight,
@@ -67,10 +72,7 @@ export function mergeEnhancedSlide(
     layout: enhanced?.layout || slide.layout,
   };
   if (merged.imageUrl || merged.imageDataUrl) {
-    merged.layout =
-      enhanced?.layout && enhanced.layout !== "content" && enhanced.layout !== "title"
-        ? enhanced.layout
-        : "blueprint";
+    merged.layout = "blueprint";
   }
   return structureClassroomSlide(merged);
 }

@@ -7,7 +7,7 @@ import type {
   PresentationView,
   PublicClassroomCourse,
 } from "@/lib/classroom";
-import { matchVisualForTopic } from "@/lib/classroom";
+import { resolveImageIndexFromTeaching, visualIndexForTopic } from "@/lib/classroom-visuals";
 import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
 import {
   beatIndexForSlide,
@@ -77,10 +77,24 @@ function slideIntroText(slide: ClassroomSlide) {
 
 function imageIndexForSlide(slide: ClassroomSlide, topic?: string): number | undefined {
   if (!slide.visuals?.length) return undefined;
-  const matched = matchVisualForTopic(slide, topic || slide.title);
-  if (!matched) return 0;
-  const index = slide.visuals.findIndex((visual) => visual.imageUrl === matched.imageUrl);
-  return index >= 0 ? index : 0;
+  const index = visualIndexForTopic(slide, topic || slide.title);
+  return typeof index === "number" ? index : undefined;
+}
+
+function applyTeachingVisual(
+  presentation: PresentationView | undefined,
+  slide: ClassroomSlide,
+  reply: string,
+): PresentationView | undefined {
+  if (!presentation || presentation.type !== "slide") return presentation;
+  const resolved = resolveImageIndexFromTeaching(slide, [
+    presentation.focus?.label,
+    presentation.headline,
+    reply,
+    slide.title,
+  ]);
+  if (typeof resolved !== "number") return presentation;
+  return { ...presentation, imageIndex: resolved };
 }
 
 export default function ClassroomShell({
@@ -332,12 +346,16 @@ export default function ClassroomShell({
         "Let's keep going. Tell me what you're thinking so far.";
 
       const targetSlideIndex = options?.slideIndex ?? currentSlideIndex;
-      const pinnedPresentation = pinSlidePresentation(
+      let pinnedPresentation = pinSlidePresentation(
         plan,
         data.presentation,
         targetSlideIndex,
         options?.lockPresentation,
       );
+      const activeSlide = plan.slides[targetSlideIndex];
+      if (activeSlide && pinnedPresentation) {
+        pinnedPresentation = applyTeachingVisual(pinnedPresentation, activeSlide, reply);
+      }
 
       if (requestId !== navRequestIdRef.current) {
         return;

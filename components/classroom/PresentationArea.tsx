@@ -51,7 +51,13 @@ export default function PresentationArea({
     safeView.type === "slide" && typeof safeView.imageIndex === "number"
       ? safeView.imageIndex
       : undefined;
-  const slideImage = structuredSlide ? slideImageSrc(structuredSlide, activeImageIndex) : "";
+  const imageTopic =
+    safeView.type === "slide"
+      ? [safeView.focus?.label, safeView.headline, slide?.title].filter(Boolean).join(" ")
+      : slide?.title || "";
+  const slideImage = structuredSlide
+    ? slideImageSrc(structuredSlide, activeImageIndex, imageTopic)
+    : "";
   const hasSlideImage = Boolean(slideImage);
   const isCheckpoint =
     safeView.type === "question" ||
@@ -137,8 +143,8 @@ export default function PresentationArea({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden p-5 lg:p-6">
-        <div className="relative flex min-h-0 flex-1 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,.08)]">
+      <div className="flex min-h-0 flex-1 overflow-hidden p-2 lg:p-3">
+        <div className="relative flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,.08)]">
           {safeView.type === "welcome" ? (
             <div className="flex h-full w-full flex-col justify-center bg-gradient-to-br from-[#0f2b46] to-[#163a5d] p-10 text-white">
               <p className="text-xs font-bold uppercase tracking-[.2em] text-amber-200">
@@ -150,15 +156,17 @@ export default function PresentationArea({
               <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-200">{safeView.body}</p>
             </div>
           ) : hasSlideImage && structuredSlide ? (
-            <>
-              <SlideImageStage
-                imageUrl={slideImage}
-                title={structuredSlide.title}
-                focus={safeView.type === "slide" ? safeView.focus : undefined}
-                hotspots={structuredSlide.hotspots}
-              />
+            <div className="flex h-full min-h-0 w-full flex-col lg:flex-row">
+              <div className={`min-h-0 min-w-0 ${isCheckpoint ? "flex-1" : "h-full w-full"}`}>
+                <SlideImageStage
+                  imageUrl={slideImage}
+                  title={structuredSlide.title}
+                  focus={safeView.type === "slide" ? safeView.focus : undefined}
+                  hotspots={structuredSlide.hotspots}
+                />
+              </div>
               {isCheckpoint ? (
-                <div className="absolute inset-x-4 bottom-4 max-h-[38%] overflow-y-auto rounded-2xl border border-white/10 bg-[#07111f]/92 px-5 py-4 shadow-xl backdrop-blur sm:inset-x-6">
+                <div className="flex max-h-[42%] w-full shrink-0 flex-col justify-center overflow-y-auto border-t border-slate-200 bg-[#07111f] px-5 py-4 text-white lg:max-h-none lg:max-w-sm lg:shrink-0 lg:border-l lg:border-t-0 lg:py-6">
                   <p className="text-xs font-bold uppercase tracking-[.16em] text-amber-300">
                     {safeView.type === "assessment"
                       ? "Final assessment"
@@ -190,7 +198,7 @@ export default function PresentationArea({
                   ) : null}
                 </div>
               ) : null}
-            </>
+            </div>
           ) : safeView.type === "slide" && structuredSlide ? (
             <SlideCanvas slide={structuredSlide} courseTitle={plan.title} />
           ) : isCheckpoint ? (

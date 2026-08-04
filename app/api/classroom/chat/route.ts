@@ -14,6 +14,7 @@ import {
 import { lessonBeatSummary } from "@/lib/classroom-lesson";
 import { hotspotsSummary, normalizeFocus } from "@/lib/classroom-focus";
 import { visualsSummary } from "@/lib/classroom";
+import { findSlideIndexForTopic, resolveImageIndexFromTeaching } from "@/lib/classroom-visuals";
 import { extractResponseOutputText } from "@/lib/parse-response";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -263,7 +264,8 @@ export async function POST(request: Request) {
           "During checkpoints, use presentation.type question or exercise with 3-4 answer choices.",
           "During the final assessment, use presentation.type assessment with clear multiple-choice options.",
           "When discussing a specific line, symbol, or region on the slide image, keep presentation.type slide and use hotspotId when possible.",
-          "When the slide has multiple labeled visuals (e.g. hidden line, center line), set presentation.imageIndex to the matching picture.",
+          "When the slide has multiple labeled visuals (e.g. hidden line, center line), you MUST set presentation.imageIndex to the matching picture whenever you discuss that specific item.",
+          "Name the visual you are showing in your reply (e.g. 'This hidden line...') so the correct picture stays on screen.",
           "Always keep presentation.slideIndex on the current teaching slide unless the student explicitly asks to jump to another slide.",
           "Otherwise set focusX, focusY (0-100), focusScale (1.2-2.2), and focusLabel to direct attention.",
           "Keep the slide visible while pointing; do not replace image slides with text-only layouts.",
@@ -317,9 +319,32 @@ export async function POST(request: Request) {
       presentationView.type === "slide" &&
       plan.slides[presentationView.slideIndex]
     ) {
-      presentationView.headline =
-        presentationView.headline ||
-        plan.slides[presentationView.slideIndex].title;
+      const teachingTopic = [
+        presentationView.focus?.label,
+        parsed.presentation?.focusLabel,
+        parsed.presentation?.headline,
+        reply,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const matchedSlideIndex = findSlideIndexForTopic(
+        plan.slides,
+        teachingTopic,
+        slide.index,
+      );
+      presentationView.slideIndex = matchedSlideIndex;
+      const activeSlide = plan.slides[matchedSlideIndex];
+      presentationView.headline = presentationView.headline || activeSlide.title;
+      const resolvedImageIndex = resolveImageIndexFromTeaching(activeSlide, [
+        presentationView.focus?.label,
+        parsed.presentation?.focusLabel,
+        parsed.presentation?.headline,
+        reply,
+        activeSlide.title,
+      ]);
+      if (typeof resolvedImageIndex === "number") {
+        presentationView.imageIndex = resolvedImageIndex;
+      }
     }
 
     return Response.json({
