@@ -20,7 +20,6 @@ export default function PresentationArea({
   activeSlideIndex,
   onToggleBreak,
   paused = false,
-  onSelectChoice,
   onActivityComplete,
 }: {
   plan: ClassroomPlan;
@@ -28,7 +27,6 @@ export default function PresentationArea({
   activeSlideIndex: number;
   onToggleBreak: () => void;
   paused?: boolean;
-  onSelectChoice?: (choice: string) => void;
   onActivityComplete?: () => void;
 }) {
   const safeView: PresentationView =
@@ -217,20 +215,9 @@ export default function PresentationArea({
                     Question {safeView.questionIndex + 1} of {safeView.questionCount}
                   </p>
                 ) : null}
-                {safeView.choices?.length ? (
-                  <div className="mt-8 flex flex-wrap justify-center gap-2">
-                    {safeView.choices.map((choice) => (
-                      <button
-                        key={choice}
-                        type="button"
-                        onClick={() => onSelectChoice?.(choice)}
-                        className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-amber-300 hover:bg-amber-50"
-                      >
-                        {choice}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
+                <p className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-900">
+                  Type or speak your answer in the instructor panel on the right.
+                </p>
               </div>
             </div>
           ) : safeView.type === "example" ? (

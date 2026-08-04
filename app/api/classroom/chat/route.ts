@@ -230,8 +230,8 @@ const classroomTeacherTurnSchema = {
     quickReplies: {
       type: "array",
       items: { type: "string" },
-      minItems: 2,
-      maxItems: 5,
+      minItems: 0,
+      maxItems: 3,
     },
   },
 } as const;
@@ -265,21 +265,9 @@ async function resolvePlan(
   return isClassroomPlan(section?.lessonPlan) ? section.lessonPlan : null;
 }
 
-function filterQuickReplies(replies: string[] | undefined) {
-  const blocked = [
-    "continue to next section",
-    "continue to next",
-    "i'm ready to continue",
-    "next slide",
-    "next section",
-  ];
-  const cleaned = (replies || []).filter((reply) => {
-    const lower = reply.toLowerCase().trim();
-    return lower && !blocked.some((pattern) => lower.includes(pattern));
-  });
-  return cleaned.length >= 2
-    ? cleaned.slice(0, 5)
-    : ["That makes sense", "I'm not sure yet", "Could you explain differently?"];
+function filterQuickReplies(_replies: string[] | undefined) {
+  // Learners type or speak answers — do not surface choice menus in the UI.
+  return [];
 }
 
 export async function POST(request: Request) {
@@ -326,7 +314,7 @@ export async function POST(request: Request) {
           slideIndex: slide.index,
           headline: slide.title,
         },
-        quickReplies: ["That makes sense", "I'm not sure yet", "Could you explain differently?"],
+        quickReplies: [],
       });
     }
 
@@ -375,14 +363,18 @@ export async function POST(request: Request) {
           "To point at the slide: ONLY set presentation.hotspotId to an id from the Hotspots catalog when you say look here or pay attention. Never invent focusX or focusY.",
           "Leave focusX, focusY, focusScale, hotspotId, and focusLabel null unless you are deliberately highlighting a cataloged hotspot.",
           "Use focusScale around 1.4 only when hotspotId is set and you want emphasis.",
-          "Ask formative questions in your reply, then use presentation.type question or exercise with choices when you want a structured check.",
-          "Use presentation.type flashcard or dragdrop when a practice activity is the right next move.",
-          "Use presentation.type assessment only for the final test. Set questionIndex and questionCount when advancing through final questions.",
+          "Ask open-ended questions in your reply and wait for the student to type or speak — do not list answer options.",
+          "Do not set presentation.choices or quickReplies that reveal answers.",
+          "For formative checks, keep presentation.type slide (or welcome) while you ask the question in reply.",
+          "Use presentation.type question or exercise only without choices when the center screen should show the question — never include choices.",
+          "Use presentation.type assessment for the final test with prompt only — no choices in presentation.",
           "Advance slides only when the student seems ready — wrong or unsure answers mean reteach, explain differently, or practice before moving on.",
           "If the student says they have a question, answer it clearly without advancing unless they are ready.",
           "If the student completes a practice activity, decide whether to continue teaching, practice more, or move forward.",
+          "Use presentation.type flashcard or dragdrop when a practice activity is the right next move.",
+          "Set questionIndex and questionCount when advancing through final assessment questions.",
           "Cover all objectives before the final assessment.",
-          "quickReplies are short learner responses to YOUR question — never navigation like continue or next slide.",
+          "Return an empty quickReplies array unless you have a rare non-answer helper.",
           "Keep replies concise (2–3 sentences) unless the student asks for more.",
           "Return JSON only.",
         ].join(" "),

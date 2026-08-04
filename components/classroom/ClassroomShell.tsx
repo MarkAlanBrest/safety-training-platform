@@ -220,9 +220,6 @@ export default function ClassroomShell({
       const assessmentBeat = lessonBeats.findIndex((beat) => beat.kind === "assessment");
       if (assessmentBeat >= 0) setBeatIndex(assessmentBeat);
     }
-    if (view.type === "question" || view.type === "exercise") {
-      if (view.choices?.length) setQuickReplies(view.choices);
-    }
     if (view.type === "flashcard" || view.type === "dragdrop") {
       setQuickReplies([]);
     }
@@ -271,6 +268,8 @@ export default function ClassroomShell({
       }
       if (data.quickReplies?.length) {
         setQuickReplies(data.quickReplies);
+      } else {
+        setQuickReplies([]);
       }
       speakNatural(reply);
     } catch (error) {
@@ -296,11 +295,7 @@ export default function ClassroomShell({
       body: plan.opening,
     };
     setPresentation(welcomeView);
-    setQuickReplies([
-      "I'm brand new to this",
-      "I know a little",
-      "I've seen this on the job",
-    ]);
+    setQuickReplies([]);
 
     const bootstrap: TeacherMessage[] = [
       {
@@ -329,10 +324,6 @@ export default function ClassroomShell({
     await sendToTeacher(next);
   }
 
-  async function handleSelectChoice(choice: string) {
-    await handleSend(choice);
-  }
-
   async function handleActivityComplete() {
     unlockAudio();
     const next: TeacherMessage[] = [
@@ -343,6 +334,14 @@ export default function ClassroomShell({
     await sendToTeacher(next);
   }
 
+  const awaitingInput = !paused && !thinking && !speaking;
+  const inputPrompt =
+    presentation.type === "question" ||
+    presentation.type === "exercise" ||
+    presentation.type === "assessment"
+      ? presentation.prompt
+      : undefined;
+
   return (
     <main className="h-screen overflow-hidden bg-white text-slate-900">
       <div className="grid h-full min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -352,7 +351,6 @@ export default function ClassroomShell({
           activeSlideIndex={currentSlideIndex}
           onToggleBreak={toggleBreak}
           paused={paused}
-          onSelectChoice={(choice) => void handleSelectChoice(choice)}
           onActivityComplete={() => void handleActivityComplete()}
         />
 
@@ -363,6 +361,8 @@ export default function ClassroomShell({
           speaking={speaking}
           needsAudioUnlock={needsAudioUnlock}
           speechToTextEnabled={builderConfig?.settings.speechText ?? true}
+          awaitingInput={awaitingInput}
+          inputPrompt={inputPrompt}
           onSend={handleSend}
           onSpeak={speak}
           onInteract={unlockAudio}

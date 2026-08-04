@@ -1,8 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Bot, Hand, MessageCircleQuestion, Mic, MicOff, Send, Volume2 } from "lucide-react";
-import { DEFAULT_QUICK_REPLIES } from "@/lib/classroom";
+import { Bot, MessageCircleQuestion, Mic, MicOff, Send, Volume2 } from "lucide-react";
 
 export type TeacherMessage = {
   role: "user" | "assistant";
@@ -43,11 +42,13 @@ function getSpeechRecognition():
 
 export default function TeacherChat({
   messages,
-  quickReplies,
+  quickReplies: _quickReplies,
   thinking,
   speaking,
   needsAudioUnlock = false,
   speechToTextEnabled = false,
+  awaitingInput = false,
+  inputPrompt,
   onSend,
   onSpeak,
   onInteract,
@@ -59,6 +60,8 @@ export default function TeacherChat({
   speaking: boolean;
   needsAudioUnlock?: boolean;
   speechToTextEnabled?: boolean;
+  awaitingInput?: boolean;
+  inputPrompt?: string;
   onSend: (message: string) => Promise<void>;
   onSpeak: (text: string) => Promise<void>;
   onInteract?: () => void;
@@ -67,6 +70,7 @@ export default function TeacherChat({
   const [draft, setDraft] = useState("");
   const [listening, setListening] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const speechSupported = Boolean(getSpeechRecognition());
 
@@ -82,6 +86,12 @@ export default function TeacherChat({
     };
   }, []);
 
+  useEffect(() => {
+    if (awaitingInput && !thinking) {
+      inputRef.current?.focus();
+    }
+  }, [awaitingInput, thinking, inputPrompt]);
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     const clean = draft.trim();
@@ -89,12 +99,6 @@ export default function TeacherChat({
     onInteract?.();
     setDraft("");
     await onSend(clean);
-  }
-
-  async function sendQuickReply(reply: string) {
-    if (thinking) return;
-    onInteract?.();
-    await onSend(reply);
   }
 
   function toggleListening() {
@@ -130,17 +134,18 @@ export default function TeacherChat({
     setListening(true);
   }
 
-  const replies = quickReplies.length ? quickReplies : DEFAULT_QUICK_REPLIES;
   const showMic = speechToTextEnabled && speechSupported;
   const teacherState = needsAudioUnlock
-    ? "Tap a reply to hear your instructor"
+    ? "Tap Hear this to unlock audio"
     : thinking
       ? "Thinking…"
       : speaking
         ? "Speaking…"
         : listening
           ? "Listening…"
-          : "Leading the lesson";
+          : awaitingInput
+            ? "Waiting for your response"
+            : "Leading the lesson";
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white">
@@ -176,8 +181,8 @@ export default function TeacherChat({
       >
         {!messages.length && (
           <div className="rounded-2xl bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-600">
-            Your instructor leads this session. Respond when prompted, or ask a question anytime.
-            {showMic ? " Tap the microphone to speak your answer." : ""}
+            Your instructor leads this session. When it is your turn, type or speak in the
+            response box below.
           </div>
         )}
         {messages.map((message, index) => (
@@ -212,60 +217,74 @@ export default function TeacherChat({
         ) : null}
       </div>
 
-      <div className="shrink-0 border-t border-slate-200 px-4 py-4">
-        {replies.length ? (
-          <div className="mb-3 flex flex-wrap gap-2">
-            {replies.map((reply) => (
-              <button
-                key={reply}
-                type="button"
-                disabled={thinking}
-                onClick={() => void sendQuickReply(reply)}
-                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-white disabled:opacity-40"
-              >
-                {reply === "Raise your hand" ? (
-                  <span className="inline-flex items-center gap-1">
-                    <Hand size={12} />
-                    {reply}
-                  </span>
-                ) : (
-                  reply
-                )}
-              </button>
-            ))}
+      <div
+        className={`shrink-0 border-t-2 px-4 py-4 transition-colors ${
+          awaitingInput
+            ? "border-amber-400 bg-amber-50 shadow-[0_-12px_32px_rgba(251,191,36,.2)]"
+            : "border-slate-200 bg-white"
+        }`}
+      >
+        {awaitingInput ? (
+          <div className="mb-3 rounded-xl border border-amber-300 bg-white px-4 py-3">
+            <p className="text-xs font-bold uppercase tracking-[.14em] text-amber-700">
+              Your turn
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">
+              {inputPrompt
+                ? "Answer the question below"
+                : "Type or speak your response"}
+            </p>
+            {inputPrompt ? (
+              <p className="mt-2 text-sm leading-6 text-slate-600">{inputPrompt}</p>
+            ) : null}
           </div>
         ) : null}
 
         <form onSubmit={submit} className="flex gap-2">
           <input
+            ref={inputRef}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onFocus={() => onInteract?.()}
-            placeholder={listening ? "Listening…" : "Your response…"}
-            className="min-w-0 flex-1 rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-amber-400"
+            placeholder={
+              listening
+                ? "Listening…"
+                : awaitingInput
+                  ? "Type your answer here…"
+                  : "Type or speak when ready…"
+            }
+            className={`min-w-0 flex-1 rounded-2xl border px-4 py-3.5 text-sm font-medium outline-none transition ${
+              awaitingInput
+                ? "border-amber-400 bg-white ring-2 ring-amber-200 focus:border-amber-500 focus:ring-amber-300"
+                : "border-slate-300 bg-white focus:border-amber-400"
+            }`}
           />
           {showMic ? (
             <button
               type="button"
               onClick={toggleListening}
               disabled={thinking}
-              className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl border ${
+              className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl border ${
                 listening
-                  ? "border-rose-300 bg-rose-50 text-rose-600"
-                  : "border-slate-200 bg-slate-50 text-slate-600"
+                  ? "border-rose-400 bg-rose-50 text-rose-600 ring-2 ring-rose-200"
+                  : awaitingInput
+                    ? "border-amber-400 bg-amber-100 text-amber-800"
+                    : "border-slate-200 bg-slate-50 text-slate-600"
               }`}
               aria-label={listening ? "Stop listening" : "Speak your answer"}
             >
-              {listening ? <MicOff size={16} /> : <Mic size={16} />}
+              {listening ? <MicOff size={18} /> : <Mic size={18} />}
             </button>
           ) : null}
           <button
             type="submit"
             disabled={thinking || !draft.trim()}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#0f2b46] text-white disabled:opacity-40"
+            className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-white transition disabled:opacity-40 ${
+              awaitingInput ? "bg-amber-600 hover:bg-amber-700" : "bg-[#0f2b46]"
+            }`}
             aria-label="Send message"
           >
-            <Send size={16} />
+            <Send size={18} />
           </button>
         </form>
       </div>
