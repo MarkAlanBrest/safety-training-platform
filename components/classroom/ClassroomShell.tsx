@@ -117,6 +117,7 @@ export default function ClassroomShell({
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [beatIndex, setBeatIndex] = useState(0);
   const [assessmentQuestionIndex, setAssessmentQuestionIndex] = useState(0);
+  const [navCollapsed, setNavCollapsed] = useState(false);
   const [presentation, setPresentation] = useState<PresentationView>({
     type: "welcome",
     headline: plan.title,
@@ -551,13 +552,21 @@ export default function ClassroomShell({
 
   return (
     <main className="h-screen overflow-hidden bg-white text-slate-900">
-      <div className="grid h-full min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_360px]">
+      <div
+        className={`grid h-full min-h-0 grid-cols-1 overflow-hidden transition-[grid-template-columns] duration-200 lg:grid ${
+          navCollapsed
+            ? "lg:grid-cols-[72px_minmax(0,1fr)_360px]"
+            : "lg:grid-cols-[280px_minmax(0,1fr)_360px]"
+        }`}
+      >
         <div className="hidden min-h-0 overflow-hidden lg:block">
           <ClassroomNav
             plan={plan}
             activeSlideIndex={currentSlideIndex}
             taughtSlideIndices={taughtSlideIndices}
             onSelectSlide={goToSlide}
+            collapsed={navCollapsed}
+            onToggleCollapse={() => setNavCollapsed((value) => !value)}
           />
         </div>
 
