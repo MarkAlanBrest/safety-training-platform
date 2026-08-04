@@ -1,4 +1,4 @@
-import type { ClassroomSlide, PresentationView } from "@/lib/classroom";
+import type { ClassroomPlan, ClassroomSlide, PresentationView } from "@/lib/classroom";
 import { focusFromHotspot } from "@/lib/classroom-focus";
 
 /** Resolve slide image as a data URL for vision models. */
@@ -131,7 +131,13 @@ export function sanitizeQuickReplies(
   if (!replies?.length) return [];
 
   const choiceSet = new Set(
-    (presentation.choices || []).map((choice) => choice.toLowerCase().trim()),
+    (
+      presentation.type === "question" ||
+      presentation.type === "exercise" ||
+      presentation.type === "assessment"
+        ? presentation.choices || []
+        : []
+    ).map((choice) => choice.toLowerCase().trim()),
   );
   const isCheckpoint =
     presentation.type === "question" ||
@@ -150,6 +156,119 @@ export function sanitizeQuickReplies(
   }
 
   return cleaned;
+}
+
+type TeacherChatMessage = { role: "user" | "assistant"; content: string };
+
+/** Slide index the learner currently sees — prefer presentation over a stale body field. */
+export function resolveRequestSlideIndex(
+  bodySlideIndex: number,
+  presentation: PresentationView | undefined,
+  plan: ClassroomPlan,
+): number {
+  const max = Math.max(0, plan.slides.length - 1);
+  if (presentation?.type === "slide") {
+    const idx = presentation.slideIndex;
+    if (Number.isInteger(idx)) {
+      return Math.min(max, Math.max(0, idx));
+    }
+  }
+  if (Number.isInteger(bodySlideIndex)) {
+    return Math.min(max, Math.max(0, bodySlideIndex));
+  }
+  return 0;
+}
+
+/** Match slide titles or explicit slide/topic numbers mentioned in instructor speech. */
+export function inferSlideIndexFromReply(
+  plan: ClassroomPlan,
+  text: string,
+): number | null {
+  const lowered = text.toLowerCase();
+  let bestIndex: number | null = null;
+  let bestScore = 0;
+
+  for (let index = 0; index < plan.slides.length; index += 1) {
+    const title = plan.slides[index].title.trim();
+    if (title.length < 4) continue;
+    const titleLower = title.toLowerCase();
+    if (lowered.includes(titleLower)) {
+      const score = title.length;
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    }
+  }
+
+  const slideNumberMatch = text.match(/\b(?:slide|topic|section)\s+(\d+)\b/i);
+  if (slideNumberMatch) {
+    const parsed = Number(slideNumberMatch[1]) - 1;
+    if (parsed >= 0 && parsed < plan.slides.length) {
+      return parsed;
+    }
+  }
+
+  return bestIndex;
+}
+
+/** Keep the slide stage visible during open-ended checks (question lives in chat/speech). */
+export function coerceSlideTeachingView(
+  presentation: PresentationView,
+  contextSlideIndex: number,
+  plan: ClassroomPlan,
+): PresentationView {
+  if (presentation.type !== "question" && presentation.type !== "exercise") {
+    return presentation;
+  }
+
+  const slide = plan.slides[contextSlideIndex] || plan.slides[0];
+  return {
+    type: "slide",
+    slideIndex: contextSlideIndex,
+    headline: slide?.title || presentation.headline,
+  };
+}
+
+/** Align on-screen slide with what the instructor is actually teaching. */
+export function alignPresentationSlide(
+  plan: ClassroomPlan,
+  contextSlideIndex: number,
+  presentation: PresentationView,
+  messages: TeacherChatMessage[],
+  reply: string,
+): PresentationView {
+  if (presentation.type !== "slide") return presentation;
+
+  const lastUser = messages.filter((message) => message.role === "user").pop();
+  const continuing =
+    lastUser?.role === "user" && /continue teaching/i.test(lastUser.content);
+
+  const inferred = inferSlideIndexFromReply(plan, reply);
+  let slideIndex = presentation.slideIndex;
+
+  if (inferred !== null) {
+    slideIndex = inferred;
+  } else if (
+    continuing &&
+    slideIndex === contextSlideIndex &&
+    /\b(next (slide|topic|section)|moving on|let'?s move|now we)\b/i.test(reply) &&
+    contextSlideIndex < plan.slides.length - 1
+  ) {
+    slideIndex = contextSlideIndex + 1;
+  }
+
+  const slide = plan.slides[slideIndex];
+  if (!slide) return presentation;
+
+  if (slideIndex === presentation.slideIndex) return presentation;
+
+  return {
+    ...presentation,
+    slideIndex,
+    headline: presentation.headline || slide.title,
+    focus: undefined,
+  };
 }
 
 /** Split instructor speech so the first chunk reaches TTS quickly. */

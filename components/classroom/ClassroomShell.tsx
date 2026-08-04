@@ -80,6 +80,9 @@ export default function ClassroomShell({
   const autoContinueRef = useRef(false);
   const thinkingRef = useRef(false);
   const quickRepliesRef = useRef<string[]>([]);
+  const currentSlideIndexRef = useRef(0);
+  const beatIndexRef = useRef(0);
+  const assessmentQuestionIndexRef = useRef(0);
 
   useEffect(() => {
     thinkingRef.current = thinking;
@@ -88,6 +91,18 @@ export default function ClassroomShell({
   useEffect(() => {
     quickRepliesRef.current = quickReplies;
   }, [quickReplies]);
+
+  useEffect(() => {
+    currentSlideIndexRef.current = currentSlideIndex;
+  }, [currentSlideIndex]);
+
+  useEffect(() => {
+    beatIndexRef.current = beatIndex;
+  }, [beatIndex]);
+
+  useEffect(() => {
+    assessmentQuestionIndexRef.current = assessmentQuestionIndex;
+  }, [assessmentQuestionIndex]);
 
   useEffect(() => {
     expectsResponseRef.current = expectsResponse;
@@ -242,20 +257,29 @@ export default function ClassroomShell({
   }
 
   function applyTeacherPresentation(view: PresentationView) {
+    presentationRef.current = view;
     setPresentation(view);
     if (view.type === "slide") {
+      currentSlideIndexRef.current = view.slideIndex;
       setCurrentSlideIndex(view.slideIndex);
       markSlideTaught(view.slideIndex);
       const nextBeat = beatIndexForSlide(lessonBeats, view.slideIndex);
-      if (nextBeat >= 0) setBeatIndex(nextBeat);
+      if (nextBeat >= 0) {
+        beatIndexRef.current = nextBeat;
+        setBeatIndex(nextBeat);
+      }
     }
     if (
       view.type === "assessment" &&
       typeof view.questionIndex === "number"
     ) {
+      assessmentQuestionIndexRef.current = view.questionIndex;
       setAssessmentQuestionIndex(view.questionIndex);
       const assessmentBeat = lessonBeats.findIndex((beat) => beat.kind === "assessment");
-      if (assessmentBeat >= 0) setBeatIndex(assessmentBeat);
+      if (assessmentBeat >= 0) {
+        beatIndexRef.current = assessmentBeat;
+        setBeatIndex(assessmentBeat);
+      }
     }
     if (view.type === "flashcard" || view.type === "dragdrop") {
       setQuickReplies([]);
@@ -311,16 +335,17 @@ export default function ClassroomShell({
     const requestId = ++turnRequestIdRef.current;
 
     setThinking(true);
+    const requestPresentation = options?.presentation ?? presentationRef.current;
     try {
       const response = await fetch("/api/classroom/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           courseSlug: course.slug,
-          slideIndex: currentSlideIndex,
-          beatIndex,
-          assessmentQuestionIndex,
-          presentation: options?.presentation ?? presentation,
+          slideIndex: currentSlideIndexRef.current,
+          beatIndex: beatIndexRef.current,
+          assessmentQuestionIndex: assessmentQuestionIndexRef.current,
+          presentation: requestPresentation,
           messages: nextMessages,
         }),
         signal: controller.signal,
@@ -378,13 +403,14 @@ export default function ClassroomShell({
       body: plan.opening,
     };
     setPresentation(welcomeView);
+    presentationRef.current = welcomeView;
     setQuickReplies([]);
 
     const bootstrap: TeacherMessage[] = [
       {
         role: "user",
         content:
-          "Begin the lesson. Welcome me briefly, then ask what I already know about this topic. Stay on the welcome screen until I respond.",
+          "Begin the lesson. Welcome me briefly, then ask what I already know. Offer quickReplies for simple confidence shortcuts (e.g. Somewhat familiar, New to this) or leave quickReplies empty if you want a typed answer. Stay on the welcome screen until I respond.",
       },
     ];
     await sendToTeacher(bootstrap, { presentation: welcomeView });

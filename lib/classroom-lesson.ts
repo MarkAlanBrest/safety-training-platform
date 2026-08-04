@@ -408,3 +408,15 @@ export function lessonBeatSummary(plan: ClassroomPlan) {
     "Use presentation.type question, exercise, or assessment during checkpoints. Advance slideIndex when moving to the next teaching slide.",
   ].join("\n\n");
 }
+
+export function slideOutlineSummary(plan: ClassroomPlan) {
+  return plan.slides
+    .map((slide, index) => {
+      const note = slide.speakerNotes?.trim();
+      const noteHint = note
+        ? ` — notes: ${note.slice(0, 72)}${note.length > 72 ? "…" : ""}`
+        : "";
+      return `  presentation.slideIndex=${index} (Slide ${index + 1}): ${slide.title}${noteHint}`;
+    })
+    .join("\n");
+}
