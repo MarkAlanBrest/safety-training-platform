@@ -6,6 +6,7 @@ import {
   type ParsedSlideImage,
   parsePptxBuffer,
 } from "@/lib/ppt-ingest-core";
+import { captureSlidesFromPptx } from "@/lib/ppt-slide-capture-client";
 
 const MAX_UPLOAD_IMAGE_BYTES = 280 * 1024;
 const TOTAL_UPLOAD_IMAGE_BUDGET_BYTES = 3.5 * 1024 * 1024;
@@ -72,7 +73,10 @@ async function compressSlideImage(
   }
 }
 
-export async function preparePptxForUpload(file: File): Promise<ParsedClassroomSlide[]> {
+export async function preparePptxForUpload(
+  file: File,
+  onProgress?: (message: string, percent: number) => void,
+): Promise<ParsedClassroomSlide[]> {
   if (!/\.pptx$/i.test(file.name)) {
     throw new Error("Only .pptx PowerPoint files are supported.");
   }
@@ -81,7 +85,14 @@ export async function preparePptxForUpload(file: File): Promise<ParsedClassroomS
   }
 
   const buffer = new Uint8Array(await file.arrayBuffer());
+  onProgress?.("Reading slides…", 5);
   const parsed = parsePptxBuffer(buffer);
+
+  onProgress?.("Rendering slides from your PowerPoint…", 15);
+  const renderedSlides = await captureSlidesFromPptx(file, parsed.length, (current, total) => {
+    const percent = 15 + Math.round((current / total) * 55);
+    onProgress?.(`Rendering slide ${current} of ${total}…`, percent);
+  });
 
   const imageSlideCount = parsed.reduce(
     (count, slide) => count + Math.max(slide.images.length, slide.image ? 1 : 0),
@@ -89,8 +100,10 @@ export async function preparePptxForUpload(file: File): Promise<ParsedClassroomS
   );
   const maxBytes = perSlideImageBudget(imageSlideCount);
 
+  onProgress?.("Preparing upload…", 75);
   const prepared: ParsedClassroomSlide[] = [];
-  for (const slide of parsed) {
+  for (let index = 0; index < parsed.length; index += 1) {
+    const slide = parsed[index];
     const images = await Promise.all(
       slide.images.map((image) => compressSlideImage(image, maxBytes)),
     );
@@ -98,6 +111,7 @@ export async function preparePptxForUpload(file: File): Promise<ParsedClassroomS
       ...slide,
       images,
       image: images[0] || null,
+      renderedSlide: renderedSlides[index] || null,
     });
   }
 
@@ -112,6 +126,7 @@ export async function preparePptxForUpload(file: File): Promise<ParsedClassroomS
     );
   }
 
+  onProgress?.("Ready to upload", 100);
   return prepared;
 }
 
@@ -142,11 +157,21 @@ export function buildClassroomUploadFormData(
         bullets: slide.bullets,
         hasImage: Boolean(slide.image),
         imageCount: slide.images.length,
+        hasRenderedSlide: Boolean(slide.renderedSlide),
       })),
     ),
   );
 
   for (const slide of parsedSlides) {
+    if (slide.renderedSlide) {
+      form.set(
+        `slide-render-${slide.index}`,
+        new Blob([new Uint8Array(slide.renderedSlide.bytes)], {
+          type: slide.renderedSlide.mimeType,
+        }),
+        `slide-${slide.index}-render.jpg`,
+      );
+    }
     slide.images.forEach((image, imageIndex) => {
       form.set(
         `slide-image-${slide.index}-${imageIndex}`,
@@ -192,11 +217,25 @@ export function buildMultiChapterUploadFormData(
           bullets: slide.bullets,
           hasImage: Boolean(slide.image),
           imageCount: slide.images.length,
+          hasRenderedSlide: Boolean(slide.renderedSlide),
         })),
       ),
     );
 
     for (const slide of chapter.parsedSlides) {
+      const renderPrefix =
+        chapterIndex === 0
+          ? `slide-render-${slide.index}`
+          : `chapter-${chapterIndex}-slide-render-${slide.index}`;
+      if (slide.renderedSlide) {
+        form.set(
+          renderPrefix,
+          new Blob([new Uint8Array(slide.renderedSlide.bytes)], {
+            type: slide.renderedSlide.mimeType,
+          }),
+          `chapter-${chapterIndex}-slide-${slide.index}-render.jpg`,
+        );
+      }
       const prefix =
         chapterIndex === 0
           ? `slide-image-${slide.index}`

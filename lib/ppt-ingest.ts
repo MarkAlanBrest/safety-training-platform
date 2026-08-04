@@ -54,6 +54,7 @@ export async function parsedSlidesFromUploadFormAsync(
     bullets?: string[];
     hasImage: boolean;
     imageCount?: number;
+    hasRenderedSlide?: boolean;
   }>;
 
   const slides: ParsedClassroomSlide[] = [];
@@ -82,6 +83,22 @@ export async function parsedSlidesFromUploadFormAsync(
         });
       }
     }
+
+    let renderedSlide: ParsedClassroomSlide["renderedSlide"] = null;
+    if (slide.hasRenderedSlide) {
+      const renderKey =
+        chapterIndex === 0
+          ? `slide-render-${slide.index}`
+          : `chapter-${chapterIndex}-slide-render-${slide.index}`;
+      const renderFile = form.get(renderKey);
+      if (renderFile instanceof File && renderFile.size > 0) {
+        renderedSlide = {
+          bytes: new Uint8Array(await renderFile.arrayBuffer()),
+          mimeType: renderFile.type || "image/jpeg",
+        };
+      }
+    }
+
     slides.push({
       index: slide.index,
       title: slide.title,
@@ -90,6 +107,7 @@ export async function parsedSlidesFromUploadFormAsync(
       bullets: slide.bullets || [],
       image: images[0] || null,
       images,
+      renderedSlide,
     });
   }
 

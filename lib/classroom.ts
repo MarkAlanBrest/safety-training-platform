@@ -101,6 +101,18 @@ export type PresentationView =
       questionCount?: number;
     }
   | {
+      type: "flashcard";
+      headline: string;
+      prompt?: string;
+      flashcards: Array<{ front: string; back: string }>;
+    }
+  | {
+      type: "dragdrop";
+      headline: string;
+      prompt: string;
+      dragItems: string[];
+    }
+  | {
       type: "welcome";
       headline: string;
       body: string;

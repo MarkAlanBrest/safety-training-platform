@@ -25,6 +25,7 @@
     "mammoth": "^1.12.0",
     "next": "16.1.6",
     "pdfjs-dist": "^6.1.200",
+    "pptx-browser": "^4.1.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "resend": "^6.9.4"

@@ -46,6 +46,13 @@ function drawContainedImage(
 export async function renderSlideAsset(
   slide: ParsedClassroomSlide,
 ): Promise<{ bytes: Uint8Array; mimeType: string }> {
+  if (slide.renderedSlide?.bytes.byteLength) {
+    return {
+      bytes: slide.renderedSlide.bytes,
+      mimeType: slide.renderedSlide.mimeType,
+    };
+  }
+
   const primary = slide.image;
   if (primary && primary.bytes.byteLength >= MIN_FULL_SLIDE_BYTES) {
     return { bytes: primary.bytes, mimeType: primary.mimeType };

@@ -65,6 +65,7 @@ export default function CourseBuilderForm() {
   const [parsedSlides, setParsedSlides] = useState<ParsedClassroomSlide[] | null>(null);
   const [extraChapters, setExtraChapters] = useState<ChapterDraft[]>([]);
   const [parsingFile, setParsingFile] = useState(false);
+  const [parseProgress, setParseProgress] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{
@@ -223,8 +224,11 @@ export default function CourseBuilderForm() {
     if (!selected) return;
 
     setParsingFile(true);
+    setParseProgress("Reading slides…");
     try {
-      const slides = await preparePptxForUpload(selected);
+      const slides = await preparePptxForUpload(selected, (message) => {
+        setParseProgress(message);
+      });
       setParsedSlides(slides);
     } catch (parseError) {
       setError(
@@ -240,9 +244,12 @@ export default function CourseBuilderForm() {
   async function handleExtraChapterSelect(selected: File | null) {
     if (!selected) return;
     setParsingFile(true);
+    setParseProgress("Reading slides…");
     setError("");
     try {
-      const slides = await preparePptxForUpload(selected);
+      const slides = await preparePptxForUpload(selected, (message) => {
+        setParseProgress(message);
+      });
       setExtraChapters((current) => [
         ...current,
         {
@@ -329,7 +336,7 @@ export default function CourseBuilderForm() {
                 {parsingFile ? (
                   <p className="inline-flex items-center justify-center gap-2 text-[#69757e]">
                     <LoaderCircle className="animate-spin" size={14} />
-                    Preparing slides in your browser…
+                    {parseProgress || "Preparing slides from your PowerPoint…"}
                   </p>
                 ) : parsedSlides ? (
                   <div className="space-y-1">

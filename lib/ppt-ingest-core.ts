@@ -19,6 +19,8 @@ export type ParsedClassroomSlide = {
   bullets: string[];
   image: ParsedSlideImage | null;
   images: ParsedSlideImage[];
+  /** Full-slide render captured from the original PowerPoint (browser upload). */
+  renderedSlide?: ParsedSlideImage | null;
 };
 
 export function escapeXmlText(value: string) {

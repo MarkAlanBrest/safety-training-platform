@@ -9,8 +9,8 @@ import {
   Presentation,
 } from "lucide-react";
 import type { ClassroomPlan, PresentationView } from "@/lib/classroom";
-import { structureClassroomSlide } from "@/lib/classroom-slide-content";
-import { slideImageSrc } from "@/lib/classroom";
+import ClassroomDragOrder from "@/components/classroom/ClassroomDragOrder";
+import ClassroomFlashcards from "@/components/classroom/ClassroomFlashcards";
 import SlideImageStage from "@/components/classroom/SlideImageStage";
 
 export default function PresentationArea({
@@ -19,12 +19,14 @@ export default function PresentationArea({
   activeSlideIndex,
   onGoToSlide,
   onSelectChoice,
+  onActivityComplete,
 }: {
   plan: ClassroomPlan;
   view: PresentationView;
   activeSlideIndex: number;
   onGoToSlide?: (slideIndex: number) => void;
   onSelectChoice?: (choice: string) => void;
+  onActivityComplete?: () => void;
 }) {
   const safeView: PresentationView =
     view?.type === "welcome"
@@ -34,7 +36,9 @@ export default function PresentationArea({
         : view?.type === "question" ||
             view?.type === "exercise" ||
             view?.type === "example" ||
-            view?.type === "assessment"
+            view?.type === "assessment" ||
+            view?.type === "flashcard" ||
+            view?.type === "dragdrop"
           ? view
           : {
               type: "welcome",
@@ -45,36 +49,26 @@ export default function PresentationArea({
   const displaySlideIndex =
     safeView.type === "slide" ? safeView.slideIndex : activeSlideIndex;
   const slide = plan.slides[displaySlideIndex] || plan.slides[0];
-  const structuredSlide = slide ? structureClassroomSlide(slide) : null;
-  const activeImageIndex =
-    safeView.type === "slide" && typeof safeView.imageIndex === "number"
-      ? safeView.imageIndex
-      : undefined;
-  const imageTopic =
-    safeView.type === "slide"
-      ? [safeView.focus?.label, safeView.headline, slide?.title].filter(Boolean).join(" ")
-      : slide?.title || "";
-  const slideImage = structuredSlide
-    ? slideImageSrc(structuredSlide, activeImageIndex, imageTopic) ||
-      structuredSlide.imageUrl ||
-      structuredSlide.imageDataUrl ||
-      ""
-    : "";
-  const showSlideImage = safeView.type === "slide" && Boolean(slideImage) && structuredSlide;
+  const slideImage = slide?.imageUrl || slide?.imageDataUrl || "";
   const isCheckpoint =
     safeView.type === "question" ||
     safeView.type === "exercise" ||
     safeView.type === "assessment";
+  const isInteractiveActivity =
+    safeView.type === "flashcard" || safeView.type === "dragdrop";
 
   const headline =
     safeView.type === "welcome"
       ? safeView.headline
       : safeView.type === "question" ||
           safeView.type === "exercise" ||
-          safeView.type === "example" ||
-          safeView.type === "assessment"
+          safeView.type === "assessment" ||
+          safeView.type === "flashcard" ||
+          safeView.type === "dragdrop"
         ? safeView.headline
-        : safeView.headline || slide?.title || plan.title;
+        : safeView.type === "slide"
+          ? safeView.headline || slide?.title || plan.title
+          : slide?.title || plan.title;
 
   const eyebrow =
     safeView.type === "question"
@@ -83,11 +77,15 @@ export default function PresentationArea({
         ? "Try this"
         : safeView.type === "assessment"
           ? "Final assessment"
-          : safeView.type === "example"
-            ? "Example"
-            : safeView.type === "welcome"
-              ? "Welcome"
-              : "On screen";
+          : safeView.type === "flashcard"
+            ? "Flash cards"
+            : safeView.type === "dragdrop"
+              ? "Drag and drop"
+              : safeView.type === "example"
+                ? "Example"
+                : safeView.type === "welcome"
+                  ? "Welcome"
+                  : "Your PowerPoint slide";
 
   const Icon =
     safeView.type === "question"
@@ -112,7 +110,7 @@ export default function PresentationArea({
         </div>
 
         <div className="flex shrink-0 items-center gap-3">
-          {safeView.type !== "welcome" && plan.slides.length > 1 ? (
+          {safeView.type === "slide" && plan.slides.length > 1 ? (
             <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
               <button
                 type="button"
@@ -157,12 +155,38 @@ export default function PresentationArea({
               </h2>
               <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-200">{safeView.body}</p>
             </div>
-          ) : showSlideImage ? (
+          ) : safeView.type === "slide" && slideImage ? (
             <SlideImageStage
               imageUrl={slideImage}
-              title={structuredSlide.title}
+              title={slide?.title || plan.title}
               focus={safeView.focus}
-              hotspots={structuredSlide.hotspots}
+              hotspots={slide?.hotspots}
+            />
+          ) : safeView.type === "slide" ? (
+            <div className="flex h-full w-full items-center justify-center px-10 text-center">
+              <div>
+                <p className="text-lg font-semibold text-slate-800">
+                  Slide {displaySlideIndex + 1}: {slide?.title}
+                </p>
+                <p className="mt-3 text-sm text-slate-500">
+                  This slide image is missing. Re-upload the PowerPoint to restore the original
+                  slides.
+                </p>
+              </div>
+            </div>
+          ) : safeView.type === "flashcard" ? (
+            <ClassroomFlashcards
+              headline={safeView.headline}
+              prompt={safeView.prompt}
+              flashcards={safeView.flashcards}
+              onComplete={onActivityComplete}
+            />
+          ) : safeView.type === "dragdrop" ? (
+            <ClassroomDragOrder
+              headline={safeView.headline}
+              prompt={safeView.prompt}
+              dragItems={safeView.dragItems}
+              onComplete={onActivityComplete}
             />
           ) : isCheckpoint ? (
             <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-amber-50 via-white to-slate-50 px-8 py-10">

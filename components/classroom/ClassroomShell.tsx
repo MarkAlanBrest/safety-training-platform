@@ -271,6 +271,9 @@ export default function ClassroomShell({
     ) {
       setQuickReplies(view.choices || []);
     }
+    if (view.type === "flashcard" || view.type === "dragdrop") {
+      setQuickReplies(["I'm ready to continue"]);
+    }
     return view;
   }
 
@@ -486,6 +489,11 @@ export default function ClassroomShell({
       return;
     }
 
+    if (message === "I'm ready to continue") {
+      await advanceLesson(next);
+      return;
+    }
+
     await sendToTeacher(next);
     if (currentBeat?.kind === "welcome") {
       await moveToBeat(1, next);
@@ -494,6 +502,10 @@ export default function ClassroomShell({
 
   async function handleSelectChoice(choice: string) {
     await handleSend(choice);
+  }
+
+  async function handleActivityComplete() {
+    await advanceLesson(messages);
   }
 
   function goToSlide(slideIndex: number) {
@@ -555,6 +567,7 @@ export default function ClassroomShell({
           activeSlideIndex={currentSlideIndex}
           onGoToSlide={goToSlide}
           onSelectChoice={(choice) => void handleSelectChoice(choice)}
+          onActivityComplete={() => void handleActivityComplete()}
         />
 
         <TeacherChat
@@ -563,6 +576,7 @@ export default function ClassroomShell({
           thinking={thinking}
           speaking={speaking}
           needsAudioUnlock={needsAudioUnlock}
+          speechToTextEnabled={builderConfig?.settings.speechText ?? true}
           onSend={handleSend}
           onSpeak={speak}
           onInteract={unlockAudio}
