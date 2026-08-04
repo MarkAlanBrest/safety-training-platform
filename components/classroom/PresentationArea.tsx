@@ -222,7 +222,7 @@ export default function PresentationArea({
             <div className="flex h-full w-full items-center justify-center px-10 text-center">
               <div>
                 <p className="text-lg font-semibold text-slate-800">
-                  Slide {displaySlideIndex + 1}: {slide?.title}
+                  {displaySlideIndex + 1}. {slide?.title}
                 </p>
                 <p className="mt-3 text-sm text-slate-500">
                   This slide image is missing. Re-upload the PowerPoint to restore the original

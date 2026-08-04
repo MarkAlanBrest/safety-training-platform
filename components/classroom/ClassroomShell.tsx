@@ -24,14 +24,6 @@ type ChatApiResponse = {
   error?: string;
 };
 
-export type RealtimeTeacherStatus =
-  | "off"
-  | "connecting"
-  | "listening"
-  | "thinking"
-  | "speaking"
-  | "error";
-
 function pinSlidePresentation(
   plan: ClassroomPlan,
   presentation: PresentationView | undefined,
@@ -92,9 +84,6 @@ export default function ClassroomShell({
   const [speaking, setSpeaking] = useState(false);
   const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [realtimeStatus, setRealtimeStatus] =
-    useState<RealtimeTeacherStatus>("off");
-  const [realtimeError, setRealtimeError] = useState<string | null>(null);
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
   const [, setTaughtSlideIndices] = useState<number[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -115,10 +104,6 @@ export default function ClassroomShell({
   const navRequestIdRef = useRef(0);
   const chatAbortRef = useRef<AbortController | null>(null);
   const speechAbortRef = useRef<AbortController | null>(null);
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const realtimeChannelRef = useRef<RTCDataChannel | null>(null);
-  const microphoneStreamRef = useRef<MediaStream | null>(null);
-  const realtimeAudioRef = useRef<HTMLAudioElement | null>(null);
 
   function markSlideTaught(slideIndex: number) {
     setTaughtSlideIndices((current) =>
@@ -158,184 +143,8 @@ export default function ClassroomShell({
         URL.revokeObjectURL(audioUrlRef.current);
       }
       window.speechSynthesis.cancel();
-      peerConnectionRef.current?.close();
-      microphoneStreamRef.current?.getTracks().forEach((track) => track.stop());
-      realtimeAudioRef.current?.pause();
     };
   }, []);
-
-  function realtimeInstructionsForSlide(slideIndex: number) {
-    const slide = plan.slides[slideIndex] || plan.slides[0];
-    return [
-      `You are the live AI instructor for the safety course "${plan.title}".`,
-      "Be warm, attentive, and conversational. Speak for one to three sentences, then leave room for the learner.",
-      "The learner may interrupt. Stop, listen carefully, answer the actual question, and return naturally to the lesson.",
-      "Do not read the slide word-for-word. Ask only one question at a time.",
-      "Do not claim that you changed a slide or highlighted something; the classroom controls the presentation separately.",
-      `Current slide ${slide.index + 1} of ${plan.slides.length}: ${slide.title}.`,
-      `Visible slide text: ${slide.bodyText || "No extracted text."}`,
-      slide.speakerNotes?.trim()
-        ? `Private instructor notes: ${slide.speakerNotes}`
-        : "There are no private instructor notes for this slide.",
-      `Course objectives: ${plan.objectives.join("; ")}`,
-    ].join("\n\n");
-  }
-
-  function stopRealtimeTeacher() {
-    realtimeChannelRef.current?.close();
-    realtimeChannelRef.current = null;
-    peerConnectionRef.current?.close();
-    peerConnectionRef.current = null;
-    microphoneStreamRef.current?.getTracks().forEach((track) => track.stop());
-    microphoneStreamRef.current = null;
-    realtimeAudioRef.current?.pause();
-    realtimeAudioRef.current = null;
-    setRealtimeStatus("off");
-    setRealtimeError(null);
-  }
-
-  async function startRealtimeTeacher() {
-    if (
-      typeof RTCPeerConnection === "undefined" ||
-      !navigator.mediaDevices?.getUserMedia
-    ) {
-      setRealtimeError("Live voice is not supported in this browser.");
-      setRealtimeStatus("error");
-      return;
-    }
-
-    cancelSpeech();
-    setRealtimeError(null);
-    setRealtimeStatus("connecting");
-
-    try {
-      const peer = new RTCPeerConnection();
-      peerConnectionRef.current = peer;
-
-      const audio = new Audio();
-      audio.autoplay = true;
-      realtimeAudioRef.current = audio;
-      peer.ontrack = (event) => {
-        audio.srcObject = event.streams[0];
-        void audio.play().catch(() => undefined);
-      };
-
-      const microphone = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
-      microphoneStreamRef.current = microphone;
-      microphone.getTracks().forEach((track) => peer.addTrack(track, microphone));
-
-      const channel = peer.createDataChannel("oai-events");
-      realtimeChannelRef.current = channel;
-      channel.addEventListener("open", () => setRealtimeStatus("listening"));
-      channel.addEventListener("message", (messageEvent) => {
-        try {
-          const event = JSON.parse(String(messageEvent.data)) as {
-            type?: string;
-            transcript?: string;
-            error?: { message?: string };
-          };
-          if (event.type === "input_audio_buffer.speech_started") {
-            setRealtimeStatus("listening");
-          } else if (event.type === "input_audio_buffer.speech_stopped") {
-            setRealtimeStatus("thinking");
-          } else if (event.type === "response.created") {
-            setRealtimeStatus("thinking");
-          } else if (event.type === "response.output_audio.delta") {
-            setRealtimeStatus("speaking");
-          } else if (
-            event.type === "conversation.item.input_audio_transcription.completed" &&
-            event.transcript?.trim()
-          ) {
-            setMessages((current) => [
-              ...current,
-              { role: "user", content: event.transcript!.trim() },
-            ]);
-          } else if (
-            event.type === "response.output_audio_transcript.done" &&
-            event.transcript?.trim()
-          ) {
-            setMessages((current) => [
-              ...current,
-              { role: "assistant", content: event.transcript!.trim() },
-            ]);
-          } else if (event.type === "response.done") {
-            setRealtimeStatus("listening");
-          } else if (event.type === "error") {
-            setRealtimeError(event.error?.message || "The live instructor had a problem.");
-            setRealtimeStatus("error");
-          }
-        } catch {
-          // Ignore non-JSON WebRTC events.
-        }
-      });
-      channel.addEventListener("close", () => {
-        if (peerConnectionRef.current === peer) setRealtimeStatus("off");
-      });
-
-      const offer = await peer.createOffer();
-      await peer.setLocalDescription(offer);
-      const response = await fetch(
-        `/api/classroom/realtime?courseSlug=${encodeURIComponent(course.slug)}&slideIndex=${currentSlideIndex}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/sdp" },
-          body: offer.sdp,
-        },
-      );
-      if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-        throw new Error(data?.error || "The live instructor could not connect.");
-      }
-      await peer.setRemoteDescription({
-        type: "answer",
-        sdp: await response.text(),
-      });
-      audioUnlockedRef.current = true;
-    } catch (error) {
-      const message =
-        error instanceof DOMException && error.name === "NotAllowedError"
-          ? "Microphone permission is needed for live conversation."
-          : error instanceof Error
-            ? error.message
-            : "The live instructor could not connect.";
-      stopRealtimeTeacher();
-      setRealtimeError(message);
-      setRealtimeStatus("error");
-    }
-  }
-
-  function toggleRealtimeTeacher() {
-    unlockAudio();
-    if (realtimeStatus !== "off" && realtimeStatus !== "error") {
-      stopRealtimeTeacher();
-      return;
-    }
-    void startRealtimeTeacher();
-  }
-
-  useEffect(() => {
-    const channel = realtimeChannelRef.current;
-    if (!channel || channel.readyState !== "open") return;
-    channel.send(
-      JSON.stringify({
-        type: "session.update",
-        session: {
-          type: "realtime",
-          instructions: realtimeInstructionsForSlide(currentSlideIndex),
-        },
-      }),
-    );
-    // Only refresh the live teacher when the visible slide changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSlideIndex]);
 
   function cancelSpeech() {
     speechAbortRef.current?.abort();
@@ -352,10 +161,7 @@ export default function ClassroomShell({
 
   function toggleBreak() {
     setPaused((current) => {
-      if (!current) {
-        cancelSpeech();
-        stopRealtimeTeacher();
-      }
+      if (!current) cancelSpeech();
       return !current;
     });
   }
@@ -781,9 +587,6 @@ export default function ClassroomShell({
           onSend={handleSend}
           onSpeak={speak}
           onInteract={unlockAudio}
-          realtimeStatus={realtimeStatus}
-          realtimeError={realtimeError}
-          onToggleRealtime={toggleRealtimeTeacher}
         />
       </div>
     </main>
