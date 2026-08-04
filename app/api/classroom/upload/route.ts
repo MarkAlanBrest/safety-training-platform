@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     if (existing) slug = `${slug}-${Date.now().toString(36)}`;
 
     const slides = slidesForClassroomPlan(parsedSlides, slug);
-    const plan = await generateClassroomPlan(parsedSlides, slides, title, mergedConfig);
+    const plan = await generateClassroomPlan(parsedSlides, slides, title, mergedConfig, slug);
     const estimates = estimateClassroomCourse(plan.slides.length, mergedConfig);
 
     const course = await prisma.$transaction(async (tx) => {

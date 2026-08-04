@@ -69,7 +69,7 @@ export default function SlideCanvas({
             <p className="text-xs font-bold uppercase tracking-[.18em] text-slate-500">
               Key idea
             </p>
-            <h2 className="mt-3 text-3xl font-bold leading-tight text-slate-900 lg:text-4xl">
+            <h2 className="mt-3 text-2xl font-bold leading-tight text-slate-900 lg:text-3xl">
               {slide.title}
             </h2>
             {slide.subtitle ? (
@@ -121,14 +121,14 @@ export default function SlideCanvas({
   }
 
   return (
-    <div className={`grid h-full w-full grid-cols-1 bg-gradient-to-br ${theme.panel} lg:grid-cols-[1.1fr_.9fr]`}>
-      <div className="flex min-h-0 flex-col justify-between p-8 lg:p-10">
-        <div>
+    <div className={`grid h-full min-h-0 w-full grid-cols-1 overflow-y-auto bg-gradient-to-br ${theme.panel} lg:grid-cols-[1.1fr_.9fr]`}>
+      <div className="flex min-h-0 flex-col justify-between p-6 lg:p-8">
+        <div className="min-h-0">
           <div className={`mb-5 h-1.5 w-16 rounded-full ${theme.accent}`} />
           <p className="text-xs font-bold uppercase tracking-[.18em] text-slate-500">
             Teaching point
           </p>
-          <h2 className="mt-3 text-3xl font-bold leading-tight text-slate-900 lg:text-4xl">
+          <h2 className="mt-3 text-2xl font-bold leading-tight text-slate-900 lg:text-3xl">
             {slide.title}
           </h2>
           {slide.subtitle ? (

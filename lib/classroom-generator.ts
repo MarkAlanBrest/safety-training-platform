@@ -1,6 +1,7 @@
 import type { ClassroomPlan, ClassroomSlide, ClassroomTopic } from "@/lib/classroom";
 import type { ClassroomBuilderConfig } from "@/lib/classroom-builder";
 import { analyzeSlideHotspots } from "@/lib/classroom-hotspots";
+import { buildLabeledVisuals } from "@/lib/classroom-visuals";
 import { mergeEnhancedSlide } from "@/lib/classroom-slide-content";
 import {
   buildFallbackAssessment,
@@ -151,7 +152,7 @@ async function enrichPlanWithAi(
               "Create a warm instructor opening, 3-5 learning objectives, topic groupings, and polished on-screen slides.",
               "For each slide, write a clear title, short subtitle, 2-5 learner-friendly bullets, one highlight callout, and a layout.",
               "Use layout blueprint when the slide image (diagram, blueprint, photo) is the main teaching surface.",
-              "Use layout title for opener slides, content only when there is no meaningful image.",
+              "Never use layout content or split when the slide has a real uploaded image — always use blueprint.",
               "Do not invent facts that are not supported by the source slide text.",
               slideDigest,
             ].join("\n\n"),
@@ -210,9 +211,31 @@ export async function generateClassroomPlan(
   slides: ClassroomSlide[],
   title: string,
   config?: ClassroomBuilderConfig,
+  courseSlug?: string,
 ): Promise<ClassroomPlan> {
+  const slidesWithVisuals = courseSlug
+    ? await Promise.all(
+        slides.map(async (slide, index) => {
+          const parsed = parsedSlides[index];
+          if (!parsed?.images.length) return slide;
+          const visuals = await buildLabeledVisuals(
+            {
+              index: parsed.index,
+              title: slide.title,
+              bodyText: slide.bodyText,
+              speakerNotes: slide.speakerNotes,
+              bullets: slide.bullets || parsed.bullets,
+              images: parsed.images,
+            },
+            courseSlug,
+          );
+          return { ...slide, visuals };
+        }),
+      )
+    : slides;
+
   const slidesWithHotspots = await Promise.all(
-    slides.map(async (slide, index) => ({
+    slidesWithVisuals.map(async (slide, index) => ({
       ...slide,
       hotspots: parsedSlides[index]?.image
         ? await analyzeSlideHotspots({

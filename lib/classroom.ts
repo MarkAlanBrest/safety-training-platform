@@ -284,9 +284,17 @@ export const demoClassroomCourse: PublicClassroomCourse = {
   },
 };
 
-export function slideImageSrc(slide: ClassroomSlide, imageIndex?: number) {
+export function slideImageSrc(
+  slide: ClassroomSlide,
+  imageIndex?: number,
+  topic?: string,
+) {
   if (typeof imageIndex === "number" && slide.visuals?.[imageIndex]?.imageUrl) {
     return slide.visuals[imageIndex].imageUrl;
+  }
+  if (slide.visuals?.length && topic) {
+    const matched = matchVisualForTopic(slide, topic);
+    if (matched) return matched.imageUrl;
   }
   if (slide.visuals?.length) {
     const matched = matchVisualForTopic(slide, slide.title);
