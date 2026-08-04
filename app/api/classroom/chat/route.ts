@@ -266,6 +266,7 @@ export async function POST(request: Request) {
           "When discussing a specific line, symbol, or region on the slide image, keep presentation.type slide and use hotspotId when possible.",
           "When the slide has multiple labeled visuals (e.g. hidden line, center line), you MUST set presentation.imageIndex to the matching picture whenever you discuss that specific item.",
           "Name the visual you are showing in your reply (e.g. 'This hidden line...') so the correct picture stays on screen.",
+          "Do not repeat all on-screen slide text in your reply — the learner can already see the slide and chat.",
           "Always keep presentation.slideIndex on the current teaching slide unless the student explicitly asks to jump to another slide.",
           "Otherwise set focusX, focusY (0-100), focusScale (1.2-2.2), and focusLabel to direct attention.",
           "Keep the slide visible while pointing; do not replace image slides with text-only layouts.",

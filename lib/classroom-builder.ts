@@ -438,9 +438,9 @@ export function defaultClassroomBuilderConfig(
     },
     settings: {
       conversationMode: "interrupt-anytime",
-      speechText: true,
+      speechText: false,
       speechVoice: true,
-      captions: true,
+      captions: false,
       bookmarks: true,
     },
   };

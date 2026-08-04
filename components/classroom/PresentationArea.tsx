@@ -56,9 +56,16 @@ export default function PresentationArea({
       ? [safeView.focus?.label, safeView.headline, slide?.title].filter(Boolean).join(" ")
       : slide?.title || "";
   const slideImage = structuredSlide
-    ? slideImageSrc(structuredSlide, activeImageIndex, imageTopic)
+    ? slideImageSrc(structuredSlide, activeImageIndex, imageTopic) ||
+      structuredSlide.imageUrl ||
+      structuredSlide.imageDataUrl ||
+      ""
     : "";
   const hasSlideImage = Boolean(slideImage);
+  const preferSlideImage =
+    hasSlideImage ||
+    structuredSlide?.layout === "blueprint" ||
+    Boolean(structuredSlide?.imageUrl || structuredSlide?.imageDataUrl);
   const isCheckpoint =
     safeView.type === "question" ||
     safeView.type === "exercise" ||
@@ -155,7 +162,7 @@ export default function PresentationArea({
               </h2>
               <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-200">{safeView.body}</p>
             </div>
-          ) : hasSlideImage && structuredSlide ? (
+          ) : preferSlideImage && structuredSlide ? (
             <div className="flex h-full min-h-0 w-full flex-col lg:flex-row">
               <div className={`min-h-0 min-w-0 ${isCheckpoint ? "flex-1" : "h-full w-full"}`}>
                 <SlideImageStage

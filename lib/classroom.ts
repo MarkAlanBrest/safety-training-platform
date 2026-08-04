@@ -339,6 +339,73 @@ export function classroomSlideAssetPath(index: number, imageIndex = 0) {
     : `classroom/slides/${index}`;
 }
 
+function slideAssetUrl(slug: string, slideIndex: number, imageIndex = 0) {
+  return imageIndex > 0
+    ? `/api/classroom/${slug}/slides/${slideIndex}/${imageIndex}`
+    : `/api/classroom/${slug}/slides/${slideIndex}`;
+}
+
+function parseClassroomAssetPath(assetPath: string) {
+  const primary = assetPath.match(/^classroom\/slides\/(\d+)$/);
+  if (primary) {
+    return { slideIndex: Number(primary[1]), imageIndex: 0 };
+  }
+  const secondary = assetPath.match(/^classroom\/slides\/(\d+)\/img-(\d+)$/);
+  if (secondary) {
+    return { slideIndex: Number(secondary[1]), imageIndex: Number(secondary[2]) };
+  }
+  return null;
+}
+
+export function hydrateClassroomPlan(
+  plan: ClassroomPlan,
+  slug: string,
+  assetPaths: string[] = [],
+): ClassroomPlan {
+  const assetsBySlide = new Map<number, Array<{ imageIndex: number; label: string }>>();
+
+  for (const assetPath of assetPaths) {
+    const parsed = parseClassroomAssetPath(assetPath);
+    if (!parsed) continue;
+    const current = assetsBySlide.get(parsed.slideIndex) || [];
+    current.push({ imageIndex: parsed.imageIndex, label: "" });
+    assetsBySlide.set(parsed.slideIndex, current);
+  }
+
+  const slides = plan.slides.map((slide) => {
+    const assetEntries = (assetsBySlide.get(slide.index) || []).sort(
+      (a, b) => a.imageIndex - b.imageIndex,
+    );
+    if (!assetEntries.length && !slide.imageUrl && !slide.imageDataUrl) {
+      return slide;
+    }
+
+    const imageUrl = slide.imageUrl || slideImageSrc(slide) || slideAssetUrl(slug, slide.index);
+    const visualsFromAssets = assetEntries.map((entry) => ({
+      label:
+        slide.visuals?.[entry.imageIndex]?.label ||
+        slide.bullets?.[entry.imageIndex] ||
+        slide.title,
+      imageUrl: slideAssetUrl(slug, slide.index, entry.imageIndex),
+    }));
+    const visuals =
+      slide.visuals?.length && !assetEntries.length
+        ? slide.visuals
+        : visualsFromAssets.length
+          ? visualsFromAssets
+          : [{ label: slide.title, imageUrl }];
+
+    return {
+      ...slide,
+      imageUrl,
+      visuals,
+      layout: "blueprint" as const,
+    };
+  });
+
+  return { ...plan, slides };
+}
+
 export function isClassroomPlan(value: unknown): value is ClassroomPlan {
   return (
     typeof value === "object" &&
