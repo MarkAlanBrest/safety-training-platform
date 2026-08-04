@@ -332,6 +332,11 @@ export async function POST(request: Request) {
     const teachingScript = slide.speakerNotes?.trim()
       ? slide.speakerNotes
       : "No teaching notes on this slide. Teach from the slide image conversationally.";
+    const nextSlide = plan.slides[slide.index + 1];
+    const nextSlideScript = nextSlide
+      ? nextSlide.speakerNotes?.trim() ||
+        "No teaching notes on the next slide. Teach from its image conversationally."
+      : null;
 
     const sourceParts = [
       `Course: ${plan.title}`,
@@ -346,16 +351,24 @@ export async function POST(request: Request) {
 
     if (lineupMode) {
       sourceParts.push(
-        `INSTRUCTOR SCRIPT (content-slide teaching notes — follow this closely):\n${teachingScript}`,
+        `SCRIPT FOR CURRENT SLIDE ${slide.index + 1} ("${slide.title}") — teach exactly this while presentation.slideIndex is ${slide.index}:\n${teachingScript}`,
+        nextSlide
+          ? `SCRIPT FOR NEXT SLIDE ${nextSlide.index + 1} ("${nextSlide.title}") — teach exactly this if you advance presentation.slideIndex to ${nextSlide.index}:\n${nextSlideScript}`
+          : "This is the final slide — there is no next slide.",
+        "CRITICAL: your spoken reply must teach the slide whose index you return in presentation.slideIndex. If you stay on the current slide, teach the current script. If you advance to the next slide, your entire reply must teach the next slide's script instead. Never describe one slide while showing another, and never advance more than one slide per turn.",
         "Slides are shown exactly as uploaded. Zoomed or circled details are separate slides in the deck — never zoom or circle on screen.",
         slideImageDataUrl
-          ? "A slide image is attached below. Read it and teach from the instructor script."
+          ? "The CURRENT slide image is attached below. Read it and teach from the instructor script."
           : "No slide image is available for vision on this beat.",
       );
     } else {
       sourceParts.push(
         `On-slide text (learner can see this — do not read verbatim): ${slide.bodyText}`,
         `INSTRUCTOR SCRIPT (speaker notes — follow this closely to guide your teaching, examples, and questions):\n${teachingScript}`,
+        nextSlide
+          ? `NEXT SLIDE ${nextSlide.index + 1} ("${nextSlide.title}") speaker notes — use these only if you advance presentation.slideIndex to ${nextSlide.index}:\n${nextSlideScript}`
+          : "This is the final slide — there is no next slide.",
+        "CRITICAL: your spoken reply must match the slide whose index you return in presentation.slideIndex. Never describe one slide while showing another, and never advance more than one slide per turn.",
         `Hotspots on this slide:\n${hotspotsSummary(slide.hotspots)}`,
         slide.hotspots?.length
           ? "When pointing at the slide, set presentation.hotspotId to one of the hotspot ids above. The system will zoom to that feature."
@@ -377,6 +390,8 @@ export async function POST(request: Request) {
     const lineupInstructions = [
       "You are the classroom instructor. YOU control the screen and pacing — the student does not click through slides.",
       "Teach conversationally in your own words from the content-slide teaching notes.",
+      "YOUR REPLY MUST MATCH THE SLIDE ON SCREEN: teach exactly the script for the slide index you return in presentation.slideIndex. Staying put means teach the current script; advancing means teach the next slide's script for your whole reply.",
+      "Never advance more than one slide in a single turn.",
       "Stick strictly to the lesson content. Do not add icebreakers, ask what the student already knows, or introduce topics that are not in the teaching notes or lineup.",
       "At the start of class, greet the student with one short sentence and immediately begin teaching slide 1.",
       "The slide image is shown full-screen as-is. Do not zoom, pan, or circle anything — the author already added separate slides for close-ups or highlights.",
@@ -399,6 +414,7 @@ export async function POST(request: Request) {
       "You are the classroom instructor. YOU control the screen and pacing — the student does not click through slides.",
       "Teach conversationally in your own words. Never read on-screen bullet points verbatim.",
       "Use speaker notes as your private script for emphasis, examples, and questions.",
+      "YOUR REPLY MUST MATCH THE SLIDE ON SCREEN: teach the slide index you return in presentation.slideIndex, and never advance more than one slide per turn.",
       "Signal importance in your reply: pay attention to this part, this might be on the test, or a real job-site example when it helps.",
       "While teaching, keep presentation.type slide and set presentation.slideIndex to the slide you are teaching.",
       "To point at the slide: ONLY set presentation.hotspotId to an id from the Hotspots catalog when you say look here or pay attention. Never invent focusX or focusY.",
