@@ -10,6 +10,7 @@ import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
 import {
   beatIndexForSlide,
   buildLessonBeats,
+  navLabelForBeat,
   presentationForBeat,
   type ClassroomLessonBeat,
 } from "@/lib/classroom-lesson";
@@ -473,6 +474,38 @@ export default function ClassroomShell({
     await advanceLesson(messages);
   }
 
+  async function goToBeat(targetBeatIndex: number) {
+    if (targetBeatIndex < 0 || targetBeatIndex >= lessonBeats.length) return;
+    const beat = lessonBeats[targetBeatIndex];
+    unlockAudio();
+    cancelSpeech();
+
+    if (beat.kind === "slide") {
+      goToSlide(beat.slideIndex);
+      return;
+    }
+
+    setBeatIndex(targetBeatIndex);
+    if (beat.kind === "assessment") {
+      setAssessmentQuestionIndex(0);
+      applyBeat(beat, { assessmentIndex: 0 });
+    } else {
+      applyBeat(beat);
+    }
+
+    const label = navLabelForBeat(beat, plan);
+    setMessages((current) => [
+      ...current,
+      {
+        role: "user",
+        content:
+          beat.kind === "welcome"
+            ? "Let's start the lesson."
+            : `Let's open ${label}.`,
+      },
+    ]);
+  }
+
   function goToSlide(slideIndex: number) {
     if (slideIndex < 0 || slideIndex >= plan.slides.length) return;
     unlockAudio();
@@ -524,9 +557,9 @@ export default function ClassroomShell({
         <div className="hidden min-h-0 overflow-hidden lg:block">
           <ClassroomNav
             plan={plan}
-            activeSlideIndex={currentSlideIndex}
-            taughtSlideIndices={taughtSlideIndices}
-            onSelectSlide={goToSlide}
+            lessonBeats={lessonBeats}
+            activeBeatIndex={beatIndex}
+            onSelectBeat={(index) => void goToBeat(index)}
             collapsed={navCollapsed}
             onToggleCollapse={() => setNavCollapsed((value) => !value)}
           />
