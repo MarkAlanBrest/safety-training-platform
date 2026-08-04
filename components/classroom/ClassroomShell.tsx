@@ -9,8 +9,11 @@ import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
 import {
   beatIndexForSlide,
   buildLessonBeats,
+  navLabelForBeat,
+  presentationForBeat,
 } from "@/lib/classroom-lesson";
 import { speechChunks } from "@/lib/classroom-teacher";
+import ClassroomTopBar from "@/components/classroom/ClassroomTopBar";
 import PresentationArea from "@/components/classroom/PresentationArea";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
 
@@ -229,7 +232,11 @@ export default function ClassroomShell({
 
   async function sendToTeacher(
     nextMessages: TeacherMessage[],
-    options?: { presentation?: PresentationView },
+    options?: {
+      presentation?: PresentationView;
+      slideIndex?: number;
+      beatIndex?: number;
+    },
   ) {
     chatAbortRef.current?.abort();
     const controller = new AbortController();
@@ -243,8 +250,8 @@ export default function ClassroomShell({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           courseSlug: course.slug,
-          slideIndex: currentSlideIndex,
-          beatIndex,
+          slideIndex: options?.slideIndex ?? currentSlideIndex,
+          beatIndex: options?.beatIndex ?? beatIndex,
           assessmentQuestionIndex,
           presentation: options?.presentation ?? presentation,
           messages: nextMessages,
@@ -343,6 +350,42 @@ export default function ClassroomShell({
     await sendToTeacher(next);
   }
 
+  async function handleSelectBeat(nextBeatIndex: number) {
+    const beat = lessonBeats[nextBeatIndex];
+    if (!beat || nextBeatIndex === beatIndex) return;
+
+    unlockAudio();
+    cancelSpeech();
+
+    const view = presentationForBeat(plan, beat, assessmentQuestionIndex);
+    const nextSlideIndex =
+      beat.kind === "slide"
+        ? beat.slideIndex
+        : view.type === "slide"
+          ? view.slideIndex
+          : currentSlideIndex;
+
+    setBeatIndex(nextBeatIndex);
+    setPresentation(view);
+    if (beat.kind === "slide") {
+      setCurrentSlideIndex(beat.slideIndex);
+      markSlideTaught(beat.slideIndex);
+    }
+    setQuickReplies([]);
+
+    const label = navLabelForBeat(beat, plan);
+    const next: TeacherMessage[] = [
+      ...messages,
+      { role: "user", content: `Let's go to "${label}" — continue teaching from there.` },
+    ];
+    setMessages(next);
+    await sendToTeacher(next, {
+      presentation: view,
+      slideIndex: nextSlideIndex,
+      beatIndex: nextBeatIndex,
+    });
+  }
+
   const awaitingInput =
     !paused &&
     !thinking &&
@@ -359,8 +402,14 @@ export default function ClassroomShell({
       : undefined;
 
   return (
-    <main className="h-screen overflow-hidden bg-white text-slate-900">
-      <div className="grid h-full min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
+    <main className="flex h-screen flex-col overflow-hidden bg-white text-slate-900">
+      <ClassroomTopBar
+        plan={plan}
+        lessonBeats={lessonBeats}
+        activeBeatIndex={beatIndex}
+        onSelectBeat={(index) => void handleSelectBeat(index)}
+      />
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
         <PresentationArea
           plan={plan}
           view={presentation}
