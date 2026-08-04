@@ -4,8 +4,12 @@ import {
   MAX_FILE_BYTES,
   type ParsedClassroomSlide,
   parsePptxBuffer,
+  teachingContentFromParsedSlide,
 } from "@/lib/ppt-ingest-core";
 import { captureSlidesFromPptx } from "@/lib/ppt-slide-capture-client";
+import { parseJsonResponse } from "@/lib/parse-response";
+
+export { teachingContentFromParsedSlide } from "@/lib/ppt-ingest-core";
 
 export type PreparedContentSlide = {
   index: number;
@@ -36,13 +40,6 @@ function fileFromImageBytes(
       : "jpg";
   const file = new File([blob], `slide-${index + 1}.${extension}`, { type: image.mimeType });
   return { imageFile: file, previewUrl: URL.createObjectURL(blob) };
-}
-
-export function teachingContentFromParsedSlide(slide: ParsedClassroomSlide) {
-  if (slide.speakerNotes.trim()) return slide.speakerNotes.trim();
-  if (slide.bullets.length) return slide.bullets.join("\n");
-  if (slide.bodyText.trim()) return slide.bodyText.trim();
-  return "";
 }
 
 export type ParsedTeachingSlide = {
@@ -119,6 +116,55 @@ export async function prepareContentSlidesFromPptx(
   onProgress?: (message: string) => void,
 ): Promise<PreparedContentSlide[]> {
   assertPptxFile(file);
+
+  onProgress?.("Rendering slides on the server…");
+  try {
+  const form = new FormData();
+  form.set("pptx", file);
+  const response = await fetch("/api/classroom/render-pptx", {
+    method: "POST",
+    body: form,
+  });
+  const data = await parseJsonResponse<{
+    error?: string;
+    slides: Array<{
+      index: number;
+      title: string;
+      teachingContent: string;
+      imageBase64: string;
+      mimeType: string;
+    }>;
+  }>(response);
+
+  if (response.ok && data.slides?.length) {
+    onProgress?.(`Ready — ${data.slides.length} content slides prepared.`);
+    return data.slides.map((slide) => {
+      const bytes = Uint8Array.from(atob(slide.imageBase64), (char) => char.charCodeAt(0));
+      const { imageFile, previewUrl } = fileFromImageBytes(
+        { bytes, mimeType: slide.mimeType },
+        slide.index,
+      );
+      return {
+        index: slide.index,
+        title: slide.title,
+        teachingContent: slide.teachingContent,
+        imageFile,
+        previewUrl,
+      };
+    });
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error || "Server rendering failed.");
+  }
+  } catch (serverError) {
+    console.warn("Server PPTX render failed, falling back to browser:", serverError);
+    onProgress?.(
+      serverError instanceof Error
+        ? `${serverError.message} Trying browser conversion…`
+        : "Trying browser conversion…",
+    );
+  }
 
   onProgress?.("Reading slides and speaker notes…");
   const buffer = new Uint8Array(await file.arrayBuffer());

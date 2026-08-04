@@ -23,6 +23,13 @@ export type ParsedClassroomSlide = {
   renderedSlide?: ParsedSlideImage | null;
 };
 
+export function teachingContentFromParsedSlide(slide: ParsedClassroomSlide) {
+  if (slide.speakerNotes.trim()) return slide.speakerNotes.trim();
+  if (slide.bullets.length) return slide.bullets.join("\n");
+  if (slide.bodyText.trim()) return slide.bodyText.trim();
+  return "";
+}
+
 export function escapeXmlText(value: string) {
   return value.replace(/[<>&"]/g, "");
 }

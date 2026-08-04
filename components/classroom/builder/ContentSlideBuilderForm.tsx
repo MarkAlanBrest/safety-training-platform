@@ -69,6 +69,7 @@ export default function ContentSlideBuilderForm() {
   const [config, setConfig] = useState<ClassroomBuilderConfig>(defaultClassroomBuilderConfig());
   const [lineup, setLineup] = useState<LineupDraftItem[]>([emptyContentSlide("Slide 1")]);
   const [sourcePptx, setSourcePptx] = useState<File | null>(null);
+  const [slideImagesFromZip, setSlideImagesFromZip] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState("");
@@ -135,12 +136,17 @@ export default function ContentSlideBuilderForm() {
     );
   }
 
-  function applyImportedContentSlides(contentSlides: ContentSlideDraft[], pptxFile?: File | null) {
+  function applyImportedContentSlides(
+    contentSlides: ContentSlideDraft[],
+    pptxFile?: File | null,
+    fromZip = false,
+  ) {
     updateLineup((current) => {
       const preserved = current.filter((item) => item.kind !== "content");
       return [...contentSlides, ...preserved];
     });
     if (pptxFile) setSourcePptx(pptxFile);
+    setSlideImagesFromZip(fromZip);
   }
 
   async function handleZipAndPptxImport(zipFile: File | null, pptxFile: File | null) {
@@ -168,7 +174,7 @@ export default function ContentSlideBuilderForm() {
         previewUrl: slide.previewUrl,
       }));
 
-      applyImportedContentSlides(contentSlides, pptxFile);
+      applyImportedContentSlides(contentSlides, pptxFile, true);
 
       const nameSource = pptxFile?.name || zipFile.name;
       if (!config.knowledge.courseName.trim()) {
@@ -259,7 +265,7 @@ export default function ContentSlideBuilderForm() {
         previewUrl: slide.previewUrl,
       }));
 
-      applyImportedContentSlides(contentSlides, file);
+      applyImportedContentSlides(contentSlides, file, false);
 
       if (!config.knowledge.courseName.trim()) {
         const courseName = file.name.replace(/\.pptx$/i, "").replace(/[-_]+/g, " ").trim();
@@ -329,6 +335,35 @@ export default function ContentSlideBuilderForm() {
           choices: item.choices?.map((choice) => choice.trim()).filter(Boolean),
         };
       });
+
+      if (sourcePptx && !slideImagesFromZip) {
+        setUploadProgress("Rendering slides and creating course…");
+        const form = new FormData();
+        form.set("pptx", sourcePptx);
+        form.set("title", config.knowledge.courseName.trim());
+        form.set("description", config.knowledge.description.trim());
+        form.set("published", mode === "publish" ? "true" : "false");
+        form.set("config", JSON.stringify(config));
+        form.set("lineup", JSON.stringify(payloadLineup));
+
+        const response = await fetch("/api/classroom/import-pptx", {
+          method: "POST",
+          body: form,
+        });
+
+        const data = await parseJsonResponse<{
+          error?: string;
+          previewUrl: string;
+          adminUrl: string;
+          slideCount: number;
+          published: boolean;
+          course: { title: string; slug: string };
+        }>(response);
+
+        if (!response.ok) throw new Error(data.error || "Course could not be created.");
+        setResult(data);
+        return;
+      }
 
       const response = await fetch("/api/classroom/content-upload", {
         method: "POST",
@@ -451,39 +486,18 @@ export default function ContentSlideBuilderForm() {
       <BuilderSection number={2} title="Lesson lineup">
         <div className="rounded-2xl border border-[#10283f]/10 bg-[#faf8f3] px-4 py-4 text-sm leading-6 text-[#69757e]">
           <p>
-            <strong>Recommended:</strong> export your slides from PowerPoint as PNG or JPEG, ZIP the
-            pictures, and attach the original <strong>.pptx</strong> for speaker notes. The AI
-            teaches from your notes while learners see your exact slide images.
+            <strong>Easiest:</strong> upload your <strong>.pptx</strong> and we&apos;ll convert slides
+            to pictures on the server and pull speaker notes for the AI instructor.
           </p>
           <p className="mt-2">
-            Need a zoom or a circle? Add a separate slide image with that view already baked in.
-            Insert <strong>formative checks</strong> or <strong>activities</strong> anywhere in the
-            sequence.
+            <strong>Or do it yourself:</strong> export slide pictures as a ZIP and attach the
+            PowerPoint for notes — best when you want pixel-perfect control over each image.
           </p>
         </div>
 
         <BuilderField
-          label="Slide images (.zip)"
-          hint="Export slides from PowerPoint as PNG or JPEG, then ZIP them in slide order (slide 1, slide 2, …)."
-        >
-          <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-white px-5 py-5 text-center">
-            <UploadCloud className="mx-auto text-[#a06e16]" size={24} />
-            <input
-              type="file"
-              accept=".zip,application/zip"
-              disabled={importing}
-              onChange={(event) => {
-                const zipFile = event.target.files?.[0] || null;
-                if (zipFile) void handleZipAndPptxImport(zipFile, sourcePptx);
-              }}
-              className="mt-3 block w-full text-sm text-[#69757e]"
-            />
-          </div>
-        </BuilderField>
-
-        <BuilderField
-          label="PowerPoint for speaker notes (.pptx)"
-          hint="Attach the original deck so we can pull speaker notes into each content slide. Slide count must match your ZIP."
+          label="Upload PowerPoint (.pptx)"
+          hint="Recommended. We render slide pictures on the server and import speaker notes automatically."
         >
           <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-white px-5 py-5 text-center">
             <UploadCloud className="mx-auto text-[#a06e16]" size={24} />
@@ -491,24 +505,11 @@ export default function ContentSlideBuilderForm() {
               type="file"
               accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
               disabled={importing}
-              onChange={(event) => {
-                const pptxFile = event.target.files?.[0] || null;
-                if (!pptxFile) return;
-                const hasContentSlides = lineup.some(isContentSlide);
-                if (hasContentSlides) {
-                  void handleAttachPptxNotes(pptxFile);
-                } else {
-                  setSourcePptx(pptxFile);
-                  setImportProgress("");
-                }
-              }}
+              onChange={(event) => void handlePptxImport(event.target.files?.[0] || null)}
               className="mt-3 block w-full text-sm text-[#69757e]"
             />
-            {sourcePptx ? (
-              <p className="mt-2 text-sm font-medium text-emerald-700">
-                Attached — {sourcePptx.name}
-                {lineup.some(isContentSlide) ? " · notes applied to content slides" : " · import slide images next"}
-              </p>
+            {sourcePptx && !slideImagesFromZip ? (
+              <p className="mt-2 text-sm font-medium text-emerald-700">Loaded — {sourcePptx.name}</p>
             ) : (
               <p className="mt-2 text-xs text-[#69757e]">
                 Speaker notes become the AI teaching script for each slide.
@@ -526,21 +527,53 @@ export default function ContentSlideBuilderForm() {
 
         <details className="rounded-2xl border border-[#10283f]/10 bg-white px-4 py-4">
           <summary className="cursor-pointer text-sm font-semibold text-[#10283f]">
-            Alternative: auto-convert PowerPoint to pictures
+            Manual: ZIP slide pictures + attach PowerPoint
           </summary>
-          <div className="mt-4">
+          <div className="mt-4 space-y-4">
             <BuilderField
-              label="Import from PowerPoint only"
-              hint="We'll try to render slide pictures in your browser. If they look wrong, use the ZIP + PPT workflow above instead."
+              label="Slide images (.zip)"
+              hint="Export slides from PowerPoint as PNG or JPEG, then ZIP them in slide order."
+            >
+              <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-[#faf8f3] px-5 py-5 text-center">
+                <input
+                  type="file"
+                  accept=".zip,application/zip"
+                  disabled={importing}
+                  onChange={(event) => {
+                    const zipFile = event.target.files?.[0] || null;
+                    if (zipFile) void handleZipAndPptxImport(zipFile, sourcePptx);
+                  }}
+                  className="block w-full text-sm text-[#69757e]"
+                />
+              </div>
+            </BuilderField>
+
+            <BuilderField
+              label="PowerPoint for speaker notes (.pptx)"
+              hint="Attach the original deck. Slide count must match your ZIP."
             >
               <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-[#faf8f3] px-5 py-5 text-center">
                 <input
                   type="file"
                   accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
                   disabled={importing}
-                  onChange={(event) => void handlePptxImport(event.target.files?.[0] || null)}
-                  className="mt-1 block w-full text-sm text-[#69757e]"
+                  onChange={(event) => {
+                    const pptxFile = event.target.files?.[0] || null;
+                    if (!pptxFile) return;
+                    const hasContentSlides = lineup.some(isContentSlide);
+                    if (hasContentSlides) {
+                      void handleAttachPptxNotes(pptxFile);
+                    } else {
+                      setSourcePptx(pptxFile);
+                    }
+                  }}
+                  className="block w-full text-sm text-[#69757e]"
                 />
+                {sourcePptx && slideImagesFromZip ? (
+                  <p className="mt-2 text-sm font-medium text-emerald-700">
+                    Attached — {sourcePptx.name}
+                  </p>
+                ) : null}
               </div>
             </BuilderField>
           </div>

@@ -24,6 +24,7 @@
     "lucide-react": "^0.577.0",
     "mammoth": "^1.12.0",
     "next": "16.1.6",
+    "node-pptx-png": "^2.0.0",
     "pdfjs-dist": "^6.1.200",
     "pptx-browser": "^4.1.5",
     "react": "19.2.3",
