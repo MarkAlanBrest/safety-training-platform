@@ -1,14 +1,8 @@
 "use client";
 
-import {
-  Coffee,
-  ClipboardCheck,
-  Lightbulb,
-  MessageCircleQuestion,
-  Presentation,
-} from "lucide-react";
 import type { ClassroomPlan, PresentationView } from "@/lib/classroom";
 import { slideDeckContext } from "@/lib/classroom";
+import { Coffee } from "lucide-react";
 import ClassroomDragOrder from "@/components/classroom/ClassroomDragOrder";
 import ClassroomFlashcards from "@/components/classroom/ClassroomFlashcards";
 import PptxSlideViewer from "@/components/classroom/PptxSlideViewer";
@@ -58,47 +52,6 @@ export default function PresentationArea({
     safeView.type === "exercise" ||
     safeView.type === "assessment";
 
-  const headline =
-    safeView.type === "welcome"
-      ? safeView.headline
-      : safeView.type === "question" ||
-          safeView.type === "exercise" ||
-          safeView.type === "assessment" ||
-          safeView.type === "flashcard" ||
-          safeView.type === "dragdrop"
-        ? safeView.headline
-        : safeView.type === "slide"
-          ? safeView.headline || slide?.title || plan.title
-          : slide?.title || plan.title;
-
-  const eyebrow =
-    safeView.type === "question"
-      ? null
-      : safeView.type === "exercise"
-        ? "Try this"
-        : safeView.type === "assessment"
-          ? "Final assessment"
-          : safeView.type === "flashcard"
-            ? "Flash cards"
-            : safeView.type === "dragdrop"
-              ? "Drag and drop"
-              : safeView.type === "example"
-                ? "Example"
-                : safeView.type === "welcome"
-                  ? "Welcome"
-                  : safeView.type === "slide"
-                    ? `Topic ${displaySlideIndex + 1} of ${plan.slides.length}`
-                    : null;
-
-  const Icon =
-    safeView.type === "question"
-      ? MessageCircleQuestion
-      : safeView.type === "exercise"
-        ? Lightbulb
-        : safeView.type === "assessment"
-          ? ClipboardCheck
-          : Presentation;
-
   const stageKey =
     safeView.type === "slide"
       ? `slide-${displaySlideIndex}`
@@ -109,37 +62,6 @@ export default function PresentationArea({
 
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden bg-[#eef2f7]">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
-        <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[.16em] text-slate-500">
-            AI instructor
-          </p>
-          <h1 className="truncate text-xl font-bold text-slate-900">{headline}</h1>
-        </div>
-
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onToggleBreak}
-            className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-bold transition ${
-              paused
-                ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                : "border-slate-200 bg-white text-slate-700 hover:border-amber-300 hover:bg-amber-50"
-            }`}
-          >
-            <Coffee size={15} />
-            {paused ? "Resume class" : "Take a break"}
-          </button>
-
-          {eyebrow ? (
-            <div className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
-              <Icon size={14} />
-              {eyebrow}
-            </div>
-          ) : null}
-        </div>
-      </div>
-
       <div className="flex min-h-0 flex-1 overflow-hidden p-2 lg:p-3">
         <div className="relative flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,.08)]">
           {paused ? (
