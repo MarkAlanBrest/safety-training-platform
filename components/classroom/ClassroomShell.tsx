@@ -14,7 +14,6 @@ import {
   presentationForBeat,
   type ClassroomLessonBeat,
 } from "@/lib/classroom-lesson";
-import ClassroomNav from "@/components/classroom/ClassroomNav";
 import PresentationArea from "@/components/classroom/PresentationArea";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
 
@@ -85,11 +84,10 @@ export default function ClassroomShell({
   const [speaking, setSpeaking] = useState(false);
   const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
-  const [taughtSlideIndices, setTaughtSlideIndices] = useState<number[]>([]);
+  const [, setTaughtSlideIndices] = useState<number[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [beatIndex, setBeatIndex] = useState(0);
   const [assessmentQuestionIndex, setAssessmentQuestionIndex] = useState(0);
-  const [navCollapsed, setNavCollapsed] = useState(false);
   const [presentation, setPresentation] = useState<PresentationView>({
     type: "welcome",
     headline: plan.title,
@@ -126,6 +124,8 @@ export default function ClassroomShell({
     if (startedRef.current) return;
     startedRef.current = true;
     void beginClass();
+    // The class should begin only once when this classroom mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -288,7 +288,7 @@ export default function ClassroomShell({
         "Let's keep going. Tell me what you're thinking so far.";
 
       const targetSlideIndex = options?.slideIndex ?? currentSlideIndex;
-      let pinnedPresentation = pinSlidePresentation(
+      const pinnedPresentation = pinSlidePresentation(
         plan,
         data.presentation,
         targetSlideIndex,
@@ -549,28 +549,14 @@ export default function ClassroomShell({
 
   return (
     <main className="h-screen overflow-hidden bg-white text-slate-900">
-      <div
-        className={`grid h-full min-h-0 grid-cols-1 overflow-hidden transition-[grid-template-columns] duration-200 lg:grid ${
-          navCollapsed
-            ? "lg:grid-cols-[72px_minmax(0,1fr)_360px]"
-            : "lg:grid-cols-[280px_minmax(0,1fr)_360px]"
-        }`}
-      >
-        <div className="hidden min-h-0 overflow-hidden lg:block">
-          <ClassroomNav
-            plan={plan}
-            lessonBeats={lessonBeats}
-            activeBeatIndex={beatIndex}
-            onSelectBeat={(index) => void goToBeat(index)}
-            collapsed={navCollapsed}
-            onToggleCollapse={() => setNavCollapsed((value) => !value)}
-          />
-        </div>
-
+      <div className="grid h-full min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
         <PresentationArea
           plan={plan}
           view={presentation}
           activeSlideIndex={currentSlideIndex}
+          lessonBeats={lessonBeats}
+          activeBeatIndex={beatIndex}
+          onSelectBeat={(index) => void goToBeat(index)}
           onGoToSlide={goToSlide}
           onSelectChoice={(choice) => void handleSelectChoice(choice)}
           onActivityComplete={() => void handleActivityComplete()}

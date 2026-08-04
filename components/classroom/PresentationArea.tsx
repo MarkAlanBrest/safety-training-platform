@@ -14,11 +14,16 @@ import ClassroomDragOrder from "@/components/classroom/ClassroomDragOrder";
 import ClassroomFlashcards from "@/components/classroom/ClassroomFlashcards";
 import PptxSlideViewer from "@/components/classroom/PptxSlideViewer";
 import SlideImageStage from "@/components/classroom/SlideImageStage";
+import LessonFlowSelect from "@/components/classroom/LessonFlowSelect";
+import type { ClassroomLessonBeat } from "@/lib/classroom-lesson";
 
 export default function PresentationArea({
   plan,
   view,
   activeSlideIndex,
+  lessonBeats,
+  activeBeatIndex,
+  onSelectBeat,
   onGoToSlide,
   onSelectChoice,
   onActivityComplete,
@@ -26,6 +31,9 @@ export default function PresentationArea({
   plan: ClassroomPlan;
   view: PresentationView;
   activeSlideIndex: number;
+  lessonBeats?: ClassroomLessonBeat[];
+  activeBeatIndex: number;
+  onSelectBeat: (beatIndex: number) => void;
   onGoToSlide?: (slideIndex: number) => void;
   onSelectChoice?: (choice: string) => void;
   onActivityComplete?: () => void;
@@ -102,7 +110,7 @@ export default function PresentationArea({
 
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden bg-[#eef2f7]">
-      <div className="shrink-0 flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-6 py-4">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[.16em] text-slate-500">
             Presentation
@@ -110,7 +118,13 @@ export default function PresentationArea({
           <h1 className="truncate text-xl font-bold text-slate-900">{headline}</h1>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
+          <LessonFlowSelect
+            plan={plan}
+            lessonBeats={lessonBeats}
+            activeBeatIndex={activeBeatIndex}
+            onSelectBeat={onSelectBeat}
+          />
           {safeView.type === "slide" && plan.slides.length > 1 ? (
             <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
               <button
