@@ -10,11 +10,12 @@
     "courses:install": "node --experimental-strip-types scripts/install-complete-courses.mjs",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate && node scripts/copy-apryse-assets.mjs"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.17.1",
     "@napi-rs/canvas": "^1.0.2",
+    "@pdftron/webviewer": "^12.0.1",
     "@prisma/adapter-neon": "7.5.0",
     "@prisma/client": "^7.5.0",
     "bcryptjs": "^3.0.3",
