@@ -14,26 +14,28 @@ export default function SlideImageStage({
   focus?: ClassroomSlideFocus;
   hotspots?: ClassroomSlideHotspot[];
 }) {
-  const scale = focus?.scale || 1;
+  const scale = Math.min(focus?.scale || 1, 1.55);
   const originX = focus ? `${focus.x}%` : "50%";
   const originY = focus ? `${focus.y}%` : "50%";
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#0b1524]">
-      <div
-        className="absolute inset-0 transition-transform duration-700 ease-out"
-        style={{
-          transform: focus ? `scale(${scale})` : "scale(1)",
-          transformOrigin: `${originX} ${originY}`,
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={imageUrl}
-          alt={title}
-          className="h-full w-full object-contain"
-          draggable={false}
-        />
+    <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-[#0b1524] p-4 sm:p-6">
+      <div className="relative h-full w-full max-h-full max-w-full">
+        <div
+          className="absolute inset-0 transition-transform duration-500 ease-out"
+          style={{
+            transform: focus ? `scale(${scale})` : "scale(1)",
+            transformOrigin: `${originX} ${originY}`,
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={imageUrl}
+            alt={title}
+            className="h-full w-full object-contain"
+            draggable={false}
+          />
+        </div>
       </div>
 
       {hotspots?.map((hotspot) => {
@@ -82,12 +84,6 @@ export default function SlideImageStage({
         </>
       ) : null}
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-[#07111f]/70 to-transparent px-6 py-4">
-        <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">
-          Instructor is referencing this slide
-        </p>
-        <h2 className="mt-1 text-lg font-semibold text-white">{title}</h2>
-      </div>
     </div>
   );
 }

@@ -47,7 +47,11 @@ export default function PresentationArea({
     safeView.type === "slide" ? safeView.slideIndex : activeSlideIndex;
   const slide = plan.slides[displaySlideIndex] || plan.slides[0];
   const structuredSlide = slide ? structureClassroomSlide(slide) : null;
-  const slideImage = structuredSlide ? slideImageSrc(structuredSlide) : "";
+  const activeImageIndex =
+    safeView.type === "slide" && typeof safeView.imageIndex === "number"
+      ? safeView.imageIndex
+      : undefined;
+  const slideImage = structuredSlide ? slideImageSrc(structuredSlide, activeImageIndex) : "";
   const hasSlideImage = Boolean(slideImage);
   const isCheckpoint =
     safeView.type === "question" ||
@@ -154,7 +158,7 @@ export default function PresentationArea({
                 hotspots={structuredSlide.hotspots}
               />
               {isCheckpoint ? (
-                <div className="absolute inset-x-0 bottom-0 border-t border-white/10 bg-[#07111f]/90 px-6 py-5 backdrop-blur">
+                <div className="absolute inset-x-4 bottom-4 max-h-[38%] overflow-y-auto rounded-2xl border border-white/10 bg-[#07111f]/92 px-5 py-4 shadow-xl backdrop-blur sm:inset-x-6">
                   <p className="text-xs font-bold uppercase tracking-[.16em] text-amber-300">
                     {safeView.type === "assessment"
                       ? "Final assessment"

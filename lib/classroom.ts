@@ -11,6 +11,11 @@ import {
   buildLessonBeats,
 } from "@/lib/classroom-lesson";
 
+export type ClassroomSlideVisual = {
+  label: string;
+  imageUrl: string;
+};
+
 export type ClassroomSlide = {
   index: number;
   title: string;
@@ -23,6 +28,7 @@ export type ClassroomSlide = {
   hotspots?: ClassroomSlideHotspot[];
   imageDataUrl?: string;
   imageUrl?: string;
+  visuals?: ClassroomSlideVisual[];
 };
 
 export type { ClassroomSlideHotspot, ClassroomSlideFocus };
@@ -54,6 +60,7 @@ export type PresentationView =
       type: "slide";
       slideIndex: number;
       headline?: string;
+      imageIndex?: number;
       focus?: ClassroomSlideFocus;
     }
   | {
@@ -277,12 +284,51 @@ export const demoClassroomCourse: PublicClassroomCourse = {
   },
 };
 
-export function slideImageSrc(slide: ClassroomSlide) {
+export function slideImageSrc(slide: ClassroomSlide, imageIndex?: number) {
+  if (typeof imageIndex === "number" && slide.visuals?.[imageIndex]?.imageUrl) {
+    return slide.visuals[imageIndex].imageUrl;
+  }
+  if (slide.visuals?.length) {
+    const matched = matchVisualForTopic(slide, slide.title);
+    if (matched) return matched.imageUrl;
+  }
   return slide.imageUrl || slide.imageDataUrl || "";
 }
 
-export function classroomSlideAssetPath(index: number) {
-  return `classroom/slides/${index}`;
+export function matchVisualForTopic(
+  slide: ClassroomSlide,
+  topic: string,
+): ClassroomSlideVisual | undefined {
+  if (!slide.visuals?.length) return undefined;
+  const normalized = topic.toLowerCase().replace(/[^a-z0-9\s]/g, " ").trim();
+  if (!normalized) return slide.visuals[0];
+
+  let best: ClassroomSlideVisual | undefined;
+  let bestScore = 0;
+  for (const visual of slide.visuals) {
+    const label = visual.label.toLowerCase().replace(/[^a-z0-9\s]/g, " ").trim();
+    if (!label) continue;
+    if (normalized.includes(label) || label.includes(normalized)) {
+      return visual;
+    }
+    const topicWords = normalized.split(/\s+/).filter((word) => word.length > 2);
+    const labelWords = label.split(/\s+/).filter((word) => word.length > 2);
+    const overlap = topicWords.filter((word) =>
+      labelWords.some((labelWord) => labelWord.includes(word) || word.includes(labelWord)),
+    ).length;
+    const score = overlap / Math.max(topicWords.length, labelWords.length, 1);
+    if (score > bestScore) {
+      bestScore = score;
+      best = visual;
+    }
+  }
+  return bestScore >= 0.34 ? best : slide.visuals[0];
+}
+
+export function classroomSlideAssetPath(index: number, imageIndex = 0) {
+  return imageIndex > 0
+    ? `classroom/slides/${index}/img-${imageIndex}`
+    : `classroom/slides/${index}`;
 }
 
 export function isClassroomPlan(value: unknown): value is ClassroomPlan {
@@ -292,6 +338,13 @@ export function isClassroomPlan(value: unknown): value is ClassroomPlan {
     (value as ClassroomPlan).type === "classroom" &&
     Array.isArray((value as ClassroomPlan).slides)
   );
+}
+
+export function visualsSummary(visuals: ClassroomSlideVisual[] | undefined) {
+  if (!visuals?.length) return "No labeled visuals on this slide.";
+  return visuals
+    .map((visual, index) => `- imageIndex ${index}: "${visual.label}"`)
+    .join("\n");
 }
 
 export function classroomPlanForSlug(slug: string): ClassroomPlan | null {

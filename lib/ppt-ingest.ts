@@ -22,6 +22,13 @@ export function slidesForClassroomPlan(
   courseSlug: string,
 ): ClassroomSlide[] {
   return parsedSlides.map((slide) => {
+    const visuals = slide.images.map((image, imageIndex) => ({
+      label: image.label || slide.bullets[imageIndex] || slide.title,
+      imageUrl:
+        imageIndex === 0
+          ? `/api/classroom/${courseSlug}/slides/${slide.index}`
+          : `/api/classroom/${courseSlug}/slides/${slide.index}/${imageIndex}`,
+    }));
     const structured = structureClassroomSlide({
       index: slide.index,
       title: slide.title,
@@ -29,6 +36,7 @@ export function slidesForClassroomPlan(
       speakerNotes: slide.speakerNotes,
       bullets: slide.bullets,
       imageUrl: slide.image ? `/api/classroom/${courseSlug}/slides/${slide.index}` : undefined,
+      visuals: visuals.length ? visuals : undefined,
     });
     return {
       index: structured.index,
@@ -40,6 +48,7 @@ export function slidesForClassroomPlan(
       highlight: structured.highlight,
       layout: structured.layout,
       imageUrl: structured.imageUrl,
+      visuals: structured.visuals,
     };
   });
 }
@@ -59,18 +68,31 @@ export async function parsedSlidesFromUploadFormAsync(
     speakerNotes: string;
     bullets?: string[];
     hasImage: boolean;
+    imageCount?: number;
   }>;
 
   const slides: ParsedClassroomSlide[] = [];
   for (const slide of metadata) {
-    let image: ParsedClassroomSlide["image"] = null;
-    if (slide.hasImage) {
-      const file = form.get(`slide-image-${slide.index}`);
+    const images: ParsedClassroomSlide["images"] = [];
+    const imageCount = slide.imageCount || (slide.hasImage ? 1 : 0);
+    for (let imageIndex = 0; imageIndex < imageCount; imageIndex += 1) {
+      const file = form.get(`slide-image-${slide.index}-${imageIndex}`);
       if (file instanceof File && file.size > 0) {
-        image = {
+        images.push({
           bytes: new Uint8Array(await file.arrayBuffer()),
           mimeType: file.type || "image/jpeg",
-        };
+          label: slide.bullets?.[imageIndex] || slide.title,
+        });
+      }
+    }
+    if (!images.length && slide.hasImage) {
+      const file = form.get(`slide-image-${slide.index}`);
+      if (file instanceof File && file.size > 0) {
+        images.push({
+          bytes: new Uint8Array(await file.arrayBuffer()),
+          mimeType: file.type || "image/jpeg",
+          label: slide.title,
+        });
       }
     }
     slides.push({
@@ -79,7 +101,8 @@ export async function parsedSlidesFromUploadFormAsync(
       bodyText: slide.bodyText,
       speakerNotes: slide.speakerNotes,
       bullets: slide.bullets || [],
-      image,
+      image: images[0] || null,
+      images,
     });
   }
 

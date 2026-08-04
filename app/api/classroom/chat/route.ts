@@ -13,6 +13,7 @@ import {
 } from "@/lib/classroom-builder";
 import { lessonBeatSummary } from "@/lib/classroom-lesson";
 import { hotspotsSummary, normalizeFocus } from "@/lib/classroom-focus";
+import { visualsSummary } from "@/lib/classroom";
 import { extractResponseOutputText } from "@/lib/parse-response";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -29,6 +30,7 @@ type RawPresentation = {
   focusScale: number | null;
   hotspotId: string | null;
   focusLabel: string | null;
+  imageIndex: number | null;
 };
 
 function normalizePresentation(
@@ -49,6 +51,10 @@ function normalizePresentation(
         type: "slide",
         slideIndex: fallbackSlideIndex,
         headline: raw.headline || undefined,
+        imageIndex:
+          typeof raw.imageIndex === "number" && raw.imageIndex >= 0
+            ? raw.imageIndex
+            : undefined,
         focus: normalizeFocus(
           {
             x: raw.focusX ?? undefined,
@@ -112,6 +118,7 @@ const classroomTeacherTurnSchema = {
         "focusScale",
         "hotspotId",
         "focusLabel",
+        "imageIndex",
       ],
       properties: {
         type: {
@@ -131,6 +138,7 @@ const classroomTeacherTurnSchema = {
         focusScale: { type: ["number", "null"], minimum: 1, maximum: 2.5 },
         hotspotId: { type: ["string", "null"] },
         focusLabel: { type: ["string", "null"] },
+        imageIndex: { type: ["integer", "null"], minimum: 0 },
       },
     },
     quickReplies: {
@@ -227,6 +235,7 @@ export async function POST(request: Request) {
       `Slide text: ${slide.bodyText}`,
       `Speaker notes: ${slide.speakerNotes || "(none)"}`,
       `Slide hotspots:\n${hotspotsSummary(slide.hotspots)}`,
+      `Slide visuals (pick imageIndex when discussing a specific picture):\n${visualsSummary(slide.visuals)}`,
       `Presentation mode: ${presentation?.type || "welcome"}`,
       `Instructor preferences:\n${classroomInstructorPrompt(builderConfig)}`,
       lessonBeatSummary(plan),
@@ -254,6 +263,7 @@ export async function POST(request: Request) {
           "During checkpoints, use presentation.type question or exercise with 3-4 answer choices.",
           "During the final assessment, use presentation.type assessment with clear multiple-choice options.",
           "When discussing a specific line, symbol, or region on the slide image, keep presentation.type slide and use hotspotId when possible.",
+          "When the slide has multiple labeled visuals (e.g. hidden line, center line), set presentation.imageIndex to the matching picture.",
           "Always keep presentation.slideIndex on the current teaching slide unless the student explicitly asks to jump to another slide.",
           "Otherwise set focusX, focusY (0-100), focusScale (1.2-2.2), and focusLabel to direct attention.",
           "Keep the slide visible while pointing; do not replace image slides with text-only layouts.",

@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ClassroomPlan,
+  ClassroomSlide,
   PresentationView,
   PublicClassroomCourse,
 } from "@/lib/classroom";
+import { matchVisualForTopic } from "@/lib/classroom";
 import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
 import {
   beatIndexForSlide,
@@ -28,8 +30,29 @@ function pinSlidePresentation(
   plan: ClassroomPlan,
   presentation: PresentationView | undefined,
   slideIndex: number,
+  lockedPresentation?: PresentationView,
 ): PresentationView | undefined {
-  if (!presentation || presentation.type !== "slide") return presentation;
+  if (lockedPresentation?.type === "slide") {
+    if (presentation?.type === "slide") {
+      return {
+        ...lockedPresentation,
+        imageIndex:
+          typeof presentation.imageIndex === "number"
+            ? presentation.imageIndex
+            : lockedPresentation.imageIndex,
+        focus: presentation.focus || lockedPresentation.focus,
+        headline: presentation.headline || lockedPresentation.headline,
+      };
+    }
+    return lockedPresentation;
+  }
+  if (!presentation || presentation.type !== "slide") {
+    return {
+      type: "slide",
+      slideIndex,
+      headline: plan.slides[slideIndex]?.title,
+    };
+  }
   const slide = plan.slides[slideIndex];
   if (!slide) return presentation;
   return {
@@ -37,6 +60,27 @@ function pinSlidePresentation(
     slideIndex,
     headline: presentation.headline || slide.title,
   };
+}
+
+function slideIntroText(slide: ClassroomSlide) {
+  const notes = slide.speakerNotes?.trim();
+  if (notes) {
+    const firstSentence = notes.split(/(?<=[.!?])\s+/)[0]?.trim();
+    if (firstSentence) return firstSentence;
+  }
+  const bullets = slide.bullets?.filter(Boolean) || [];
+  if (bullets.length) {
+    return `Let's look at ${slide.title}. ${bullets[0]}`;
+  }
+  return `Let's look at slide ${slide.index + 1}: ${slide.title}.`;
+}
+
+function imageIndexForSlide(slide: ClassroomSlide, topic?: string): number | undefined {
+  if (!slide.visuals?.length) return undefined;
+  const matched = matchVisualForTopic(slide, topic || slide.title);
+  if (!matched) return 0;
+  const index = slide.visuals.findIndex((visual) => visual.imageUrl === matched.imageUrl);
+  return index >= 0 ? index : 0;
 }
 
 export default function ClassroomShell({
@@ -84,6 +128,10 @@ export default function ClassroomShell({
   const pendingSpeechRef = useRef<string | null>(null);
   const speakQueueRef = useRef<Promise<void>>(Promise.resolve());
   const speakRef = useRef<(text: string) => Promise<void>>(async () => undefined);
+  const navRequestIdRef = useRef(0);
+  const chatAbortRef = useRef<AbortController | null>(null);
+  const speechAbortRef = useRef<AbortController | null>(null);
+  const instantSpeechRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   function markSlideTaught(slideIndex: number) {
     setTaughtSlideIndices((current) =>
@@ -109,6 +157,8 @@ export default function ClassroomShell({
 
   useEffect(() => {
     return () => {
+      chatAbortRef.current?.abort();
+      speechAbortRef.current?.abort();
       audioRef.current?.pause();
       if (audioUrlRef.current) {
         URL.revokeObjectURL(audioUrlRef.current);
@@ -117,16 +167,48 @@ export default function ClassroomShell({
     };
   }, []);
 
+  function cancelSpeech() {
+    speechAbortRef.current?.abort();
+    speechAbortRef.current = null;
+    window.speechSynthesis.cancel();
+    if (instantSpeechRef.current) {
+      instantSpeechRef.current = null;
+    }
+    audioRef.current?.pause();
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+    setSpeaking(false);
+  }
+
+  function speakImmediate(text: string) {
+    if (!voiceSettings.enabled || !text.trim() || typeof window === "undefined") return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text.slice(0, 280));
+    utterance.rate = Math.min(1.1, Math.max(0.85, voiceSettings.speed));
+    instantSpeechRef.current = utterance;
+    utterance.onend = () => {
+      if (instantSpeechRef.current === utterance) {
+        instantSpeechRef.current = null;
+      }
+    };
+    window.speechSynthesis.speak(utterance);
+  }
+
   async function speak(text: string) {
     if (!voiceSettings.enabled || !text.trim()) return;
 
     const run = async () => {
-      window.speechSynthesis.cancel();
+      speechAbortRef.current?.abort();
       audioRef.current?.pause();
       if (audioUrlRef.current) {
         URL.revokeObjectURL(audioUrlRef.current);
         audioUrlRef.current = null;
       }
+
+      const controller = new AbortController();
+      speechAbortRef.current = controller;
 
       setSpeaking(true);
       try {
@@ -138,10 +220,20 @@ export default function ClassroomShell({
             voice: voiceSettings.voice,
             speed: voiceSettings.speed,
           }),
+          signal: controller.signal,
         });
         if (!response.ok) throw new Error("speech failed");
 
         const url = URL.createObjectURL(await response.blob());
+        if (controller.signal.aborted) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+
+        window.speechSynthesis.cancel();
+        if (instantSpeechRef.current) {
+          instantSpeechRef.current = null;
+        }
         audioUrlRef.current = url;
         const audio = new Audio(url);
         audioRef.current = audio;
@@ -166,7 +258,8 @@ export default function ClassroomShell({
         } else {
           await audio.play();
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         setSpeaking(false);
       }
     };
@@ -203,8 +296,18 @@ export default function ClassroomShell({
 
   async function sendToTeacher(
     nextMessages: TeacherMessage[],
-    options?: { slideIndex?: number; presentation?: PresentationView },
+    options?: {
+      slideIndex?: number;
+      presentation?: PresentationView;
+      lockPresentation?: PresentationView;
+      requestId?: number;
+    },
   ) {
+    chatAbortRef.current?.abort();
+    const controller = new AbortController();
+    chatAbortRef.current = controller;
+    const requestId = options?.requestId ?? navRequestIdRef.current;
+
     setThinking(true);
     try {
       const response = await fetch("/api/classroom/chat", {
@@ -216,23 +319,35 @@ export default function ClassroomShell({
           presentation: options?.presentation ?? presentation,
           messages: nextMessages,
         }),
+        signal: controller.signal,
       });
+      if (controller.signal.aborted || requestId !== navRequestIdRef.current) {
+        return;
+      }
+
       const data = (await response.json()) as ChatApiResponse;
       const reply =
         data.reply ||
         data.error ||
         "Let's keep going. Tell me what you're thinking so far.";
 
+      const targetSlideIndex = options?.slideIndex ?? currentSlideIndex;
       const pinnedPresentation = pinSlidePresentation(
         plan,
         data.presentation,
-        options?.slideIndex ?? currentSlideIndex,
+        targetSlideIndex,
+        options?.lockPresentation,
       );
+
+      if (requestId !== navRequestIdRef.current) {
+        return;
+      }
 
       setMessages([...nextMessages, { role: "assistant", content: reply }]);
       if (pinnedPresentation) setPresentation(pinnedPresentation);
       if (pinnedPresentation?.type === "slide") {
         setCurrentSlideIndex(pinnedPresentation.slideIndex);
+        markSlideTaught(pinnedPresentation.slideIndex);
       }
       if (data.quickReplies?.length) {
         setQuickReplies(data.quickReplies);
@@ -241,8 +356,10 @@ export default function ClassroomShell({
       }
       void speak(reply);
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
       const message =
         error instanceof Error ? error.message : "The instructor could not respond.";
+      if (requestId !== navRequestIdRef.current) return;
       setMessages([
         ...nextMessages,
         {
@@ -251,14 +368,32 @@ export default function ClassroomShell({
         },
       ]);
     } finally {
-      setThinking(false);
+      if (chatAbortRef.current === controller) {
+        setThinking(false);
+      }
     }
   }
 
   async function teachSlideBeat(index: number, beat: ClassroomLessonBeat, baseMessages: TeacherMessage[]) {
     if (beat.kind !== "slide") return;
     const slide = plan.slides[beat.slideIndex];
+    const matchedImageIndex = imageIndexForSlide(slide, slide.title);
     const view = applyBeat(beat);
+    const lockedView: PresentationView =
+      view.type === "slide"
+        ? {
+            ...view,
+            imageIndex:
+              typeof matchedImageIndex === "number"
+                ? matchedImageIndex
+                : view.imageIndex,
+          }
+        : view;
+    if (lockedView.type === "slide") {
+      setPresentation(lockedView);
+    }
+    const intro = slideIntroText(slide);
+    speakImmediate(intro);
     await sendToTeacher(
       [
         ...baseMessages,
@@ -269,7 +404,9 @@ export default function ClassroomShell({
       ],
       {
         slideIndex: beat.slideIndex,
-        presentation: view,
+        presentation: lockedView.type === "slide" ? lockedView : view,
+        lockPresentation: lockedView.type === "slide" ? lockedView : undefined,
+        requestId: navRequestIdRef.current,
       },
     );
   }
@@ -347,7 +484,8 @@ export default function ClassroomShell({
             "Could you start with the basics?",
           ],
     );
-    void speak(openingMessages[0].content);
+    speakImmediate(openingMessages[0].content.split("\n\n")[0] || openingMessages[0].content);
+    void speak(openingMessages[0].content.split("\n\n")[0] || openingMessages[0].content);
   }
 
   async function handleSend(message: string) {
@@ -380,34 +518,45 @@ export default function ClassroomShell({
   function goToSlide(slideIndex: number) {
     if (slideIndex < 0 || slideIndex >= plan.slides.length) return;
     unlockAudio();
+    cancelSpeech();
 
+    const requestId = ++navRequestIdRef.current;
     const nextBeatIndex = beatIndexForSlide(lessonBeats, slideIndex);
     if (nextBeatIndex >= 0) {
       setBeatIndex(nextBeatIndex);
     }
 
     const slide = plan.slides[slideIndex];
+    const matchedImageIndex = imageIndexForSlide(slide, slide.title);
     const view: PresentationView = {
       type: "slide",
       slideIndex,
       headline: slide?.title,
+      imageIndex: typeof matchedImageIndex === "number" ? matchedImageIndex : undefined,
     };
     setCurrentSlideIndex(slideIndex);
     setPresentation(view);
+    markSlideTaught(slideIndex);
 
-    void sendToTeacher(
-      [
-        ...messages,
+    const intro = slideIntroText(slide);
+    speakImmediate(intro);
+
+    setMessages((current) => {
+      const nextMessages: TeacherMessage[] = [
+        ...current,
         {
           role: "user",
           content: `Let's look at slide ${slideIndex + 1}: ${slide?.title}.`,
         },
-      ],
-      {
+      ];
+      void sendToTeacher(nextMessages, {
         slideIndex,
         presentation: view,
-      },
-    );
+        lockPresentation: view,
+        requestId,
+      });
+      return nextMessages;
+    });
   }
 
   return (

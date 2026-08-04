@@ -8,6 +8,7 @@ const IMAGE_EXTENSIONS = /\.(png|jpe?g|gif|webp|svg|bmp|tiff?)$/i;
 export type ParsedSlideImage = {
   bytes: Uint8Array;
   mimeType: string;
+  label?: string;
 };
 
 export type ParsedClassroomSlide = {
@@ -17,6 +18,7 @@ export type ParsedClassroomSlide = {
   speakerNotes: string;
   bullets: string[];
   image: ParsedSlideImage | null;
+  images: ParsedSlideImage[];
 };
 
 export function escapeXmlText(value: string) {
@@ -110,14 +112,20 @@ function extractEmbeddedImageIds(xml: string) {
   ].map((match) => match[1]);
 }
 
-function collectImageTargets(xml: string, rels: Record<string, string>) {
+function collectImageTargets(
+  xml: string,
+  rels: Record<string, string>,
+  options?: { includeAllRelationships?: boolean },
+) {
   const targets = new Set<string>();
   for (const id of extractEmbeddedImageIds(xml)) {
     const target = rels[id];
     if (target && isImageTarget(target)) targets.add(target);
   }
-  for (const target of Object.values(rels)) {
-    if (isImageTarget(target)) targets.add(target);
+  if (options?.includeAllRelationships) {
+    for (const target of Object.values(rels)) {
+      if (isImageTarget(target)) targets.add(target);
+    }
   }
   return [...targets];
 }
@@ -159,8 +167,13 @@ function extractImagesFromRelatedParts(
   const images: ParsedSlideImage[] = [];
   const seenPaths = new Set<string>();
 
-  function addFromXml(partXml: string, partPath: string, partRels: Record<string, string>) {
-    for (const target of collectImageTargets(partXml, partRels)) {
+  function addFromXml(
+    partXml: string,
+    partPath: string,
+    partRels: Record<string, string>,
+    includeAllRelationships = false,
+  ) {
+    for (const target of collectImageTargets(partXml, partRels, { includeAllRelationships })) {
       const mediaPath = resolveMediaPath(target, partPath);
       if (seenPaths.has(mediaPath)) continue;
       seenPaths.add(mediaPath);
@@ -174,7 +187,7 @@ function extractImagesFromRelatedParts(
     }
   }
 
-  addFromXml(xml, sourcePath, rels);
+  addFromXml(xml, sourcePath, rels, true);
 
   const layoutTarget = Object.values(rels).find((target) =>
     /\/slideLayouts\/slideLayout\d+\.xml$/i.test(target),
@@ -185,7 +198,7 @@ function extractImagesFromRelatedParts(
     if (layoutContent) {
       const layoutXml = new TextDecoder().decode(layoutContent);
       const layoutRels = getRelationships(layoutPath);
-      addFromXml(layoutXml, layoutPath, layoutRels);
+      addFromXml(layoutXml, layoutPath, layoutRels, true);
 
       const masterTarget = Object.values(layoutRels).find((target) =>
         /\/slideMasters\/slideMaster\d+\.xml$/i.test(target),
@@ -196,7 +209,7 @@ function extractImagesFromRelatedParts(
         if (masterContent) {
           const masterXml = new TextDecoder().decode(masterContent);
           const masterRels = getRelationships(masterPath);
-          addFromXml(masterXml, masterPath, masterRels);
+          addFromXml(masterXml, masterPath, masterRels, true);
         }
       }
     }
@@ -212,14 +225,27 @@ function pickBestSlideImage(images: ParsedSlideImage[]) {
   return meaningful || sorted[0];
 }
 
-function extractSlideImage(
+function labelSlideImages(images: ParsedSlideImage[], bullets: string[], title: string) {
+  if (!images.length) return images;
+  const labels = [title, ...bullets].filter(Boolean);
+  if (labels.length <= 1) return images;
+
+  return images.map((image, index) => ({
+    ...image,
+    label: labels[Math.min(index, labels.length - 1)],
+  }));
+}
+
+function extractSlideImages(
   xml: string,
   rels: Record<string, string>,
   slidePath: string,
   unpacked: Record<string, Uint8Array>,
   maxImageBytes: number | undefined,
   getRelationships: (path: string) => Record<string, string>,
-): ParsedSlideImage | null {
+  bullets: string[],
+  title: string,
+): ParsedSlideImage[] {
   const slideImages = extractImagesFromSlideXml(
     xml,
     rels,
@@ -227,8 +253,9 @@ function extractSlideImage(
     unpacked,
     maxImageBytes,
   );
-  const slidePick = pickBestSlideImage(slideImages);
-  if (slidePick) return slidePick;
+  if (slideImages.length) {
+    return labelSlideImages(slideImages, bullets, title);
+  }
 
   const fallbackImages = extractImagesFromRelatedParts(
     xml,
@@ -238,7 +265,7 @@ function extractSlideImage(
     maxImageBytes,
     getRelationships,
   );
-  return pickBestSlideImage(fallbackImages);
+  return labelSlideImages(fallbackImages, bullets, title);
 }
 
 function extractDiagramText(
@@ -435,17 +462,20 @@ export function parsePptxBuffer(
       ? extractNotes(new TextDecoder().decode(unpacked[notesPath]))
       : "";
 
-    const image = extractSlideImage(
+    const bodyText = mergeUniqueText(slideText, diagramText, layoutText);
+    const title = deriveTitle(bodyText, speakerNotes, index, paragraphs);
+    const bullets = bulletsFromParagraphs(paragraphs, title, bodyText);
+    const images = extractSlideImages(
       xml,
       rels,
       path,
       unpacked,
       options?.maxImageBytes,
       relationshipsFor,
+      bullets,
+      title,
     );
-    const bodyText = mergeUniqueText(slideText, diagramText, layoutText);
-    const title = deriveTitle(bodyText, speakerNotes, index, paragraphs);
-    const bullets = bulletsFromParagraphs(paragraphs, title, bodyText);
+    const image = pickBestSlideImage(images);
 
     return {
       index,
@@ -454,6 +484,7 @@ export function parsePptxBuffer(
       speakerNotes,
       bullets,
       image,
+      images,
     };
   });
 }

@@ -83,19 +83,27 @@ export async function preparePptxForUpload(file: File): Promise<ParsedClassroomS
   const buffer = new Uint8Array(await file.arrayBuffer());
   const parsed = parsePptxBuffer(buffer);
 
-  const imageSlideCount = parsed.filter((slide) => slide.image).length;
+  const imageSlideCount = parsed.reduce(
+    (count, slide) => count + Math.max(slide.images.length, slide.image ? 1 : 0),
+    0,
+  );
   const maxBytes = perSlideImageBudget(imageSlideCount);
 
   const prepared: ParsedClassroomSlide[] = [];
   for (const slide of parsed) {
+    const images = await Promise.all(
+      slide.images.map((image) => compressSlideImage(image, maxBytes)),
+    );
     prepared.push({
       ...slide,
-      image: slide.image ? await compressSlideImage(slide.image, maxBytes) : null,
+      images,
+      image: images[0] || null,
     });
   }
 
   const totalImageBytes = prepared.reduce(
-    (sum, slide) => sum + (slide.image?.bytes.byteLength || 0),
+    (sum, slide) =>
+      sum + slide.images.reduce((imageSum, image) => imageSum + image.bytes.byteLength, 0),
     0,
   );
   if (totalImageBytes > TOTAL_UPLOAD_IMAGE_BUDGET_BYTES) {
@@ -133,17 +141,19 @@ export function buildClassroomUploadFormData(
         speakerNotes: slide.speakerNotes,
         bullets: slide.bullets,
         hasImage: Boolean(slide.image),
+        imageCount: slide.images.length,
       })),
     ),
   );
 
   for (const slide of parsedSlides) {
-    if (!slide.image) continue;
-    form.set(
-      `slide-image-${slide.index}`,
-      new Blob([new Uint8Array(slide.image.bytes)], { type: slide.image.mimeType }),
-      `slide-${slide.index}.jpg`,
-    );
+    slide.images.forEach((image, imageIndex) => {
+      form.set(
+        `slide-image-${slide.index}-${imageIndex}`,
+        new Blob([new Uint8Array(image.bytes)], { type: image.mimeType }),
+        `slide-${slide.index}-${imageIndex}.jpg`,
+      );
+    });
   }
 
   return form;
