@@ -91,7 +91,6 @@ export default function ClassroomShell({
   const [thinking, setThinking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
-  const [questionFocusRequest, setQuestionFocusRequest] = useState(0);
   const [paused, setPaused] = useState(false);
   const [realtimeStatus, setRealtimeStatus] =
     useState<RealtimeTeacherStatus>("off");
@@ -351,11 +350,6 @@ export default function ClassroomShell({
     setSpeaking(false);
   }
 
-  function askQuestion() {
-    unlockAudio();
-    setQuestionFocusRequest((current) => current + 1);
-  }
-
   function toggleBreak() {
     setPaused((current) => {
       if (!current) {
@@ -364,12 +358,6 @@ export default function ClassroomShell({
       }
       return !current;
     });
-  }
-
-  function repeatLastTeacherMessage() {
-    unlockAudio();
-    const lastReply = [...messages].reverse().find((message) => message.role === "assistant");
-    if (lastReply) void speak(lastReply.content);
   }
 
   async function speak(text: string) {
@@ -777,9 +765,7 @@ export default function ClassroomShell({
           lessonBeats={lessonBeats}
           activeBeatIndex={beatIndex}
           onSelectBeat={(index) => void goToBeat(index)}
-          onAskQuestion={askQuestion}
           onToggleBreak={toggleBreak}
-          onRepeat={repeatLastTeacherMessage}
           paused={paused}
           onSelectChoice={(choice) => void handleSelectChoice(choice)}
           onActivityComplete={() => void handleActivityComplete()}
@@ -795,7 +781,6 @@ export default function ClassroomShell({
           onSend={handleSend}
           onSpeak={speak}
           onInteract={unlockAudio}
-          focusRequest={questionFocusRequest}
           realtimeStatus={realtimeStatus}
           realtimeError={realtimeError}
           onToggleRealtime={toggleRealtimeTeacher}

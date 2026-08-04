@@ -8,7 +8,6 @@ import {
   Lightbulb,
   MessageCircleQuestion,
   Presentation,
-  RotateCcw,
 } from "lucide-react";
 import type { ClassroomPlan, PresentationView } from "@/lib/classroom";
 import { slideDeckContext } from "@/lib/classroom";
@@ -26,9 +25,7 @@ export default function PresentationArea({
   lessonBeats,
   activeBeatIndex,
   onSelectBeat,
-  onAskQuestion,
   onToggleBreak,
-  onRepeat,
   paused = false,
   onSelectChoice,
   onActivityComplete,
@@ -39,9 +36,7 @@ export default function PresentationArea({
   lessonBeats?: ClassroomLessonBeat[];
   activeBeatIndex: number;
   onSelectBeat: (beatIndex: number) => void;
-  onAskQuestion: () => void;
   onToggleBreak: () => void;
-  onRepeat: () => void;
   paused?: boolean;
   onSelectChoice?: (choice: string) => void;
   onActivityComplete?: () => void;
@@ -131,14 +126,6 @@ export default function PresentationArea({
           <div className="flex flex-wrap items-center justify-end gap-1.5">
             <button
               type="button"
-              onClick={onAskQuestion}
-              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-amber-300 hover:bg-amber-50"
-            >
-              <MessageCircleQuestion size={15} />
-              Ask a question
-            </button>
-            <button
-              type="button"
               onClick={onToggleBreak}
               className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-bold transition ${
                 paused
@@ -148,14 +135,6 @@ export default function PresentationArea({
             >
               <Coffee size={15} />
               {paused ? "Resume class" : "Take a break"}
-            </button>
-            <button
-              type="button"
-              onClick={onRepeat}
-              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-amber-300 hover:bg-amber-50"
-            >
-              <RotateCcw size={15} />
-              Say that again
             </button>
           </div>
           <LessonFlowSelect

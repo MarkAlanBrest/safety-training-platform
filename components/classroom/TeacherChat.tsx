@@ -52,7 +52,6 @@ export default function TeacherChat({
   onSend,
   onSpeak,
   onInteract,
-  focusRequest = 0,
   realtimeStatus = "off",
   realtimeError,
   onToggleRealtime,
@@ -66,7 +65,6 @@ export default function TeacherChat({
   onSend: (message: string) => Promise<void>;
   onSpeak: (text: string) => Promise<void>;
   onInteract?: () => void;
-  focusRequest?: number;
   realtimeStatus?: RealtimeTeacherStatus;
   realtimeError?: string | null;
   onToggleRealtime?: () => void;
@@ -75,7 +73,6 @@ export default function TeacherChat({
   const [listening, setListening] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
   const speechSupported = Boolean(getSpeechRecognition());
 
   useEffect(() => {
@@ -89,10 +86,6 @@ export default function TeacherChat({
       recognitionRef.current?.stop();
     };
   }, []);
-
-  useEffect(() => {
-    if (focusRequest > 0) inputRef.current?.focus();
-  }, [focusRequest]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -276,7 +269,6 @@ export default function TeacherChat({
 
         <form onSubmit={submit} className="flex gap-2">
           <input
-            ref={inputRef}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onFocus={() => onInteract?.()}
