@@ -656,9 +656,8 @@ export default function CourseBuilderForm() {
           Start with a sensible preset
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-7 text-[#69757e]">
-          Too many activities and tools turned on at once can overwhelm learners. Pick a
-          preset, then fine-tune individual sections below. Each group has a maximum number
-          of selections.
+          Pick the overall teaching intensity. The recommended Balanced preset works for most
+          courses, so you only need advanced controls when a lesson has special requirements.
         </p>
         <div className="mt-5 grid gap-3 lg:grid-cols-3">
           {CLASSROOM_BUILDER_PRESETS.map((option) => (
@@ -759,6 +758,25 @@ export default function CourseBuilderForm() {
         />
       </BuilderSection>
 
+      <details className="group rounded-3xl border border-[#10283f]/10 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 [&::-webkit-details-marker]:hidden">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.16em] text-[#a06e16]">
+              Optional
+            </p>
+            <p className="mt-1 text-lg font-bold text-[#10283f]">Advanced lesson controls</p>
+            <p className="mt-1 text-sm text-[#69757e]">
+              Activities, visual tools, assessments, adaptation, and conversation rules.
+            </p>
+          </div>
+          <span className="rounded-full bg-[#faf8f3] px-3 py-1.5 text-xs font-bold text-[#69757e] group-open:hidden">
+            Show settings
+          </span>
+          <span className="hidden rounded-full bg-[#faf8f3] px-3 py-1.5 text-xs font-bold text-[#69757e] group-open:inline">
+            Hide settings
+          </span>
+        </summary>
+        <div className="space-y-6 border-t border-[#10283f]/10 bg-[#faf8f3]/50 p-4 sm:p-6">
       <BuilderSection number={3} title="Learning Activities">
         <p className="text-sm leading-6 text-[#69757e]">
           Choose which activity types the AI instructor may use during the lesson.
@@ -973,8 +991,10 @@ export default function CourseBuilderForm() {
           </label>
         </div>
       </BuilderSection>
+        </div>
+      </details>
 
-      <BuilderSection number={10} title="Publish">
+      <BuilderSection number={3} title="Publish">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <SummaryCard label="Knowledge Package" value={file?.name || "No file selected"} />
           <SummaryCard

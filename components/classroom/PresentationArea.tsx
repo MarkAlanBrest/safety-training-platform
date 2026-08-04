@@ -1,12 +1,14 @@
 "use client";
 
 import {
+  Coffee,
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
   Lightbulb,
   MessageCircleQuestion,
   Presentation,
+  RotateCcw,
 } from "lucide-react";
 import type { ClassroomPlan, PresentationView } from "@/lib/classroom";
 import { slideDeckContext } from "@/lib/classroom";
@@ -24,6 +26,10 @@ export default function PresentationArea({
   lessonBeats,
   activeBeatIndex,
   onSelectBeat,
+  onAskQuestion,
+  onToggleBreak,
+  onRepeat,
+  paused = false,
   onSelectChoice,
   onActivityComplete,
 }: {
@@ -33,6 +39,10 @@ export default function PresentationArea({
   lessonBeats?: ClassroomLessonBeat[];
   activeBeatIndex: number;
   onSelectBeat: (beatIndex: number) => void;
+  onAskQuestion: () => void;
+  onToggleBreak: () => void;
+  onRepeat: () => void;
+  paused?: boolean;
   onSelectChoice?: (choice: string) => void;
   onActivityComplete?: () => void;
 }) {
@@ -117,7 +127,37 @@ export default function PresentationArea({
           <h1 className="truncate text-xl font-bold text-slate-900">{headline}</h1>
         </div>
 
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <button
+              type="button"
+              onClick={onAskQuestion}
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-amber-300 hover:bg-amber-50"
+            >
+              <MessageCircleQuestion size={15} />
+              Ask a question
+            </button>
+            <button
+              type="button"
+              onClick={onToggleBreak}
+              className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-bold transition ${
+                paused
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-amber-300 hover:bg-amber-50"
+              }`}
+            >
+              <Coffee size={15} />
+              {paused ? "Resume class" : "Take a break"}
+            </button>
+            <button
+              type="button"
+              onClick={onRepeat}
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-amber-300 hover:bg-amber-50"
+            >
+              <RotateCcw size={15} />
+              Say that again
+            </button>
+          </div>
           <LessonFlowSelect
             plan={plan}
             lessonBeats={lessonBeats}
@@ -161,6 +201,21 @@ export default function PresentationArea({
 
       <div className="flex min-h-0 flex-1 overflow-hidden p-2 lg:p-3">
         <div className="relative flex min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,.08)]">
+          {paused ? (
+            <div className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/65 backdrop-blur-sm">
+              <div className="rounded-3xl bg-white px-10 py-8 text-center shadow-2xl">
+                <Coffee className="mx-auto text-amber-600" size={30} />
+                <p className="mt-3 text-2xl font-bold text-slate-900">Class paused</p>
+                <button
+                  type="button"
+                  onClick={onToggleBreak}
+                  className="mt-5 rounded-xl bg-[#0f2b46] px-5 py-2.5 text-sm font-bold text-white"
+                >
+                  Resume class
+                </button>
+              </div>
+            </div>
+          ) : null}
           {safeView.type === "welcome" ? (
             <div className="flex h-full w-full flex-col justify-center bg-gradient-to-br from-[#0f2b46] to-[#163a5d] p-10 text-white">
               <p className="text-xs font-bold uppercase tracking-[.2em] text-amber-200">
