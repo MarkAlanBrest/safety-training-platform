@@ -1,13 +1,11 @@
 import type { ClassroomPlan, ClassroomSlide, ClassroomTopic } from "@/lib/classroom";
 import type { ClassroomBuilderConfig } from "@/lib/classroom-builder";
-import { analyzeSlideHotspots } from "@/lib/classroom-hotspots";
-import { buildLabeledVisuals } from "@/lib/classroom-visuals";
-import { mergeEnhancedSlide } from "@/lib/classroom-slide-content";
 import {
   buildFallbackAssessment,
   buildFallbackCheckpoints,
   buildLessonBeats,
 } from "@/lib/classroom-lesson";
+import type { ClassroomCheckpoint, ClassroomAssessmentQuestion } from "@/lib/classroom-lesson";
 import type { ParsedClassroomSlide } from "@/lib/ppt-ingest";
 import { extractResponseOutputText } from "@/lib/parse-response";
 
@@ -37,7 +35,7 @@ export function buildClassroomPlanFromSlides(
     title: config?.knowledge.courseName || title,
     opening:
       config?.knowledge.description ||
-      "Welcome to class. I will teach from your uploaded slides, ask what you already know, and keep the conversation going like a real instructor.",
+      "Welcome to class. I'll teach from your PowerPoint slides, explain the ideas in my own words, and weave in quick activities to check understanding.",
     objectives: objectives.length ? objectives : ["Understand the lesson material"],
     topics,
     slides,
@@ -49,7 +47,7 @@ export function buildClassroomPlanFromSlides(
   return plan;
 }
 
-async function enrichPlanWithAi(
+async function enrichTeachingActivitiesWithAi(
   plan: ClassroomPlan,
   parsedSlides: ParsedClassroomSlide[],
   title: string,
@@ -60,7 +58,7 @@ async function enrichPlanWithAi(
   const slideDigest = parsedSlides
     .map(
       (slide) =>
-        `Slide ${slide.index + 1}: ${slide.title}\nText: ${slide.bodyText}\nNotes: ${slide.speakerNotes || "(none)"}`,
+        `Slide ${slide.index + 1}: ${slide.title}\nOn-slide text: ${slide.bodyText}\nSpeaker notes: ${slide.speakerNotes || "(none)"}`,
     )
     .join("\n\n");
 
@@ -78,15 +76,15 @@ async function enrichPlanWithAi(
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-5.6-sol",
         instructions:
-          "You are preparing an AI-led classroom lesson from uploaded PowerPoint slides. Return JSON only.",
+          "You prepare AI teaching activities for a classroom that displays PowerPoint slides unchanged. Return JSON only. Do not rewrite slide titles or bullets.",
         text: {
           format: {
             type: "json_schema",
-            name: "classroom_plan",
+            name: "classroom_teaching_plan",
             schema: {
               type: "object",
               additionalProperties: false,
-              required: ["opening", "objectives", "topics", "slides"],
+              required: ["opening", "objectives", "checkpoints", "assessment"],
               properties: {
                 opening: { type: "string" },
                 objectives: {
@@ -95,48 +93,77 @@ async function enrichPlanWithAi(
                   minItems: 2,
                   maxItems: 6,
                 },
-                topics: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    additionalProperties: false,
-                    required: ["id", "title", "slideStart", "slideEnd"],
-                    properties: {
-                      id: { type: "string" },
-                      title: { type: "string" },
-                      slideStart: { type: "integer", minimum: 0 },
-                      slideEnd: { type: "integer", minimum: 0 },
-                    },
-                  },
-                },
-                slides: {
+                checkpoints: {
                   type: "array",
                   items: {
                     type: "object",
                     additionalProperties: false,
                     required: [
-                      "index",
-                      "title",
-                      "subtitle",
-                      "bullets",
-                      "highlight",
-                      "layout",
+                      "id",
+                      "slideIndex",
+                      "type",
+                      "headline",
+                      "prompt",
+                      "choices",
+                      "correctChoice",
+                      "flashcards",
+                      "dragItems",
                     ],
                     properties: {
-                      index: { type: "integer", minimum: 0 },
-                      title: { type: "string" },
-                      subtitle: { type: ["string", "null"] },
-                      bullets: {
+                      id: { type: "string" },
+                      slideIndex: { type: "integer", minimum: 0 },
+                      type: {
+                        type: "string",
+                        enum: [
+                          "question",
+                          "exercise",
+                          "multipleChoice",
+                          "flashcard",
+                          "dragdrop",
+                        ],
+                      },
+                      headline: { type: "string" },
+                      prompt: { type: "string" },
+                      choices: {
+                        type: ["array", "null"],
+                        items: { type: "string" },
+                      },
+                      correctChoice: { type: ["string", "null"] },
+                      flashcards: {
+                        type: ["array", "null"],
+                        items: {
+                          type: "object",
+                          additionalProperties: false,
+                          required: ["front", "back"],
+                          properties: {
+                            front: { type: "string" },
+                            back: { type: "string" },
+                          },
+                        },
+                      },
+                      dragItems: {
+                        type: ["array", "null"],
+                        items: { type: "string" },
+                      },
+                    },
+                  },
+                },
+                assessment: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["id", "prompt", "choices", "correctChoice"],
+                    properties: {
+                      id: { type: "string" },
+                      prompt: { type: "string" },
+                      choices: {
                         type: "array",
                         items: { type: "string" },
-                        minItems: 1,
-                        maxItems: 6,
+                        minItems: 3,
+                        maxItems: 4,
                       },
-                      highlight: { type: ["string", "null"] },
-                      layout: {
-                        type: "string",
-                        enum: ["title", "content", "image", "split", "blueprint"],
-                      },
+                      correctChoice: { type: "string" },
                     },
                   },
                 },
@@ -149,11 +176,12 @@ async function enrichPlanWithAi(
             role: "user",
             content: [
               `Course title: ${title}`,
-              "Create a warm instructor opening, 3-5 learning objectives, topic groupings, and polished on-screen slides.",
-              "For each slide, write a clear title, short subtitle, 2-5 learner-friendly bullets, one highlight callout, and a layout.",
-              "Use layout blueprint when the slide image (diagram, blueprint, photo) is the main teaching surface.",
-              "Never use layout content or split when the slide has a real uploaded image — always use blueprint.",
-              "Do not invent facts that are not supported by the source slide text.",
+              "Create a warm instructor opening and 3-5 learning objectives.",
+              "Add short interactive checkpoints after key slides and a final assessment.",
+              "Mix checkpoint types: multiple choice, flash cards, and drag-and-drop sequencing.",
+              "For flashcard checkpoints use type flashcard with 2-4 cards. For drag-and-drop use type dragdrop with 3-5 ordered items.",
+              "Checkpoints should test understanding — do not ask learners to read slide text back verbatim.",
+              "Use slideIndex to place each checkpoint after the relevant slide.",
               slideDigest,
             ].join("\n\n"),
           },
@@ -167,35 +195,16 @@ async function enrichPlanWithAi(
     const parsed = JSON.parse(extractResponseOutputText(data) || "{}") as {
       opening?: string;
       objectives?: string[];
-      topics?: ClassroomPlan["topics"];
-      slides?: Array<{
-        index: number;
-        title: string;
-        subtitle?: string | null;
-        bullets: string[];
-        highlight?: string | null;
-        layout?: ClassroomSlide["layout"];
-      }>;
+      checkpoints?: ClassroomCheckpoint[];
+      assessment?: ClassroomAssessmentQuestion[];
     };
-
-    const enhancedSlides = plan.slides.map((slide) => {
-      const enhanced = parsed.slides?.find((item) => item.index === slide.index);
-      return mergeEnhancedSlide(slide, {
-        title: enhanced?.title,
-        subtitle: enhanced?.subtitle || undefined,
-        bullets: enhanced?.bullets,
-        highlight: enhanced?.highlight || undefined,
-        layout: enhanced?.layout,
-        bodyText: enhanced?.bullets?.join(" ") || slide.bodyText,
-      });
-    });
 
     const enrichedPlan = {
       ...plan,
       opening: parsed.opening?.trim() || plan.opening,
       objectives: parsed.objectives?.length ? parsed.objectives : plan.objectives,
-      topics: plan.topics,
-      slides: enhancedSlides,
+      checkpoints: parsed.checkpoints?.length ? parsed.checkpoints : plan.checkpoints,
+      assessment: parsed.assessment?.length ? parsed.assessment : plan.assessment,
     };
     enrichedPlan.lessonBeats = buildLessonBeats(enrichedPlan);
     return enrichedPlan;
@@ -211,43 +220,7 @@ export async function generateClassroomPlan(
   slides: ClassroomSlide[],
   title: string,
   config?: ClassroomBuilderConfig,
-  courseSlug?: string,
 ): Promise<ClassroomPlan> {
-  const slidesWithVisuals = courseSlug
-    ? await Promise.all(
-        slides.map(async (slide, index) => {
-          const parsed = parsedSlides[index];
-          if (!parsed?.images.length) return slide;
-          const visuals = await buildLabeledVisuals(
-            {
-              index: parsed.index,
-              title: slide.title,
-              bodyText: slide.bodyText,
-              speakerNotes: slide.speakerNotes,
-              bullets: slide.bullets || parsed.bullets,
-              images: parsed.images,
-            },
-            courseSlug,
-          );
-          return { ...slide, visuals };
-        }),
-      )
-    : slides;
-
-  const slidesWithHotspots = await Promise.all(
-    slidesWithVisuals.map(async (slide, index) => ({
-      ...slide,
-      hotspots: parsedSlides[index]?.image
-        ? await analyzeSlideHotspots({
-            title: slide.title,
-            bodyText: slide.bodyText,
-            speakerNotes: slide.speakerNotes,
-            image: parsedSlides[index].image,
-          })
-        : slide.hotspots || [],
-    })),
-  );
-
-  const basePlan = buildClassroomPlanFromSlides(slidesWithHotspots, title, config);
-  return enrichPlanWithAi(basePlan, parsedSlides, title);
+  const basePlan = buildClassroomPlanFromSlides(slides, title, config);
+  return enrichTeachingActivitiesWithAi(basePlan, parsedSlides, title);
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Bot, Hand, Send, Volume2 } from "lucide-react";
+import { Bot, Hand, Mic, MicOff, Send, Volume2 } from "lucide-react";
 import { DEFAULT_QUICK_REPLIES } from "@/lib/classroom";
 
 export type TeacherMessage = {
@@ -9,12 +9,45 @@ export type TeacherMessage = {
   content: string;
 };
 
+type SpeechRecognitionResultLike = {
+  isFinal: boolean;
+  0: { transcript: string };
+};
+
+type SpeechRecognitionEventLike = {
+  resultIndex: number;
+  results: ArrayLike<SpeechRecognitionResultLike>;
+};
+
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+function getSpeechRecognition():
+  | (new () => SpeechRecognitionLike)
+  | undefined {
+  if (typeof window === "undefined") return undefined;
+  const win = window as Window & {
+    SpeechRecognition?: new () => SpeechRecognitionLike;
+    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+  };
+  return win.SpeechRecognition || win.webkitSpeechRecognition;
+}
+
 export default function TeacherChat({
   messages,
   quickReplies,
   thinking,
   speaking,
   needsAudioUnlock = false,
+  speechToTextEnabled = false,
   onSend,
   onSpeak,
   onInteract,
@@ -24,18 +57,28 @@ export default function TeacherChat({
   thinking: boolean;
   speaking: boolean;
   needsAudioUnlock?: boolean;
+  speechToTextEnabled?: boolean;
   onSend: (message: string) => Promise<void>;
   onSpeak: (text: string) => Promise<void>;
   onInteract?: () => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [listening, setListening] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const speechSupported = Boolean(getSpeechRecognition());
 
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;
     list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
   }, [messages, thinking]);
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+    };
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -52,7 +95,41 @@ export default function TeacherChat({
     await onSend(reply);
   }
 
+  function toggleListening() {
+    if (!speechSupported || thinking) return;
+    onInteract?.();
+
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+
+    const Recognition = getSpeechRecognition();
+    if (!Recognition) return;
+
+    const recognition = new Recognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    recognitionRef.current = recognition;
+
+    recognition.onresult = (event) => {
+      let transcript = "";
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        transcript += event.results[index][0].transcript;
+      }
+      setDraft(transcript.trim());
+    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+
+    recognition.start();
+    setListening(true);
+  }
+
   const replies = quickReplies.length ? quickReplies : DEFAULT_QUICK_REPLIES;
+  const showMic = speechToTextEnabled && speechSupported;
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white">
@@ -70,7 +147,9 @@ export default function TeacherChat({
                   ? "Thinking…"
                   : speaking
                     ? "Speaking…"
-                    : "Ready to talk"}
+                    : listening
+                      ? "Listening…"
+                      : "Ready to talk"}
             </p>
           </div>
         </div>
@@ -82,8 +161,8 @@ export default function TeacherChat({
       >
         {!messages.length && (
           <div className="rounded-2xl bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-600">
-            Your instructor will teach, ask questions, and respond to you here. Use the
-            quick replies or type your own answer.
+            Your instructor will teach from your PowerPoint slides, ask questions, and respond here.
+            {showMic ? " Tap the microphone to speak your answer." : " Type or use quick replies."}
           </div>
         )}
         {messages.map((message, index) => (
@@ -145,9 +224,24 @@ export default function TeacherChat({
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onFocus={() => onInteract?.()}
-            placeholder="Talk with your instructor…"
+            placeholder={listening ? "Listening…" : "Talk with your instructor…"}
             className="min-w-0 flex-1 rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-amber-400"
           />
+          {showMic ? (
+            <button
+              type="button"
+              onClick={toggleListening}
+              disabled={thinking}
+              className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl border ${
+                listening
+                  ? "border-rose-300 bg-rose-50 text-rose-600"
+                  : "border-slate-200 bg-slate-50 text-slate-600"
+              }`}
+              aria-label={listening ? "Stop listening" : "Speak your answer"}
+            >
+              {listening ? <MicOff size={16} /> : <Mic size={16} />}
+            </button>
+          ) : null}
           <button
             type="submit"
             disabled={thinking || !draft.trim()}

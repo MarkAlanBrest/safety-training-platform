@@ -7,6 +7,7 @@ import {
   isClassroomPlan,
   type PublicClassroomCourse,
 } from "@/lib/classroom";
+import { classroomPlanFromSections } from "@/lib/classroom-chapters";
 
 export const dynamic = "force-dynamic";
 
@@ -26,24 +27,39 @@ export default async function ClassroomPage({
     include: {
       sections: {
         orderBy: { position: "asc" },
-        take: 1,
-        select: { lessonPlan: true },
+        select: { id: true, title: true, position: true, lessonPlan: true },
       },
       scormAssets: {
-        where: { path: { startsWith: "classroom/slides/" } },
+        where: { path: { startsWith: "classroom/" } },
         select: { path: true },
       },
     },
   });
 
   if (!record || record.courseType !== "classroom") notFound();
-  const rawPlan = record.sections[0]?.lessonPlan;
-  if (!isClassroomPlan(rawPlan)) notFound();
-  const plan = hydrateClassroomPlan(
-    rawPlan,
-    slug,
-    record.scormAssets.map((asset) => asset.path),
-  );
+
+  const assetPaths = record.scormAssets.map((asset) => asset.path);
+  let globalOffset = 0;
+  const hydratedSections = record.sections.flatMap((section) => {
+    if (!isClassroomPlan(section.lessonPlan)) return [];
+    const hydrated = hydrateClassroomPlan(section.lessonPlan, slug, assetPaths, {
+      chapterPosition: section.position,
+      globalIndexOffset: globalOffset,
+    });
+    globalOffset += hydrated.slides.length;
+    return [
+      {
+        id: section.id,
+        title: section.title,
+        position: section.position,
+        plan: hydrated,
+      },
+    ];
+  });
+
+  if (!hydratedSections.length) notFound();
+
+  const plan = classroomPlanFromSections(record.title, hydratedSections);
 
   const course: PublicClassroomCourse = {
     id: record.id,

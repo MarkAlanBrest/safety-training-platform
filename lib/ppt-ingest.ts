@@ -1,5 +1,4 @@
 import type { ClassroomSlide } from "@/lib/classroom";
-import { structureClassroomSlide } from "@/lib/classroom-slide-content";
 import {
   type ParsedClassroomSlide,
   parsePptxBuffer,
@@ -20,43 +19,29 @@ export function parsePptx(buffer: Uint8Array): ParsedClassroomSlide[] {
 export function slidesForClassroomPlan(
   parsedSlides: ParsedClassroomSlide[],
   courseSlug: string,
+  options?: { chapterPosition?: number },
 ): ClassroomSlide[] {
-  return parsedSlides.map((slide) => {
-    const visuals = slide.images.map((image, imageIndex) => ({
-      label: image.label || slide.bullets[imageIndex] || slide.title,
-      imageUrl:
-        imageIndex === 0
-          ? `/api/classroom/${courseSlug}/slides/${slide.index}`
-          : `/api/classroom/${courseSlug}/slides/${slide.index}/${imageIndex}`,
-    }));
-    const structured = structureClassroomSlide({
-      index: slide.index,
-      title: slide.title,
-      bodyText: slide.bodyText,
-      speakerNotes: slide.speakerNotes,
-      bullets: slide.bullets,
-      imageUrl: slide.image ? `/api/classroom/${courseSlug}/slides/${slide.index}` : undefined,
-      visuals: visuals.length ? visuals : undefined,
-    });
-    return {
-      index: structured.index,
-      title: structured.title,
-      bodyText: structured.bodyText,
-      speakerNotes: structured.speakerNotes,
-      subtitle: structured.subtitle,
-      bullets: structured.bullets,
-      highlight: structured.highlight,
-      layout: structured.layout,
-      imageUrl: structured.imageUrl,
-      visuals: structured.visuals,
-    };
-  });
+  const chapterPosition = options?.chapterPosition ?? 1;
+  return parsedSlides.map((slide, index) => ({
+    index,
+    title: slide.title,
+    bodyText: slide.bodyText,
+    speakerNotes: slide.speakerNotes,
+    bullets: slide.bullets,
+    imageUrl:
+      chapterPosition <= 1
+        ? `/api/classroom/${courseSlug}/slides/${index}`
+        : `/api/classroom/${courseSlug}/chapters/${chapterPosition}/slides/${index}`,
+    layout: "blueprint" as const,
+  }));
 }
 
 export async function parsedSlidesFromUploadFormAsync(
   form: FormData,
+  options?: { chapterIndex?: number },
 ): Promise<ParsedClassroomSlide[]> {
-  const raw = String(form.get("slides") || "");
+  const chapterIndex = options?.chapterIndex ?? 0;
+  const raw = String(form.get(chapterIndex === 0 ? "slides" : `slides-${chapterIndex}`) || "");
   if (!raw) {
     throw new Error("Prepared slide data is required.");
   }
@@ -69,32 +54,51 @@ export async function parsedSlidesFromUploadFormAsync(
     bullets?: string[];
     hasImage: boolean;
     imageCount?: number;
+    hasRenderedSlide?: boolean;
   }>;
 
   const slides: ParsedClassroomSlide[] = [];
   for (const slide of metadata) {
     const images: ParsedClassroomSlide["images"] = [];
     const imageCount = slide.imageCount || (slide.hasImage ? 1 : 0);
+    const prefix =
+      chapterIndex === 0
+        ? `slide-image-${slide.index}`
+        : `chapter-${chapterIndex}-slide-image-${slide.index}`;
     for (let imageIndex = 0; imageIndex < imageCount; imageIndex += 1) {
-      const file = form.get(`slide-image-${slide.index}-${imageIndex}`);
+      const file = form.get(`${prefix}-${imageIndex}`);
       if (file instanceof File && file.size > 0) {
         images.push({
           bytes: new Uint8Array(await file.arrayBuffer()),
           mimeType: file.type || "image/jpeg",
-          label: slide.bullets?.[imageIndex] || slide.title,
         });
       }
     }
     if (!images.length && slide.hasImage) {
-      const file = form.get(`slide-image-${slide.index}`);
+      const file = form.get(prefix);
       if (file instanceof File && file.size > 0) {
         images.push({
           bytes: new Uint8Array(await file.arrayBuffer()),
           mimeType: file.type || "image/jpeg",
-          label: slide.title,
         });
       }
     }
+
+    let renderedSlide: ParsedClassroomSlide["renderedSlide"] = null;
+    if (slide.hasRenderedSlide) {
+      const renderKey =
+        chapterIndex === 0
+          ? `slide-render-${slide.index}`
+          : `chapter-${chapterIndex}-slide-render-${slide.index}`;
+      const renderFile = form.get(renderKey);
+      if (renderFile instanceof File && renderFile.size > 0) {
+        renderedSlide = {
+          bytes: new Uint8Array(await renderFile.arrayBuffer()),
+          mimeType: renderFile.type || "image/jpeg",
+        };
+      }
+    }
+
     slides.push({
       index: slide.index,
       title: slide.title,
@@ -103,8 +107,27 @@ export async function parsedSlidesFromUploadFormAsync(
       bullets: slide.bullets || [],
       image: images[0] || null,
       images,
+      renderedSlide,
     });
   }
 
   return slides;
+}
+
+export async function parsedChaptersFromUploadFormAsync(form: FormData) {
+  const chaptersRaw = String(form.get("chapters") || "");
+  if (!chaptersRaw) {
+    const slides = await parsedSlidesFromUploadFormAsync(form);
+    return [{ title: String(form.get("chapterTitle") || "Chapter 1"), slides }];
+  }
+
+  const chapters = JSON.parse(chaptersRaw) as Array<{ title: string }>;
+  const parsed = [];
+  for (let index = 0; index < chapters.length; index += 1) {
+    parsed.push({
+      title: chapters[index].title || `Chapter ${index + 1}`,
+      slides: await parsedSlidesFromUploadFormAsync(form, { chapterIndex: index }),
+    });
+  }
+  return parsed;
 }

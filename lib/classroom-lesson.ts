@@ -5,11 +5,13 @@ import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
 export type ClassroomCheckpoint = {
   id: string;
   slideIndex: number;
-  type: "question" | "exercise" | "multipleChoice";
+  type: "question" | "exercise" | "multipleChoice" | "flashcard" | "dragdrop";
   headline: string;
   prompt: string;
-  choices: string[];
+  choices?: string[];
   correctChoice?: string;
+  flashcards?: Array<{ front: string; back: string }>;
+  dragItems?: string[];
 };
 
 export type ClassroomAssessmentQuestion = {
@@ -49,6 +51,52 @@ function fallbackChoices(slide: ClassroomSlide) {
   ];
 }
 
+function checkpointActivityType(
+  index: number,
+  config?: ClassroomBuilderConfig,
+): ClassroomCheckpoint["type"] {
+  const activities = config?.activities;
+  const useFlashcards = activities?.flashCards !== false;
+  const useDragDrop = activities?.dragDrop !== false;
+  const options: ClassroomCheckpoint["type"][] = ["multipleChoice"];
+  if (useFlashcards) options.push("flashcard");
+  if (useDragDrop) options.push("dragdrop");
+  return options[index % options.length];
+}
+
+function flashcardsForSlide(slide: ClassroomSlide) {
+  const cards: Array<{ front: string; back: string }> = [];
+  if (slide.bullets?.length) {
+    for (const bullet of slide.bullets.slice(0, 4)) {
+      cards.push({
+        front: bullet.slice(0, 80),
+        back: slide.bodyText.split(/[.!?]/)[0]?.trim().slice(0, 160) || slide.title,
+      });
+    }
+  }
+  if (!cards.length) {
+    cards.push({
+      front: slide.title,
+      back: slide.bodyText.slice(0, 180) || "Key idea from this slide.",
+    });
+  }
+  return cards;
+}
+
+function dragItemsForSlide(slide: ClassroomSlide) {
+  const items = (slide.bullets || [])
+    .map((bullet) => bullet.trim())
+    .filter((bullet) => bullet.length > 4)
+    .slice(0, 5);
+  if (items.length >= 2) return items;
+  const fallback = slide.bodyText
+    .split(/(?:•|;|\n|(?<=[.!?])\s+)/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 8)
+    .slice(0, 4);
+  return fallback.length >= 2 ? fallback : [slide.title, "Review this slide", "Ask your instructor"];
+}
+
 export function buildFallbackCheckpoints(
   slides: ClassroomSlide[],
   config?: ClassroomBuilderConfig,
@@ -56,12 +104,40 @@ export function buildFallbackCheckpoints(
   const mergedConfig = defaultClassroomBuilderConfig(config);
   const interval = checkpointInterval(mergedConfig.formative.frequency);
   const checkpoints: ClassroomCheckpoint[] = [];
+  let activityIndex = 0;
 
   slides.forEach((slide, index) => {
     const isLast = index === slides.length - 1;
     if ((index + 1) % interval !== 0 && !isLast) return;
 
+    const activityType = checkpointActivityType(activityIndex, mergedConfig);
+    activityIndex += 1;
     const choices = fallbackChoices(slide);
+
+    if (activityType === "flashcard") {
+      checkpoints.push({
+        id: `checkpoint-${index + 1}`,
+        slideIndex: index,
+        type: "flashcard",
+        headline: isLast ? "Review before we wrap up" : "Quick flash card review",
+        prompt: `Flip through these cards about "${slide.title}".`,
+        flashcards: flashcardsForSlide(slide),
+      });
+      return;
+    }
+
+    if (activityType === "dragdrop") {
+      checkpoints.push({
+        id: `checkpoint-${index + 1}`,
+        slideIndex: index,
+        type: "dragdrop",
+        headline: isLast ? "Put the steps in order" : "Sequence check",
+        prompt: `Put these ideas from "${slide.title}" in the right order.`,
+        dragItems: dragItemsForSlide(slide),
+      });
+      return;
+    }
+
     checkpoints.push({
       id: `checkpoint-${index + 1}`,
       slideIndex: index,
@@ -167,6 +243,22 @@ export function presentationForBeat(
       const checkpoint = plan.checkpoints?.find((item) => item.id === beat.checkpointId);
       if (!checkpoint) {
         return { type: "slide", slideIndex: 0 };
+      }
+      if (checkpoint.type === "flashcard") {
+        return {
+          type: "flashcard",
+          headline: checkpoint.headline,
+          prompt: checkpoint.prompt,
+          flashcards: checkpoint.flashcards || [],
+        };
+      }
+      if (checkpoint.type === "dragdrop") {
+        return {
+          type: "dragdrop",
+          headline: checkpoint.headline,
+          prompt: checkpoint.prompt,
+          dragItems: checkpoint.dragItems || [],
+        };
       }
       return {
         type: checkpoint.type === "exercise" ? "exercise" : "question",

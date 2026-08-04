@@ -29,9 +29,19 @@ export type ClassroomSlide = {
   imageDataUrl?: string;
   imageUrl?: string;
   visuals?: ClassroomSlideVisual[];
+  chapterId?: string;
+  chapterTitle?: string;
 };
 
 export type { ClassroomSlideHotspot, ClassroomSlideFocus };
+
+export type ClassroomChapter = {
+  id: string;
+  sectionId?: number;
+  title: string;
+  slideStart: number;
+  slideEnd: number;
+};
 
 export type ClassroomTopic = {
   id: string;
@@ -46,6 +56,7 @@ export type ClassroomPlan = {
   opening: string;
   objectives: string[];
   topics: ClassroomTopic[];
+  chapters?: ClassroomChapter[];
   slides: ClassroomSlide[];
   checkpoints?: ClassroomCheckpoint[];
   assessment?: ClassroomAssessmentQuestion[];
@@ -88,6 +99,18 @@ export type PresentationView =
       choices?: string[];
       questionIndex?: number;
       questionCount?: number;
+    }
+  | {
+      type: "flashcard";
+      headline: string;
+      prompt?: string;
+      flashcards: Array<{ front: string; back: string }>;
+    }
+  | {
+      type: "dragdrop";
+      headline: string;
+      prompt: string;
+      dragItems: string[];
     }
   | {
       type: "welcome";
@@ -333,26 +356,54 @@ export function matchVisualForTopic(
   return bestScore >= 0.34 ? best : slide.visuals[0];
 }
 
-export function classroomSlideAssetPath(index: number, imageIndex = 0) {
-  return imageIndex > 0
-    ? `classroom/slides/${index}/img-${imageIndex}`
-    : `classroom/slides/${index}`;
+export function classroomSlideAssetPath(
+  index: number,
+  imageIndex = 0,
+  chapterPosition = 1,
+) {
+  const base =
+    chapterPosition <= 1
+      ? `classroom/slides/${index}`
+      : `classroom/chapters/${chapterPosition}/slides/${index}`;
+  return imageIndex > 0 ? `${base}/img-${imageIndex}` : base;
 }
 
-function slideAssetUrl(slug: string, slideIndex: number, imageIndex = 0) {
-  return imageIndex > 0
-    ? `/api/classroom/${slug}/slides/${slideIndex}/${imageIndex}`
-    : `/api/classroom/${slug}/slides/${slideIndex}`;
+function slideAssetUrl(
+  slug: string,
+  slideIndex: number,
+  imageIndex = 0,
+  chapterPosition = 1,
+) {
+  if (chapterPosition <= 1) {
+    return imageIndex > 0
+      ? `/api/classroom/${slug}/slides/${slideIndex}/${imageIndex}`
+      : `/api/classroom/${slug}/slides/${slideIndex}`;
+  }
+  return `/api/classroom/${slug}/chapters/${chapterPosition}/slides/${slideIndex}`;
 }
 
 function parseClassroomAssetPath(assetPath: string) {
+  const chapter = assetPath.match(
+    /^classroom\/chapters\/(\d+)\/slides\/(\d+)(?:\/img-(\d+))?$/,
+  );
+  if (chapter) {
+    return {
+      chapterPosition: Number(chapter[1]),
+      slideIndex: Number(chapter[2]),
+      imageIndex: chapter[3] ? Number(chapter[3]) : 0,
+    };
+  }
   const primary = assetPath.match(/^classroom\/slides\/(\d+)$/);
   if (primary) {
-    return { slideIndex: Number(primary[1]), imageIndex: 0 };
+    return { chapterPosition: 1, slideIndex: Number(primary[1]), imageIndex: 0 };
   }
   const secondary = assetPath.match(/^classroom\/slides\/(\d+)\/img-(\d+)$/);
   if (secondary) {
-    return { slideIndex: Number(secondary[1]), imageIndex: Number(secondary[2]) };
+    return {
+      chapterPosition: 1,
+      slideIndex: Number(secondary[1]),
+      imageIndex: Number(secondary[2]),
+    };
   }
   return null;
 }
@@ -361,44 +412,34 @@ export function hydrateClassroomPlan(
   plan: ClassroomPlan,
   slug: string,
   assetPaths: string[] = [],
+  options?: { chapterPosition?: number; globalIndexOffset?: number },
 ): ClassroomPlan {
-  const assetsBySlide = new Map<number, Array<{ imageIndex: number; label: string }>>();
+  const chapterPosition = options?.chapterPosition ?? 1;
+  const globalIndexOffset = options?.globalIndexOffset ?? 0;
+  const assetsBySlide = new Map<number, Array<{ imageIndex: number }>>();
 
   for (const assetPath of assetPaths) {
     const parsed = parseClassroomAssetPath(assetPath);
-    if (!parsed) continue;
+    if (!parsed || parsed.chapterPosition !== chapterPosition) continue;
     const current = assetsBySlide.get(parsed.slideIndex) || [];
-    current.push({ imageIndex: parsed.imageIndex, label: "" });
+    current.push({ imageIndex: parsed.imageIndex });
     assetsBySlide.set(parsed.slideIndex, current);
   }
 
-  const slides = plan.slides.map((slide) => {
-    const assetEntries = (assetsBySlide.get(slide.index) || []).sort(
+  const slides = plan.slides.map((slide, localIndex) => {
+    const assetEntries = (assetsBySlide.get(localIndex) || assetsBySlide.get(slide.index) || []).sort(
       (a, b) => a.imageIndex - b.imageIndex,
     );
-    if (!assetEntries.length && !slide.imageUrl && !slide.imageDataUrl) {
-      return slide;
-    }
+    const hasAsset = assetEntries.length > 0 || slide.imageUrl || slide.imageDataUrl;
+    if (!hasAsset) return { ...slide, index: globalIndexOffset + localIndex };
 
-    const imageUrl = slide.imageUrl || slideImageSrc(slide) || slideAssetUrl(slug, slide.index);
-    const visualsFromAssets = assetEntries.map((entry) => ({
-      label:
-        slide.visuals?.[entry.imageIndex]?.label ||
-        slide.bullets?.[entry.imageIndex] ||
-        slide.title,
-      imageUrl: slideAssetUrl(slug, slide.index, entry.imageIndex),
-    }));
-    const visuals =
-      slide.visuals?.length && !assetEntries.length
-        ? slide.visuals
-        : visualsFromAssets.length
-          ? visualsFromAssets
-          : [{ label: slide.title, imageUrl }];
+    const imageUrl =
+      slide.imageUrl || slideAssetUrl(slug, localIndex, 0, chapterPosition);
 
     return {
       ...slide,
+      index: globalIndexOffset + localIndex,
       imageUrl,
-      visuals,
       layout: "blueprint" as const,
     };
   });

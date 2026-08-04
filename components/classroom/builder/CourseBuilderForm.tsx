@@ -43,11 +43,18 @@ import {
 import { parseJsonResponse } from "@/lib/parse-response";
 import {
   buildClassroomUploadFormData,
+  buildMultiChapterUploadFormData,
   preparePptxForUpload,
 } from "@/lib/ppt-ingest-client";
 import type { ParsedClassroomSlide } from "@/lib/ppt-ingest-core";
 
 type SubmitMode = "draft" | "publish";
+
+type ChapterDraft = {
+  file: File;
+  title: string;
+  parsedSlides: ParsedClassroomSlide[];
+};
 
 export default function CourseBuilderForm() {
   const [config, setConfig] = useState<ClassroomBuilderConfig>(
@@ -56,7 +63,9 @@ export default function CourseBuilderForm() {
   const [preset, setPreset] = useState<ClassroomBuilderPreset>("balanced");
   const [file, setFile] = useState<File | null>(null);
   const [parsedSlides, setParsedSlides] = useState<ParsedClassroomSlide[] | null>(null);
+  const [extraChapters, setExtraChapters] = useState<ChapterDraft[]>([]);
   const [parsingFile, setParsingFile] = useState(false);
+  const [parseProgress, setParseProgress] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{
@@ -68,7 +77,7 @@ export default function CourseBuilderForm() {
   } | null>(null);
 
   const slideCountEstimate = parsedSlides?.length
-    ? parsedSlides.length
+    ? parsedSlides.length + extraChapters.reduce((sum, chapter) => sum + chapter.parsedSlides.length, 0)
     : file
       ? Math.max(4, Math.round(file.size / 120_000))
       : 8;
@@ -215,8 +224,11 @@ export default function CourseBuilderForm() {
     if (!selected) return;
 
     setParsingFile(true);
+    setParseProgress("Reading slides…");
     try {
-      const slides = await preparePptxForUpload(selected);
+      const slides = await preparePptxForUpload(selected, (message) => {
+        setParseProgress(message);
+      });
       setParsedSlides(slides);
     } catch (parseError) {
       setError(
@@ -229,18 +241,56 @@ export default function CourseBuilderForm() {
     }
   }
 
+  async function handleExtraChapterSelect(selected: File | null) {
+    if (!selected) return;
+    setParsingFile(true);
+    setParseProgress("Reading slides…");
+    setError("");
+    try {
+      const slides = await preparePptxForUpload(selected, (message) => {
+        setParseProgress(message);
+      });
+      setExtraChapters((current) => [
+        ...current,
+        {
+          file: selected,
+          title: selected.name.replace(/\.pptx$/i, ""),
+          parsedSlides: slides,
+        },
+      ]);
+    } catch (parseError) {
+      setError(
+        parseError instanceof Error ? parseError.message : "That PowerPoint could not be prepared.",
+      );
+    } finally {
+      setParsingFile(false);
+    }
+  }
+
   async function onSubmit(event: FormEvent, mode: SubmitMode) {
     event.preventDefault();
     if (!file || !parsedSlides?.length || !config.knowledge.courseName.trim()) return;
     setSubmitting(true);
     setError("");
     try {
-      const form = buildClassroomUploadFormData(file, parsedSlides, {
-        title: config.knowledge.courseName.trim(),
-        description: config.knowledge.description.trim(),
-        published: mode === "publish",
-        config,
-      });
+      const chapters = [
+        { file, title: config.knowledge.courseName.trim(), parsedSlides },
+        ...extraChapters,
+      ];
+      const form =
+        chapters.length > 1
+          ? buildMultiChapterUploadFormData(chapters, {
+              title: config.knowledge.courseName.trim(),
+              description: config.knowledge.description.trim(),
+              published: mode === "publish",
+              config,
+            })
+          : buildClassroomUploadFormData(file, parsedSlides, {
+              title: config.knowledge.courseName.trim(),
+              description: config.knowledge.description.trim(),
+              published: mode === "publish",
+              config,
+            });
       const response = await fetch("/api/classroom/upload", {
         method: "POST",
         body: form,
@@ -269,7 +319,7 @@ export default function CourseBuilderForm() {
       <BuilderSection number={1} title="Knowledge Package">
         <BuilderField
           label="Upload PowerPoint (.pptx)"
-          hint="Up to 25 MB. Your browser prepares the deck locally, so large files no longer hit the old 4 MB server limit."
+          hint="Up to 25 MB per deck. Slides are shown exactly as uploaded — the AI instructor explains them and adds activities between slides."
         >
           <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-[#faf8f3] px-5 py-8 text-center">
             <UploadCloud className="mx-auto text-[#a06e16]" size={28} />
@@ -286,7 +336,7 @@ export default function CourseBuilderForm() {
                 {parsingFile ? (
                   <p className="inline-flex items-center justify-center gap-2 text-[#69757e]">
                     <LoaderCircle className="animate-spin" size={14} />
-                    Preparing slides in your browser…
+                    {parseProgress || "Preparing slides from your PowerPoint…"}
                   </p>
                 ) : parsedSlides ? (
                   <div className="space-y-1">
@@ -295,9 +345,8 @@ export default function CourseBuilderForm() {
                       {parsedSlides.length === 1 ? "" : "s"} prepared for upload.
                     </p>
                     <p className="text-xs text-[#69757e]">
-                      {parsedSlides.filter((slide) => slide.image).length} of{" "}
-                      {parsedSlides.length} slides include extracted images. Checkpoints and a
-                      final assessment will be added automatically.
+                      Slides are stored as-is from your PowerPoint. The AI teacher explains each
+                      slide and inserts checkpoints between them.
                     </p>
                   </div>
                 ) : null}
@@ -305,6 +354,61 @@ export default function CourseBuilderForm() {
             ) : null}
           </div>
         </BuilderField>
+
+        {parsedSlides ? (
+          <div className="space-y-3 rounded-2xl border border-[#10283f]/10 bg-white px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-[#10283f]">Additional chapters</p>
+                <p className="text-xs text-[#69757e]">
+                  Add more PowerPoint files to build a multi-chapter class.
+                </p>
+              </div>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#10283f]/15 px-3 py-1.5 text-xs font-semibold text-[#10283f]">
+                <Plus size={14} />
+                Add chapter
+                <input
+                  type="file"
+                  accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                  className="hidden"
+                  onChange={(event) => {
+                    void handleExtraChapterSelect(event.target.files?.[0] || null);
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
+            </div>
+            {extraChapters.length ? (
+              <ul className="space-y-2">
+                {extraChapters.map((chapter, index) => (
+                  <li
+                    key={`${chapter.file.name}-${index}`}
+                    className="flex items-center justify-between gap-3 rounded-xl bg-[#faf8f3] px-3 py-2 text-sm"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-[#10283f]">
+                        Chapter {index + 2}: {chapter.title}
+                      </p>
+                      <p className="text-xs text-[#69757e]">
+                        {chapter.parsedSlides.length} slides
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExtraChapters((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                      }
+                      className="text-[#69757e] transition hover:text-red-600"
+                      aria-label={`Remove chapter ${chapter.title}`}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="grid gap-5 md:grid-cols-2">
           <BuilderField label="Course Name">

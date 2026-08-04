@@ -10,10 +10,11 @@ import {
   defaultClassroomBuilderConfig,
   estimateClassroomCourse,
 } from "@/lib/classroom-builder";
-import { classroomSlideAssetPath } from "@/lib/classroom";
+import { classroomChapterSlideAssetPath } from "@/lib/classroom-chapters";
+import { renderSlideAsset } from "@/lib/ppt-slide-render";
 import {
   parsePptx,
-  parsedSlidesFromUploadFormAsync,
+  parsedChaptersFromUploadFormAsync,
   slidesForClassroomPlan,
 } from "@/lib/ppt-ingest";
 import { slugify } from "@/lib/mason";
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
     const config = parseBuilderConfig(String(form.get("config") || ""));
     const sourceFileName = String(form.get("sourceFileName") || "classroom.pptx");
     const file = form.get("pptx");
-    const hasPreparedSlides = Boolean(form.get("slides"));
+    const hasPreparedSlides = Boolean(form.get("slides") || form.get("chapters"));
 
     if (!title) {
       return Response.json({ error: "A course title is required." }, { status: 400 });
@@ -57,12 +58,12 @@ export async function POST(request: Request) {
       },
     });
 
-    let parsedSlides;
+    let chapters: Array<{ title: string; slides: Awaited<ReturnType<typeof parsePptx>> }>;
     let fileName = sourceFileName;
 
     if (hasPreparedSlides) {
-      parsedSlides = await parsedSlidesFromUploadFormAsync(form);
-      if (!parsedSlides.length) {
+      chapters = await parsedChaptersFromUploadFormAsync(form);
+      if (!chapters.length || !chapters[0].slides.length) {
         return Response.json({ error: "No slides were found in this upload." }, { status: 400 });
       }
     } else {
@@ -86,16 +87,44 @@ export async function POST(request: Request) {
       }
       fileName = file.name;
       const buffer = new Uint8Array(await file.arrayBuffer());
-      parsedSlides = parsePptx(buffer);
+      chapters = [{ title: title, slides: parsePptx(buffer) }];
     }
 
     let slug = slugify(title);
     const existing = await prisma.masonCourse.findUnique({ where: { slug } });
     if (existing) slug = `${slug}-${Date.now().toString(36)}`;
 
-    const slides = slidesForClassroomPlan(parsedSlides, slug);
-    const plan = await generateClassroomPlan(parsedSlides, slides, title, mergedConfig, slug);
-    const estimates = estimateClassroomCourse(plan.slides.length, mergedConfig);
+    const sectionPlans: Array<{
+      title: string;
+      position: number;
+      fileName: string;
+      plan: Awaited<ReturnType<typeof generateClassroomPlan>>;
+      parsedSlides: (typeof chapters)[number]["slides"];
+      chapterPosition: number;
+    }> = [];
+    let totalSlides = 0;
+    for (let chapterIndex = 0; chapterIndex < chapters.length; chapterIndex += 1) {
+      const chapter = chapters[chapterIndex];
+      const chapterPosition = chapterIndex + 1;
+      const slides = slidesForClassroomPlan(chapter.slides, slug, { chapterPosition });
+      const plan = await generateClassroomPlan(
+        chapter.slides,
+        slides,
+        chapter.title || title,
+        mergedConfig,
+      );
+      sectionPlans.push({
+        title: chapter.title || `Chapter ${chapterPosition}`,
+        position: chapterPosition,
+        fileName: chapterIndex === 0 ? fileName : `${chapter.title || "chapter"}.pptx`,
+        plan,
+        parsedSlides: chapter.slides,
+        chapterPosition,
+      });
+      totalSlides += plan.slides.length;
+    }
+
+    const estimates = estimateClassroomCourse(totalSlides, mergedConfig);
 
     const course = await prisma.$transaction(async (tx) => {
       const created = await tx.masonCourse.create({
@@ -117,26 +146,30 @@ export async function POST(request: Request) {
                 ? "comprehensive"
                 : "standard",
           sections: {
-            create: {
-              title: plan.title,
-              position: 1,
+            create: sectionPlans.map((section) => ({
+              title: section.title,
+              position: section.position,
               estimatedMinutes: estimates.courseLengthMinutes,
-              fileName,
-              lessonPlan: plan,
-            },
+              fileName: section.fileName,
+              lessonPlan: section.plan,
+            })),
           },
         },
         select: { id: true, title: true, slug: true, published: true },
       });
 
-      const assets = parsedSlides.flatMap((slide) =>
-        slide.images.map((image, imageIndex) => ({
-          courseId: created.id,
-          path: classroomSlideAssetPath(slide.index, imageIndex),
-          mimeType: image.mimeType,
-          content: Buffer.from(image.bytes),
-        })),
-      );
+      const assets = [];
+      for (const section of sectionPlans) {
+        for (const slide of section.parsedSlides) {
+          const rendered = await renderSlideAsset(slide);
+          assets.push({
+            courseId: created.id,
+            path: classroomChapterSlideAssetPath(section.chapterPosition, slide.index),
+            mimeType: rendered.mimeType,
+            content: Buffer.from(rendered.bytes),
+          });
+        }
+      }
 
       if (assets.length) {
         await tx.scormAsset.createMany({ data: assets });
@@ -147,7 +180,8 @@ export async function POST(request: Request) {
 
     return Response.json({
       course,
-      slideCount: plan.slides.length,
+      slideCount: totalSlides,
+      chapterCount: sectionPlans.length,
       published: course.published,
       estimates,
       previewUrl: `/classroom/${course.slug}`,
