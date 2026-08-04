@@ -41,10 +41,47 @@ function checkpointInterval(frequency: AssessmentFrequency) {
   }
 }
 
+function cleanActivityText(value: string) {
+  return value
+    .replace(/\*\*|__|`/g, "")
+    .replace(/^\s*(?:#{1,6}|[-*•])\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function looksLikeSlideHeading(value: string, slide: ClassroomSlide) {
+  const cleaned = cleanActivityText(value);
+  const title = cleanActivityText(slide.title);
+  return (
+    !cleaned ||
+    cleaned.toLocaleLowerCase() === title.toLocaleLowerCase() ||
+    (cleaned.length < 80 && cleaned === cleaned.toLocaleUpperCase() && /[A-Z]/.test(cleaned))
+  );
+}
+
+function bestTeachingStatement(slide: ClassroomSlide) {
+  const candidates = [
+    ...(slide.bullets || []),
+    ...slide.bodyText.split(/(?:\n|(?<=[.!?])\s+)/),
+  ]
+    .map(cleanActivityText)
+    .filter((part) => part.length >= 12 && !looksLikeSlideHeading(part, slide));
+  return candidates[0]?.slice(0, 160) || "This topic affects how the work should be done safely.";
+}
+
+function activityChoices(slide: ClassroomSlide, choices?: string[]) {
+  const cleaned = (choices || []).map(cleanActivityText).filter(Boolean);
+  if (!cleaned.length) return fallbackChoices(slide);
+  if (looksLikeSlideHeading(cleaned[0], slide)) {
+    cleaned[0] = bestTeachingStatement(slide);
+  }
+  return [...new Set(cleaned)];
+}
+
 function fallbackChoices(slide: ClassroomSlide) {
-  const snippet = slide.bodyText.split(/[.!?]/)[0]?.trim() || slide.title;
+  const snippet = bestTeachingStatement(slide);
   return [
-    snippet.slice(0, 72),
+    snippet,
     "Something unrelated to this slide",
     "I'm not sure yet",
     "None of the above",
@@ -319,7 +356,10 @@ export function presentationForBeat(
         type: checkpoint.type === "exercise" ? "exercise" : "question",
         headline: checkpoint.headline,
         prompt: checkpoint.prompt,
-        choices: checkpoint.choices,
+        choices: activityChoices(
+          plan.slides[checkpoint.slideIndex] || plan.slides[0],
+          checkpoint.choices,
+        ),
       };
     }
     case "assessment": {
@@ -333,7 +373,10 @@ export function presentationForBeat(
         type: "assessment",
         headline: "Final assessment",
         prompt: question.prompt,
-        choices: question.choices,
+        choices: activityChoices(
+          plan.slides.find((slide) => question.prompt.includes(slide.title)) || plan.slides[0],
+          question.choices,
+        ),
         questionIndex: assessmentIndex,
         questionCount: questions.length,
       };

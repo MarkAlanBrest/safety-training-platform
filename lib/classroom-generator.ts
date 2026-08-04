@@ -181,6 +181,7 @@ async function enrichTeachingActivitiesWithAi(
               "Mix checkpoint types: multiple choice, flash cards, and drag-and-drop sequencing.",
               "For flashcard checkpoints use type flashcard with 2-4 cards. For drag-and-drop use type dragdrop with 3-5 ordered items.",
               "Checkpoints should test understanding — do not ask learners to read slide text back verbatim.",
+              "Every multiple-choice option must be a complete answer statement, never a slide title, heading, label, or Markdown-formatted text.",
               "Use slideIndex to place each checkpoint after the relevant slide.",
               slideDigest,
             ].join("\n\n"),
