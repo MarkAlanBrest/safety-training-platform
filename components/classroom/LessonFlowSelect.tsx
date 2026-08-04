@@ -12,7 +12,7 @@ import {
 function optionLabel(beat: ClassroomLessonBeat, plan: ClassroomPlan) {
   const label = navLabelForBeat(beat, plan);
   if (beat.kind === "welcome") return `Start — ${label}`;
-  if (beat.kind === "slide") return `Slide ${beat.slideIndex + 1} — ${label}`;
+  if (beat.kind === "slide") return `${beat.slideIndex + 1} — ${label}`;
   if (beat.kind === "assessment") return `Assessment — ${label}`;
   return `Activity — ${label}`;
 }

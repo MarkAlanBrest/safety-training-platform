@@ -262,7 +262,7 @@ export function navLabelForBeat(beat: ClassroomLessonBeat, plan: ClassroomPlan):
       return "Introduction";
     case "slide": {
       const slide = plan.slides[beat.slideIndex];
-      return slide?.title || `Slide ${beat.slideIndex + 1}`;
+      return slide?.title || `Section ${beat.slideIndex + 1}`;
     }
     case "checkpoint": {
       const checkpoint = plan.checkpoints?.find((item) => item.id === beat.checkpointId);
