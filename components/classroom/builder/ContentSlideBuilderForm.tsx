@@ -369,7 +369,7 @@ export default function ContentSlideBuilderForm() {
 
         <BuilderField
           label="Import from PowerPoint (.pptx)"
-          hint="Upload your deck and we'll convert each slide to a picture and pull speaker notes into the teaching field. You can edit everything before publishing."
+          hint="Upload your deck and we'll convert each slide to a picture and pull speaker notes into the teaching field. If conversion fails, export slides as PNG/JPEG from PowerPoint and use the ZIP import below."
         >
           <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-white px-5 py-5 text-center">
             <UploadCloud className="mx-auto text-[#a06e16]" size={24} />

@@ -3,9 +3,7 @@
 import {
   MAX_FILE_BYTES,
   type ParsedClassroomSlide,
-  type ParsedSlideImage,
   parsePptxBuffer,
-  placeholderSlideDataUrl,
 } from "@/lib/ppt-ingest-core";
 import { captureSlidesFromPptx } from "@/lib/ppt-slide-capture-client";
 
@@ -26,35 +24,17 @@ function assertPptxFile(file: File) {
   }
 }
 
-function pickBestEmbeddedImage(slide: ParsedClassroomSlide): ParsedSlideImage | null {
-  if (slide.image?.bytes.byteLength) return slide.image;
-  if (!slide.images.length) return null;
-  const sorted = [...slide.images].sort((a, b) => b.bytes.byteLength - a.bytes.byteLength);
-  const meaningful = sorted.find((image) => image.bytes.byteLength >= 4 * 1024);
-  return meaningful || sorted[0] || null;
-}
-
-function extensionForMime(mimeType: string) {
-  if (mimeType.includes("png")) return "png";
-  if (mimeType.includes("webp")) return "webp";
-  if (mimeType.includes("svg")) return "svg";
-  return "jpg";
-}
-
-function fileFromImageBytes(image: ParsedSlideImage, index: number) {
+function fileFromImageBytes(
+  image: { bytes: Uint8Array; mimeType: string },
+  index: number,
+) {
   const blob = new Blob([new Uint8Array(image.bytes)], { type: image.mimeType });
-  const file = new File(
-    [blob],
-    `slide-${index + 1}.${extensionForMime(image.mimeType)}`,
-    { type: image.mimeType },
-  );
-  return { imageFile: file, previewUrl: URL.createObjectURL(blob) };
-}
-
-async function fileFromDataUrl(dataUrl: string, index: number) {
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
-  const file = new File([blob], `slide-${index + 1}.svg`, { type: blob.type || "image/svg+xml" });
+  const extension = image.mimeType.includes("png")
+    ? "png"
+    : image.mimeType.includes("webp")
+      ? "webp"
+      : "jpg";
+  const file = new File([blob], `slide-${index + 1}.${extension}`, { type: image.mimeType });
   return { imageFile: file, previewUrl: URL.createObjectURL(blob) };
 }
 
@@ -80,40 +60,26 @@ export async function prepareContentSlidesFromPptx(
   const parsed = parsePptxBuffer(buffer);
 
   onProgress?.("Converting slides to pictures…");
-  const rendered = await captureSlidesFromPptx(buffer, parsed.length, (current, total) => {
+  const rendered = await captureSlidesFromPptx(file, parsed.length, (current, total) => {
     onProgress?.(`Converting slide ${current} of ${total}…`);
   });
 
-  const prepared: PreparedContentSlide[] = [];
-
-  for (let index = 0; index < parsed.length; index += 1) {
-    const slide = parsed[index];
-    let imageFile: File;
-    let previewUrl: string;
-
+  const prepared: PreparedContentSlide[] = parsed.map((slide, index) => {
     const renderedImage = rendered[index];
-    if (renderedImage?.bytes.byteLength) {
-      ({ imageFile, previewUrl } = fileFromImageBytes(renderedImage, index));
-    } else {
-      const embedded = pickBestEmbeddedImage(slide);
-      if (embedded) {
-        ({ imageFile, previewUrl } = fileFromImageBytes(embedded, index));
-      } else {
-        ({ imageFile, previewUrl } = await fileFromDataUrl(
-          placeholderSlideDataUrl(slide.title, slide.bodyText || slide.speakerNotes, slide.index),
-          index,
-        ));
-      }
+    if (!renderedImage?.bytes.byteLength) {
+      throw new Error(`Slide ${index + 1} did not convert to a picture.`);
     }
 
-    prepared.push({
+    const { imageFile, previewUrl } = fileFromImageBytes(renderedImage, index);
+
+    return {
       index,
       title: slide.title,
       teachingContent: teachingContentFromParsedSlide(slide),
       imageFile,
       previewUrl,
-    });
-  }
+    };
+  });
 
   onProgress?.(`Ready — ${prepared.length} content slides prepared.`);
   return prepared;
