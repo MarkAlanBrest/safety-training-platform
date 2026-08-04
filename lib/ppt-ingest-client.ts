@@ -158,3 +158,58 @@ export function buildClassroomUploadFormData(
 
   return form;
 }
+
+export function buildMultiChapterUploadFormData(
+  chapters: Array<{ file: File; title: string; parsedSlides: ParsedClassroomSlide[] }>,
+  fields: {
+    title: string;
+    description: string;
+    published: boolean;
+    config: unknown;
+  },
+) {
+  const form = new FormData();
+  form.set("title", fields.title);
+  form.set("description", fields.description);
+  form.set("published", fields.published ? "true" : "false");
+  form.set("config", JSON.stringify(fields.config));
+  form.set("sourceFileName", chapters[0]?.file.name || "classroom.pptx");
+  form.set(
+    "chapters",
+    JSON.stringify(chapters.map((chapter) => ({ title: chapter.title }))),
+  );
+
+  chapters.forEach((chapter, chapterIndex) => {
+    const slidesKey = chapterIndex === 0 ? "slides" : `slides-${chapterIndex}`;
+    form.set(
+      slidesKey,
+      JSON.stringify(
+        chapter.parsedSlides.map((slide) => ({
+          index: slide.index,
+          title: slide.title,
+          bodyText: slide.bodyText,
+          speakerNotes: slide.speakerNotes,
+          bullets: slide.bullets,
+          hasImage: Boolean(slide.image),
+          imageCount: slide.images.length,
+        })),
+      ),
+    );
+
+    for (const slide of chapter.parsedSlides) {
+      const prefix =
+        chapterIndex === 0
+          ? `slide-image-${slide.index}`
+          : `chapter-${chapterIndex}-slide-image-${slide.index}`;
+      slide.images.forEach((image, imageIndex) => {
+        form.set(
+          `${prefix}-${imageIndex}`,
+          new Blob([new Uint8Array(image.bytes)], { type: image.mimeType }),
+          `chapter-${chapterIndex}-slide-${slide.index}-${imageIndex}.jpg`,
+        );
+      });
+    }
+  });
+
+  return form;
+}

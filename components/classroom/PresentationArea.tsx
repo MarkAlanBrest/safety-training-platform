@@ -11,7 +11,6 @@ import {
 import type { ClassroomPlan, PresentationView } from "@/lib/classroom";
 import { structureClassroomSlide } from "@/lib/classroom-slide-content";
 import { slideImageSrc } from "@/lib/classroom";
-import SlideCanvas from "@/components/classroom/SlideCanvas";
 import SlideImageStage from "@/components/classroom/SlideImageStage";
 
 export default function PresentationArea({
@@ -61,11 +60,7 @@ export default function PresentationArea({
       structuredSlide.imageDataUrl ||
       ""
     : "";
-  const hasSlideImage = Boolean(slideImage);
-  const preferSlideImage =
-    hasSlideImage ||
-    structuredSlide?.layout === "blueprint" ||
-    Boolean(structuredSlide?.imageUrl || structuredSlide?.imageDataUrl);
+  const showSlideImage = safeView.type === "slide" && Boolean(slideImage) && structuredSlide;
   const isCheckpoint =
     safeView.type === "question" ||
     safeView.type === "exercise" ||
@@ -162,52 +157,13 @@ export default function PresentationArea({
               </h2>
               <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-200">{safeView.body}</p>
             </div>
-          ) : preferSlideImage && structuredSlide ? (
-            <div className="flex h-full min-h-0 w-full flex-col lg:flex-row">
-              <div className={`min-h-0 min-w-0 ${isCheckpoint ? "flex-1" : "h-full w-full"}`}>
-                <SlideImageStage
-                  imageUrl={slideImage}
-                  title={structuredSlide.title}
-                  focus={safeView.type === "slide" ? safeView.focus : undefined}
-                  hotspots={structuredSlide.hotspots}
-                />
-              </div>
-              {isCheckpoint ? (
-                <div className="flex max-h-[42%] w-full shrink-0 flex-col justify-center overflow-y-auto border-t border-slate-200 bg-[#07111f] px-5 py-4 text-white lg:max-h-none lg:max-w-sm lg:shrink-0 lg:border-l lg:border-t-0 lg:py-6">
-                  <p className="text-xs font-bold uppercase tracking-[.16em] text-amber-300">
-                    {safeView.type === "assessment"
-                      ? "Final assessment"
-                      : "Interactive checkpoint"}
-                  </p>
-                  <p className="mt-2 text-lg font-semibold leading-8 text-white">
-                    {safeView.prompt}
-                  </p>
-                  {safeView.type === "assessment" &&
-                  safeView.questionCount &&
-                  typeof safeView.questionIndex === "number" ? (
-                    <p className="mt-1 text-sm text-slate-400">
-                      Question {safeView.questionIndex + 1} of {safeView.questionCount}
-                    </p>
-                  ) : null}
-                  {safeView.choices?.length ? (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {safeView.choices.map((choice) => (
-                        <button
-                          key={choice}
-                          type="button"
-                          onClick={() => onSelectChoice?.(choice)}
-                          className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-400 hover:text-slate-950"
-                        >
-                          {choice}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          ) : safeView.type === "slide" && structuredSlide ? (
-            <SlideCanvas slide={structuredSlide} courseTitle={plan.title} />
+          ) : showSlideImage ? (
+            <SlideImageStage
+              imageUrl={slideImage}
+              title={structuredSlide.title}
+              focus={safeView.focus}
+              hotspots={structuredSlide.hotspots}
+            />
           ) : isCheckpoint ? (
             <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-amber-50 via-white to-slate-50 px-8 py-10">
               <div className="max-w-2xl text-center">
