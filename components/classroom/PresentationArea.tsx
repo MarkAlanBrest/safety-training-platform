@@ -79,7 +79,7 @@ export default function PresentationArea({
 
   const eyebrow =
     safeView.type === "question"
-      ? "Your instructor is asking"
+      ? null
       : safeView.type === "exercise"
         ? "Try this"
         : safeView.type === "assessment"
