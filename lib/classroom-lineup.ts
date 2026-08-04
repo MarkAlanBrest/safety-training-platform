@@ -7,6 +7,18 @@ import type {
 } from "@/lib/classroom-lesson";
 import { classroomChapterSlideAssetPath } from "@/lib/classroom-chapters";
 
+/** Visual transition used when a slide enters the stage. */
+export type SlideTransition = "none" | "fade" | "slide-left" | "slide-up" | "zoom" | "flip";
+
+export const SLIDE_TRANSITIONS: Array<{ id: SlideTransition; label: string }> = [
+  { id: "fade", label: "Fade" },
+  { id: "slide-left", label: "Slide from right" },
+  { id: "slide-up", label: "Slide up" },
+  { id: "zoom", label: "Zoom in" },
+  { id: "flip", label: "Flip" },
+  { id: "none", label: "None (instant)" },
+];
+
 /** A content slide: slide image + author-written teaching instructions for the AI. */
 export type LineupContentSlide = {
   kind: "content";
@@ -14,6 +26,8 @@ export type LineupContentSlide = {
   title: string;
   teachingContent: string;
   imageUrl?: string;
+  /** Transition used when this slide appears. */
+  transition?: SlideTransition;
   /** Populated after upload — index into plan.slides */
   slideIndex?: number;
 };
@@ -97,6 +111,7 @@ export function slidesFromLineup(
       title: item.title || `Slide ${contentIndex + 1}`,
       bodyText: "",
       speakerNotes: item.teachingContent,
+      transition: item.transition,
       imageUrl: item.imageUrl || `/api/classroom/${slug}/slides/${contentIndex}`,
     });
     contentIndex += 1;
@@ -160,7 +175,10 @@ function lastContentSlideIndex(lineup: LessonLineupItem[], beforeItem: LessonLin
   return lastIndex;
 }
 
-export function buildLessonBeatsFromLineup(lineup: LessonLineupItem[]): ClassroomLessonBeat[] {
+export function buildLessonBeatsFromLineup(
+  lineup: LessonLineupItem[],
+  options?: { hasAssessment?: boolean },
+): ClassroomLessonBeat[] {
   const beats: ClassroomLessonBeat[] = [{ kind: "welcome" }];
   let slideIndex = 0;
 
@@ -172,6 +190,10 @@ export function buildLessonBeatsFromLineup(lineup: LessonLineupItem[]): Classroo
     }
 
     beats.push({ kind: "checkpoint", checkpointId: item.id });
+  }
+
+  if (options?.hasAssessment) {
+    beats.push({ kind: "assessment" });
   }
 
   return beats;
@@ -228,7 +250,9 @@ export function buildClassroomPlanFromLineup(
     checkpoints,
     assessment: options?.assessment || [],
     config,
-    lessonBeats: buildLessonBeatsFromLineup(attachedLineup),
+    lessonBeats: buildLessonBeatsFromLineup(attachedLineup, {
+      hasAssessment: Boolean(options?.assessment?.length),
+    }),
   };
 
   return plan;

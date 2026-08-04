@@ -43,11 +43,14 @@ import {
   emptyContentSlide,
   emptyFormative,
   createLineupId,
+  SLIDE_TRANSITIONS,
   type LessonLineupItem,
   type LineupActivity,
   type LineupContentSlide,
   type LineupFormative,
+  type SlideTransition,
 } from "@/lib/classroom-lineup";
+import type { ClassroomAssessmentQuestion } from "@/lib/classroom-lesson";
 
 type SubmitMode = "draft" | "publish";
 
@@ -68,6 +71,7 @@ function isContentSlide(item: LineupDraftItem): item is ContentSlideDraft {
 export default function ContentSlideBuilderForm() {
   const [config, setConfig] = useState<ClassroomBuilderConfig>(defaultClassroomBuilderConfig());
   const [lineup, setLineup] = useState<LineupDraftItem[]>([emptyContentSlide("Slide 1")]);
+  const [assessment, setAssessment] = useState<ClassroomAssessmentQuestion[]>([]);
   const [sourcePptx, setSourcePptx] = useState<File | null>(null);
   const [slideImagesFromZip, setSlideImagesFromZip] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -290,6 +294,51 @@ export default function ContentSlideBuilderForm() {
     updateContentSlide(index, { imageFile: file, previewUrl });
   }
 
+  function addAssessmentQuestion() {
+    setAssessment((current) => [
+      ...current,
+      {
+        id: createLineupId("assessment"),
+        prompt: "",
+        choices: ["", "", "", ""],
+        correctChoice: "",
+      },
+    ]);
+  }
+
+  function updateAssessmentQuestion(
+    index: number,
+    patch: Partial<ClassroomAssessmentQuestion>,
+  ) {
+    setAssessment((current) =>
+      current.map((question, questionIndex) =>
+        questionIndex === index ? { ...question, ...patch } : question,
+      ),
+    );
+  }
+
+  function removeAssessmentQuestion(index: number) {
+    setAssessment((current) => current.filter((_, questionIndex) => questionIndex !== index));
+  }
+
+  function cleanedAssessment(): ClassroomAssessmentQuestion[] {
+    return assessment
+      .map((question) => ({
+        ...question,
+        prompt: question.prompt.trim(),
+        choices: question.choices.map((choice) => choice.trim()).filter(Boolean),
+        correctChoice: question.correctChoice.trim(),
+      }))
+      .filter((question) => question.prompt && question.choices.length >= 2)
+      .map((question) => ({
+        ...question,
+        correctChoice:
+          question.correctChoice && question.choices.includes(question.correctChoice)
+            ? question.correctChoice
+            : question.choices[0],
+      }));
+  }
+
   async function onSubmit(event: FormEvent, mode: SubmitMode) {
     event.preventDefault();
     if (!canSubmit) {
@@ -308,6 +357,7 @@ export default function ContentSlideBuilderForm() {
             kind: "content",
             id: item.id,
             title: item.title,
+            transition: item.transition,
             teachingContent:
               item.teachingContent.trim() ||
               `Teach what's shown on "${item.title || "this slide"}".`,
@@ -345,6 +395,7 @@ export default function ContentSlideBuilderForm() {
         form.set("published", mode === "publish" ? "true" : "false");
         form.set("config", JSON.stringify(config));
         form.set("lineup", JSON.stringify(payloadLineup));
+        form.set("assessment", JSON.stringify(cleanedAssessment()));
 
         const response = await fetch("/api/classroom/import-pptx", {
           method: "POST",
@@ -374,6 +425,7 @@ export default function ContentSlideBuilderForm() {
           published: mode === "publish",
           config,
           lineup: payloadLineup,
+          assessment: cleanedAssessment(),
         }),
       });
 
@@ -665,6 +717,24 @@ export default function ContentSlideBuilderForm() {
                       onChange={(event) => updateContentSlide(index, { title: event.target.value })}
                       placeholder="Slide title (optional)"
                     />
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-bold text-[#263746]">Transition</span>
+                      <select
+                        value={item.transition || "fade"}
+                        onChange={(event) =>
+                          updateContentSlide(index, {
+                            transition: event.target.value as SlideTransition,
+                          })
+                        }
+                        className="w-full rounded-xl border border-[#10283f]/15 px-3 py-2 text-sm"
+                      >
+                        {SLIDE_TRANSITIONS.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
                   <BuilderField
                     label="What should the AI teach on this slide?"
@@ -807,7 +877,91 @@ export default function ContentSlideBuilderForm() {
         </div>
       </BuilderSection>
 
-      <BuilderSection number={3} title="AI instructor">
+      <BuilderSection number={3} title="Final assessment">
+        <div className="rounded-2xl border border-[#10283f]/10 bg-[#faf8f3] px-4 py-4 text-sm leading-6 text-[#69757e]">
+          <p>
+            Optional test at the end of class. The AI presents each question and the student
+            answers in chat. Leave empty to skip the final assessment.
+          </p>
+        </div>
+
+        {assessment.map((question, index) => (
+          <div
+            key={question.id}
+            className="rounded-2xl border border-[#10283f]/10 bg-white p-4 shadow-sm"
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-xs font-bold uppercase tracking-[.14em] text-[#a06e16]">
+                Question {index + 1}
+              </p>
+              <button
+                type="button"
+                onClick={() => removeAssessmentQuestion(index)}
+                className="rounded-lg border border-red-200 p-2 text-red-600"
+                aria-label="Remove question"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+            <BuilderField label="Question">
+              <BuilderTextarea
+                rows={2}
+                value={question.prompt}
+                onChange={(event) =>
+                  updateAssessmentQuestion(index, { prompt: event.target.value })
+                }
+                placeholder="What is the first step before operating this equipment?"
+              />
+            </BuilderField>
+            <div className="mt-3 space-y-2">
+              {question.choices.map((choice, choiceIndex) => (
+                <div key={choiceIndex} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`assessment-correct-${question.id}`}
+                    checked={Boolean(choice.trim()) && question.correctChoice === choice}
+                    onChange={() =>
+                      updateAssessmentQuestion(index, { correctChoice: choice })
+                    }
+                    disabled={!choice.trim()}
+                    title="Mark as correct answer"
+                  />
+                  <BuilderInput
+                    value={choice}
+                    onChange={(event) => {
+                      const choices = [...question.choices];
+                      const previous = choices[choiceIndex];
+                      choices[choiceIndex] = event.target.value;
+                      updateAssessmentQuestion(index, {
+                        choices,
+                        correctChoice:
+                          question.correctChoice === previous
+                            ? event.target.value
+                            : question.correctChoice,
+                      });
+                    }}
+                    placeholder={`Choice ${choiceIndex + 1}`}
+                  />
+                </div>
+              ))}
+              <p className="text-xs text-[#69757e]">
+                Select the radio button next to the correct answer.
+              </p>
+            </div>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={addAssessmentQuestion}
+          className="inline-flex items-center gap-2 rounded-full border border-[#10283f]/15 px-4 py-2 text-sm font-semibold text-[#10283f]"
+        >
+          <Plus size={14} />
+          Add assessment question
+        </button>
+      </BuilderSection>
+
+      <BuilderSection number={4} title="AI instructor">
         <div className="grid gap-4 md:grid-cols-2">
           <BuilderField label="Teaching style">
             <BuilderRadioGroup
