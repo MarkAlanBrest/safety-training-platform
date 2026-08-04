@@ -129,14 +129,14 @@ export async function POST(request: Request) {
         select: { id: true, title: true, slug: true, published: true },
       });
 
-      const assets = parsedSlides
-        .filter((slide) => slide.image)
-        .map((slide) => ({
+      const assets = parsedSlides.flatMap((slide) =>
+        slide.images.map((image, imageIndex) => ({
           courseId: created.id,
-          path: classroomSlideAssetPath(slide.index),
-          mimeType: slide.image!.mimeType,
-          content: Buffer.from(slide.image!.bytes),
-        }));
+          path: classroomSlideAssetPath(slide.index, imageIndex),
+          mimeType: image.mimeType,
+          content: Buffer.from(image.bytes),
+        })),
+      );
 
       if (assets.length) {
         await tx.scormAsset.createMany({ data: assets });

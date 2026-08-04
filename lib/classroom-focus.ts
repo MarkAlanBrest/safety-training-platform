@@ -24,7 +24,7 @@ export function focusFromHotspot(
   return {
     x: hotspot.x,
     y: hotspot.y,
-    scale: 1.65,
+    scale: 1.45,
     hotspotId: hotspot.id,
     label: hotspot.label,
   };
@@ -42,7 +42,7 @@ export function normalizeFocus(
     return {
       x: Math.min(100, Math.max(0, focus.x)),
       y: Math.min(100, Math.max(0, focus.y)),
-      scale: focus.scale ? Math.min(2.5, Math.max(1, focus.scale)) : 1.5,
+      scale: focus.scale ? Math.min(1.55, Math.max(1, focus.scale)) : 1.35,
       hotspotId: focus.hotspotId,
       label: focus.label,
     };
