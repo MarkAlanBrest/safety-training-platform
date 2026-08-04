@@ -10,6 +10,7 @@ import {
   beatIndexForSlide,
   buildLessonBeats,
 } from "@/lib/classroom-lesson";
+import { speechChunks } from "@/lib/classroom-teacher";
 import PresentationArea from "@/components/classroom/PresentationArea";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
 
@@ -196,6 +197,13 @@ export default function ClassroomShell({
     await speakQueueRef.current;
   }
 
+  function speakNatural(text: string) {
+    const chunks = speechChunks(text);
+    for (const chunk of chunks) {
+      void speak(chunk);
+    }
+  }
+
   function applyTeacherPresentation(view: PresentationView) {
     setPresentation(view);
     if (view.type === "slide") {
@@ -256,6 +264,7 @@ export default function ClassroomShell({
 
       if (requestId !== turnRequestIdRef.current) return;
 
+      setThinking(false);
       setMessages([...nextMessages, { role: "assistant", content: reply }]);
       if (data.presentation) {
         applyTeacherPresentation(data.presentation);
@@ -263,7 +272,7 @@ export default function ClassroomShell({
       if (data.quickReplies?.length) {
         setQuickReplies(data.quickReplies);
       }
-      void speak(reply);
+      speakNatural(reply);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       const message =

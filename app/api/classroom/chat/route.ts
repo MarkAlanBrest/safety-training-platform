@@ -13,6 +13,10 @@ import {
 } from "@/lib/classroom-builder";
 import { lessonBeatSummary } from "@/lib/classroom-lesson";
 import { hotspotsSummary, normalizeFocus } from "@/lib/classroom-focus";
+import {
+  resolveSlideImageDataUrl,
+  sanitizeTeacherSlidePresentation,
+} from "@/lib/classroom-teacher";
 import { extractResponseOutputText } from "@/lib/parse-response";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -327,6 +331,8 @@ export async function POST(request: Request) {
     }
 
     const assessmentCount = plan.assessment?.length || 0;
+    const requestOrigin = new URL(request.url).origin;
+    const slideImageDataUrl = await resolveSlideImageDataUrl(slide, requestOrigin);
     const source = [
       `Course: ${plan.title}`,
       `Opening: ${plan.opening}`,
@@ -341,6 +347,12 @@ export async function POST(request: Request) {
         ? `INSTRUCTOR SCRIPT (speaker notes — follow this closely to guide your teaching, examples, and questions):\n${slide.speakerNotes}`
         : "INSTRUCTOR SCRIPT: No speaker notes on this slide. Teach from the slide content conversationally.",
       `Hotspots on this slide:\n${hotspotsSummary(slide.hotspots)}`,
+      slide.hotspots?.length
+        ? "When pointing at the slide, set presentation.hotspotId to one of the hotspot ids above. The system will zoom to that feature."
+        : "This slide has no hotspot catalog — leave focusX, focusY, focusScale, hotspotId, and focusLabel null.",
+      slideImageDataUrl
+        ? "A slide image is attached below. Use it to understand what is in the picture before choosing hotspotId."
+        : "No slide image is available for vision on this beat.",
       `Current presentation mode on screen: ${presentation?.type || "welcome"}`,
       `Instructor preferences:\n${classroomInstructorPrompt(builderConfig)}`,
       lessonBeatSummary(plan),
@@ -358,9 +370,11 @@ export async function POST(request: Request) {
           "You are the classroom instructor. YOU control the screen and pacing — the student does not click through slides.",
           "Teach conversationally in your own words. Never read on-screen bullet points verbatim.",
           "Use speaker notes as your private script for emphasis, examples, and questions.",
-          "Signal importance in your reply: say things like pay attention to this part, this might be on the test, or give a real job-site example when it helps.",
+          "Signal importance in your reply: pay attention to this part, this might be on the test, or a real job-site example when it helps.",
           "While teaching, keep presentation.type slide and set presentation.slideIndex to the slide you are teaching.",
-          "Point on the slide with focusX, focusY, focusScale (1.2–2.2 zoom), hotspotId, or focusLabel when you say look here or pay attention to this part.",
+          "To point at the slide: ONLY set presentation.hotspotId to an id from the Hotspots catalog when you say look here or pay attention. Never invent focusX or focusY.",
+          "Leave focusX, focusY, focusScale, hotspotId, and focusLabel null unless you are deliberately highlighting a cataloged hotspot.",
+          "Use focusScale around 1.4 only when hotspotId is set and you want emphasis.",
           "Ask formative questions in your reply, then use presentation.type question or exercise with choices when you want a structured check.",
           "Use presentation.type flashcard or dragdrop when a practice activity is the right next move.",
           "Use presentation.type assessment only for the final test. Set questionIndex and questionCount when advancing through final questions.",
@@ -369,7 +383,7 @@ export async function POST(request: Request) {
           "If the student completes a practice activity, decide whether to continue teaching, practice more, or move forward.",
           "Cover all objectives before the final assessment.",
           "quickReplies are short learner responses to YOUR question — never navigation like continue or next slide.",
-          "Keep replies concise (2–4 sentences) unless the student asks for more.",
+          "Keep replies concise (2–3 sentences) unless the student asks for more.",
           "Return JSON only.",
         ].join(" "),
         text: {
@@ -381,6 +395,23 @@ export async function POST(request: Request) {
         },
         input: [
           { role: "developer", content: source },
+          ...(slideImageDataUrl
+            ? [
+                {
+                  role: "user",
+                  content: [
+                    {
+                      type: "input_text",
+                      text: "This is the slide image the learner currently sees. Use it to understand visual content. Only point using hotspotId values from the catalog in the lesson context.",
+                    },
+                    {
+                      type: "input_image",
+                      image_url: slideImageDataUrl,
+                    },
+                  ],
+                },
+              ]
+            : []),
           ...messages.map((message) => ({
             role: message.role,
             content: message.content,
@@ -408,11 +439,14 @@ export async function POST(request: Request) {
     const reply =
       parsed.reply?.trim() ||
       "Let's keep going — tell me what you're thinking so far.";
-    const presentationView = normalizePresentation(
-      parsed.presentation,
-      plan,
-      slide.index,
-      slide.hotspots,
+    const presentationView = sanitizeTeacherSlidePresentation(
+      normalizePresentation(
+        parsed.presentation,
+        plan,
+        slide.index,
+        slide.hotspots,
+      ),
+      slide,
     );
 
     return Response.json({
