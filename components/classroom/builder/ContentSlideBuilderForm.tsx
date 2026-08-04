@@ -29,6 +29,7 @@ import {
 } from "@/components/classroom/builder/BuilderSection";
 import { parseJsonResponse } from "@/lib/parse-response";
 import { extractImagesFromZip } from "@/lib/ppt-slide-images";
+import { prepareContentSlidesFromPptx } from "@/lib/ppt-ingest-client";
 import {
   completeClassroomAssetUpload,
   uploadClassroomAsset,
@@ -38,6 +39,7 @@ import {
   emptyActivity,
   emptyContentSlide,
   emptyFormative,
+  createLineupId,
   type LessonLineupItem,
   type LineupActivity,
   type LineupContentSlide,
@@ -65,6 +67,7 @@ export default function ContentSlideBuilderForm() {
   const [lineup, setLineup] = useState<LineupDraftItem[]>([emptyContentSlide("Slide 1")]);
   const [submitting, setSubmitting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState("");
   const [uploadProgress, setUploadProgress] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<{
@@ -82,7 +85,7 @@ export default function ContentSlideBuilderForm() {
     if (!contentSlideCount) return false;
     return lineup.every((item) => {
       if (!isContentSlide(item)) return true;
-      return Boolean(item.imageFile) && item.teachingContent.trim().length > 0;
+      return Boolean(item.imageFile);
     });
   }, [config.knowledge.courseName, contentSlideCount, lineup]);
 
@@ -128,9 +131,48 @@ export default function ContentSlideBuilderForm() {
     );
   }
 
+  async function handlePptxImport(file: File | null) {
+    if (!file) return;
+    setImporting(true);
+    setImportProgress("Reading PowerPoint…");
+    setError("");
+    try {
+      const imported = await prepareContentSlidesFromPptx(file, setImportProgress);
+      const contentSlides: ContentSlideDraft[] = imported.map((slide) => ({
+        kind: "content",
+        id: createLineupId("content"),
+        title: slide.title,
+        teachingContent: slide.teachingContent,
+        imageFile: slide.imageFile,
+        previewUrl: slide.previewUrl,
+      }));
+
+      updateLineup((current) => {
+        const preserved = current.filter((item) => item.kind !== "content");
+        return [...contentSlides, ...preserved];
+      });
+
+      if (!config.knowledge.courseName.trim()) {
+        const courseName = file.name.replace(/\.pptx$/i, "").replace(/[-_]+/g, " ").trim();
+        setConfig((current) => ({
+          ...current,
+          knowledge: { ...current.knowledge, courseName },
+        }));
+      }
+    } catch (importError) {
+      setError(
+        importError instanceof Error ? importError.message : "Could not import this PowerPoint.",
+      );
+    } finally {
+      setImporting(false);
+      setImportProgress("");
+    }
+  }
+
   async function handleBulkZipImport(file: File | null) {
     if (!file) return;
     setImporting(true);
+    setImportProgress("Importing slide images…");
     setError("");
     try {
       const images = extractImagesFromZip(new Uint8Array(await file.arrayBuffer()));
@@ -148,6 +190,7 @@ export default function ContentSlideBuilderForm() {
       setError(importError instanceof Error ? importError.message : "Could not import slide images.");
     } finally {
       setImporting(false);
+      setImportProgress("");
     }
   }
 
@@ -160,7 +203,7 @@ export default function ContentSlideBuilderForm() {
   async function onSubmit(event: FormEvent, mode: SubmitMode) {
     event.preventDefault();
     if (!canSubmit) {
-      setError("Add slide images and teaching notes for every content slide before continuing.");
+      setError("Add a slide image for every content slide before continuing.");
       return;
     }
 
@@ -175,7 +218,9 @@ export default function ContentSlideBuilderForm() {
             kind: "content",
             id: item.id,
             title: item.title,
-            teachingContent: item.teachingContent.trim(),
+            teachingContent:
+              item.teachingContent.trim() ||
+              `Teach what's shown on "${item.title || "this slide"}".`,
           };
         }
         if (item.kind === "formative") {
@@ -323,7 +368,33 @@ export default function ContentSlideBuilderForm() {
         </div>
 
         <BuilderField
-          label="Import slide images from ZIP"
+          label="Import from PowerPoint (.pptx)"
+          hint="Upload your deck and we'll convert each slide to a picture and pull speaker notes into the teaching field. You can edit everything before publishing."
+        >
+          <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-white px-5 py-5 text-center">
+            <UploadCloud className="mx-auto text-[#a06e16]" size={24} />
+            <input
+              type="file"
+              accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              disabled={importing}
+              onChange={(event) => void handlePptxImport(event.target.files?.[0] || null)}
+              className="mt-3 block w-full text-sm text-[#69757e]"
+            />
+            {importing && importProgress ? (
+              <p className="mt-2 inline-flex items-center justify-center gap-2 text-sm text-[#69757e]">
+                <LoaderCircle className="animate-spin" size={14} />
+                {importProgress}
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-[#69757e]">
+                Speaker notes become your AI teaching script. Slides without notes use on-slide text.
+              </p>
+            )}
+          </div>
+        </BuilderField>
+
+        <BuilderField
+          label="Or import slide images from ZIP"
           hint="Export slides from PowerPoint as PNG or JPEG, ZIP them, and import in order. You can still edit teaching notes after import."
         >
           <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-white px-5 py-5 text-center">
@@ -335,12 +406,16 @@ export default function ContentSlideBuilderForm() {
               onChange={(event) => void handleBulkZipImport(event.target.files?.[0] || null)}
               className="mt-3 block w-full text-sm text-[#69757e]"
             />
-            {importing ? (
+            {importing && importProgress ? (
               <p className="mt-2 inline-flex items-center justify-center gap-2 text-sm text-[#69757e]">
                 <LoaderCircle className="animate-spin" size={14} />
-                Importing slide images…
+                {importProgress}
               </p>
-            ) : null}
+            ) : (
+              <p className="mt-2 text-xs text-[#69757e]">
+                PNG, JPEG, and WebP slide images are supported.
+              </p>
+            )}
           </div>
         </BuilderField>
 

@@ -64,13 +64,6 @@ export async function POST(request: Request) {
       );
     }
 
-    if (contentSlides.some((slide) => !slide.teachingContent.trim())) {
-      return Response.json(
-        { error: "Every content slide needs teaching notes for the AI instructor." },
-        { status: 400 },
-      );
-    }
-
     let slug = slugify(title);
     const existing = await prisma.masonCourse.findUnique({ where: { slug } });
     if (existing) slug = `${slug}-${Date.now().toString(36)}`;

@@ -10,9 +10,9 @@ export default function NewClassroomPage() {
             Content slide builder
           </p>
           <p className="mt-2 max-w-3xl text-sm leading-7 text-white/80">
-            Upload slide images and write what the AI should teach next to each one. Zoomed views
-            and circled details belong on separate slides in your deck. Insert formative checks and
-            activities anywhere in the lesson lineup.
+            Upload a PowerPoint to auto-convert slides to pictures and pull speaker notes into each
+            content slide — or add images manually. Insert formative checks and activities anywhere
+            in the lesson lineup.
           </p>
         </div>
         <ContentSlideBuilderForm />
