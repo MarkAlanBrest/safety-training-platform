@@ -41,6 +41,8 @@ export type ClassroomChapter = {
   title: string;
   slideStart: number;
   slideEnd: number;
+  /** API URL to the original .pptx for live slide rendering */
+  deckUrl?: string;
 };
 
 export type ClassroomTopic = {
@@ -380,6 +382,45 @@ function slideAssetUrl(
       : `/api/classroom/${slug}/slides/${slideIndex}`;
   }
   return `/api/classroom/${slug}/chapters/${chapterPosition}/slides/${slideIndex}`;
+}
+
+function parseClassroomDeckPath(assetPath: string) {
+  const chapter = assetPath.match(/^classroom\/chapters\/(\d+)\/deck\.pptx$/i);
+  if (chapter) return { chapterPosition: Number(chapter[1]) };
+  if (/^classroom\/deck\.pptx$/i.test(assetPath)) return { chapterPosition: 1 };
+  return null;
+}
+
+export function classroomDeckUrl(slug: string, chapterPosition = 1) {
+  return chapterPosition <= 1
+    ? `/api/classroom/${slug}/deck`
+    : `/api/classroom/${slug}/chapters/${chapterPosition}/deck`;
+}
+
+export function slideDeckContext(plan: ClassroomPlan, globalSlideIndex: number) {
+  const chapters =
+    plan.chapters?.length && plan.chapters.length > 0
+      ? plan.chapters
+      : [
+          {
+            id: "chapter-1",
+            title: plan.title,
+            slideStart: 0,
+            slideEnd: Math.max(0, plan.slides.length - 1),
+            deckUrl: undefined,
+          },
+        ];
+
+  const chapter = chapters.find(
+    (item) =>
+      globalSlideIndex >= item.slideStart && globalSlideIndex <= item.slideEnd,
+  );
+  if (!chapter?.deckUrl) return null;
+
+  return {
+    deckUrl: chapter.deckUrl,
+    localSlideIndex: globalSlideIndex - chapter.slideStart,
+  };
 }
 
 function parseClassroomAssetPath(assetPath: string) {

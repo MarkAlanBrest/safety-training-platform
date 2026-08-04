@@ -3,11 +3,12 @@ import ClassroomShell from "@/components/classroom/ClassroomShell";
 import { prisma } from "@/lib/prisma";
 import {
   classroomCourseForSlug,
+  classroomDeckUrl,
   hydrateClassroomPlan,
   isClassroomPlan,
   type PublicClassroomCourse,
 } from "@/lib/classroom";
-import { classroomPlanFromSections } from "@/lib/classroom-chapters";
+import { classroomChapterDeckAssetPath, classroomPlanFromSections } from "@/lib/classroom-chapters";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,9 @@ export default async function ClassroomPage({
         title: section.title,
         position: section.position,
         plan: hydrated,
+        deckUrl: assetPaths.includes(classroomChapterDeckAssetPath(section.position))
+          ? classroomDeckUrl(slug, section.position)
+          : undefined,
       },
     ];
   });

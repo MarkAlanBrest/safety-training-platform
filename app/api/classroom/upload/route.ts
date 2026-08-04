@@ -10,7 +10,7 @@ import {
   defaultClassroomBuilderConfig,
   estimateClassroomCourse,
 } from "@/lib/classroom-builder";
-import { classroomChapterSlideAssetPath } from "@/lib/classroom-chapters";
+import { classroomChapterDeckAssetPath, classroomChapterSlideAssetPath } from "@/lib/classroom-chapters";
 import { renderSlideAsset } from "@/lib/ppt-slide-render";
 import {
   parsePptx,
@@ -60,11 +60,22 @@ export async function POST(request: Request) {
 
     let chapters: Array<{ title: string; slides: Awaited<ReturnType<typeof parsePptx>> }>;
     let fileName = sourceFileName;
+    const deckFiles: Array<{ chapterPosition: number; bytes: Uint8Array }> = [];
 
     if (hasPreparedSlides) {
       chapters = await parsedChaptersFromUploadFormAsync(form);
       if (!chapters.length || !chapters[0].slides.length) {
         return Response.json({ error: "No slides were found in this upload." }, { status: 400 });
+      }
+      for (let chapterIndex = 0; chapterIndex < chapters.length; chapterIndex += 1) {
+        const key = chapterIndex === 0 ? "pptx" : `chapter-${chapterIndex}-pptx`;
+        const deckFile = form.get(key);
+        if (deckFile instanceof File && deckFile.size > 0) {
+          deckFiles.push({
+            chapterPosition: chapterIndex + 1,
+            bytes: new Uint8Array(await deckFile.arrayBuffer()),
+          });
+        }
       }
     } else {
       if (!(file instanceof File)) {
@@ -88,6 +99,7 @@ export async function POST(request: Request) {
       fileName = file.name;
       const buffer = new Uint8Array(await file.arrayBuffer());
       chapters = [{ title: title, slides: parsePptx(buffer) }];
+      deckFiles.push({ chapterPosition: 1, bytes: buffer });
     }
 
     let slug = slugify(title);
@@ -169,6 +181,16 @@ export async function POST(request: Request) {
             content: Buffer.from(rendered.bytes),
           });
         }
+      }
+
+      for (const deck of deckFiles) {
+        assets.push({
+          courseId: created.id,
+          path: classroomChapterDeckAssetPath(deck.chapterPosition),
+          mimeType:
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          content: Buffer.from(deck.bytes),
+        });
       }
 
       if (assets.length) {

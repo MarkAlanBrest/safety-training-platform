@@ -9,8 +9,10 @@ import {
   Presentation,
 } from "lucide-react";
 import type { ClassroomPlan, PresentationView } from "@/lib/classroom";
+import { slideDeckContext } from "@/lib/classroom";
 import ClassroomDragOrder from "@/components/classroom/ClassroomDragOrder";
 import ClassroomFlashcards from "@/components/classroom/ClassroomFlashcards";
+import PptxSlideViewer from "@/components/classroom/PptxSlideViewer";
 import SlideImageStage from "@/components/classroom/SlideImageStage";
 
 export default function PresentationArea({
@@ -50,6 +52,7 @@ export default function PresentationArea({
     safeView.type === "slide" ? safeView.slideIndex : activeSlideIndex;
   const slide = plan.slides[displaySlideIndex] || plan.slides[0];
   const slideImage = slide?.imageUrl || slide?.imageDataUrl || "";
+  const deckContext = slideDeckContext(plan, displaySlideIndex);
   const isCheckpoint =
     safeView.type === "question" ||
     safeView.type === "exercise" ||
@@ -155,6 +158,13 @@ export default function PresentationArea({
               </h2>
               <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-200">{safeView.body}</p>
             </div>
+          ) : safeView.type === "slide" && deckContext ? (
+            <PptxSlideViewer
+              deckUrl={deckContext.deckUrl}
+              slideIndex={deckContext.localSlideIndex}
+              title={slide?.title || plan.title}
+              fallbackImageUrl={slideImage || undefined}
+            />
           ) : safeView.type === "slide" && slideImage ? (
             <SlideImageStage
               imageUrl={slideImage}

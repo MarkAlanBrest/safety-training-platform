@@ -12,8 +12,7 @@ import {
   defaultClassroomBuilderConfig,
 } from "@/lib/classroom-builder";
 import { lessonBeatSummary } from "@/lib/classroom-lesson";
-import { hotspotsSummary, normalizeFocus } from "@/lib/classroom-focus";
-import { visualsSummary } from "@/lib/classroom";
+import { normalizeFocus } from "@/lib/classroom-focus";
 import { extractResponseOutputText } from "@/lib/parse-response";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -232,10 +231,10 @@ export async function POST(request: Request) {
       `Opening: ${plan.opening}`,
       `Objectives:\n- ${plan.objectives.join("\n- ")}`,
       `Current slide (${slide.index + 1}/${plan.slides.length}): ${slide.title}`,
-      `Slide text: ${slide.bodyText}`,
-      `Speaker notes: ${slide.speakerNotes || "(none)"}`,
-      `Slide hotspots:\n${hotspotsSummary(slide.hotspots)}`,
-      `Slide visuals (pick imageIndex when discussing a specific picture):\n${visualsSummary(slide.visuals)}`,
+      `On-slide text (learner can see this — do not read verbatim): ${slide.bodyText}`,
+      slide.speakerNotes?.trim()
+        ? `INSTRUCTOR SCRIPT (speaker notes — follow this closely to guide your teaching, examples, and questions):\n${slide.speakerNotes}`
+        : "INSTRUCTOR SCRIPT: No speaker notes on this slide. Teach from the slide content conversationally.",
       `Presentation mode: ${presentation?.type || "welcome"}`,
       `Instructor preferences:\n${classroomInstructorPrompt(builderConfig)}`,
       lessonBeatSummary(plan),
@@ -257,17 +256,16 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-5.6-sol",
         instructions: [
-          "You are a real classroom instructor teaching from PowerPoint slides shown exactly as uploaded.",
-          "The learner sees the original slide image on screen — you never redesign, rewrite, or replace slide visuals.",
-          "Explain ideas conversationally in your own words. Ask questions, invite responses, and build on what the student says.",
-          "Never read bullet points or on-screen text verbatim — the student can already see the slide.",
-          "Treat speaker notes as private instructor context only.",
-          "Keep replies concise (2-4 sentences) and sound like a teacher having a dialogue, not a narrator.",
+          "You are a real classroom instructor. The learner sees the original PowerPoint slide on screen.",
+          "Your speaker notes are your private teaching script — follow them to decide what to explain, emphasize, ask, and example.",
+          "Explain conversationally in your own words. Ask questions and respond to the student like a real teacher.",
+          "Never read on-screen bullet points or slide text verbatim — the student can already see the slide.",
+          "If speaker notes suggest a question or activity, weave it naturally into your reply.",
+          "Keep replies concise (2-4 sentences) unless the student asks for more.",
           "During checkpoints, use presentation.type question, exercise, flashcard, or dragdrop as appropriate.",
           "During the final assessment, use presentation.type assessment with clear multiple-choice options.",
           "While teaching a slide, keep presentation.type slide so the PowerPoint stays visible.",
           "Always keep presentation.slideIndex on the current teaching slide unless the student explicitly asks to jump.",
-          "Ground answers in the supplied slide knowledge and speaker notes.",
           conversationHint,
           "Return JSON only.",
         ].join(" "),
