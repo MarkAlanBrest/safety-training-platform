@@ -104,23 +104,36 @@ export async function preparePptxForUpload(
   const prepared: ParsedClassroomSlide[] = [];
   for (let index = 0; index < parsed.length; index += 1) {
     const slide = parsed[index];
-    const images = await Promise.all(
-      slide.images.map((image) => compressSlideImage(image, maxBytes)),
-    );
+    const renderedSlide = renderedSlides[index] || null;
+    const images = renderedSlide
+      ? []
+      : await Promise.all(slide.images.map((image) => compressSlideImage(image, maxBytes)));
     prepared.push({
       ...slide,
       images,
       image: images[0] || null,
-      renderedSlide: renderedSlides[index] || null,
+      renderedSlide,
     });
   }
 
-  const totalImageBytes = prepared.reduce(
-    (sum, slide) =>
-      sum + slide.images.reduce((imageSum, image) => imageSum + image.bytes.byteLength, 0),
-    0,
-  );
-  if (totalImageBytes > TOTAL_UPLOAD_IMAGE_BUDGET_BYTES) {
+  const totalImageBytes = prepared.reduce((sum, slide) => {
+    const renderBytes = slide.renderedSlide?.bytes.byteLength || 0;
+    const embeddedBytes = slide.images.reduce(
+      (imageSum, image) => imageSum + image.bytes.byteLength,
+      0,
+    );
+    return sum + renderBytes + embeddedBytes;
+  }, 0);
+  const totalRenderBudget = 22 * 1024 * 1024;
+  if (totalImageBytes > totalRenderBudget) {
+    throw new Error(
+      "This deck is too large to upload at once after rendering slides. Try splitting it into smaller chapters or reducing slide count.",
+    );
+  }
+  if (
+    !renderedSlides.some(Boolean) &&
+    totalImageBytes > TOTAL_UPLOAD_IMAGE_BUDGET_BYTES
+  ) {
     throw new Error(
       "This deck has too many image-heavy slides to upload at once. Try splitting it into smaller presentations or compressing images in PowerPoint.",
     );
@@ -128,6 +141,12 @@ export async function preparePptxForUpload(
 
   onProgress?.("Ready to upload", 100);
   return prepared;
+}
+
+function renderFileExtension(mimeType: string) {
+  if (mimeType === "image/png") return "png";
+  if (mimeType === "image/webp") return "webp";
+  return "jpg";
 }
 
 export function buildClassroomUploadFormData(
@@ -164,13 +183,15 @@ export function buildClassroomUploadFormData(
 
   for (const slide of parsedSlides) {
     if (slide.renderedSlide) {
+      const ext = renderFileExtension(slide.renderedSlide.mimeType);
       form.set(
         `slide-render-${slide.index}`,
         new Blob([new Uint8Array(slide.renderedSlide.bytes)], {
           type: slide.renderedSlide.mimeType,
         }),
-        `slide-${slide.index}-render.jpg`,
+        `slide-${slide.index}-render.${ext}`,
       );
+      continue;
     }
     slide.images.forEach((image, imageIndex) => {
       form.set(
@@ -228,13 +249,15 @@ export function buildMultiChapterUploadFormData(
           ? `slide-render-${slide.index}`
           : `chapter-${chapterIndex}-slide-render-${slide.index}`;
       if (slide.renderedSlide) {
+        const ext = renderFileExtension(slide.renderedSlide.mimeType);
         form.set(
           renderPrefix,
           new Blob([new Uint8Array(slide.renderedSlide.bytes)], {
             type: slide.renderedSlide.mimeType,
           }),
-          `chapter-${chapterIndex}-slide-${slide.index}-render.jpg`,
+          `chapter-${chapterIndex}-slide-${slide.index}-render.${ext}`,
         );
+        continue;
       }
       const prefix =
         chapterIndex === 0

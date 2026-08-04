@@ -22,7 +22,9 @@ export default function SlideImageStage({
           src={imageUrl}
           alt={title}
           className="max-h-full max-w-full object-contain"
+          style={{ imageRendering: "auto" }}
           draggable={false}
+          decoding="async"
         />
 
         <div className="pointer-events-none absolute inset-0">

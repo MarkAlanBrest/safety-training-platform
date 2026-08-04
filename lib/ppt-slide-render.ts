@@ -1,8 +1,8 @@
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import type { ParsedClassroomSlide } from "@/lib/ppt-ingest-core";
 
-const SLIDE_WIDTH = 960;
-const SLIDE_HEIGHT = 540;
+const SLIDE_WIDTH = 1920;
+const SLIDE_HEIGHT = 1080;
 
 function wrapText(
   context: ReturnType<ReturnType<typeof createCanvas>["getContext"]>,
@@ -52,11 +52,6 @@ export async function renderSlideAsset(
     };
   }
 
-  const primary = slide.image;
-  if (primary?.bytes.byteLength) {
-    return { bytes: primary.bytes, mimeType: primary.mimeType };
-  }
-
   const canvas = createCanvas(SLIDE_WIDTH, SLIDE_HEIGHT);
   const context = canvas.getContext("2d");
   context.fillStyle = "#ffffff";
@@ -74,8 +69,8 @@ export async function renderSlideAsset(
         context.drawImage(bitmap, x, y, width, height);
       });
       return {
-        bytes: new Uint8Array(canvas.toBuffer("image/jpeg", 90)),
-        mimeType: "image/jpeg",
+        bytes: new Uint8Array(canvas.toBuffer("image/png")),
+        mimeType: "image/png",
       };
     } catch {
       // Fall through to text-only placeholder.
@@ -105,7 +100,7 @@ export async function renderSlideAsset(
   }
 
   return {
-    bytes: new Uint8Array(canvas.toBuffer("image/jpeg", 90)),
-    mimeType: "image/jpeg",
+    bytes: new Uint8Array(canvas.toBuffer("image/png")),
+    mimeType: "image/png",
   };
 }
