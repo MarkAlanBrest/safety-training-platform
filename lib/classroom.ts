@@ -1,5 +1,6 @@
 import type { ClassroomBuilderConfig } from "@/lib/classroom-builder";
 import type { ClassroomSlideHotspot, ClassroomSlideFocus } from "@/lib/classroom-focus";
+import type { LessonLineupItem } from "@/lib/classroom-lineup";
 import type {
   ClassroomAssessmentQuestion,
   ClassroomCheckpoint,
@@ -10,6 +11,8 @@ import {
   buildFallbackCheckpoints,
   buildLessonBeats,
 } from "@/lib/classroom-lesson";
+
+export type { LessonLineupItem, LineupContentSlide, LineupFormative, LineupActivity } from "@/lib/classroom-lineup";
 
 export type ClassroomSlideVisual = {
   label: string;
@@ -60,6 +63,8 @@ export type ClassroomPlan = {
   topics: ClassroomTopic[];
   chapters?: ClassroomChapter[];
   slides: ClassroomSlide[];
+  /** Author-defined lesson order: content slides, formative checks, and activities. */
+  lineup?: LessonLineupItem[];
   checkpoints?: ClassroomCheckpoint[];
   assessment?: ClassroomAssessmentQuestion[];
   lessonBeats?: ClassroomLessonBeat[];

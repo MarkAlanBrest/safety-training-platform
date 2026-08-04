@@ -1,6 +1,12 @@
 import type { ClassroomPlan, ClassroomSlide, PresentationView } from "@/lib/classroom";
 import type { AssessmentFrequency, ClassroomBuilderConfig } from "@/lib/classroom-builder";
 import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
+import {
+  buildLessonBeatsFromLineup,
+  checkpointsFromLineup,
+  isLineupPlan,
+  lineupSummary,
+} from "@/lib/classroom-lineup";
 
 export type ClassroomCheckpoint = {
   id: string;
@@ -220,9 +226,16 @@ export function buildFallbackAssessment(
 }
 
 export function buildLessonBeats(plan: ClassroomPlan): ClassroomLessonBeat[] {
+  if (isLineupPlan(plan) && plan.lineup?.length) {
+    if (plan.lessonBeats?.length) return plan.lessonBeats;
+    return buildLessonBeatsFromLineup(plan.lineup);
+  }
+
   const config = defaultClassroomBuilderConfig(plan.config);
   const interval = checkpointInterval(config.formative.frequency);
-  const checkpoints = plan.checkpoints || buildFallbackCheckpoints(plan.slides, config);
+  const checkpoints =
+    plan.checkpoints ||
+    (plan.lineup?.length ? checkpointsFromLineup(plan.lineup) : buildFallbackCheckpoints(plan.slides, config));
   const checkpointBySlide = new Map(
     checkpoints.map((checkpoint) => [checkpoint.slideIndex, checkpoint]),
   );
@@ -387,6 +400,11 @@ export function presentationForBeat(
 }
 
 export function lessonBeatSummary(plan: ClassroomPlan) {
+  if (isLineupPlan(plan)) {
+    const beats = plan.lessonBeats || buildLessonBeats(plan);
+    return [lineupSummary(plan), `Lesson beats: ${beats.length} total.`].join("\n\n");
+  }
+
   const beats = plan.lessonBeats || buildLessonBeats(plan);
   const checkpoints = plan.checkpoints || buildFallbackCheckpoints(plan.slides, plan.config);
   const assessment = plan.assessment || buildFallbackAssessment(plan.slides, plan.config);

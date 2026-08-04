@@ -172,8 +172,6 @@ export default function PresentationArea({
             <SlideImageStage
               imageUrl={slideImage}
               title={slide?.title || plan.title}
-              focus={safeView.focus}
-              hotspots={slide?.hotspots}
             />
           ) : safeView.type === "slide" && deckContext ? (
             <PptxSlideViewer

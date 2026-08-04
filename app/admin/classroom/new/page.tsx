@@ -1,5 +1,5 @@
 import AdminShell from "@/components/AdminShell";
-import CourseBuilderForm from "@/components/classroom/builder/CourseBuilderForm";
+import ContentSlideBuilderForm from "@/components/classroom/builder/ContentSlideBuilderForm";
 
 export default function NewClassroomPage() {
   return (
@@ -7,14 +7,15 @@ export default function NewClassroomPage() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 rounded-3xl border border-[#10283f]/10 bg-[#10283f] px-6 py-5 text-white">
           <p className="text-xs font-bold uppercase tracking-[.2em] text-[#e8c273]">
-            Course Builder
+            Content slide builder
           </p>
           <p className="mt-2 max-w-3xl text-sm leading-7 text-white/80">
-            Upload your knowledge package, configure how the AI teaches, choose activities and
-            presentation tools, then publish a live classroom experience.
+            Upload slide images and write what the AI should teach next to each one. Zoomed views
+            and circled details belong on separate slides in your deck. Insert formative checks and
+            activities anywhere in the lesson lineup.
           </p>
         </div>
-        <CourseBuilderForm />
+        <ContentSlideBuilderForm />
       </div>
     </AdminShell>
   );

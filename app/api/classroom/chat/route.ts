@@ -12,6 +12,7 @@ import {
   defaultClassroomBuilderConfig,
 } from "@/lib/classroom-builder";
 import { lessonBeatSummary } from "@/lib/classroom-lesson";
+import { isLineupPlan } from "@/lib/classroom-lineup";
 import { hotspotsSummary, normalizeFocus } from "@/lib/classroom-focus";
 import {
   resolveSlideImageDataUrl,
@@ -327,7 +328,12 @@ export async function POST(request: Request) {
     const assessmentCount = plan.assessment?.length || 0;
     const requestOrigin = new URL(request.url).origin;
     const slideImageDataUrl = await resolveSlideImageDataUrl(slide, requestOrigin);
-    const source = [
+    const lineupMode = isLineupPlan(plan);
+    const teachingScript = slide.speakerNotes?.trim()
+      ? slide.speakerNotes
+      : "No teaching notes on this slide. Teach from the slide image conversationally.";
+
+    const sourceParts = [
       `Course: ${plan.title}`,
       `Opening: ${plan.opening}`,
       `Objectives:\n- ${plan.objectives.join("\n- ")}`,
@@ -336,21 +342,85 @@ export async function POST(request: Request) {
         ? `Final assessment has ${assessmentCount} question(s). Current assessment question index: ${assessmentQuestionIndex + 1}.`
         : "No final assessment configured.",
       `Current slide (${slide.index + 1}/${plan.slides.length}): ${slide.title}`,
-      `On-slide text (learner can see this — do not read verbatim): ${slide.bodyText}`,
-      slide.speakerNotes?.trim()
-        ? `INSTRUCTOR SCRIPT (speaker notes — follow this closely to guide your teaching, examples, and questions):\n${slide.speakerNotes}`
-        : "INSTRUCTOR SCRIPT: No speaker notes on this slide. Teach from the slide content conversationally.",
-      `Hotspots on this slide:\n${hotspotsSummary(slide.hotspots)}`,
-      slide.hotspots?.length
-        ? "When pointing at the slide, set presentation.hotspotId to one of the hotspot ids above. The system will zoom to that feature."
-        : "This slide has no hotspot catalog — leave focusX, focusY, focusScale, hotspotId, and focusLabel null.",
-      slideImageDataUrl
-        ? "A slide image is attached below. Use it to understand what is in the picture before choosing hotspotId."
-        : "No slide image is available for vision on this beat.",
+    ];
+
+    if (lineupMode) {
+      sourceParts.push(
+        `INSTRUCTOR SCRIPT (content-slide teaching notes — follow this closely):\n${teachingScript}`,
+        "Slides are shown exactly as uploaded. Zoomed or circled details are separate slides in the deck — never zoom or circle on screen.",
+        slideImageDataUrl
+          ? "A slide image is attached below. Read it and teach from the instructor script."
+          : "No slide image is available for vision on this beat.",
+      );
+    } else {
+      sourceParts.push(
+        `On-slide text (learner can see this — do not read verbatim): ${slide.bodyText}`,
+        `INSTRUCTOR SCRIPT (speaker notes — follow this closely to guide your teaching, examples, and questions):\n${teachingScript}`,
+        `Hotspots on this slide:\n${hotspotsSummary(slide.hotspots)}`,
+        slide.hotspots?.length
+          ? "When pointing at the slide, set presentation.hotspotId to one of the hotspot ids above. The system will zoom to that feature."
+          : "This slide has no hotspot catalog — leave focusX, focusY, focusScale, hotspotId, and focusLabel null.",
+        slideImageDataUrl
+          ? "A slide image is attached below. Use it to understand what is in the picture before choosing hotspotId."
+          : "No slide image is available for vision on this beat.",
+      );
+    }
+
+    sourceParts.push(
       `Current presentation mode on screen: ${presentation?.type || "welcome"}`,
       `Instructor preferences:\n${classroomInstructorPrompt(builderConfig)}`,
       lessonBeatSummary(plan),
-    ].join("\n\n");
+    );
+
+    const source = sourceParts.join("\n\n");
+
+    const lineupInstructions = [
+      "You are the classroom instructor. YOU control the screen and pacing — the student does not click through slides.",
+      "Teach conversationally in your own words from the content-slide teaching notes.",
+      "The slide image is shown full-screen as-is. Do not zoom, pan, or circle anything — the author already added separate slides for close-ups or highlights.",
+      "Leave focusX, focusY, focusScale, hotspotId, and focusLabel null at all times.",
+      "While teaching, keep presentation.type slide and set presentation.slideIndex to the slide you are teaching.",
+      "Follow the lesson lineup in order. When you reach a formative check or activity beat, use the matching presentation type.",
+      "Teach most slides without forcing a question — explain, emphasize, give examples, then move on when the idea lands.",
+      "When you are only teaching or transitioning, set expectsResponse to false.",
+      "When you ask a question or need an answer, set expectsResponse to true.",
+      "Ask open-ended questions and wait for the student to type or speak — do not list answer options.",
+      "Do not set presentation.choices or quickReplies that reveal answers.",
+      "Use presentation.type question, exercise, flashcard, or dragdrop for inserted formative checks and activities.",
+      "Advance only when the student seems ready.",
+      "Return an empty quickReplies array unless you have a rare non-answer helper.",
+      "Keep replies concise (2–3 sentences) unless the student asks for more.",
+      "Return JSON only.",
+    ].join(" ");
+
+    const legacyInstructions = [
+      "You are the classroom instructor. YOU control the screen and pacing — the student does not click through slides.",
+      "Teach conversationally in your own words. Never read on-screen bullet points verbatim.",
+      "Use speaker notes as your private script for emphasis, examples, and questions.",
+      "Signal importance in your reply: pay attention to this part, this might be on the test, or a real job-site example when it helps.",
+      "While teaching, keep presentation.type slide and set presentation.slideIndex to the slide you are teaching.",
+      "To point at the slide: ONLY set presentation.hotspotId to an id from the Hotspots catalog when you say look here or pay attention. Never invent focusX or focusY.",
+      "Leave focusX, focusY, focusScale, hotspotId, and focusLabel null unless you are deliberately highlighting a cataloged hotspot.",
+      "Use focusScale around 1.4 only when hotspotId is set and you want emphasis.",
+      "Teach most slides without forcing a question — explain, emphasize, give examples, then move on when the idea lands.",
+      "Ask a question only when you genuinely want to check understanding, every few slides, or when the topic is easy to misunderstand.",
+      "When you are only teaching or transitioning to the next slide, set expectsResponse to false and do not end with a question.",
+      "When you ask a question or need an answer, set expectsResponse to true.",
+      "Ask open-ended questions in your reply and wait for the student to type or speak — do not list answer options.",
+      "Do not set presentation.choices or quickReplies that reveal answers.",
+      "For formative checks, keep presentation.type slide (or welcome) while you ask the question in reply.",
+      "Use presentation.type question or exercise only without choices when the center screen should show the question — never include choices.",
+      "Use presentation.type assessment for the final test with prompt only — no choices in presentation.",
+      "Advance slides only when the student seems ready — wrong or unsure answers mean reteach, explain differently, or practice before moving on.",
+      "If the student says they have a question, answer it clearly without advancing unless they are ready.",
+      "If the student completes a practice activity, decide whether to continue teaching, practice more, or move forward.",
+      "Use presentation.type flashcard or dragdrop when a practice activity is the right next move.",
+      "Set questionIndex and questionCount when advancing through final assessment questions.",
+      "Cover all objectives before the final assessment.",
+      "Return an empty quickReplies array unless you have a rare non-answer helper.",
+      "Keep replies concise (2–3 sentences) unless the student asks for more.",
+      "Return JSON only.",
+    ].join(" ");
 
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -360,34 +430,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL || "gpt-5.6-sol",
-        instructions: [
-          "You are the classroom instructor. YOU control the screen and pacing — the student does not click through slides.",
-          "Teach conversationally in your own words. Never read on-screen bullet points verbatim.",
-          "Use speaker notes as your private script for emphasis, examples, and questions.",
-          "Signal importance in your reply: pay attention to this part, this might be on the test, or a real job-site example when it helps.",
-          "While teaching, keep presentation.type slide and set presentation.slideIndex to the slide you are teaching.",
-          "To point at the slide: ONLY set presentation.hotspotId to an id from the Hotspots catalog when you say look here or pay attention. Never invent focusX or focusY.",
-          "Leave focusX, focusY, focusScale, hotspotId, and focusLabel null unless you are deliberately highlighting a cataloged hotspot.",
-          "Use focusScale around 1.4 only when hotspotId is set and you want emphasis.",
-          "Teach most slides without forcing a question — explain, emphasize, give examples, then move on when the idea lands.",
-          "Ask a question only when you genuinely want to check understanding, every few slides, or when the topic is easy to misunderstand.",
-          "When you are only teaching or transitioning to the next slide, set expectsResponse to false and do not end with a question.",
-          "When you ask a question or need an answer, set expectsResponse to true.",
-          "Ask open-ended questions in your reply and wait for the student to type or speak — do not list answer options.",
-          "Do not set presentation.choices or quickReplies that reveal answers.",
-          "For formative checks, keep presentation.type slide (or welcome) while you ask the question in reply.",
-          "Use presentation.type question or exercise only without choices when the center screen should show the question — never include choices.",
-          "Use presentation.type assessment for the final test with prompt only — no choices in presentation.",
-          "Advance slides only when the student seems ready — wrong or unsure answers mean reteach, explain differently, or practice before moving on.",
-          "If the student says they have a question, answer it clearly without advancing unless they are ready.",
-          "If the student completes a practice activity, decide whether to continue teaching, practice more, or move forward.",
-          "Use presentation.type flashcard or dragdrop when a practice activity is the right next move.",
-          "Set questionIndex and questionCount when advancing through final assessment questions.",
-          "Cover all objectives before the final assessment.",
-          "Return an empty quickReplies array unless you have a rare non-answer helper.",
-          "Keep replies concise (2–3 sentences) unless the student asks for more.",
-          "Return JSON only.",
-        ].join(" "),
+        instructions: lineupMode ? lineupInstructions : legacyInstructions,
         text: {
           format: {
             type: "json_schema",
@@ -404,7 +447,9 @@ export async function POST(request: Request) {
                   content: [
                     {
                       type: "input_text",
-                      text: "This is the slide image the learner currently sees. Use it to understand visual content. Only point using hotspotId values from the catalog in the lesson context.",
+                      text: lineupMode
+                        ? "This is the slide image the learner currently sees. Read it and teach from the instructor script."
+                        : "This is the slide image the learner currently sees. Use it to understand visual content. Only point using hotspotId values from the catalog in the lesson context.",
                     },
                     {
                       type: "input_image",
