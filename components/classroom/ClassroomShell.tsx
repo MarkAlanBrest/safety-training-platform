@@ -350,7 +350,9 @@ export default function ClassroomShell({
         ...baseMessages,
         {
           role: "user",
-          content: `Please teach slide ${beat.slideIndex + 1}: ${slide.title}.`,
+          content: slide.speakerNotes?.trim()
+            ? `Please teach slide ${beat.slideIndex + 1}: ${slide.title}. Use the speaker notes as your guide.`
+            : `Please teach slide ${beat.slideIndex + 1}: ${slide.title}.`,
         },
       ],
       {

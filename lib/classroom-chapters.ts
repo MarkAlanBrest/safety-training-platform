@@ -12,7 +12,14 @@ export type ClassroomSectionRecord = {
   title: string;
   position: number;
   plan: ClassroomPlan;
+  deckUrl?: string;
 };
+
+export function classroomChapterDeckAssetPath(chapterPosition: number) {
+  return chapterPosition <= 1
+    ? "classroom/deck.pptx"
+    : `classroom/chapters/${chapterPosition}/deck.pptx`;
+}
 
 export function classroomChapterSlideAssetPath(
   chapterPosition: number,
@@ -52,6 +59,7 @@ export function classroomPlanFromSections(
           title: sections[0].title || plan.title,
           slideStart: 0,
           slideEnd: Math.max(0, plan.slides.length - 1),
+          deckUrl: sections[0].deckUrl,
         },
       ],
     };
@@ -76,6 +84,7 @@ export function classroomPlanFromSections(
       title: section.title || section.plan.title,
       slideStart,
       slideEnd,
+      deckUrl: section.deckUrl,
     });
     topics.push({
       id: `chapter-${section.position}`,

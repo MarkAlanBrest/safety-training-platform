@@ -319,7 +319,7 @@ export default function CourseBuilderForm() {
       <BuilderSection number={1} title="Knowledge Package">
         <BuilderField
           label="Upload PowerPoint (.pptx)"
-          hint="Up to 25 MB per deck. Slides are shown exactly as uploaded — the AI instructor explains them and adds activities between slides."
+          hint="Up to 25 MB per deck. Your original PowerPoint is stored and displayed live. The AI instructor teaches from your speaker notes."
         >
           <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-[#faf8f3] px-5 py-8 text-center">
             <UploadCloud className="mx-auto text-[#a06e16]" size={28} />
@@ -345,9 +345,9 @@ export default function CourseBuilderForm() {
                       {parsedSlides.length === 1 ? "" : "s"} prepared for upload.
                     </p>
                     <p className="text-xs text-[#69757e]">
-                      Each slide is captured at high resolution from your PowerPoint file. The AI
-                      teacher explains each slide and inserts checkpoints between them. Re-upload
-                      after platform updates to refresh slide images.
+                      Your PowerPoint file will be stored and shown with a live slide viewer. The AI
+                      teacher uses your speaker notes to guide the lesson and adds activities between
+                      slides.
                     </p>
                   </div>
                 ) : null}

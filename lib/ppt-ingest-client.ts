@@ -165,6 +165,7 @@ export function buildClassroomUploadFormData(
   form.set("published", fields.published ? "true" : "false");
   form.set("config", JSON.stringify(fields.config));
   form.set("sourceFileName", file.name);
+  form.set("pptx", file, file.name);
   form.set(
     "slides",
     JSON.stringify(
@@ -226,6 +227,9 @@ export function buildMultiChapterUploadFormData(
   );
 
   chapters.forEach((chapter, chapterIndex) => {
+    const pptxKey = chapterIndex === 0 ? "pptx" : `chapter-${chapterIndex}-pptx`;
+    form.set(pptxKey, chapter.file, chapter.file.name);
+
     const slidesKey = chapterIndex === 0 ? "slides" : `slides-${chapterIndex}`;
     form.set(
       slidesKey,
