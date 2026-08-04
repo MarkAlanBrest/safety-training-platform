@@ -13,11 +13,16 @@ import {
 import { classroomChapterDeckAssetPath, classroomChapterSlideAssetPath } from "@/lib/classroom-chapters";
 import { renderSlideAsset } from "@/lib/ppt-slide-render";
 import {
+  MAX_FILE_BYTES,
   parsePptx,
   parsedChaptersFromUploadFormAsync,
   slidesForClassroomPlan,
 } from "@/lib/ppt-ingest";
 import { slugify } from "@/lib/mason";
+import {
+  extractSlideImagesFromZip,
+  MAX_SLIDE_IMAGE_ZIP_BYTES,
+} from "@/lib/ppt-slide-images";
 
 const MAX_LEGACY_UPLOAD_BYTES = 4 * 1024 * 1024;
 
@@ -40,6 +45,7 @@ export async function POST(request: Request) {
     const title = String(form.get("title") || "").trim();
     const description = String(form.get("description") || "").trim();
     const published = String(form.get("published") || "false") === "true";
+    const stagedAssets = String(form.get("stagedAssets") || "false") === "true";
     const config = parseBuilderConfig(String(form.get("config") || ""));
     const sourceFileName = String(form.get("sourceFileName") || "classroom.pptx");
     const file = form.get("pptx");
@@ -68,14 +74,54 @@ export async function POST(request: Request) {
         return Response.json({ error: "No slides were found in this upload." }, { status: 400 });
       }
       for (let chapterIndex = 0; chapterIndex < chapters.length; chapterIndex += 1) {
+        if (stagedAssets) continue;
+
         const key = chapterIndex === 0 ? "pptx" : `chapter-${chapterIndex}-pptx`;
         const deckFile = form.get(key);
-        if (deckFile instanceof File && deckFile.size > 0) {
-          deckFiles.push({
-            chapterPosition: chapterIndex + 1,
-            bytes: new Uint8Array(await deckFile.arrayBuffer()),
-          });
+        if (!(deckFile instanceof File) || !/\.pptx$/i.test(deckFile.name)) {
+          return Response.json(
+            { error: `A PowerPoint source file is required for chapter ${chapterIndex + 1}.` },
+            { status: 400 },
+          );
         }
+        if (deckFile.size > MAX_FILE_BYTES) {
+          return Response.json(
+            { error: "PowerPoint files are limited to 25 MB." },
+            { status: 400 },
+          );
+        }
+        deckFiles.push({
+          chapterPosition: chapterIndex + 1,
+          bytes: new Uint8Array(await deckFile.arrayBuffer()),
+        });
+
+        const zipKey =
+          chapterIndex === 0
+            ? "slideImagesZip"
+            : `chapter-${chapterIndex}-slideImagesZip`;
+        const imageZip = form.get(zipKey);
+        if (!(imageZip instanceof File) || !/\.zip$/i.test(imageZip.name)) {
+          return Response.json(
+            { error: `An exported slide-image ZIP is required for chapter ${chapterIndex + 1}.` },
+            { status: 400 },
+          );
+        }
+        if (imageZip.size > MAX_SLIDE_IMAGE_ZIP_BYTES) {
+          return Response.json(
+            { error: "Slide-image ZIP files are limited to 75 MB." },
+            { status: 400 },
+          );
+        }
+        const exactImages = extractSlideImagesFromZip(
+          new Uint8Array(await imageZip.arrayBuffer()),
+          chapters[chapterIndex].slides.length,
+        );
+        chapters[chapterIndex].slides = chapters[chapterIndex].slides.map((slide, index) => ({
+          ...slide,
+          images: [],
+          image: null,
+          renderedSlide: exactImages[index],
+        }));
       }
     } else {
       if (!(file instanceof File)) {
@@ -149,7 +195,7 @@ export async function POST(request: Request) {
             `AI classroom lesson built from ${fileName}`,
           courseType: "classroom",
           displayMode: "classroom",
-          published,
+          published: stagedAssets ? false : published,
           estimatedMinutes: estimates.courseLengthMinutes,
           intensity:
             mergedConfig.knowledge.difficulty === "beginner"
@@ -171,15 +217,17 @@ export async function POST(request: Request) {
       });
 
       const assets = [];
-      for (const section of sectionPlans) {
-        for (const slide of section.parsedSlides) {
-          const rendered = await renderSlideAsset(slide);
-          assets.push({
-            courseId: created.id,
-            path: classroomChapterSlideAssetPath(section.chapterPosition, slide.index),
-            mimeType: rendered.mimeType,
-            content: Buffer.from(rendered.bytes),
-          });
+      if (!stagedAssets) {
+        for (const section of sectionPlans) {
+          for (const slide of section.parsedSlides) {
+            const rendered = await renderSlideAsset(slide);
+            assets.push({
+              courseId: created.id,
+              path: classroomChapterSlideAssetPath(section.chapterPosition, slide.index),
+              mimeType: rendered.mimeType,
+              content: Buffer.from(rendered.bytes),
+            });
+          }
         }
       }
 

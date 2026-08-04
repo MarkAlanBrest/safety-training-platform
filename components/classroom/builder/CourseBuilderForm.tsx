@@ -47,11 +47,21 @@ import {
   preparePptxForUpload,
 } from "@/lib/ppt-ingest-client";
 import type { ParsedClassroomSlide } from "@/lib/ppt-ingest-core";
+import { validateSlideImageZip } from "@/lib/ppt-slide-images";
+import {
+  completeClassroomAssetUpload,
+  uploadClassroomAsset,
+} from "@/lib/classroom-asset-upload-client";
+import {
+  classroomChapterDeckAssetPath,
+  classroomChapterSlideAssetPath,
+} from "@/lib/classroom-chapters";
 
 type SubmitMode = "draft" | "publish";
 
 type ChapterDraft = {
   file: File;
+  slideImagesZip: File | null;
   title: string;
   parsedSlides: ParsedClassroomSlide[];
 };
@@ -62,11 +72,13 @@ export default function CourseBuilderForm() {
   );
   const [preset, setPreset] = useState<ClassroomBuilderPreset>("balanced");
   const [file, setFile] = useState<File | null>(null);
+  const [slideImagesZip, setSlideImagesZip] = useState<File | null>(null);
   const [parsedSlides, setParsedSlides] = useState<ParsedClassroomSlide[] | null>(null);
   const [extraChapters, setExtraChapters] = useState<ChapterDraft[]>([]);
   const [parsingFile, setParsingFile] = useState(false);
   const [parseProgress, setParseProgress] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<{
     previewUrl: string;
@@ -219,6 +231,7 @@ export default function CourseBuilderForm() {
 
   async function handleFileSelect(selected: File | null) {
     setFile(selected);
+    setSlideImagesZip(null);
     setParsedSlides(null);
     setError("");
     if (!selected) return;
@@ -241,6 +254,23 @@ export default function CourseBuilderForm() {
     }
   }
 
+  async function handleSlideImagesSelect(selected: File | null) {
+    setSlideImagesZip(null);
+    setError("");
+    if (!selected || !parsedSlides?.length) return;
+    setParsingFile(true);
+    setParseProgress("Checking slide images…");
+    try {
+      await validateSlideImageZip(selected, parsedSlides.length);
+      setSlideImagesZip(selected);
+      setParseProgress("Slide images matched");
+    } catch (zipError) {
+      setError(zipError instanceof Error ? zipError.message : "The slide-image ZIP is invalid.");
+    } finally {
+      setParsingFile(false);
+    }
+  }
+
   async function handleExtraChapterSelect(selected: File | null) {
     if (!selected) return;
     setParsingFile(true);
@@ -254,6 +284,7 @@ export default function CourseBuilderForm() {
         ...current,
         {
           file: selected,
+          slideImagesZip: null,
           title: selected.name.replace(/\.pptx$/i, ""),
           parsedSlides: slides,
         },
@@ -267,15 +298,47 @@ export default function CourseBuilderForm() {
     }
   }
 
+  async function handleExtraChapterImages(index: number, selected: File | null) {
+    if (!selected) return;
+    const chapter = extraChapters[index];
+    if (!chapter) return;
+    setParsingFile(true);
+    setParseProgress(`Checking images for chapter ${index + 2}…`);
+    setError("");
+    try {
+      await validateSlideImageZip(selected, chapter.parsedSlides.length);
+      setExtraChapters((current) =>
+        current.map((item, itemIndex) =>
+          itemIndex === index ? { ...item, slideImagesZip: selected } : item,
+        ),
+      );
+    } catch (zipError) {
+      setError(zipError instanceof Error ? zipError.message : "The slide-image ZIP is invalid.");
+    } finally {
+      setParsingFile(false);
+    }
+  }
+
   async function onSubmit(event: FormEvent, mode: SubmitMode) {
     event.preventDefault();
-    if (!file || !parsedSlides?.length || !config.knowledge.courseName.trim()) return;
+    if (!file || !slideImagesZip || !parsedSlides?.length || !config.knowledge.courseName.trim()) {
+      setError("Choose the PowerPoint and its exported slide-image ZIP before continuing.");
+      return;
+    }
+    if (extraChapters.some((chapter) => !chapter.slideImagesZip)) {
+      setError("Add the exported slide-image ZIP for every chapter before continuing.");
+      return;
+    }
     setSubmitting(true);
+    setUploadProgress("Creating course…");
     setError("");
     try {
       const chapters = [
-        { file, title: config.knowledge.courseName.trim(), parsedSlides },
-        ...extraChapters,
+        { file, slideImagesZip, title: config.knowledge.courseName.trim(), parsedSlides },
+        ...extraChapters.map((chapter) => ({
+          ...chapter,
+          slideImagesZip: chapter.slideImagesZip as File,
+        })),
       ];
       const form =
         chapters.length > 1
@@ -285,7 +348,7 @@ export default function CourseBuilderForm() {
               published: mode === "publish",
               config,
             })
-          : buildClassroomUploadFormData(file, parsedSlides, {
+          : buildClassroomUploadFormData(file, slideImagesZip, parsedSlides, {
               title: config.knowledge.courseName.trim(),
               description: config.knowledge.description.trim(),
               published: mode === "publish",
@@ -304,6 +367,42 @@ export default function CourseBuilderForm() {
         course: { title: string; slug: string };
       }>(response);
       if (!response.ok) throw new Error(data.error || "Course could not be created.");
+      const totalAssets = chapters.reduce(
+        (sum, chapter) => sum + chapter.parsedSlides.length + 1,
+        0,
+      );
+      let uploadedAssets = 0;
+      for (let chapterIndex = 0; chapterIndex < chapters.length; chapterIndex += 1) {
+        const chapter = chapters[chapterIndex];
+        const chapterPosition = chapterIndex + 1;
+        const exactImages = await validateSlideImageZip(
+          chapter.slideImagesZip,
+          chapter.parsedSlides.length,
+        );
+        for (let slideIndex = 0; slideIndex < exactImages.length; slideIndex += 1) {
+          setUploadProgress(`Uploading slide ${slideIndex + 1} of ${exactImages.length}…`);
+          const image = exactImages[slideIndex];
+          await uploadClassroomAsset(
+            data.course.slug,
+            classroomChapterSlideAssetPath(chapterPosition, slideIndex),
+            new Blob([new Uint8Array(image.bytes)], { type: image.mimeType }),
+            image.mimeType,
+          );
+          uploadedAssets += 1;
+          setUploadProgress(`Uploaded ${uploadedAssets} of ${totalAssets} course files…`);
+        }
+        setUploadProgress(`Saving original PowerPoint for chapter ${chapterPosition}…`);
+        await uploadClassroomAsset(
+          data.course.slug,
+          classroomChapterDeckAssetPath(chapterPosition),
+          chapter.file,
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        );
+        uploadedAssets += 1;
+      }
+      setUploadProgress("Finishing course…");
+      await completeClassroomAssetUpload(data.course.slug, mode === "publish");
+      data.published = mode === "publish";
       setResult(data);
     } catch (submitError) {
       setError(
@@ -311,6 +410,7 @@ export default function CourseBuilderForm() {
       );
     } finally {
       setSubmitting(false);
+      setUploadProgress("");
     }
   }
 
@@ -345,9 +445,8 @@ export default function CourseBuilderForm() {
                       {parsedSlides.length === 1 ? "" : "s"} prepared for upload.
                     </p>
                     <p className="text-xs text-[#69757e]">
-                      Your PowerPoint file will be stored and shown with a live slide viewer. The AI
-                      teacher uses your speaker notes to guide the lesson and adds activities between
-                      slides.
+                      Your original PowerPoint will be stored for future changes. The AI teacher
+                      uses its speaker notes while the exported images provide the exact visuals.
                     </p>
                   </div>
                 ) : null}
@@ -355,6 +454,33 @@ export default function CourseBuilderForm() {
             ) : null}
           </div>
         </BuilderField>
+
+        {parsedSlides ? (
+          <BuilderField
+            label="Upload exported slide images (.zip)"
+            hint="In PowerPoint, save all slides as PNG or JPEG, then ZIP the exported folder. The number of images must match the PowerPoint."
+          >
+            <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-[#faf8f3] px-5 py-6 text-center">
+              <UploadCloud className="mx-auto text-[#a06e16]" size={24} />
+              <input
+                type="file"
+                accept=".zip,application/zip"
+                onChange={(event) => void handleSlideImagesSelect(event.target.files?.[0] || null)}
+                className="mt-3 block w-full text-sm text-[#69757e]"
+                required
+              />
+              {slideImagesZip ? (
+                <p className="mt-2 text-sm font-medium text-emerald-700">
+                  Ready — {slideImagesZip.name} matches {parsedSlides.length} slides.
+                </p>
+              ) : (
+                <p className="mt-2 text-xs text-[#69757e]">
+                  PNG, JPEG, and WebP slide images are supported.
+                </p>
+              )}
+            </div>
+          </BuilderField>
+        ) : null}
 
         {parsedSlides ? (
           <div className="space-y-3 rounded-2xl border border-[#10283f]/10 bg-white px-4 py-4">
@@ -384,16 +510,28 @@ export default function CourseBuilderForm() {
                 {extraChapters.map((chapter, index) => (
                   <li
                     key={`${chapter.file.name}-${index}`}
-                    className="flex items-center justify-between gap-3 rounded-xl bg-[#faf8f3] px-3 py-2 text-sm"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#faf8f3] px-3 py-2 text-sm"
                   >
                     <div className="min-w-0">
                       <p className="truncate font-medium text-[#10283f]">
                         Chapter {index + 2}: {chapter.title}
                       </p>
                       <p className="text-xs text-[#69757e]">
-                        {chapter.parsedSlides.length} slides
+                        {chapter.parsedSlides.length} slides · {chapter.slideImagesZip ? "images ready" : "images needed"}
                       </p>
                     </div>
+                    <label className="cursor-pointer rounded-full border border-[#10283f]/15 px-3 py-1.5 text-xs font-semibold text-[#10283f]">
+                      {chapter.slideImagesZip ? "Replace image ZIP" : "Add image ZIP"}
+                      <input
+                        type="file"
+                        accept=".zip,application/zip"
+                        className="hidden"
+                        onChange={(event) => {
+                          void handleExtraChapterImages(index, event.target.files?.[0] || null);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
                     <button
                       type="button"
                       onClick={() =>
@@ -864,11 +1002,16 @@ export default function CourseBuilderForm() {
         {error ? (
           <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
         ) : null}
+        {submitting && uploadProgress ? (
+          <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+            {uploadProgress}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
-            disabled={submitting || !file || !parsedSlides?.length || !config.knowledge.courseName.trim() || parsingFile}
+            disabled={submitting || !file || !slideImagesZip || !parsedSlides?.length || !config.knowledge.courseName.trim() || parsingFile || extraChapters.some((chapter) => !chapter.slideImagesZip)}
             onClick={(event) => void onSubmit(event, "draft")}
             className="inline-flex items-center gap-2 rounded-2xl border border-[#10283f]/15 px-5 py-3 font-semibold text-[#10283f] disabled:opacity-40"
           >
@@ -877,7 +1020,7 @@ export default function CourseBuilderForm() {
           </button>
           <button
             type="button"
-            disabled={submitting || !file || !parsedSlides?.length || !config.knowledge.courseName.trim() || parsingFile}
+            disabled={submitting || !file || !slideImagesZip || !parsedSlides?.length || !config.knowledge.courseName.trim() || parsingFile || extraChapters.some((chapter) => !chapter.slideImagesZip)}
             onClick={(event) => void onSubmit(event, "publish")}
             className="inline-flex items-center gap-2 rounded-2xl bg-[#10283f] px-5 py-3 font-semibold text-white disabled:opacity-40"
           >

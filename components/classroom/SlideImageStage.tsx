@@ -16,7 +16,13 @@ export default function SlideImageStage({
 }) {
   return (
     <div className="flex h-full min-h-0 w-full items-center justify-center bg-[#0b1524] p-2 sm:p-3">
-      <div className="relative flex h-full w-full items-center justify-center">
+      <div
+        className="relative flex h-full w-full items-center justify-center transition-transform duration-700 ease-in-out"
+        style={{
+          transform: focus?.scale && focus.scale > 1 ? `scale(${focus.scale})` : undefined,
+          transformOrigin: focus ? `${focus.x}% ${focus.y}%` : "center",
+        }}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imageUrl}

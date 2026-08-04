@@ -158,19 +158,18 @@ export default function PresentationArea({
               </h2>
               <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-200">{safeView.body}</p>
             </div>
-          ) : safeView.type === "slide" && deckContext ? (
-            <PptxSlideViewer
-              deckUrl={deckContext.deckUrl}
-              slideIndex={deckContext.localSlideIndex}
-              title={slide?.title || plan.title}
-              fallbackImageUrl={slideImage || undefined}
-            />
           ) : safeView.type === "slide" && slideImage ? (
             <SlideImageStage
               imageUrl={slideImage}
               title={slide?.title || plan.title}
               focus={safeView.focus}
               hotspots={slide?.hotspots}
+            />
+          ) : safeView.type === "slide" && deckContext ? (
+            <PptxSlideViewer
+              deckUrl={deckContext.deckUrl}
+              slideIndex={deckContext.localSlideIndex}
+              title={slide?.title || plan.title}
             />
           ) : safeView.type === "slide" ? (
             <div className="flex h-full w-full items-center justify-center px-10 text-center">

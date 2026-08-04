@@ -42,7 +42,7 @@ export function normalizeFocus(
     return {
       x: Math.min(100, Math.max(0, focus.x)),
       y: Math.min(100, Math.max(0, focus.y)),
-      scale: focus.scale ? Math.min(1.2, Math.max(1, focus.scale)) : 1,
+      scale: focus.scale ? Math.min(3, Math.max(1, focus.scale)) : 1,
       hotspotId: focus.hotspotId,
       label: focus.label,
     };

@@ -19,7 +19,6 @@
 
 # production
 /build
-/public/apryse
 
 # misc
 .DS_Store
