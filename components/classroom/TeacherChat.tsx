@@ -42,7 +42,7 @@ function getSpeechRecognition():
 
 export default function TeacherChat({
   messages,
-  quickReplies: _quickReplies,
+  quickReplies,
   thinking,
   speaking,
   needsAudioUnlock = false,
@@ -181,8 +181,8 @@ export default function TeacherChat({
       >
         {!messages.length && (
           <div className="rounded-2xl bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-600">
-            Your instructor leads this session. When it is your turn, type or speak in the
-            response box below.
+            Your instructor leads this session. Tap a shortcut when offered, or type or
+            speak in the response box below.
           </div>
         )}
         {messages.map((message, index) => (
@@ -232,11 +232,32 @@ export default function TeacherChat({
             <p className="mt-1 text-sm font-semibold text-slate-900">
               {inputPrompt
                 ? "Answer the question below"
-                : "Type or speak your response"}
+                : quickReplies.length
+                  ? "Pick a shortcut or type your own answer"
+                  : "Type or speak your response"}
             </p>
             {inputPrompt ? (
               <p className="mt-2 text-sm leading-6 text-slate-600">{inputPrompt}</p>
             ) : null}
+          </div>
+        ) : null}
+
+        {quickReplies.length > 0 ? (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {quickReplies.map((reply) => (
+              <button
+                key={reply}
+                type="button"
+                onClick={() => {
+                  onInteract?.();
+                  void onSend(reply);
+                }}
+                disabled={thinking}
+                className="rounded-full border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-amber-400 hover:bg-amber-100 disabled:opacity-50"
+              >
+                {reply}
+              </button>
+            ))}
           </div>
         ) : null}
 

@@ -11,10 +11,15 @@ import {
   classroomInstructorPrompt,
   defaultClassroomBuilderConfig,
 } from "@/lib/classroom-builder";
-import { lessonBeatSummary } from "@/lib/classroom-lesson";
+import { lessonBeatSummary, slideOutlineSummary } from "@/lib/classroom-lesson";
 import { hotspotsSummary, normalizeFocus } from "@/lib/classroom-focus";
 import {
+  alignPresentationSlide,
+  coerceSlideTeachingView,
+  inferExpectsResponse,
+  resolveRequestSlideIndex,
   resolveSlideImageDataUrl,
+  sanitizeQuickReplies,
   sanitizeTeacherSlidePresentation,
 } from "@/lib/classroom-teacher";
 import { extractResponseOutputText } from "@/lib/parse-response";
@@ -236,7 +241,7 @@ const classroomTeacherTurnSchema = {
       type: "array",
       items: { type: "string" },
       minItems: 0,
-      maxItems: 3,
+      maxItems: 4,
     },
   },
 } as const;
@@ -270,9 +275,11 @@ async function resolvePlan(
   return isClassroomPlan(section?.lessonPlan) ? section.lessonPlan : null;
 }
 
-function filterQuickReplies(_replies: string[] | undefined) {
-  // Learners type or speak answers — do not surface choice menus in the UI.
-  return [];
+function filterQuickReplies(
+  replies: string[] | undefined,
+  presentation: PresentationView,
+) {
+  return sanitizeQuickReplies(replies, presentation);
 }
 
 export async function POST(request: Request) {
@@ -307,7 +314,8 @@ export async function POST(request: Request) {
       return Response.json({ error: "Classroom lesson not found." }, { status: 404 });
     }
 
-    const slide = plan.slides[slideIndex] || plan.slides[0];
+    const contextSlideIndex = resolveRequestSlideIndex(slideIndex, presentation, plan);
+    const slide = plan.slides[contextSlideIndex] || plan.slides[0];
     const builderConfig = plan.config || defaultClassroomBuilderConfig();
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -331,11 +339,11 @@ export async function POST(request: Request) {
       `Course: ${plan.title}`,
       `Opening: ${plan.opening}`,
       `Objectives:\n- ${plan.objectives.join("\n- ")}`,
-      `Teaching position: slide ${slide.index + 1} of ${plan.slides.length} (beat ${beatIndex}).`,
+      `Teaching position: slide ${contextSlideIndex + 1} of ${plan.slides.length} (beat ${beatIndex}).`,
       assessmentCount
         ? `Final assessment has ${assessmentCount} question(s). Current assessment question index: ${assessmentQuestionIndex + 1}.`
         : "No final assessment configured.",
-      `Current slide (${slide.index + 1}/${plan.slides.length}): ${slide.title}`,
+      `Current slide on screen (${contextSlideIndex + 1}/${plan.slides.length}): ${slide.title}`,
       `On-slide text (learner can see this — do not read verbatim): ${slide.bodyText}`,
       slide.speakerNotes?.trim()
         ? `INSTRUCTOR SCRIPT (speaker notes — follow this closely to guide your teaching, examples, and questions):\n${slide.speakerNotes}`
@@ -348,6 +356,7 @@ export async function POST(request: Request) {
         ? "A slide image is attached below. Use it to understand what is in the picture before choosing hotspotId."
         : "No slide image is available for vision on this beat.",
       `Current presentation mode on screen: ${presentation?.type || "welcome"}`,
+      `Slide catalog (presentation.slideIndex is zero-based — MUST match the slide you teach in reply):\n${slideOutlineSummary(plan)}`,
       `Instructor preferences:\n${classroomInstructorPrompt(builderConfig)}`,
       lessonBeatSummary(plan),
     ].join("\n\n");
@@ -365,7 +374,8 @@ export async function POST(request: Request) {
           "Teach conversationally in your own words. Never read on-screen bullet points verbatim.",
           "Use speaker notes as your private script for emphasis, examples, and questions.",
           "Signal importance in your reply: pay attention to this part, this might be on the test, or a real job-site example when it helps.",
-          "While teaching, keep presentation.type slide and set presentation.slideIndex to the slide you are teaching.",
+          "While teaching, keep presentation.type slide and set presentation.slideIndex to the zero-based index of the slide you are teaching NOW.",
+          "CRITICAL: The slide on screen must match your reply — when you start teaching a new topic, update presentation.slideIndex to that slide's index from the catalog. Mention the topic title when you change slides.",
           "To point at the slide: ONLY set presentation.hotspotId to an id from the Hotspots catalog when you say look here or pay attention. Never invent focusX or focusY.",
           "Leave focusX, focusY, focusScale, hotspotId, and focusLabel null unless you are deliberately highlighting a cataloged hotspot.",
           "Use focusScale around 1.4 only when hotspotId is set and you want emphasis.",
@@ -373,8 +383,10 @@ export async function POST(request: Request) {
           "Ask a question only when you genuinely want to check understanding, every few slides, or when the topic is easy to misunderstand.",
           "When you are only teaching or transitioning to the next slide, set expectsResponse to false and do not end with a question.",
           "When you ask a question or need an answer, set expectsResponse to true.",
-          "Ask open-ended questions in your reply and wait for the student to type or speak — do not list answer options.",
-          "Do not set presentation.choices or quickReplies that reveal answers.",
+          "Ask open-ended questions when you want the student to explain or reflect — leave quickReplies empty so they type or speak.",
+          "Use quickReplies (2–4 short buttons) for confidence checks, pacing, and simple acknowledgments — e.g. Somewhat familiar, New to this, I'm ready, Keep going, Go slower, Not sure yet.",
+          "Never put correct assessment answers, letter choices (A/B/C), or presentation.choices text in quickReplies.",
+          "Do not set presentation.choices on screen — learners answer in the chat panel.",
           "For formative checks, keep presentation.type slide (or welcome) while you ask the question in reply.",
           "Use presentation.type question or exercise only without choices when the center screen should show the question — never include choices.",
           "Use presentation.type assessment for the final test with prompt only — no choices in presentation.",
@@ -384,7 +396,6 @@ export async function POST(request: Request) {
           "Use presentation.type flashcard or dragdrop when a practice activity is the right next move.",
           "Set questionIndex and questionCount when advancing through final assessment questions.",
           "Cover all objectives before the final assessment.",
-          "Return an empty quickReplies array unless you have a rare non-answer helper.",
           "Keep replies concise (2–3 sentences) unless the student asks for more.",
           "Return JSON only.",
         ].join(" "),
@@ -442,21 +453,35 @@ export async function POST(request: Request) {
     const reply =
       parsed.reply?.trim() ||
       "Let's keep going — tell me what you're thinking so far.";
-    const presentationView = sanitizeTeacherSlidePresentation(
+    let presentationView = coerceSlideTeachingView(
       normalizePresentation(
         parsed.presentation,
         plan,
-        slide.index,
+        contextSlideIndex,
         slide.hotspots,
       ),
-      slide,
+      contextSlideIndex,
+      plan,
     );
+    presentationView = alignPresentationSlide(
+      plan,
+      contextSlideIndex,
+      presentationView,
+      messages,
+      reply,
+    );
+    const alignedSlide =
+      presentationView.type === "slide"
+        ? plan.slides[presentationView.slideIndex] || slide
+        : slide;
+    presentationView = sanitizeTeacherSlidePresentation(presentationView, alignedSlide);
+    const quickReplies = filterQuickReplies(parsed.quickReplies, presentationView);
 
     return Response.json({
       reply,
       presentation: presentationView,
-      quickReplies: filterQuickReplies(parsed.quickReplies),
-      expectsResponse: Boolean(parsed.expectsResponse),
+      quickReplies,
+      expectsResponse: inferExpectsResponse(reply, presentationView, quickReplies),
     });
   } catch (error) {
     console.error("Classroom chat failed:", error);
