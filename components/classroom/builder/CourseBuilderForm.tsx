@@ -10,24 +10,12 @@ import {
   UploadCloud,
 } from "lucide-react";
 import {
-  ACCENT_OPTIONS,
-  ACTIVITY_OPTIONS,
   AI_PERSONALITIES,
-  CLASSROOM_BUILDER_LIMITS,
-  CLASSROOM_BUILDER_PRESETS,
   ClassroomBuilderConfig,
-  ClassroomBuilderPreset,
-  EXCEL_OPTIONS,
-  FORMATIVE_ALLOW_OPTIONS,
   INTERACTION_LEVELS,
-  PRESENTATION_OPTIONS,
-  STRUGGLE_OPTIONS,
-  STUDENT_EXPERIENCE_OPTIONS,
-  SUMMATIVE_TYPE_OPTIONS,
+  PPT_ACTIVITY_OPTIONS,
   TEACHING_STYLES,
   VOICE_OPTIONS,
-  applyClassroomBuilderPreset,
-  canToggleFlag,
   defaultClassroomBuilderConfig,
   estimateClassroomCourse,
 } from "@/lib/classroom-builder";
@@ -60,7 +48,6 @@ export default function CourseBuilderForm() {
   const [config, setConfig] = useState<ClassroomBuilderConfig>(
     defaultClassroomBuilderConfig(),
   );
-  const [preset, setPreset] = useState<ClassroomBuilderPreset>("balanced");
   const [file, setFile] = useState<File | null>(null);
   const [parsedSlides, setParsedSlides] = useState<ParsedClassroomSlide[] | null>(null);
   const [extraChapters, setExtraChapters] = useState<ChapterDraft[]>([]);
@@ -134,87 +121,19 @@ export default function CourseBuilderForm() {
     }));
   }
 
-  function applyPreset(nextPreset: ClassroomBuilderPreset) {
-    setPreset(nextPreset);
-    setConfig((current) => applyClassroomBuilderPreset(current, nextPreset));
+  function toggleActivity(id: string, checked: boolean) {
+    setConfig((current) => ({
+      ...current,
+      activities: { ...current.activities, [id]: checked },
+    }));
   }
 
-  function toggleFlag(
-    section:
-      | "activities"
-      | "presentation"
-      | "studentExperience"
-      | "formativeAllow"
-      | "summativeTypes"
-      | "struggles"
-      | "excels",
-    id: string,
-    checked: boolean,
-  ) {
-    setConfig((current) => {
-      const limits: Record<typeof section, number> = {
-        activities: CLASSROOM_BUILDER_LIMITS.activities,
-        presentation: CLASSROOM_BUILDER_LIMITS.presentation,
-        studentExperience: CLASSROOM_BUILDER_LIMITS.studentExperience,
-        formativeAllow: CLASSROOM_BUILDER_LIMITS.formativeAllow,
-        summativeTypes: CLASSROOM_BUILDER_LIMITS.summativeTypes,
-        struggles: CLASSROOM_BUILDER_LIMITS.struggles,
-        excels: CLASSROOM_BUILDER_LIMITS.excels,
-      };
-
-      if (section === "formativeAllow") {
-        if (!canToggleFlag(current.formative.allow, id, checked, limits.formativeAllow)) {
-          return current;
-        }
-        return {
-          ...current,
-          formative: {
-            ...current.formative,
-            allow: { ...current.formative.allow, [id]: checked },
-          },
-        };
-      }
-      if (section === "summativeTypes") {
-        if (!canToggleFlag(current.summative.types, id, checked, limits.summativeTypes)) {
-          return current;
-        }
-        return {
-          ...current,
-          summative: {
-            ...current.summative,
-            types: { ...current.summative.types, [id]: checked },
-          },
-        };
-      }
-      if (section === "struggles") {
-        if (!canToggleFlag(current.adaptation.ifStruggles, id, checked, limits.struggles)) {
-          return current;
-        }
-        return {
-          ...current,
-          adaptation: {
-            ...current.adaptation,
-            ifStruggles: { ...current.adaptation.ifStruggles, [id]: checked },
-          },
-        };
-      }
-      if (section === "excels") {
-        if (!canToggleFlag(current.adaptation.ifExcels, id, checked, limits.excels)) {
-          return current;
-        }
-        return {
-          ...current,
-          adaptation: {
-            ...current.adaptation,
-            ifExcels: { ...current.adaptation.ifExcels, [id]: checked },
-          },
-        };
-      }
-      if (!canToggleFlag(current[section], id, checked, limits[section])) {
-        return current;
-      }
-      return { ...current, [section]: { ...current[section], [id]: checked } };
-    });
+  function updatePassingScore(score: number) {
+    setConfig((current) => ({
+      ...current,
+      knowledge: { ...current.knowledge, passingScore: score },
+      summative: { ...current.summative, passingScore: score },
+    }));
   }
 
   async function handleFileSelect(selected: File | null) {
@@ -316,10 +235,10 @@ export default function CourseBuilderForm() {
 
   return (
     <form className="space-y-6">
-      <BuilderSection number={1} title="Knowledge Package">
+      <BuilderSection number={1} title="PowerPoint & Course Details">
         <BuilderField
           label="Upload PowerPoint (.pptx)"
-          hint="Up to 25 MB per deck. Your original PowerPoint is stored and displayed live. The AI instructor teaches from your speaker notes."
+          hint="Up to 25 MB per deck. Slides display exactly as uploaded. Add speaker notes in PowerPoint — the AI teacher uses them to guide the lesson."
         >
           <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-[#faf8f3] px-5 py-8 text-center">
             <UploadCloud className="mx-auto text-[#a06e16]" size={28} />
@@ -339,17 +258,10 @@ export default function CourseBuilderForm() {
                     {parseProgress || "Preparing slides from your PowerPoint…"}
                   </p>
                 ) : parsedSlides ? (
-                  <div className="space-y-1">
-                    <p className="text-emerald-700">
-                      Ready — {parsedSlides.length} slide
-                      {parsedSlides.length === 1 ? "" : "s"} prepared for upload.
-                    </p>
-                    <p className="text-xs text-[#69757e]">
-                      Your PowerPoint file will be stored and shown with a live slide viewer. The AI
-                      teacher uses your speaker notes to guide the lesson and adds activities between
-                      slides.
-                    </p>
-                  </div>
+                  <p className="text-emerald-700">
+                    Ready — {parsedSlides.length} slide
+                    {parsedSlides.length === 1 ? "" : "s"} prepared for upload.
+                  </p>
                 ) : null}
               </div>
             ) : null}
@@ -442,32 +354,6 @@ export default function CourseBuilderForm() {
           />
         </BuilderField>
 
-        <div className="grid gap-5 md:grid-cols-2">
-          <BuilderField label="Difficulty">
-            <BuilderRadioGroup
-              name="difficulty"
-              value={config.knowledge.difficulty}
-              options={[
-                { id: "beginner", label: "Beginner" },
-                { id: "intermediate", label: "Intermediate" },
-                { id: "advanced", label: "Advanced" },
-              ]}
-              onChange={(value) => updateKnowledge("difficulty", value)}
-            />
-          </BuilderField>
-          <BuilderField label="Passing Score (%)">
-            <BuilderInput
-              type="number"
-              min={50}
-              max={100}
-              value={config.knowledge.passingScore}
-              onChange={(event) =>
-                updateKnowledge("passingScore", Number(event.target.value) || 80)
-              }
-            />
-          </BuilderField>
-        </div>
-
         <BuilderSubheading>Learning Objectives</BuilderSubheading>
         <div className="space-y-3">
           {config.knowledge.objectives.map((objective, index) => (
@@ -497,51 +383,14 @@ export default function CourseBuilderForm() {
             Add objective
           </button>
         </div>
-
-        <BuilderField label="Additional Resources (Optional)">
-          <BuilderTextarea
-            rows={3}
-            value={config.knowledge.additionalResources}
-            onChange={(event) =>
-              updateKnowledge("additionalResources", event.target.value)
-            }
-            placeholder="Links, manuals, job aids, or reference material the AI may mention."
-          />
-        </BuilderField>
       </BuilderSection>
 
-      <section className="rounded-3xl border border-[#10283f]/10 bg-[#fff9eb] p-6 shadow-sm">
-        <p className="text-xs font-bold uppercase tracking-[.18em] text-[#a06e16]">
-          Teaching intensity
+      <BuilderSection number={2} title="AI Instructor">
+        <p className="text-sm leading-6 text-[#69757e]">
+          Configure how the AI teaches from your speaker notes. Slides are never redesigned —
+          the instructor explains them conversationally.
         </p>
-        <h2 className="mt-1 font-serif text-2xl font-semibold text-[#10283f]">
-          Start with a sensible preset
-        </h2>
-        <p className="mt-2 max-w-3xl text-sm leading-7 text-[#69757e]">
-          Too many activities and tools turned on at once can overwhelm learners. Pick a
-          preset, then fine-tune individual sections below. Each group has a maximum number
-          of selections.
-        </p>
-        <div className="mt-5 grid gap-3 lg:grid-cols-3">
-          {CLASSROOM_BUILDER_PRESETS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() => applyPreset(option.id)}
-              className={`rounded-2xl border p-4 text-left transition ${
-                preset === option.id
-                  ? "border-[#c68b1b] bg-white ring-2 ring-[#e8c273]/25"
-                  : "border-[#10283f]/10 bg-white/70 hover:bg-white"
-              }`}
-            >
-              <p className="font-bold text-[#10283f]">{option.label}</p>
-              <p className="mt-2 text-sm leading-6 text-[#69757e]">{option.description}</p>
-            </button>
-          ))}
-        </div>
-      </section>
 
-      <BuilderSection number={2} title="AI Teaching Preferences">
         <BuilderSubheading>Teaching Style</BuilderSubheading>
         <BuilderRadioGroup
           name="teachingStyle"
@@ -567,7 +416,7 @@ export default function CourseBuilderForm() {
         />
 
         <BuilderSubheading>Voice</BuilderSubheading>
-        <div className="grid gap-5 md:grid-cols-3">
+        <div className="grid gap-5 md:grid-cols-2">
           <BuilderField label="Voice">
             <select
               value={config.teaching.voice}
@@ -593,72 +442,25 @@ export default function CourseBuilderForm() {
               }
             />
           </BuilderField>
-          <BuilderField label="Accent">
-            <select
-              value={config.teaching.accent}
-              onChange={(event) => updateTeaching("accent", event.target.value)}
-              className="w-full rounded-xl border border-[#10283f]/15 px-4 py-3 outline-none focus:border-[#c68b1b]"
-            >
-              {ACCENT_OPTIONS.map((accent) => (
-                <option key={accent.id} value={accent.id}>
-                  {accent.label}
-                </option>
-              ))}
-            </select>
-          </BuilderField>
         </div>
-
-        <BuilderSubheading>Read Bullet Points</BuilderSubheading>
-        <BuilderRadioGroup
-          name="readBulletPoints"
-          value={config.teaching.readBulletPoints}
-          options={[
-            { id: "never", label: "Never" },
-            { id: "when-important", label: "When Important" },
-            { id: "always", label: "Always" },
-          ]}
-          onChange={(value) => updateTeaching("readBulletPoints", value)}
-        />
       </BuilderSection>
 
-      <BuilderSection number={3} title="Learning Activities">
+      <BuilderSection number={3} title="Activities & Assessment">
         <p className="text-sm leading-6 text-[#69757e]">
-          Choose which activity types the AI instructor may use during the lesson.
+          The AI inserts these activity types between slides. Your PowerPoint stays on screen
+          during teaching; activities appear at checkpoints.
         </p>
+
+        <BuilderSubheading>Activity Types</BuilderSubheading>
         <BuilderCheckboxGrid
-          options={ACTIVITY_OPTIONS}
+          options={PPT_ACTIVITY_OPTIONS}
           values={config.activities}
-          maxSelected={CLASSROOM_BUILDER_LIMITS.activities}
-          hint="Pick the few activity types that fit this lesson best."
-          onChange={(id, checked) => toggleFlag("activities", id, checked)}
+          maxSelected={PPT_ACTIVITY_OPTIONS.length}
+          hint="Choose which checkpoint activities to include."
+          onChange={(id, checked) => toggleActivity(id, checked)}
         />
-      </BuilderSection>
 
-      <BuilderSection number={4} title="Presentation Tools">
-        <p className="text-sm leading-6 text-[#69757e]">
-          Choose how the AI may present visuals in the center panel.
-        </p>
-        <BuilderCheckboxGrid
-          options={PRESENTATION_OPTIONS}
-          values={config.presentation}
-          maxSelected={CLASSROOM_BUILDER_LIMITS.presentation}
-          hint="A small set of visual tools keeps the screen clear."
-          onChange={(id, checked) => toggleFlag("presentation", id, checked)}
-        />
-      </BuilderSection>
-
-      <BuilderSection number={5} title="Student Experience">
-        <BuilderCheckboxGrid
-          options={STUDENT_EXPERIENCE_OPTIONS}
-          values={config.studentExperience}
-          maxSelected={CLASSROOM_BUILDER_LIMITS.studentExperience}
-          hint="Choose the teaching behaviors that matter most for this audience."
-          onChange={(id, checked) => toggleFlag("studentExperience", id, checked)}
-        />
-      </BuilderSection>
-
-      <BuilderSection number={6} title="Formative Assessment">
-        <BuilderSubheading>Frequency</BuilderSubheading>
+        <BuilderSubheading>Checkpoint Frequency</BuilderSubheading>
         <BuilderRadioGroup
           name="formativeFrequency"
           value={config.formative.frequency}
@@ -675,59 +477,8 @@ export default function CourseBuilderForm() {
             }))
           }
         />
-        <BuilderSubheading>Allow</BuilderSubheading>
-        <BuilderCheckboxGrid
-          options={FORMATIVE_ALLOW_OPTIONS}
-          values={config.formative.allow}
-          maxSelected={CLASSROOM_BUILDER_LIMITS.formativeAllow}
-          onChange={(id, checked) => toggleFlag("formativeAllow", id, checked)}
-        />
-      </BuilderSection>
 
-      <BuilderSection number={7} title="Summative Assessment">
-        <BuilderSubheading>Assessment Types</BuilderSubheading>
-        <BuilderCheckboxGrid
-          options={SUMMATIVE_TYPE_OPTIONS}
-          values={config.summative.types}
-          maxSelected={CLASSROOM_BUILDER_LIMITS.summativeTypes}
-          onChange={(id, checked) => toggleFlag("summativeTypes", id, checked)}
-        />
-        <div className="grid gap-5 md:grid-cols-2">
-          <label className="flex items-center gap-3 rounded-xl border border-[#10283f]/10 px-4 py-3 text-sm">
-            <input
-              type="checkbox"
-              checked={config.summative.randomizeQuestions}
-              onChange={(event) =>
-                setConfig((current) => ({
-                  ...current,
-                  summative: {
-                    ...current.summative,
-                    randomizeQuestions: event.target.checked,
-                  },
-                }))
-              }
-              className="accent-[#c68b1b]"
-            />
-            Randomize Questions
-          </label>
-          <label className="flex items-center gap-3 rounded-xl border border-[#10283f]/10 px-4 py-3 text-sm">
-            <input
-              type="checkbox"
-              checked={config.summative.requireMastery}
-              onChange={(event) =>
-                setConfig((current) => ({
-                  ...current,
-                  summative: {
-                    ...current.summative,
-                    requireMastery: event.target.checked,
-                  },
-                }))
-              }
-              className="accent-[#c68b1b]"
-            />
-            Require Mastery
-          </label>
-        </div>
+        <BuilderSubheading>Final Assessment</BuilderSubheading>
         <div className="grid gap-5 md:grid-cols-2">
           <BuilderField label="Passing Score (%)">
             <BuilderInput
@@ -736,13 +487,7 @@ export default function CourseBuilderForm() {
               max={100}
               value={config.summative.passingScore}
               onChange={(event) =>
-                setConfig((current) => ({
-                  ...current,
-                  summative: {
-                    ...current.summative,
-                    passingScore: Number(event.target.value) || 80,
-                  },
-                }))
+                updatePassingScore(Number(event.target.value) || 80)
               }
             />
           </BuilderField>
@@ -769,24 +514,7 @@ export default function CourseBuilderForm() {
         </div>
       </BuilderSection>
 
-      <BuilderSection number={8} title="AI Adaptation">
-        <BuilderSubheading>If Student Struggles</BuilderSubheading>
-        <BuilderCheckboxGrid
-          options={STRUGGLE_OPTIONS}
-          values={config.adaptation.ifStruggles}
-          maxSelected={CLASSROOM_BUILDER_LIMITS.struggles}
-          onChange={(id, checked) => toggleFlag("struggles", id, checked)}
-        />
-        <BuilderSubheading>If Student Excels</BuilderSubheading>
-        <BuilderCheckboxGrid
-          options={EXCEL_OPTIONS}
-          values={config.adaptation.ifExcels}
-          maxSelected={CLASSROOM_BUILDER_LIMITS.excels}
-          onChange={(id, checked) => toggleFlag("excels", id, checked)}
-        />
-      </BuilderSection>
-
-      <BuilderSection number={9} title="Course Settings">
+      <BuilderSection number={4} title="Student Experience & Publish">
         <BuilderSubheading>Conversation Mode</BuilderSubheading>
         <BuilderRadioGroup
           name="conversationMode"
@@ -803,61 +531,33 @@ export default function CourseBuilderForm() {
             }))
           }
         />
-        <BuilderSubheading>Speech</BuilderSubheading>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <label className="flex items-center gap-3 rounded-xl border border-[#10283f]/10 px-4 py-3 text-sm">
-            <input
-              type="checkbox"
-              checked={config.settings.speechVoice}
-              onChange={(event) =>
-                setConfig((current) => ({
-                  ...current,
-                  settings: { ...current.settings, speechVoice: event.target.checked },
-                }))
-              }
-              className="accent-[#c68b1b]"
-            />
-            Instructor voice
-          </label>
-          <label className="flex items-center gap-3 rounded-xl border border-[#10283f]/10 px-4 py-3 text-sm">
-            <input
-              type="checkbox"
-              checked={config.settings.bookmarks}
-              onChange={(event) =>
-                setConfig((current) => ({
-                  ...current,
-                  settings: { ...current.settings, bookmarks: event.target.checked },
-                }))
-              }
-              className="accent-[#c68b1b]"
-            />
-            Allow Resume Later
-          </label>
-        </div>
-      </BuilderSection>
 
-      <BuilderSection number={10} title="Publish">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <SummaryCard label="Knowledge Package" value={file?.name || "No file selected"} />
+        <label className="flex items-center gap-3 rounded-xl border border-[#10283f]/10 px-4 py-3 text-sm">
+          <input
+            type="checkbox"
+            checked={config.settings.speechVoice}
+            onChange={(event) =>
+              setConfig((current) => ({
+                ...current,
+                settings: { ...current.settings, speechVoice: event.target.checked },
+              }))
+            }
+            className="accent-[#c68b1b]"
+          />
+          Instructor voice (text-to-speech)
+        </label>
+        <p className="text-xs text-[#69757e]">
+          Students can type or use their microphone to respond — speech-to-text is always on.
+        </p>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <SummaryCard
-            label="Estimated Course Length"
+            label="Slides"
+            value={parsedSlides ? String(slideCountEstimate) : "Upload a deck"}
+          />
+          <SummaryCard
+            label="Estimated Length"
             value={`${estimates.courseLengthMinutes} minutes`}
-          />
-          <SummaryCard
-            label="Estimated AI Cost / Student"
-            value={`$${estimates.aiCostPerStudentUsd.toFixed(2)}`}
-          />
-          <SummaryCard
-            label="Estimated Activities"
-            value={String(estimates.activityCount)}
-          />
-          <SummaryCard
-            label="Formative Assessments"
-            value={String(estimates.formativeCount)}
-          />
-          <SummaryCard
-            label="Final Assessment Length"
-            value={`${estimates.finalAssessmentQuestions} questions`}
           />
         </div>
 

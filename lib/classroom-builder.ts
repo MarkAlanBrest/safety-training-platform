@@ -120,14 +120,19 @@ export const ACCENT_OPTIONS = [
   { id: "australian", label: "Australian" },
 ];
 
-export const ACTIVITY_OPTIONS = [
+/** Activity types supported in the PPT-first classroom flow. */
+export const PPT_ACTIVITY_OPTIONS = [
   { id: "multipleChoice", label: "Multiple Choice" },
+  { id: "flashCards", label: "Flash Cards" },
+  { id: "dragDrop", label: "Drag & Drop" },
+];
+
+export const ACTIVITY_OPTIONS = [
+  ...PPT_ACTIVITY_OPTIONS,
   { id: "multipleSelect", label: "Multiple Select" },
   { id: "trueFalse", label: "True / False" },
   { id: "matching", label: "Matching" },
-  { id: "dragDrop", label: "Drag & Drop" },
   { id: "hotspots", label: "Hotspots" },
-  { id: "flashCards", label: "Flash Cards" },
   { id: "fillBlank", label: "Fill In The Blank" },
   { id: "imageIdentification", label: "Image Identification" },
   { id: "labelDiagram", label: "Label The Diagram" },
@@ -208,11 +213,11 @@ export const EXCEL_OPTIONS = [
 ];
 
 export const CLASSROOM_BUILDER_LIMITS = {
-  activities: 6,
-  presentation: 5,
+  activities: PPT_ACTIVITY_OPTIONS.length,
+  presentation: 0,
   studentExperience: 5,
   formativeAllow: 4,
-  summativeTypes: 4,
+  summativeTypes: 1,
   struggles: 4,
   excels: 3,
 } as const;
@@ -279,91 +284,45 @@ const PRESET_SELECTIONS: Record<
 > = {
   focused: {
     teaching: { interactionLevel: "minimal" },
-    activities: ["trueFalse", "scenarioQuestions", "reflection"],
-    presentation: ["zoomPictures", "highlightObjects"],
-    studentExperience: [
-      "askPriorKnowledge",
-      "encourageQuestions",
-      "realWorldExamples",
-    ],
+    activities: ["multipleChoice"],
+    presentation: [],
+    studentExperience: ["encourageQuestions", "realWorldExamples"],
     formativeFrequency: "rare",
-    formativeAllow: ["openQuestions", "quickChecks"],
-    summativeTypes: ["multipleChoice", "practicalScenario"],
+    formativeAllow: ["quickChecks"],
+    summativeTypes: ["multipleChoice"],
     struggles: ["explainAgain", "giveHint"],
     excels: ["deeperQuestions"],
   },
   balanced: {
     teaching: { interactionLevel: "moderate" },
-    activities: [
-      "multipleChoice",
-      "trueFalse",
-      "scenarioQuestions",
-      "shortAnswer",
-      "reflection",
-    ],
-    presentation: [
-      "zoomPictures",
-      "highlightObjects",
-      "drawArrows",
-      "revealBullets",
-    ],
+    activities: ["multipleChoice", "flashCards"],
+    presentation: [],
     studentExperience: [
-      "askPriorKnowledge",
       "encourageQuestions",
       "checkUnderstanding",
       "realWorldExamples",
-      "summarizeObjectives",
     ],
     formativeFrequency: "moderate",
-    formativeAllow: ["openQuestions", "quickChecks", "explainOwnWords"],
-    summativeTypes: ["multipleChoice", "shortAnswer", "practicalScenario"],
+    formativeAllow: ["openQuestions", "quickChecks"],
+    summativeTypes: ["multipleChoice"],
     struggles: ["explainAgain", "anotherExample", "giveHint"],
     excels: ["deeperQuestions", "moveFaster"],
   },
   rich: {
     teaching: { interactionLevel: "high" },
-    activities: [
-      "multipleChoice",
-      "multipleSelect",
-      "trueFalse",
-      "hotspots",
-      "scenarioQuestions",
-      "shortAnswer",
-    ],
-    presentation: [
-      "zoomPictures",
-      "highlightObjects",
-      "drawArrows",
-      "revealBullets",
-      "laserPointer",
-    ],
+    activities: ["multipleChoice", "flashCards", "dragDrop"],
+    presentation: [],
     studentExperience: [
-      "askPriorKnowledge",
       "encourageQuestions",
       "checkUnderstanding",
       "realWorldExamples",
       "useAnalogies",
     ],
     formativeFrequency: "frequent",
-    formativeAllow: [
-      "openQuestions",
-      "quickChecks",
-      "explainOwnWords",
-      "confidenceChecks",
-    ],
-    summativeTypes: [
-      "multipleChoice",
-      "matching",
-      "hotspot",
-      "practicalScenario",
-    ],
-    struggles: [
-      "explainAgain",
-      "anotherExample",
-      "giveHint",
-      "startPractice",
-    ],
-    excels: ["increaseDifficulty", "deeperQuestions", "moveFaster"],
+    formativeAllow: ["openQuestions", "quickChecks", "explainOwnWords"],
+    summativeTypes: ["multipleChoice"],
+    struggles: ["explainAgain", "anotherExample", "giveHint", "startPractice"],
+    excels: ["deeperQuestions", "moveFaster"],
   },
 };
 
@@ -416,36 +375,51 @@ export function defaultClassroomBuilderConfig(
       voice: "cedar",
       voiceSpeed: 0.96,
       accent: "neutral",
-      readBulletPoints: "when-important",
+      readBulletPoints: "never",
     },
-    activities: flagsFromOptions(ACTIVITY_OPTIONS),
+    activities: flagsFromOptions(ACTIVITY_OPTIONS, [
+      "multipleChoice",
+      "flashCards",
+      "dragDrop",
+    ]),
     presentation: flagsFromOptions(PRESENTATION_OPTIONS),
-    studentExperience: flagsFromOptions(STUDENT_EXPERIENCE_OPTIONS),
+    studentExperience: flagsFromOptions(STUDENT_EXPERIENCE_OPTIONS, [
+      "encourageQuestions",
+      "checkUnderstanding",
+      "realWorldExamples",
+    ]),
     formative: {
       frequency: "moderate",
-      allow: flagsFromOptions(FORMATIVE_ALLOW_OPTIONS),
+      allow: flagsFromOptions(FORMATIVE_ALLOW_OPTIONS, [
+        "openQuestions",
+        "quickChecks",
+      ]),
     },
     summative: {
-      types: flagsFromOptions(SUMMATIVE_TYPE_OPTIONS),
+      types: flagsFromOptions(SUMMATIVE_TYPE_OPTIONS, ["multipleChoice"]),
       randomizeQuestions: true,
       requireMastery: true,
       passingScore: 80,
       retakeRule: "twice",
     },
     adaptation: {
-      ifStruggles: flagsFromOptions(STRUGGLE_OPTIONS),
-      ifExcels: flagsFromOptions(EXCEL_OPTIONS),
+      ifStruggles: flagsFromOptions(STRUGGLE_OPTIONS, [
+        "explainAgain",
+        "anotherExample",
+        "giveHint",
+      ]),
+      ifExcels: flagsFromOptions(EXCEL_OPTIONS, ["deeperQuestions"]),
     },
     settings: {
       conversationMode: "interrupt-anytime",
       speechText: true,
       speechVoice: true,
       captions: false,
-      bookmarks: true,
+      bookmarks: false,
     },
   };
 
-  const base = applyClassroomBuilderPreset(skeleton, "balanced");
+  const base = skeleton;
 
   return {
     ...base,
@@ -563,19 +537,13 @@ export function classroomInstructorPrompt(config: ClassroomBuilderConfig) {
   )?.label;
 
   return [
+    "PowerPoint-first classroom: slides display exactly as uploaded. Teach conversationally from speaker notes — never read bullet points verbatim.",
     `Teaching style: ${style}. Personality: ${personality}. Interaction level: ${config.teaching.interactionLevel}.`,
-    `Allowed activities: ${enabledLabels(config.activities, ACTIVITY_OPTIONS).join(", ") || "discussion only"}.`,
-    `Presentation tools available: ${enabledLabels(config.presentation, PRESENTATION_OPTIONS).join(", ") || "slides only"}.`,
-    `Student experience priorities: ${enabledLabels(config.studentExperience, STUDENT_EXPERIENCE_OPTIONS).join(", ")}.`,
-    `Formative assessment frequency: ${config.formative.frequency}. Allowed checks: ${enabledLabels(config.formative.allow, FORMATIVE_ALLOW_OPTIONS).join(", ")}.`,
-    `Summative assessment types: ${enabledLabels(config.summative.types, SUMMATIVE_TYPE_OPTIONS).join(", ") || "none"}. Passing score: ${config.summative.passingScore}%. Retakes: ${config.summative.retakeRule}.`,
-    `If the student struggles: ${enabledLabels(config.adaptation.ifStruggles, STRUGGLE_OPTIONS).join(", ")}.`,
-    `If the student excels: ${enabledLabels(config.adaptation.ifExcels, EXCEL_OPTIONS).join(", ")}.`,
+    `Between-slide activities: ${enabledLabels(config.activities, PPT_ACTIVITY_OPTIONS).join(", ") || "multiple choice only"}.`,
+    `Checkpoint frequency: ${config.formative.frequency}.`,
+    `Final assessment: multiple choice. Passing score: ${config.summative.passingScore}%. Retakes: ${config.summative.retakeRule}.`,
+    `If the student struggles: ${enabledLabels(config.adaptation.ifStruggles, STRUGGLE_OPTIONS).join(", ") || "re-explain with another example"}.`,
+    `If the student excels: ${enabledLabels(config.adaptation.ifExcels, EXCEL_OPTIONS).join(", ") || "ask deeper questions"}.`,
     `Conversation mode: ${config.settings.conversationMode}.`,
-    config.teaching.readBulletPoints === "always"
-      ? "Read bullet points aloud when they appear on screen."
-      : config.teaching.readBulletPoints === "when-important"
-        ? "Read bullet points only when they are important teaching points."
-        : "Do not read bullet points verbatim; paraphrase instead.",
   ].join("\n");
 }

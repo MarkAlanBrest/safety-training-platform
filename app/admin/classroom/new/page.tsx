@@ -10,8 +10,9 @@ export default function NewClassroomPage() {
             Course Builder
           </p>
           <p className="mt-2 max-w-3xl text-sm leading-7 text-white/80">
-            Upload your knowledge package, configure how the AI teaches, choose activities and
-            presentation tools, then publish a live classroom experience.
+            Upload your PowerPoint, add speaker notes for the AI instructor, choose checkpoint
+            activities, then publish a live classroom where slides display exactly as you designed
+            them.
           </p>
         </div>
         <CourseBuilderForm />
