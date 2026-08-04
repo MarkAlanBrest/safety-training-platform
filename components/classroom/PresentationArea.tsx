@@ -15,7 +15,7 @@ import ClassroomFlashcards from "@/components/classroom/ClassroomFlashcards";
 import PptxSlideViewer from "@/components/classroom/PptxSlideViewer";
 import SlideImageStage from "@/components/classroom/SlideImageStage";
 import LessonFlowSelect from "@/components/classroom/LessonFlowSelect";
-import type { ClassroomLessonBeat } from "@/lib/classroom-lesson";
+import { buildLessonBeats, type ClassroomLessonBeat } from "@/lib/classroom-lesson";
 
 export default function PresentationArea({
   plan,
@@ -24,7 +24,6 @@ export default function PresentationArea({
   lessonBeats,
   activeBeatIndex,
   onSelectBeat,
-  onGoToSlide,
   onSelectChoice,
   onActivityComplete,
 }: {
@@ -34,7 +33,6 @@ export default function PresentationArea({
   lessonBeats?: ClassroomLessonBeat[];
   activeBeatIndex: number;
   onSelectBeat: (beatIndex: number) => void;
-  onGoToSlide?: (slideIndex: number) => void;
   onSelectChoice?: (choice: string) => void;
   onActivityComplete?: () => void;
 }) {
@@ -105,8 +103,9 @@ export default function PresentationArea({
           ? ClipboardCheck
           : Presentation;
 
-  const canGoBack = displaySlideIndex > 0;
-  const canGoForward = displaySlideIndex < plan.slides.length - 1;
+  const navigationBeats = lessonBeats || plan.lessonBeats || buildLessonBeats(plan);
+  const canGoToPreviousItem = activeBeatIndex > 0;
+  const canGoToNextItem = activeBeatIndex < navigationBeats.length - 1;
 
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden bg-[#eef2f7]">
@@ -125,31 +124,31 @@ export default function PresentationArea({
             activeBeatIndex={activeBeatIndex}
             onSelectBeat={onSelectBeat}
           />
-          {safeView.type === "slide" && plan.slides.length > 1 ? (
-            <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
-              <button
-                type="button"
-                disabled={!canGoBack}
-                onClick={() => onGoToSlide?.(displaySlideIndex - 1)}
-                className="grid h-8 w-8 place-items-center rounded-full text-slate-600 transition hover:bg-white disabled:opacity-30"
-                aria-label="Previous slide"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <span className="px-2 text-xs font-semibold text-slate-600">
-                {displaySlideIndex + 1} / {plan.slides.length}
-              </span>
-              <button
-                type="button"
-                disabled={!canGoForward}
-                onClick={() => onGoToSlide?.(displaySlideIndex + 1)}
-                className="grid h-8 w-8 place-items-center rounded-full text-slate-600 transition hover:bg-white disabled:opacity-30"
-                aria-label="Next slide"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
-          ) : null}
+          <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
+            <button
+              type="button"
+              disabled={!canGoToPreviousItem}
+              onClick={() => onSelectBeat(activeBeatIndex - 1)}
+              className="grid h-8 w-8 place-items-center rounded-full text-slate-600 transition hover:bg-white disabled:opacity-30"
+              aria-label="Previous lesson item"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span className="px-2 text-xs font-semibold text-slate-600">
+              {safeView.type === "slide"
+                ? `${displaySlideIndex + 1} / ${plan.slides.length}`
+                : `${activeBeatIndex + 1} / ${navigationBeats.length}`}
+            </span>
+            <button
+              type="button"
+              disabled={!canGoToNextItem}
+              onClick={() => onSelectBeat(activeBeatIndex + 1)}
+              className="grid h-8 w-8 place-items-center rounded-full text-slate-600 transition hover:bg-white disabled:opacity-30"
+              aria-label="Next lesson item"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
 
           {eyebrow ? (
             <div className="hidden items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 sm:flex">

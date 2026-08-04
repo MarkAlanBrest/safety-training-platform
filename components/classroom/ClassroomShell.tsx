@@ -557,7 +557,6 @@ export default function ClassroomShell({
           lessonBeats={lessonBeats}
           activeBeatIndex={beatIndex}
           onSelectBeat={(index) => void goToBeat(index)}
-          onGoToSlide={goToSlide}
           onSelectChoice={(choice) => void handleSelectChoice(choice)}
           onActivityComplete={() => void handleActivityComplete()}
         />

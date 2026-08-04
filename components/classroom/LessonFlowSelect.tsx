@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronDown, List } from "lucide-react";
+import { useRef } from "react";
+import { Check, ChevronDown, List } from "lucide-react";
 import type { ClassroomPlan } from "@/lib/classroom";
 import {
   buildLessonBeats,
@@ -28,27 +29,42 @@ export default function LessonFlowSelect({
   onSelectBeat: (beatIndex: number) => void;
 }) {
   const beats = lessonBeats || plan.lessonBeats || buildLessonBeats(plan);
+  const detailsRef = useRef<HTMLDetailsElement | null>(null);
+  const activeBeat = beats[activeBeatIndex] || beats[0];
 
   return (
-    <label className="relative flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-3 pr-9 text-sm font-semibold text-slate-700 transition focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-200">
-      <List size={16} className="shrink-0 text-slate-500" />
-      <span className="sr-only">Lesson navigation</span>
-      <select
-        value={activeBeatIndex}
-        onChange={(event) => onSelectBeat(Number(event.target.value))}
-        className="min-w-0 max-w-[min(42vw,420px)] appearance-none truncate bg-transparent pr-2 outline-none"
-        aria-label="Current lesson item"
-      >
-        {beats.map((beat, index) => (
-          <option key={`${beat.kind}-${index}`} value={index}>
-            {index < activeBeatIndex ? `✓ ${optionLabel(beat, plan)}` : optionLabel(beat, plan)}
-          </option>
-        ))}
-      </select>
-      <ChevronDown
-        size={16}
-        className="pointer-events-none absolute right-3 text-slate-500"
-      />
-    </label>
+    <details ref={detailsRef} className="group relative min-w-0">
+      <summary className="flex min-w-0 cursor-pointer list-none items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-2 pl-3 pr-3 text-sm font-semibold text-slate-700 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 [&::-webkit-details-marker]:hidden">
+        <List size={16} className="shrink-0 text-slate-500" />
+        <span className="max-w-[min(42vw,420px)] truncate">
+          {activeBeat ? optionLabel(activeBeat, plan) : "Lesson navigation"}
+        </span>
+        <ChevronDown size={16} className="shrink-0 text-slate-500 transition group-open:rotate-180" />
+      </summary>
+
+      <div className="absolute right-0 z-50 mt-2 max-h-[60vh] w-[min(88vw,440px)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl">
+        {beats.map((beat, index) => {
+          const active = index === activeBeatIndex;
+          return (
+            <button
+              key={`${beat.kind}-${index}`}
+              type="button"
+              onClick={() => {
+                detailsRef.current?.removeAttribute("open");
+                onSelectBeat(index);
+              }}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                active ? "bg-amber-50 font-bold text-slate-900" : "text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <span className="grid h-5 w-5 shrink-0 place-items-center">
+                {active || index < activeBeatIndex ? <Check size={15} className="text-emerald-600" /> : null}
+              </span>
+              <span className="truncate">{optionLabel(beat, plan)}</span>
+            </button>
+          );
+        })}
+      </div>
+    </details>
   );
 }
