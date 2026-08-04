@@ -12,7 +12,7 @@ import {
   buildLessonBeats,
 } from "@/lib/classroom-lesson";
 
-export type { LessonLineupItem, LineupContentSlide, LineupFormative, LineupActivity } from "@/lib/classroom-lineup";
+export type { LessonLineupItem, LineupContentSlide, LineupFormative, LineupActivity, SlideTransition } from "@/lib/classroom-lineup";
 
 export type ClassroomSlideVisual = {
   label: string;
@@ -28,6 +28,8 @@ export type ClassroomSlide = {
   bullets?: string[];
   highlight?: string;
   layout?: "title" | "content" | "image" | "split" | "blueprint";
+  /** Visual transition when this slide enters the stage. */
+  transition?: import("@/lib/classroom-lineup").SlideTransition;
   hotspots?: ClassroomSlideHotspot[];
   imageDataUrl?: string;
   imageUrl?: string;

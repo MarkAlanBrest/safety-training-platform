@@ -18,6 +18,7 @@ import {
   type LineupContentSlide,
 } from "@/lib/classroom-lineup";
 import { MAX_FILE_BYTES, parsePptxBuffer, teachingContentFromParsedSlide } from "@/lib/ppt-ingest-core";
+import type { ClassroomAssessmentQuestion } from "@/lib/classroom-lesson";
 import { slugify } from "@/lib/mason";
 import { renderPptxSlides } from "@/lib/pptx-render-server";
 
@@ -28,6 +29,31 @@ function parseLineup(raw: unknown): LessonLineupItem[] {
     const kind = (item as { kind?: string }).kind;
     return kind === "content" || kind === "formative" || kind === "activity";
   });
+}
+
+function parseAssessment(raw: unknown): ClassroomAssessmentQuestion[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (item): item is ClassroomAssessmentQuestion =>
+        Boolean(item) &&
+        typeof item === "object" &&
+        typeof (item as ClassroomAssessmentQuestion).prompt === "string" &&
+        Array.isArray((item as ClassroomAssessmentQuestion).choices),
+    )
+    .map((item, index) => ({
+      id: item.id || `assessment-${index + 1}`,
+      prompt: item.prompt.trim(),
+      choices: item.choices.map((choice) => String(choice).trim()).filter(Boolean),
+      correctChoice: String(item.correctChoice || "").trim(),
+    }))
+    .filter((item) => item.prompt && item.choices.length >= 2)
+    .map((item) => ({
+      ...item,
+      correctChoice: item.choices.includes(item.correctChoice)
+        ? item.correctChoice
+        : item.choices[0],
+    }));
 }
 
 function parseBuilderConfig(raw: string | null): ClassroomBuilderConfig {
@@ -50,6 +76,7 @@ export async function POST(request: Request) {
     const description = String(form.get("description") || "").trim();
     const published = String(form.get("published") || "false") === "true";
     const lineup = parseLineup(JSON.parse(String(form.get("lineup") || "[]")));
+    const assessment = parseAssessment(JSON.parse(String(form.get("assessment") || "[]")));
     const config = parseBuilderConfig(String(form.get("config") || ""));
 
     if (!(file instanceof File) || !/\.pptx$/i.test(file.name)) {
@@ -107,6 +134,7 @@ export async function POST(request: Request) {
 
     const plan = buildClassroomPlanFromLineup(attachedLineup, title, slug, mergedConfig, {
       description,
+      assessment,
     });
 
     const slideCount = attachedLineup.filter((item) => item.kind === "content").length;

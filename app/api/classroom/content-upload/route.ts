@@ -15,6 +15,7 @@ import {
   type LessonLineupItem,
   type LineupContentSlide,
 } from "@/lib/classroom-lineup";
+import type { ClassroomAssessmentQuestion } from "@/lib/classroom-lesson";
 import { slugify } from "@/lib/mason";
 
 type ContentUploadBody = {
@@ -23,6 +24,7 @@ type ContentUploadBody = {
   published?: boolean;
   config?: ClassroomBuilderConfig;
   lineup?: LessonLineupItem[];
+  assessment?: ClassroomAssessmentQuestion[];
 };
 
 function parseLineup(raw: unknown): LessonLineupItem[] {
@@ -32,6 +34,31 @@ function parseLineup(raw: unknown): LessonLineupItem[] {
     const kind = (item as { kind?: string }).kind;
     return kind === "content" || kind === "formative" || kind === "activity";
   });
+}
+
+function parseAssessment(raw: unknown): ClassroomAssessmentQuestion[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (item): item is ClassroomAssessmentQuestion =>
+        Boolean(item) &&
+        typeof item === "object" &&
+        typeof (item as ClassroomAssessmentQuestion).prompt === "string" &&
+        Array.isArray((item as ClassroomAssessmentQuestion).choices),
+    )
+    .map((item, index) => ({
+      id: item.id || `assessment-${index + 1}`,
+      prompt: item.prompt.trim(),
+      choices: item.choices.map((choice) => String(choice).trim()).filter(Boolean),
+      correctChoice: String(item.correctChoice || "").trim(),
+    }))
+    .filter((item) => item.prompt && item.choices.length >= 2)
+    .map((item) => ({
+      ...item,
+      correctChoice: item.choices.includes(item.correctChoice)
+        ? item.correctChoice
+        : item.choices[0],
+    }));
 }
 
 function contentSlideCount(lineup: LessonLineupItem[]) {
@@ -48,6 +75,7 @@ export async function POST(request: Request) {
     const description = String(body.description || "").trim();
     const published = body.published === true;
     const lineup = parseLineup(body.lineup);
+    const assessment = parseAssessment(body.assessment);
     const config = defaultClassroomBuilderConfig(body.config);
 
     if (!title) {
@@ -76,7 +104,7 @@ export async function POST(request: Request) {
         courseName: title,
         description: description || config.knowledge.description,
       },
-    }, { description });
+    }, { description, assessment });
 
     const slideCount = contentSlideCount(attachedLineup);
     const estimates = estimateClassroomCourse(slideCount, config);

@@ -228,7 +228,9 @@ export function buildFallbackAssessment(
 export function buildLessonBeats(plan: ClassroomPlan): ClassroomLessonBeat[] {
   if (isLineupPlan(plan) && plan.lineup?.length) {
     if (plan.lessonBeats?.length) return plan.lessonBeats;
-    return buildLessonBeatsFromLineup(plan.lineup);
+    return buildLessonBeatsFromLineup(plan.lineup, {
+      hasAssessment: Boolean(plan.assessment?.length),
+    });
   }
 
   const config = defaultClassroomBuilderConfig(plan.config);

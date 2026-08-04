@@ -104,6 +104,9 @@ export default function PresentationArea({
       ? `slide-${displaySlideIndex}`
       : `${safeView.type}-${safeView.type === "assessment" ? safeView.questionIndex ?? 0 : ""}`;
 
+  const stageTransition =
+    safeView.type === "slide" ? slide?.transition || "fade" : "fade";
+
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden bg-[#eef2f7]">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 sm:py-4">
@@ -154,7 +157,7 @@ export default function PresentationArea({
               </div>
             </div>
           ) : null}
-          <SlideStageTransition stageKey={stageKey}>
+          <SlideStageTransition stageKey={stageKey} transition={stageTransition}>
             {safeView.type === "welcome" ? (
             <div className="flex h-full w-full flex-col justify-center bg-gradient-to-br from-[#0f2b46] to-[#163a5d] p-10 text-white">
               <p className="text-xs font-bold uppercase tracking-[.2em] text-amber-200">
