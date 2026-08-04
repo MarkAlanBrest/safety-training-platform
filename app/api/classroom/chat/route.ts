@@ -14,7 +14,6 @@ import {
 import { lessonBeatSummary } from "@/lib/classroom-lesson";
 import { hotspotsSummary, normalizeFocus } from "@/lib/classroom-focus";
 import { visualsSummary } from "@/lib/classroom";
-import { findSlideIndexForTopic, resolveImageIndexFromTeaching } from "@/lib/classroom-visuals";
 import { extractResponseOutputText } from "@/lib/parse-response";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -318,32 +317,11 @@ export async function POST(request: Request) {
       presentationView.type === "slide" &&
       plan.slides[presentationView.slideIndex]
     ) {
-      const teachingTopic = [
-        presentationView.focus?.label,
-        parsed.presentation?.focusLabel,
-        parsed.presentation?.headline,
-        reply,
-      ]
-        .filter(Boolean)
-        .join(" ");
-      const matchedSlideIndex = findSlideIndexForTopic(
-        plan.slides,
-        teachingTopic,
-        slide.index,
-      );
-      presentationView.slideIndex = matchedSlideIndex;
-      const activeSlide = plan.slides[matchedSlideIndex];
+      const activeSlide = plan.slides[slide.index];
+      presentationView.slideIndex = slide.index;
       presentationView.headline = presentationView.headline || activeSlide.title;
-      const resolvedImageIndex = resolveImageIndexFromTeaching(activeSlide, [
-        presentationView.focus?.label,
-        parsed.presentation?.focusLabel,
-        parsed.presentation?.headline,
-        reply,
-        activeSlide.title,
-      ]);
-      if (typeof resolvedImageIndex === "number") {
-        presentationView.imageIndex = resolvedImageIndex;
-      }
+      delete presentationView.imageIndex;
+      delete presentationView.focus;
     }
 
     return Response.json({

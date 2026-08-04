@@ -54,8 +54,6 @@ export default function PresentationArea({
     safeView.type === "question" ||
     safeView.type === "exercise" ||
     safeView.type === "assessment";
-  const isInteractiveActivity =
-    safeView.type === "flashcard" || safeView.type === "dragdrop";
 
   const headline =
     safeView.type === "welcome"
@@ -85,7 +83,7 @@ export default function PresentationArea({
                 ? "Example"
                 : safeView.type === "welcome"
                   ? "Welcome"
-                  : "Your PowerPoint slide";
+                  : null;
 
   const Icon =
     safeView.type === "question"
@@ -136,10 +134,12 @@ export default function PresentationArea({
             </div>
           ) : null}
 
-          <div className="hidden items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 sm:flex">
-            <Icon size={14} />
-            {eyebrow}
-          </div>
+          {eyebrow ? (
+            <div className="hidden items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 sm:flex">
+              <Icon size={14} />
+              {eyebrow}
+            </div>
+          ) : null}
         </div>
       </div>
 

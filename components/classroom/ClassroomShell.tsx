@@ -3,11 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ClassroomPlan,
-  ClassroomSlide,
   PresentationView,
   PublicClassroomCourse,
 } from "@/lib/classroom";
-import { resolveImageIndexFromTeaching, visualIndexForTopic } from "@/lib/classroom-visuals";
 import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
 import {
   beatIndexForSlide,
@@ -36,11 +34,6 @@ function pinSlidePresentation(
     if (presentation?.type === "slide") {
       return {
         ...lockedPresentation,
-        imageIndex:
-          typeof presentation.imageIndex === "number"
-            ? presentation.imageIndex
-            : lockedPresentation.imageIndex,
-        focus: presentation.focus || lockedPresentation.focus,
         headline: presentation.headline || lockedPresentation.headline,
       };
     }
@@ -60,28 +53,6 @@ function pinSlidePresentation(
     slideIndex,
     headline: presentation.headline || slide.title,
   };
-}
-
-function imageIndexForSlide(slide: ClassroomSlide, topic?: string): number | undefined {
-  if (!slide.visuals?.length) return undefined;
-  const index = visualIndexForTopic(slide, topic || slide.title);
-  return typeof index === "number" ? index : undefined;
-}
-
-function applyTeachingVisual(
-  presentation: PresentationView | undefined,
-  slide: ClassroomSlide,
-  reply: string,
-): PresentationView | undefined {
-  if (!presentation || presentation.type !== "slide") return presentation;
-  const resolved = resolveImageIndexFromTeaching(slide, [
-    presentation.focus?.label,
-    presentation.headline,
-    reply,
-    slide.title,
-  ]);
-  if (typeof resolved !== "number") return presentation;
-  return { ...presentation, imageIndex: resolved };
 }
 
 export default function ClassroomShell({
@@ -322,10 +293,6 @@ export default function ClassroomShell({
         targetSlideIndex,
         options?.lockPresentation,
       );
-      const activeSlide = plan.slides[targetSlideIndex];
-      if (activeSlide && pinnedPresentation) {
-        pinnedPresentation = applyTeachingVisual(pinnedPresentation, activeSlide, reply);
-      }
 
       if (requestId !== navRequestIdRef.current) {
         return;
@@ -365,16 +332,13 @@ export default function ClassroomShell({
   async function teachSlideBeat(index: number, beat: ClassroomLessonBeat, baseMessages: TeacherMessage[]) {
     if (beat.kind !== "slide") return;
     const slide = plan.slides[beat.slideIndex];
-    const matchedImageIndex = imageIndexForSlide(slide, slide.title);
     const view = applyBeat(beat);
     const lockedView: PresentationView =
       view.type === "slide"
         ? {
-            ...view,
-            imageIndex:
-              typeof matchedImageIndex === "number"
-                ? matchedImageIndex
-                : view.imageIndex,
+            type: "slide",
+            slideIndex: beat.slideIndex,
+            headline: slide.title,
           }
         : view;
     if (lockedView.type === "slide") {
@@ -521,12 +485,10 @@ export default function ClassroomShell({
     }
 
     const slide = plan.slides[slideIndex];
-    const matchedImageIndex = imageIndexForSlide(slide, slide.title);
     const view: PresentationView = {
       type: "slide",
       slideIndex,
       headline: slide?.title,
-      imageIndex: typeof matchedImageIndex === "number" ? matchedImageIndex : undefined,
     };
     setCurrentSlideIndex(slideIndex);
     setPresentation(view);
