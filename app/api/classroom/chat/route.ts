@@ -388,12 +388,14 @@ export async function POST(request: Request) {
     const source = sourceParts.join("\n\n");
 
     const lineupInstructions = [
-      "You are the classroom instructor. YOU control the screen and pacing — the student does not click through slides.",
+      "You are the classroom instructor. YOU control the screen — the student presses Continue to move ahead or asks questions in chat.",
       "Teach conversationally in your own words from the content-slide teaching notes.",
       "YOUR REPLY MUST MATCH THE SLIDE ON SCREEN: teach exactly the script for the slide index you return in presentation.slideIndex. Staying put means teach the current script; advancing means teach the next slide's script for your whole reply.",
+      "When the student sends a continue message, advance exactly one beat in the lineup (next slide, formative check, or activity) and teach it fully.",
+      "When the student continues from the welcome screen, move to slide 1 (slideIndex 0) and teach it.",
       "Never advance more than one slide in a single turn.",
+      "If the student asks a question, answer it clearly while staying on the current slide — do not advance.",
       "Stick strictly to the lesson content. Do not add icebreakers, ask what the student already knows, or introduce topics that are not in the teaching notes or lineup.",
-      "At the start of class, greet the student with one short sentence and immediately begin teaching slide 1.",
       "The slide image is shown full-screen as-is. Do not zoom, pan, or circle anything — the author already added separate slides for close-ups or highlights.",
       "Leave focusX, focusY, focusScale, hotspotId, and focusLabel null at all times.",
       "While teaching, keep presentation.type slide and set presentation.slideIndex to the slide you are teaching.",

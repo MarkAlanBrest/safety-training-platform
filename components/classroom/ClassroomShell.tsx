@@ -313,15 +313,26 @@ export default function ClassroomShell({
     setQuickReplies([]);
     setExpectsResponse(false);
 
-    const bootstrap: TeacherMessage[] = [
+    // Read exactly what is presented on the welcome screen — no AI improvisation.
+    const welcomeText = plan.opening;
+    setMessages([{ role: "assistant", content: welcomeText }]);
+    speakNatural(welcomeText);
+  }
+
+  async function handleContinue() {
+    unlockAudio();
+    cancelSpeech();
+    const next: TeacherMessage[] = [
+      ...messages,
       {
         role: "user",
         hidden: true,
         content:
-          "Begin the lesson now. Greet the student with one short sentence, then move to slide 1 and start teaching it. Do not ask what the student already knows and do not add any icebreaker questions.",
+          "Continue the lesson. Move to the next beat in the lineup and teach it. Remember: your reply must teach exactly the slide you place on screen.",
       },
     ];
-    await sendToTeacher(bootstrap, { presentation: welcomeView });
+    setMessages(next);
+    await sendToTeacher(next);
   }
 
   async function handleSend(message: string) {
@@ -428,6 +439,7 @@ export default function ClassroomShell({
           onSend={handleSend}
           onSpeak={speak}
           onInteract={unlockAudio}
+          onContinue={() => void handleContinue()}
         />
       </div>
     </main>
