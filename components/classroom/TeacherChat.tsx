@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Bot, MessageCircleQuestion, Mic, MicOff, Send, Volume2 } from "lucide-react";
+import { Mic, MicOff, Send, Volume2 } from "lucide-react";
 
 export type TeacherMessage = {
   role: "user" | "assistant";
@@ -52,7 +52,6 @@ export default function TeacherChat({
   onSend,
   onSpeak,
   onInteract,
-  onAskQuestion,
 }: {
   messages: TeacherMessage[];
   quickReplies: string[];
@@ -65,7 +64,6 @@ export default function TeacherChat({
   onSend: (message: string) => Promise<void>;
   onSpeak: (text: string) => Promise<void>;
   onInteract?: () => void;
-  onAskQuestion?: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const [listening, setListening] = useState(false);
@@ -135,46 +133,9 @@ export default function TeacherChat({
   }
 
   const showMic = speechToTextEnabled && speechSupported;
-  const teacherState = needsAudioUnlock
-    ? "Tap Hear this to unlock audio"
-    : thinking
-      ? "Thinking…"
-      : speaking
-        ? "Speaking…"
-        : listening
-          ? "Listening…"
-          : awaitingInput
-            ? "Waiting for your response"
-            : "Leading the lesson";
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white">
-      <div className="border-b border-slate-200 px-5 py-5">
-        <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#0f2b46] text-amber-300">
-            <Bot size={22} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="font-bold text-slate-900">AI Teacher</p>
-            <p className="truncate text-xs text-emerald-600">{teacherState}</p>
-          </div>
-        </div>
-        {onAskQuestion ? (
-          <button
-            type="button"
-            onClick={() => {
-              onInteract?.();
-              onAskQuestion();
-            }}
-            disabled={thinking}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-amber-300 hover:bg-amber-50 disabled:opacity-50"
-          >
-            <MessageCircleQuestion size={16} />
-            Ask a question
-          </button>
-        ) : null}
-      </div>
-
       <div
         ref={listRef}
         className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4"

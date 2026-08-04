@@ -330,16 +330,6 @@ export default function ClassroomShell({
     await sendToTeacher(next);
   }
 
-  async function handleAskQuestion() {
-    unlockAudio();
-    const next: TeacherMessage[] = [
-      ...messages,
-      { role: "user", content: "I have a question." },
-    ];
-    setMessages(next);
-    await sendToTeacher(next);
-  }
-
   async function handleActivityComplete() {
     unlockAudio();
     const next: TeacherMessage[] = [
@@ -433,7 +423,6 @@ export default function ClassroomShell({
           onSend={handleSend}
           onSpeak={speak}
           onInteract={unlockAudio}
-          onAskQuestion={() => void handleAskQuestion()}
         />
       </div>
     </main>
