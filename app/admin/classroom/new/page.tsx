@@ -10,9 +10,9 @@ export default function NewClassroomPage() {
             Content slide builder
           </p>
           <p className="mt-2 max-w-3xl text-sm leading-7 text-white/80">
-            Upload a PowerPoint to auto-convert slides to pictures and pull speaker notes into each
-            content slide — or add images manually. Insert formative checks and activities anywhere
-            in the lesson lineup.
+            Export slide pictures as a ZIP, attach your PowerPoint for speaker notes, and the AI
+            will teach from your notes while showing your exact images. Insert formative checks and
+            activities anywhere in the lesson lineup.
           </p>
         </div>
         <ContentSlideBuilderForm />
