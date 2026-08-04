@@ -345,8 +345,9 @@ export default function CourseBuilderForm() {
                       {parsedSlides.length === 1 ? "" : "s"} prepared for upload.
                     </p>
                     <p className="text-xs text-[#69757e]">
-                      Slides are stored as-is from your PowerPoint. The AI teacher explains each
-                      slide and inserts checkpoints between them.
+                      Each slide is captured at high resolution from your PowerPoint file. The AI
+                      teacher explains each slide and inserts checkpoints between them. Re-upload
+                      after platform updates to refresh slide images.
                     </p>
                   </div>
                 ) : null}

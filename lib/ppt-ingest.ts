@@ -4,7 +4,7 @@ import {
   parsePptxBuffer,
 } from "@/lib/ppt-ingest-core";
 
-const SERVER_MAX_IMAGE_BYTES = 350 * 1024;
+const SERVER_MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 export type { ParsedClassroomSlide, ParsedSlideImage } from "@/lib/ppt-ingest-core";
 export {

@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist"],
+  experimental: {
+    proxyClientMaxBodySize: "25mb",
+    serverActions: {
+      bodySizeLimit: "25mb",
+    },
+  },
   turbopack: {
     root: __dirname,
   },
