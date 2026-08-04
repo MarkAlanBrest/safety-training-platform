@@ -168,24 +168,46 @@ export default function TeacherChat({
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white">
       <div className="border-b border-slate-200 px-5 py-5">
         <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#0f2b46] text-amber-300">
-            <Bot size={22} />
+          <span
+            className={`relative grid h-11 w-11 place-items-center rounded-2xl bg-[#0f2b46] text-amber-300 ${
+              realtimeStatus === "speaking" ? "animate-pulse" : ""
+            }`}
+          >
+            {realtimeActive ? <Radio size={22} /> : <Bot size={22} />}
+            {realtimeActive ? (
+              <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+            ) : null}
           </span>
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="font-bold text-slate-900">AI Teacher</p>
-            <p className="text-xs text-emerald-600">
-              {needsAudioUnlock
-                ? "Tap a reply to hear your instructor"
-                : thinking
-                  ? "Thinking…"
-                  : speaking
-                    ? "Speaking…"
-                    : listening
-                      ? "Listening…"
-                      : "Ready to talk"}
-            </p>
+            <p className="truncate text-xs text-emerald-600">{teacherState}</p>
           </div>
         </div>
+        {onToggleRealtime ? (
+          <button
+            type="button"
+            onClick={() => {
+              onInteract?.();
+              onToggleRealtime();
+            }}
+            disabled={realtimeStatus === "connecting"}
+            className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition disabled:cursor-wait disabled:opacity-60 ${
+              realtimeActive
+                ? "bg-rose-50 text-rose-700 hover:bg-rose-100"
+                : "bg-[#0f2b46] text-white hover:bg-[#163a5d]"
+            }`}
+          >
+            {realtimeActive ? <MicOff size={16} /> : <Mic size={16} />}
+            {realtimeStatus === "connecting"
+              ? "Connecting…"
+              : realtimeActive
+                ? "End live conversation"
+                : "Talk live with your teacher"}
+          </button>
+        ) : null}
+        {realtimeError ? (
+          <p className="mt-2 text-xs leading-5 text-rose-600">{realtimeError}</p>
+        ) : null}
       </div>
 
       <div

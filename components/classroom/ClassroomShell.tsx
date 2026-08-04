@@ -110,7 +110,7 @@ export default function ClassroomShell({
   const audioUrlRef = useRef<string | null>(null);
   const startedRef = useRef(false);
   const audioUnlockedRef = useRef(false);
-  const pendingSpeechRef = useRef<string | null>(null);
+  const pendingAudioRef = useRef<HTMLAudioElement | null>(null);
   const speakQueueRef = useRef<Promise<void>>(Promise.resolve());
   const speakRef = useRef<(text: string) => Promise<void>>(async () => undefined);
   const navRequestIdRef = useRef(0);
@@ -129,11 +129,16 @@ export default function ClassroomShell({
 
   const unlockAudio = useCallback(() => {
     audioUnlockedRef.current = true;
-    const pending = pendingSpeechRef.current;
+    const pending = pendingAudioRef.current;
     if (pending) {
-      pendingSpeechRef.current = null;
+      pendingAudioRef.current = null;
       setNeedsAudioUnlock(false);
-      void speakRef.current(pending);
+      setSpeaking(true);
+      void pending.play().catch(() => {
+        setSpeaking(false);
+        setNeedsAudioUnlock(true);
+        pendingAudioRef.current = pending;
+      });
     }
   }, []);
 
@@ -338,6 +343,7 @@ export default function ClassroomShell({
     speechAbortRef.current = null;
     window.speechSynthesis.cancel();
     audioRef.current?.pause();
+    pendingAudioRef.current = null;
     if (audioUrlRef.current) {
       URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
@@ -417,7 +423,7 @@ export default function ClassroomShell({
             await audio.play();
             audioUnlockedRef.current = true;
           } catch {
-            pendingSpeechRef.current = text;
+            pendingAudioRef.current = audio;
             setNeedsAudioUnlock(true);
             setSpeaking(false);
             return;
