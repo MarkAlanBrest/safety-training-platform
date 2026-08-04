@@ -10,7 +10,11 @@ import {
   beatIndexForSlide,
   buildLessonBeats,
 } from "@/lib/classroom-lesson";
-import { speechChunks } from "@/lib/classroom-teacher";
+import {
+  inferExpectsResponse,
+  shouldAutoContinueTeaching,
+  speechChunks,
+} from "@/lib/classroom-teacher";
 import PresentationArea from "@/components/classroom/PresentationArea";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
 
@@ -69,6 +73,27 @@ export default function ClassroomShell({
   const chatAbortRef = useRef<AbortController | null>(null);
   const speechAbortRef = useRef<AbortController | null>(null);
   const turnRequestIdRef = useRef(0);
+  const expectsResponseRef = useRef(false);
+  const presentationRef = useRef<PresentationView>(presentation);
+  const pausedRef = useRef(false);
+  const messagesRef = useRef<TeacherMessage[]>([]);
+  const autoContinueRef = useRef(false);
+
+  useEffect(() => {
+    expectsResponseRef.current = expectsResponse;
+  }, [expectsResponse]);
+
+  useEffect(() => {
+    presentationRef.current = presentation;
+  }, [presentation]);
+
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   function markSlideTaught(slideIndex: number) {
     setTaughtSlideIndices((current) =>
@@ -227,6 +252,44 @@ export default function ClassroomShell({
     }
   }
 
+  function scheduleAutoContinueAfterSpeech() {
+    speakQueueRef.current = speakQueueRef.current
+      .then(async () => {
+        if (
+          autoContinueRef.current ||
+          pausedRef.current ||
+          chatAbortRef.current?.signal.aborted
+        ) {
+          return;
+        }
+        if (
+          !shouldAutoContinueTeaching(
+            expectsResponseRef.current,
+            presentationRef.current,
+          )
+        ) {
+          return;
+        }
+
+        autoContinueRef.current = true;
+        try {
+          const next: TeacherMessage[] = [
+            ...messagesRef.current,
+            {
+              role: "user",
+              content:
+                "Continue teaching. Move to the next idea or slide without asking me a question unless you need a check.",
+            },
+          ];
+          setMessages(next);
+          await sendToTeacher(next);
+        } finally {
+          autoContinueRef.current = false;
+        }
+      })
+      .catch(() => undefined);
+  }
+
   async function sendToTeacher(
     nextMessages: TeacherMessage[],
     options?: { presentation?: PresentationView },
@@ -273,13 +336,12 @@ export default function ClassroomShell({
       } else {
         setQuickReplies([]);
       }
-      const needsResponse =
-        data.expectsResponse ??
-        (data.presentation?.type === "question" ||
-          data.presentation?.type === "exercise" ||
-          data.presentation?.type === "assessment");
-      setExpectsResponse(Boolean(needsResponse));
+      const activePresentation = data.presentation ?? presentationRef.current;
+      const needsResponse = inferExpectsResponse(reply, activePresentation);
+      setExpectsResponse(needsResponse);
+      expectsResponseRef.current = needsResponse;
       speakNatural(reply);
+      scheduleAutoContinueAfterSpeech();
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       const message =
@@ -304,7 +366,6 @@ export default function ClassroomShell({
     };
     setPresentation(welcomeView);
     setQuickReplies([]);
-    setExpectsResponse(true);
 
     const bootstrap: TeacherMessage[] = [
       {

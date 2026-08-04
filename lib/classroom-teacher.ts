@@ -68,6 +68,50 @@ export function sanitizeTeacherSlidePresentation(
   };
 }
 
+const OPEN_PROMPT_PATTERN =
+  /\b(tell me|what do you|how would you|how do you|can you tell|could you tell|share what|describe what|what would you|what do you think|what have you|do you know|have you ever)\b/i;
+
+/** True when the learner should answer — checkpoint UI or a question in the reply. */
+export function inferExpectsResponse(
+  reply: string,
+  presentation: PresentationView,
+): boolean {
+  if (
+    presentation.type === "question" ||
+    presentation.type === "exercise" ||
+    presentation.type === "assessment"
+  ) {
+    return true;
+  }
+
+  const trimmed = reply.trim();
+  if (!trimmed) return false;
+
+  if (/\?/.test(trimmed)) return true;
+
+  const lastSentence =
+    trimmed.split(/(?<=[.!?])\s+/).pop()?.trim() || trimmed;
+  return OPEN_PROMPT_PATTERN.test(lastSentence);
+}
+
+/** Presentation modes where the instructor should keep driving after a beat. */
+export function shouldAutoContinueTeaching(
+  expectsResponse: boolean,
+  presentation: PresentationView,
+): boolean {
+  if (expectsResponse) return false;
+  if (
+    presentation.type === "question" ||
+    presentation.type === "exercise" ||
+    presentation.type === "assessment" ||
+    presentation.type === "flashcard" ||
+    presentation.type === "dragdrop"
+  ) {
+    return false;
+  }
+  return presentation.type === "welcome" || presentation.type === "slide";
+}
+
 /** Split instructor speech so the first chunk reaches TTS quickly. */
 export function speechChunks(text: string): string[] {
   const trimmed = text.trim();

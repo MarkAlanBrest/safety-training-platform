@@ -14,6 +14,7 @@ import {
 import { lessonBeatSummary } from "@/lib/classroom-lesson";
 import { hotspotsSummary, normalizeFocus } from "@/lib/classroom-focus";
 import {
+  inferExpectsResponse,
   resolveSlideImageDataUrl,
   sanitizeTeacherSlidePresentation,
 } from "@/lib/classroom-teacher";
@@ -456,7 +457,7 @@ export async function POST(request: Request) {
       reply,
       presentation: presentationView,
       quickReplies: filterQuickReplies(parsed.quickReplies),
-      expectsResponse: Boolean(parsed.expectsResponse),
+      expectsResponse: inferExpectsResponse(reply, presentationView),
     });
   } catch (error) {
     console.error("Classroom chat failed:", error);
