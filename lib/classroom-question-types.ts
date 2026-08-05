@@ -237,6 +237,21 @@ export function normalizeAssessmentQuestion(raw: unknown): ClassroomQuestion | n
   }
 }
 
+/**
+ * Hotspot questions are generated before a course (and its slug/asset URLs) exists.
+ * Generation writes this placeholder in place of a real imageUrl; buildClassroomPlanFromLineup
+ * resolves it to the real `/api/classroom/{slug}/slides/{index}` URL once the slug is known.
+ */
+export function hotspotSlidePlaceholder(slideIndex: number) {
+  return `slide:${slideIndex}`;
+}
+
+export function resolveHotspotImageUrl(imageUrl: string, slug: string): string {
+  const match = /^slide:(\d+)$/.exec(imageUrl);
+  if (!match) return imageUrl;
+  return `/api/classroom/${slug}/slides/${match[1]}`;
+}
+
 export function normalizeAssessmentQuestions(raw: unknown): ClassroomQuestion[] {
   if (!Array.isArray(raw)) return [];
   return raw

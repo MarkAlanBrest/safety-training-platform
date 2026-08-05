@@ -7,7 +7,7 @@ import type {
   ClassroomLessonBeat,
 } from "@/lib/classroom-lesson";
 import { classroomChapterSlideAssetPath } from "@/lib/classroom-chapters";
-import type { ClassroomFinalTest } from "@/lib/classroom-question-types";
+import { resolveHotspotImageUrl, type ClassroomFinalTest } from "@/lib/classroom-question-types";
 
 /** Visual transition used when a slide enters the stage. */
 export type SlideTransition = "none" | "fade" | "slide-left" | "slide-up" | "zoom" | "flip";
@@ -243,7 +243,24 @@ export function buildClassroomPlanFromLineup(
 ): ClassroomPlan {
   const attachedLineup = attachSlideIndicesToLineup(lineup);
   const slides = slidesFromLineup(attachedLineup, slug);
-  const checkpoints = checkpointsFromLineup(attachedLineup);
+  const checkpoints = checkpointsFromLineup(attachedLineup).map((checkpoint) =>
+    checkpoint.hotspot
+      ? {
+          ...checkpoint,
+          hotspot: { ...checkpoint.hotspot, imageUrl: resolveHotspotImageUrl(checkpoint.hotspot.imageUrl, slug) },
+        }
+      : checkpoint,
+  );
+  const finalTest = options?.finalTest
+    ? {
+        ...options.finalTest,
+        questionBank: options.finalTest.questionBank.map((question) =>
+          question.type === "hotspot"
+            ? { ...question, imageUrl: resolveHotspotImageUrl(question.imageUrl, slug) }
+            : question,
+        ),
+      }
+    : undefined;
   const objectives =
     config?.knowledge.objectives.filter(Boolean) ||
     attachedLineup
@@ -270,13 +287,11 @@ export function buildClassroomPlanFromLineup(
     lineup: attachedLineup,
     checkpoints,
     assessment: options?.assessment || [],
-    finalTest: options?.finalTest,
+    finalTest,
     config,
     lessonBeats: buildLessonBeatsFromLineup(attachedLineup, {
       hasAssessment: Boolean(options?.assessment?.length),
-      hasFinalTest: Boolean(
-        options?.finalTest?.config.enabled && options?.finalTest?.questionBank.length,
-      ),
+      hasFinalTest: Boolean(finalTest?.config.enabled && finalTest.questionBank.length),
     }),
   };
 
