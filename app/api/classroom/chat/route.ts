@@ -13,7 +13,7 @@ import {
   defaultClassroomBuilderConfig,
 } from "@/lib/classroom-builder";
 import { lessonBeatSummary } from "@/lib/classroom-lesson";
-import { isLineupPlan } from "@/lib/classroom-lineup";
+import { coveredTopicsSummary, isLineupPlan } from "@/lib/classroom-lineup";
 import { hotspotsSummary, normalizeFocus } from "@/lib/classroom-focus";
 import {
   resolveSlideImageDataUrl,
@@ -174,13 +174,18 @@ function normalizePresentation(
 const classroomTeacherTurnSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["reply", "presentation", "quickReplies", "expectsResponse", "checkQuestion"],
+  required: ["reply", "presentation", "quickReplies", "expectsResponse", "checkQuestion", "lastAnswerCorrect"],
   properties: {
     reply: { type: "string" },
     expectsResponse: {
       type: "boolean",
       description:
         "True only when the student should answer now (you asked a question or posed a check). False when you are only teaching or transitioning.",
+    },
+    lastAnswerCorrect: {
+      type: ["boolean", "null"],
+      description:
+        "Set true or false ONLY on the turn where you are grading the student's answer to a comprehension check you asked last turn. Null on every other turn (teaching, asking a new check, answering their own question, etc).",
     },
     checkQuestion: {
       type: ["object", "null"],
@@ -323,6 +328,14 @@ export async function POST(request: Request) {
       : 0;
     const presentation = body.presentation as PresentationView | undefined;
     const includeImage = body.includeImage !== false;
+    const studentName = typeof body.studentName === "string" ? body.studentName.trim().slice(0, 60) : "";
+    const taughtSlideIndices: number[] = Array.isArray(body.taughtSlideIndices)
+      ? body.taughtSlideIndices.filter((item: unknown): item is number => Number.isInteger(item))
+      : [];
+    const streak = {
+      correctInRow: Number.isInteger(body.streak?.correctInRow) ? body.streak.correctInRow : 0,
+      incorrectInRow: Number.isInteger(body.streak?.incorrectInRow) ? body.streak.incorrectInRow : 0,
+    };
     const messages = (Array.isArray(body.messages) ? body.messages : [])
       .filter(
         (item: ChatMessage) =>
@@ -425,6 +438,29 @@ export async function POST(request: Request) {
       lessonBeatSummary(plan),
     );
 
+    if (studentName) {
+      sourceParts.push(
+        `Student's name: ${studentName}. Use it naturally now and then — greeting them, praising a streak, re-engaging them after a pause — not in every single reply, that reads as robotic.`,
+      );
+    }
+
+    const coveredTopics = coveredTopicsSummary(
+      plan,
+      taughtSlideIndices,
+      [slide.index, nextSlide?.index].filter((value): value is number => typeof value === "number"),
+    );
+    if (coveredTopics) sourceParts.push(coveredTopics);
+
+    if (streak.correctInRow >= 2) {
+      sourceParts.push(
+        `Performance signal: the student has answered the last ${streak.correctInRow} comprehension checks correctly in a row. This is a good moment to apply the "if the student excels" guidance above — e.g. pick up the pace, ask something a bit deeper, or simply acknowledge they're doing great. Don't overdo the praise.`,
+      );
+    } else if (streak.incorrectInRow >= 2) {
+      sourceParts.push(
+        `Performance signal: the student has missed the last ${streak.incorrectInRow} comprehension checks in a row. Apply the "if the student struggles" guidance above — re-explain more simply, offer a hint, or use another example before moving on.`,
+      );
+    }
+
     const source = sourceParts.join("\n\n");
 
     const lineupInstructions = [
@@ -447,9 +483,14 @@ export async function POST(request: Request) {
       "Do NOT change presentation.type or set presentation.choices for a comprehension check — keep presentation.type slide and presentation.slideIndex on the current slide; the question lives in checkQuestion, not in the slide.",
       "THE STUDENT MUST ANSWER BEFORE YOU CONTINUE: when you set checkQuestion, also set expectsResponse true and stop there — do not teach further content or advance the slide in the same turn. Only continue once they've answered.",
       "GIVE REAL FEEDBACK, not a one-word verdict — like a teacher would: if they're right, briefly affirm it and reinforce why it's right in one sentence, then move on. If they're wrong, correct them warmly, state the right answer, and explain in a sentence or two why — do not just say 'not quite,' actually reteach the point briefly so it sticks. Then move on; do not re-ask the same question. Feedback goes in reply as normal narration, not in checkQuestion.",
+      "GRADING FLAG: on the turn where you give that feedback, set lastAnswerCorrect to true or false to match your verdict. On every other turn (teaching, asking a new check, answering their own question), leave lastAnswerCorrect null.",
       "PRACTICE ACTIVITIES (formative checks of type flashcard or dragdrop, and click-the-spot hotspot checks): these use a dedicated on-screen activity instead of chat — use presentation.type flashcard or dragdrop as appropriate when you reach one of these in the lineup.",
       "When you are only teaching or transitioning, set expectsResponse to false so the class keeps moving.",
       "Use presentation.type flashcard or dragdrop only for inserted practice activities of those types.",
+      "ADAPT TO HOW THEY'RE DOING: if a performance signal about a correct or incorrect streak appears in the lesson context, actually act on it using the matching struggle/excel guidance in your instructor preferences above — don't just note it and continue as normal. This is what makes you feel like a real teacher paying attention, not a script.",
+      "REFERENCE EARLIER CONTENT when it's genuinely useful: if the lesson context lists topics already covered, tie the current point back to one of them when it strengthens the explanation (e.g. 'remember when we covered X — this builds on that'). Don't force it on every slide, and don't re-teach the earlier topic, just a natural callback.",
+      "LIGHT ENCOURAGEMENT: like a real teacher, drop in brief, genuine encouragement at natural moments — a streak of correct answers, finishing a tough section, getting through a milestone in the lesson. Keep it short and varied, never a stock phrase repeated every turn, and never at the expense of the actual teaching content.",
+      "RAPPORT QUESTIONS (different from comprehension checks): every so often, ask a quick, low-stakes engagement question the way a real teacher checks the room — 'Have you run into this before?', 'Does this look familiar from the job site?', 'Ever seen someone skip this step?' These are casual and NOT graded — do not set checkQuestion or lastAnswerCorrect for these, just ask it naturally as part of reply, set expectsResponse true, and briefly acknowledge whatever they say ('Makes sense' / 'Good, then this next part will click fast') before continuing to teach. Use these sparingly and don't let them substitute for the required comprehension checks.",
       "Return an empty quickReplies array unless you have a rare non-answer helper.",
       "Keep teaching replies concise (2–3 sentences) unless the student asks for more; feedback after a comprehension check can run a sentence or two longer since explaining the answer matters.",
       "Return JSON only.",
@@ -479,6 +520,9 @@ export async function POST(request: Request) {
       "Use presentation.type flashcard or dragdrop when a practice activity is the right next move.",
       "Set questionIndex and questionCount when advancing through final assessment questions.",
       "Cover all objectives before the final assessment.",
+      "When grading a comprehension check, set lastAnswerCorrect true or false to match your verdict; leave it null every other turn.",
+      "If the lesson context gives the student's name, use it naturally now and then — not every reply. If it lists topics already covered, make a natural callback when it strengthens a point. If it flags a correct or incorrect streak, actually adapt (reteach, hint, speed up, go deeper) rather than continuing as normal.",
+      "Every so often, ask a quick, ungraded rapport question the way a real teacher checks the room — 'Have you run into this before?', 'Does this look familiar?' Don't set lastAnswerCorrect for these, just acknowledge their answer briefly and move on. Use sparingly, and don't let it replace a real comprehension check.",
       "Return an empty quickReplies array unless you have a rare non-answer helper.",
       "Keep replies concise (2–3 sentences) unless the student asks for more.",
       "Return JSON only.",
@@ -545,6 +589,7 @@ export async function POST(request: Request) {
       quickReplies?: string[];
       expectsResponse?: boolean;
       checkQuestion?: RawCheckQuestion;
+      lastAnswerCorrect?: boolean | null;
     };
 
     const reply =
@@ -566,6 +611,7 @@ export async function POST(request: Request) {
       quickReplies: filterQuickReplies(parsed.quickReplies),
       expectsResponse: Boolean(parsed.expectsResponse),
       checkQuestion: normalizeCheckQuestion(parsed.checkQuestion),
+      lastAnswerCorrect: typeof parsed.lastAnswerCorrect === "boolean" ? parsed.lastAnswerCorrect : null,
     });
   } catch (error) {
     console.error("Classroom chat failed:", error);

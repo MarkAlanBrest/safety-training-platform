@@ -24,8 +24,11 @@ type ChatApiResponse = {
   quickReplies?: string[];
   expectsResponse?: boolean;
   checkQuestion?: ClassroomCheckQuestion | null;
+  lastAnswerCorrect?: boolean | null;
   error?: string;
 };
+
+type AnswerStreak = { correctInRow: number; incorrectInRow: number };
 
 function speechTextForTurn(reply: string, checkQuestion: ClassroomCheckQuestion | null) {
   if (!checkQuestion) return reply;
@@ -68,13 +71,17 @@ export default function ClassroomShell({
   const [speaking, setSpeaking] = useState(false);
   const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [, setTaughtSlideIndices] = useState<number[]>([]);
+  const [taughtSlideIndices, setTaughtSlideIndices] = useState<number[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [beatIndex, setBeatIndex] = useState(0);
   const [assessmentQuestionIndex, setAssessmentQuestionIndex] = useState(0);
   const [expectsResponse, setExpectsResponse] = useState(false);
   const [checkQuestion, setCheckQuestion] = useState<ClassroomCheckQuestion | null>(null);
   const [finalTestCompleted, setFinalTestCompleted] = useState(false);
+  const [classStarted, setClassStarted] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [studentName, setStudentName] = useState("");
+  const [streak, setStreak] = useState<AnswerStreak>({ correctInRow: 0, incorrectInRow: 0 });
   const [presentation, setPresentation] = useState<PresentationView>({
     type: "welcome",
     headline: plan.title,
@@ -112,12 +119,14 @@ export default function ClassroomShell({
     }
   }, []);
 
-  useEffect(() => {
+  function handleStartClass() {
     if (startedRef.current) return;
     startedRef.current = true;
+    setStudentName(nameDraft.trim());
+    setClassStarted(true);
+    unlockAudio();
     void beginClass();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }
 
   useEffect(() => {
     return () => {
@@ -307,6 +316,9 @@ export default function ClassroomShell({
           presentation: options?.presentation ?? presentation,
           messages: nextMessages,
           includeImage: options?.includeImage ?? true,
+          studentName,
+          taughtSlideIndices,
+          streak,
         }),
         signal: controller.signal,
       });
@@ -329,6 +341,13 @@ export default function ClassroomShell({
       }
       const nextCheckQuestion = data.checkQuestion || null;
       setCheckQuestion(nextCheckQuestion);
+      if (typeof data.lastAnswerCorrect === "boolean") {
+        setStreak((current) =>
+          data.lastAnswerCorrect
+            ? { correctInRow: current.correctInRow + 1, incorrectInRow: 0 }
+            : { correctInRow: 0, incorrectInRow: current.incorrectInRow + 1 },
+        );
+      }
       const needsResponse =
         data.expectsResponse ??
         (data.presentation?.type === "question" ||
@@ -498,6 +517,40 @@ export default function ClassroomShell({
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paused, thinking, speaking, expectsResponse, beatIndex, messages.length, currentBeat]);
+
+  if (!classStarted) {
+    return (
+      <main className="flex h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-[#0f2b46] to-[#163a5d] px-6 text-white">
+        <div className="w-full max-w-md rounded-3xl bg-white/10 p-8 backdrop-blur">
+          <p className="text-xs font-bold uppercase tracking-[.2em] text-amber-200">
+            {plan.title}
+          </p>
+          <h2 className="mt-3 text-2xl font-bold">Before we begin — what&apos;s your name?</h2>
+          <p className="mt-2 text-sm text-slate-200">
+            So your instructor can address you directly during class. Optional — you can
+            leave this blank.
+          </p>
+          <input
+            value={nameDraft}
+            onChange={(event) => setNameDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") handleStartClass();
+            }}
+            placeholder="Your first name"
+            className="mt-6 w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white placeholder:text-slate-300 outline-none"
+            autoFocus
+          />
+          <button
+            type="button"
+            onClick={handleStartClass}
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 px-5 py-3 text-sm font-bold text-[#10283f]"
+          >
+            Start class
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   if (currentBeat?.kind === "finalTest" && plan.finalTest && !finalTestCompleted) {
     return (

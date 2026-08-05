@@ -377,13 +377,13 @@ export function lineupSummary(plan: ClassroomPlan): string {
   const formativeCount = plan.lineup.filter((item) => item.kind === "formative").length;
   const activityCount = plan.lineup.filter((item) => item.kind === "activity").length;
 
-  const teachingNotes = plan.lineup
+  // Titles only, not full teaching notes — the current/next slide's full script is sent
+  // separately per turn (see chat/route.ts), and resending every slide's full notes on
+  // every single turn was a large, unnecessary token cost that scaled with course length.
+  const slideTitles = plan.lineup
     .filter((item): item is LineupContentSlide => item.kind === "content")
-    .map(
-      (item, index) =>
-        `Content slide ${index + 1} (${item.title}):\n${item.teachingContent || "(No teaching notes — teach from the slide image.)"}`,
-    )
-    .join("\n\n");
+    .map((item, index) => `${index + 1}. ${item.title}`)
+    .join(", ");
 
   const assessments = plan.lineup
     .filter((item): item is LineupFormative | LineupActivity => item.kind !== "content")
@@ -397,9 +397,29 @@ export function lineupSummary(plan: ClassroomPlan): string {
   return [
     `Lesson lineup: ${contentCount} content slides, ${formativeCount} formative checks, ${activityCount} activities (in author-defined order).`,
     "Slides are shown exactly as uploaded. Zoomed or circled views are separate slides in the deck — do not zoom or circle on screen.",
-    `Teaching scripts by slide:\n${teachingNotes}`,
+    `All slide titles in order: ${slideTitles}`,
     assessments ? `Inserted checks and activities:\n${assessments}` : "No formative checks or activities in the lineup.",
   ].join("\n\n");
+}
+
+/**
+ * Cheap "what have we already taught" recap — titles only, built from the slides the
+ * client has actually presented so far — so the AI can make natural callbacks to earlier
+ * content ("remember when we covered...") without resending every slide's full notes.
+ */
+export function coveredTopicsSummary(
+  plan: ClassroomPlan,
+  taughtSlideIndices: number[],
+  excludeIndices: number[],
+): string {
+  const covered = [...new Set(taughtSlideIndices)]
+    .filter((index) => !excludeIndices.includes(index))
+    .sort((a, b) => a - b)
+    .map((index) => plan.slides[index]?.title)
+    .filter((title): title is string => Boolean(title));
+
+  if (!covered.length) return "";
+  return `Topics already covered earlier in this class (titles only — refer back naturally when it strengthens a point, don't re-teach them): ${covered.join(", ")}.`;
 }
 
 /**
