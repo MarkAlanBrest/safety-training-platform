@@ -151,99 +151,13 @@ export default function ClassroomShell({
     });
   }
 
-  function canStreamMp3(): boolean {
-    return (
-      typeof window !== "undefined" &&
-      "MediaSource" in window &&
-      typeof MediaSource.isTypeSupported === "function" &&
-      MediaSource.isTypeSupported("audio/mpeg")
-    );
-  }
-
   /**
-   * Plays audio as bytes arrive instead of waiting for the whole clip to download —
-   * cuts the time before the student hears anything. Falls back to the old
-   * download-then-play approach if MediaSource streaming isn't available/fails.
+   * Downloads then plays the whole clip. Simple and reliable — an earlier attempt at
+   * progressive MediaSource streaming here could hang indefinitely (no timeout on
+   * `sourceopen`) and freeze the whole class, since a stuck `speaking` state blocks
+   * auto-advance forever. TTS caching on the server keeps this fast in practice since
+   * most requests now hit a cached clip instead of waiting on live synthesis.
    */
-  async function playStreamed(
-    body: ReadableStream<Uint8Array>,
-    controller: AbortController,
-  ): Promise<void> {
-    const mediaSource = new MediaSource();
-    const audio = new Audio();
-    audioRef.current = audio;
-    const objectUrl = URL.createObjectURL(mediaSource);
-    audioUrlRef.current = objectUrl;
-    audio.src = objectUrl;
-
-    const finished = new Promise<void>((resolve) => {
-      const done = () => {
-        setSpeaking(false);
-        if (audioUrlRef.current === objectUrl) {
-          URL.revokeObjectURL(objectUrl);
-          audioUrlRef.current = null;
-        }
-        resolve();
-      };
-      audio.addEventListener("ended", done, { once: true });
-      audio.addEventListener("error", done, { once: true });
-      controller.signal.addEventListener("abort", () => done(), { once: true });
-    });
-
-    await new Promise<void>((resolveOpen, rejectOpen) => {
-      mediaSource.addEventListener("sourceopen", () => resolveOpen(), { once: true });
-      mediaSource.addEventListener("error", () => rejectOpen(new Error("MediaSource failed to open")), {
-        once: true,
-      });
-    });
-    const sourceBuffer = mediaSource.addSourceBuffer("audio/mpeg");
-
-    if (!audioUnlockedRef.current) {
-      try {
-        await audio.play();
-        audioUnlockedRef.current = true;
-      } catch {
-        pendingAudioRef.current = audio;
-        setNeedsAudioUnlock(true);
-        setSpeaking(false);
-        controller.abort();
-        return;
-      }
-    } else {
-      void audio.play();
-    }
-
-    const reader = body.getReader();
-    try {
-      while (true) {
-        const { done: readDone, value } = await reader.read();
-        if (controller.signal.aborted) break;
-        if (readDone) {
-          if (mediaSource.readyState === "open") mediaSource.endOfStream();
-          break;
-        }
-        if (sourceBuffer.updating) {
-          await new Promise<void>((res) => sourceBuffer.addEventListener("updateend", () => res(), { once: true }));
-        }
-        // .slice() copies into a plain (non-shared) ArrayBuffer, matching appendBuffer's stricter BufferSource type.
-        sourceBuffer.appendBuffer(value.slice());
-      }
-    } catch {
-      // Streaming failed mid-flight — signal end-of-stream so playback of whatever
-      // already buffered can finish naturally instead of hanging forever waiting
-      // for data that will never arrive.
-      try {
-        if (mediaSource.readyState === "open") mediaSource.endOfStream();
-      } catch {
-        // Ignore — nothing more we can do if the media source itself is unusable.
-      }
-    } finally {
-      reader.releaseLock();
-    }
-
-    await finished;
-  }
-
   async function playBuffered(response: Response, controller: AbortController): Promise<void> {
     const url = URL.createObjectURL(await response.blob());
     if (controller.signal.aborted) {
@@ -316,23 +230,17 @@ export default function ClassroomShell({
 
         window.speechSynthesis.cancel();
 
-        const streamCapable = Boolean(response.body) && canStreamMp3();
-        // Clone before either path touches the body — a Response can only be cloned
-        // while its body is still untouched.
-        const fallbackResponse = streamCapable ? response.clone() : response;
-
-        if (streamCapable) {
-          try {
-            await playStreamed(response.body!, controller);
-            return;
-          } catch {
-            // Fall through to the buffered path below on any streaming failure.
-          }
-        }
-
-        await playBuffered(fallbackResponse, controller);
+        // Hard safety net: never let a stuck audio element freeze the class — a stuck
+        // `speaking` state blocks auto-advance forever. If playback genuinely hasn't
+        // finished in 45s (a normal clip takes a few seconds), give up on it.
+        await Promise.race([
+          playBuffered(response, controller),
+          new Promise<void>((resolve) => setTimeout(resolve, 45_000)),
+        ]);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
+        setSpeaking(false);
+      } finally {
         setSpeaking(false);
       }
     };

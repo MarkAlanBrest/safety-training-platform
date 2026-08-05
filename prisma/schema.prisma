@@ -139,6 +139,20 @@ model CourseEnrollment {
   @@index([email])
 }
 
+/** Caches synthesized TTS audio by exact (text, voice, speed) so identical narration — the
+ * course welcome message, replayed lines, repeated feedback — is served instantly instead
+ * of paying to re-synthesize it every time. */
+model SpeechCache {
+  id        Int      @id @default(autoincrement())
+  hash      String   @unique
+  voice     String
+  speed     Float
+  mimeType  String
+  audio     Bytes
+  createdAt DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+}
+
 model AdminUser {
   id           Int            @id @default(autoincrement())
   email        String         @unique
