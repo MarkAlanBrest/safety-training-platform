@@ -73,6 +73,7 @@ export default function ClassroomShell({
   const chatAbortRef = useRef<AbortController | null>(null);
   const speechAbortRef = useRef<AbortController | null>(null);
   const turnRequestIdRef = useRef(0);
+  const autoAdvanceCountRef = useRef(0);
 
   function markSlideTaught(slideIndex: number) {
     setTaughtSlideIndices((current) =>
@@ -422,6 +423,25 @@ export default function ClassroomShell({
       : undefined;
 
   const currentBeat = lessonBeats[beatIndex];
+
+  // Auto-pace the class like a teacher advancing slides — no manual Continue
+  // click required. Only pauses when the AI is waiting on a student answer,
+  // during the Final Test, or once the lineup has run out of beats.
+  useEffect(() => {
+    if (paused || thinking || speaking || expectsResponse) return;
+    if (!messages.length) return;
+    if (currentBeat?.kind === "finalTest") return;
+    if (beatIndex >= lessonBeats.length - 1) return;
+    if (autoAdvanceCountRef.current > 300) return;
+
+    const timer = setTimeout(() => {
+      autoAdvanceCountRef.current += 1;
+      void handleContinue();
+    }, 900);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paused, thinking, speaking, expectsResponse, beatIndex, messages.length, currentBeat]);
+
   if (currentBeat?.kind === "finalTest" && plan.finalTest && !finalTestCompleted) {
     return (
       <main className="flex h-screen flex-col overflow-hidden bg-white text-slate-900">

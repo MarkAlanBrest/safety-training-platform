@@ -387,7 +387,11 @@ export function lineupSummary(plan: ClassroomPlan): string {
 
   const assessments = plan.lineup
     .filter((item): item is LineupFormative | LineupActivity => item.kind !== "content")
-    .map((item) => `- ${item.kind === "formative" ? "Formative" : "Activity"}: ${item.headline} — ${item.prompt}`)
+    .map((item) =>
+      item.kind === "formative"
+        ? `- Formative check (${item.type}): "${item.headline}" — ${item.prompt}${formativeAnswerKeyText(item)}`
+        : `- Activity: "${item.headline}" — ${item.prompt}`,
+    )
     .join("\n");
 
   return [
@@ -396,6 +400,34 @@ export function lineupSummary(plan: ClassroomPlan): string {
     `Teaching scripts by slide:\n${teachingNotes}`,
     assessments ? `Inserted checks and activities:\n${assessments}` : "No formative checks or activities in the lineup.",
   ].join("\n\n");
+}
+
+/**
+ * The true answer key for a formative check, appended to its lineup summary line so the AI
+ * asks the check and grades the student's reply against the actual authored answer instead
+ * of improvising both the question and the correctness judgment.
+ */
+function formativeAnswerKeyText(item: LineupFormative): string {
+  switch (item.type) {
+    case "multipleChoice": {
+      const choices = (item.choices || []).filter(Boolean);
+      if (!choices.length) return "";
+      return ` [Options: ${choices.join(" / ")}. Correct answer: ${item.correctChoice || choices[0]}.]`;
+    }
+    case "trueFalse":
+      return ` [Correct answer: ${item.correctAnswerBool ? "True" : "False"}.]`;
+    case "shortAnswer":
+      return item.sampleAnswer
+        ? ` [Reference answer: ${item.sampleAnswer}${item.keyPoints?.length ? ` Key points: ${item.keyPoints.join(", ")}.` : ""}]`
+        : "";
+    case "scenario":
+      if (item.choices?.length) {
+        return ` [Options: ${item.choices.join(" / ")}. Correct answer: ${item.correctChoice || item.choices[0]}.]`;
+      }
+      return item.sampleAnswer ? ` [Reference answer: ${item.sampleAnswer}]` : "";
+    default:
+      return "";
+  }
 }
 
 export function slideAssetPathForLineupIndex(slideIndex: number, chapterPosition = 1) {

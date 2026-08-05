@@ -125,19 +125,6 @@ export type PresentationView =
       dragItems: string[];
     }
   | {
-      type: "multipleChoice";
-      headline: string;
-      prompt: string;
-      choices: string[];
-      correctChoice: string;
-    }
-  | {
-      type: "trueFalse";
-      headline: string;
-      prompt: string;
-      correctAnswer: boolean;
-    }
-  | {
       type: "hotspot";
       headline: string;
       prompt: string;

@@ -405,30 +405,6 @@ export function presentationForBeat(
           dragItems: checkpoint.dragItems || [],
         };
       }
-      if (checkpoint.type === "multipleChoice") {
-        const choices = activityChoices(
-          plan.slides[checkpoint.slideIndex] || plan.slides[0],
-          checkpoint.choices,
-        );
-        return {
-          type: "multipleChoice",
-          headline: checkpoint.headline,
-          prompt: checkpoint.prompt,
-          choices,
-          correctChoice:
-            checkpoint.correctChoice && choices.includes(checkpoint.correctChoice)
-              ? checkpoint.correctChoice
-              : choices[0],
-        };
-      }
-      if (checkpoint.type === "trueFalse") {
-        return {
-          type: "trueFalse",
-          headline: checkpoint.headline,
-          prompt: checkpoint.prompt,
-          correctAnswer: checkpoint.correctAnswerBool ?? true,
-        };
-      }
       if (checkpoint.type === "hotspot" && checkpoint.hotspot) {
         return {
           type: "hotspot",

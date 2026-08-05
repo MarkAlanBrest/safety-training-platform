@@ -405,6 +405,7 @@ export default function ClassroomFinalTestRunner({
           <div className="flex items-center justify-between text-sm text-slate-500">
             <span>
               Question {questionIndex + 1} of {questions.length}
+              {attemptsRemaining !== null ? ` · ${attemptsRemaining} attempt${attemptsRemaining === 1 ? "" : "s"} remaining (including this one)` : ""}
             </span>
             {secondsLeft !== null ? (
               <span className="inline-flex items-center gap-1 font-semibold text-slate-700">

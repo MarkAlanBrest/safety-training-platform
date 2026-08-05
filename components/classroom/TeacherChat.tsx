@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ArrowRight, MessageCircleQuestion, Mic, MicOff, Send, Volume2, X } from "lucide-react";
+import { ArrowRight, MessageCircleQuestion, Mic, MicOff, Send, Volume2, VolumeX, X } from "lucide-react";
 
 export type TeacherMessage = {
   role: "user" | "assistant";
@@ -154,10 +154,20 @@ export default function TeacherChat({
       >
         {!messages.length && (
           <div className="rounded-2xl bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-600">
-            Your instructor leads this session. Press Continue to move ahead, or Ask a
-            question at any time.
+            Your instructor leads this session and paces the class for you. Ask a question
+            any time you want to jump in.
           </div>
         )}
+        {needsAudioUnlock ? (
+          <button
+            type="button"
+            onClick={() => onInteract?.()}
+            className="flex w-full items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-left text-sm font-semibold text-amber-800"
+          >
+            <VolumeX size={16} className="shrink-0" />
+            Tap to enable the instructor&apos;s voice
+          </button>
+        ) : null}
         {messages
           .filter((message) => !message.hidden)
           .map((message, index) => (
