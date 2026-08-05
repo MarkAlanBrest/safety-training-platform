@@ -44,6 +44,7 @@ import {
   emptyContentSlide,
   emptyFormative,
   createLineupId,
+  formativeFromQuestion,
   SLIDE_TRANSITIONS,
   type LessonLineupItem,
   type LineupActivity,
@@ -57,13 +58,10 @@ import {
   defaultFinalTestConfig,
   type ClassroomFinalTestConfig,
   type ClassroomQuestion,
+  type GeneratedFormative,
   type MultipleChoiceQuestion,
   type QuestionType,
 } from "@/lib/classroom-question-types";
-import {
-  formativeFromQuestion,
-  type GeneratedFormative,
-} from "@/lib/classroom-question-generator";
 import QuestionDraftReview from "@/components/classroom/builder/QuestionDraftReview";
 import FinalTestConfigSection from "@/components/classroom/builder/FinalTestConfigSection";
 
@@ -87,6 +85,21 @@ export default function ContentSlideBuilderForm() {
   const [config, setConfig] = useState<ClassroomBuilderConfig>(defaultClassroomBuilderConfig());
   const [lineup, setLineup] = useState<LineupDraftItem[]>([emptyContentSlide("Slide 1")]);
   const [assessment, setAssessment] = useState<MultipleChoiceQuestion[]>([]);
+  const [questionBank, setQuestionBank] = useState<ClassroomQuestion[]>([]);
+  const [finalTestConfig, setFinalTestConfig] = useState<ClassroomFinalTestConfig>(
+    defaultFinalTestConfig(),
+  );
+  const [generateFile, setGenerateFile] = useState<File | null>(null);
+  const [generateIncludeTypes, setGenerateIncludeTypes] = useState<QuestionType[]>([...QUESTION_TYPES]);
+  const [generateCount, setGenerateCount] = useState(20);
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState("");
+  const [generationKey, setGenerationKey] = useState(0);
+  const [pendingGeneration, setPendingGeneration] = useState<{
+    formatives: GeneratedFormative[];
+    bankQuestions: ClassroomQuestion[];
+    warnings: string[];
+  } | null>(null);
   const [sourcePptx, setSourcePptx] = useState<File | null>(null);
   const [slideImagesFromZip, setSlideImagesFromZip] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -353,6 +366,94 @@ export default function ContentSlideBuilderForm() {
             ? question.correctChoice
             : question.choices[0],
       }));
+  }
+
+  function finalTestPayload() {
+    if (!finalTestConfig.enabled || !questionBank.length) return null;
+    return { config: finalTestConfig, questionBank };
+  }
+
+  function toggleGenerateType(type: QuestionType, checked: boolean) {
+    setGenerateIncludeTypes((current) =>
+      checked ? [...current, type] : current.filter((item) => item !== type),
+    );
+  }
+
+  async function handleGenerateQuestions() {
+    if (!generateFile) {
+      setGenerateError("Choose a .pptx or .pdf file first.");
+      return;
+    }
+    setGenerating(true);
+    setGenerateError("");
+    try {
+      const form = new FormData();
+      form.set("file", generateFile);
+      form.set("courseTitle", config.knowledge.courseName.trim());
+      form.set("courseDescription", config.knowledge.description.trim());
+      form.set("includeTypes", JSON.stringify(generateIncludeTypes));
+      form.set("finalTestQuestionCount", String(generateCount));
+
+      const response = await fetch("/api/classroom/generate-questions", {
+        method: "POST",
+        body: form,
+      });
+      const data = await parseJsonResponse<{
+        error?: string;
+        lineupFormatives: GeneratedFormative[];
+        finalTestQuestionBank: ClassroomQuestion[];
+        warnings: string[];
+      }>(response);
+
+      if (!response.ok) throw new Error(data.error || "Questions could not be generated.");
+
+      setPendingGeneration({
+        formatives: data.lineupFormatives,
+        bankQuestions: data.finalTestQuestionBank,
+        warnings: data.warnings,
+      });
+      setGenerationKey((key) => key + 1);
+    } catch (genError) {
+      setGenerateError(
+        genError instanceof Error ? genError.message : "Questions could not be generated.",
+      );
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  function acceptGeneratedFormative(item: GeneratedFormative) {
+    const formative = formativeFromQuestion(item.question, item.headline);
+    updateLineup((current) => {
+      let seenContent = -1;
+      let insertAt = current.length;
+      let foundTarget = false;
+
+      for (let index = 0; index < current.length; index += 1) {
+        const entry = current[index];
+        if (isContentSlide(entry)) {
+          if (foundTarget) break;
+          seenContent += 1;
+          if (seenContent === item.slideIndex) {
+            foundTarget = true;
+            insertAt = index + 1;
+          }
+          continue;
+        }
+        if (foundTarget) insertAt = index + 1;
+      }
+
+      const next = [...current];
+      next.splice(insertAt, 0, formative);
+      return next;
+    });
+  }
+
+  function acceptGeneratedBankQuestion(question: ClassroomQuestion) {
+    setQuestionBank((current) => [...current, question]);
+    if (!finalTestConfig.enabled) {
+      setFinalTestConfig((current) => ({ ...current, enabled: true }));
+    }
   }
 
   async function onSubmit(event: FormEvent, mode: SubmitMode) {
@@ -895,7 +996,144 @@ export default function ContentSlideBuilderForm() {
         </div>
       </BuilderSection>
 
-      <BuilderSection number={3} title="Final assessment">
+      <BuilderSection number={3} title="Generate questions with AI">
+        <div className="rounded-2xl border border-[#10283f]/10 bg-[#faf8f3] px-4 py-4 text-sm leading-6 text-[#69757e]">
+          <p>
+            Upload a PowerPoint or PDF and AI will draft multiple choice, true/false, drag &amp;
+            drop, click-the-spot, flash card, short answer, and scenario questions from it. Review,
+            edit, or delete each draft below — nothing is added until you accept it.
+          </p>
+        </div>
+
+        <BuilderField label="Source file (.pptx or .pdf)">
+          <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-white px-5 py-5 text-center">
+            <input
+              type="file"
+              accept=".pptx,.pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf"
+              disabled={generating}
+              onChange={(event) => setGenerateFile(event.target.files?.[0] || null)}
+              className="block w-full text-sm text-[#69757e]"
+            />
+            {generateFile ? (
+              <p className="mt-2 text-sm font-medium text-emerald-700">Selected — {generateFile.name}</p>
+            ) : null}
+          </div>
+        </BuilderField>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <BuilderField label="Question types to generate">
+            <div className="flex flex-wrap gap-2">
+              {QUESTION_TYPES.map((type) => (
+                <label
+                  key={type}
+                  className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                    generateIncludeTypes.includes(type)
+                      ? "border-[#c68b1b] bg-[#fff9eb] text-[#10283f]"
+                      : "border-[#10283f]/15 text-[#69757e]"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={generateIncludeTypes.includes(type)}
+                    onChange={(event) => toggleGenerateType(type, event.target.checked)}
+                    className="accent-[#c68b1b]"
+                  />
+                  {QUESTION_TYPE_LABELS[type]}
+                </label>
+              ))}
+            </div>
+          </BuilderField>
+          <BuilderField label="Final test bank size" hint="Target number of questions to draft for the bank">
+            <BuilderInput
+              type="number"
+              min={1}
+              max={60}
+              value={generateCount}
+              onChange={(event) => setGenerateCount(Math.max(1, Number(event.target.value) || 1))}
+            />
+          </BuilderField>
+        </div>
+
+        <button
+          type="button"
+          disabled={generating || !generateFile}
+          onClick={() => void handleGenerateQuestions()}
+          className="inline-flex items-center gap-2 rounded-full bg-[#10283f] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+        >
+          {generating ? (
+            <>
+              <LoaderCircle className="animate-spin" size={14} />
+              Generating…
+            </>
+          ) : (
+            <>
+              <Sparkles size={14} />
+              Generate questions
+            </>
+          )}
+        </button>
+
+        {generateError ? (
+          <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {generateError}
+          </p>
+        ) : null}
+
+        {pendingGeneration ? (
+          <QuestionDraftReview
+            key={generationKey}
+            formatives={pendingGeneration.formatives}
+            bankQuestions={pendingGeneration.bankQuestions}
+            warnings={pendingGeneration.warnings}
+            onAcceptFormative={acceptGeneratedFormative}
+            onAcceptBankQuestion={acceptGeneratedBankQuestion}
+          />
+        ) : null}
+      </BuilderSection>
+
+      <BuilderSection number={4} title="Final Test">
+        <div className="rounded-2xl border border-[#10283f]/10 bg-[#faf8f3] px-4 py-4 text-sm leading-6 text-[#69757e]">
+          <p>
+            A configurable test at the end of class, drawn from the question bank you accept above.
+            Configure attempts, timing, passing score, and certificate below.
+          </p>
+        </div>
+        <FinalTestConfigSection
+          config={finalTestConfig}
+          questionCount={questionBank.length}
+          onChange={setFinalTestConfig}
+        />
+        {questionBank.length ? (
+          <div className="space-y-2">
+            <p className="text-sm font-bold text-[#10283f]">Accepted bank questions ({questionBank.length})</p>
+            {questionBank.map((question, index) => (
+              <div
+                key={question.id}
+                className="flex items-center justify-between gap-3 rounded-xl border border-[#10283f]/10 bg-white px-4 py-2 text-sm"
+              >
+                <span>
+                  <span className="mr-2 rounded-full bg-[#faf8f3] px-2 py-0.5 text-xs font-semibold text-[#a06e16]">
+                    {QUESTION_TYPE_LABELS[question.type]}
+                  </span>
+                  {question.type === "scenario" ? question.scenarioText : question.prompt}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setQuestionBank((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                  }
+                  className="rounded-lg border border-red-200 p-1.5 text-red-600"
+                  aria-label="Remove question"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </BuilderSection>
+
+      <BuilderSection number={5} title="Final assessment">
         <div className="rounded-2xl border border-[#10283f]/10 bg-[#faf8f3] px-4 py-4 text-sm leading-6 text-[#69757e]">
           <p>
             Optional test at the end of class. The AI presents each question and the student
@@ -979,7 +1217,7 @@ export default function ContentSlideBuilderForm() {
         </button>
       </BuilderSection>
 
-      <BuilderSection number={4} title="AI instructor">
+      <BuilderSection number={6} title="AI instructor">
         <div className="grid gap-4 md:grid-cols-2">
           <BuilderField label="Teaching style">
             <BuilderRadioGroup

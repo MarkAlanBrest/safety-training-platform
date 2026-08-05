@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { Check, Trash2 } from "lucide-react";
 import { BuilderField, BuilderInput, BuilderTextarea } from "@/components/classroom/builder/BuilderSection";
-import { QUESTION_TYPE_LABELS, type ClassroomQuestion } from "@/lib/classroom-question-types";
-import type { GeneratedFormative } from "@/lib/classroom-question-generator";
+import {
+  QUESTION_TYPE_LABELS,
+  type ClassroomQuestion,
+  type GeneratedFormative,
+} from "@/lib/classroom-question-types";
 
 function updateChoice(choices: string[], index: number, value: string) {
   const next = [...choices];

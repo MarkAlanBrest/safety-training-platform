@@ -7,7 +7,12 @@ import type {
   ClassroomLessonBeat,
 } from "@/lib/classroom-lesson";
 import { classroomChapterSlideAssetPath } from "@/lib/classroom-chapters";
-import { resolveHotspotImageUrl, type ClassroomFinalTest } from "@/lib/classroom-question-types";
+import {
+  resolveHotspotImageUrl,
+  type ClassroomFinalTest,
+  type ClassroomQuestion,
+  type QuestionType,
+} from "@/lib/classroom-question-types";
 
 /** Visual transition used when a slide enters the stage. */
 export type SlideTransition = "none" | "fade" | "slide-left" | "slide-up" | "zoom" | "flip";
@@ -104,6 +109,60 @@ export function emptyActivity(): LineupActivity {
     prompt: "Think about how you would apply this on the job.",
     activityType: "discussion",
   };
+}
+
+function toFormativeType(type: QuestionType): LineupFormative["type"] {
+  return type === "dragDrop" ? "dragdrop" : type;
+}
+
+/** Converts a generated/accepted ClassroomQuestion into a lineup formative-check item. */
+export function formativeFromQuestion(question: ClassroomQuestion, headline: string): LineupFormative {
+  const formative: LineupFormative = {
+    kind: "formative",
+    id: createLineupId("formative"),
+    headline,
+    prompt: question.prompt,
+    type: toFormativeType(question.type),
+  };
+
+  switch (question.type) {
+    case "multipleChoice":
+      formative.choices = question.choices;
+      formative.correctChoice = question.correctChoice;
+      break;
+    case "trueFalse":
+      formative.correctAnswerBool = question.correctAnswer;
+      break;
+    case "dragDrop":
+      formative.dragItems = question.dragItems;
+      break;
+    case "flashcard":
+      formative.flashcards = [{ front: question.front, back: question.back }];
+      break;
+    case "shortAnswer":
+      formative.sampleAnswer = question.sampleAnswer;
+      formative.keyPoints = question.keyPoints;
+      break;
+    case "scenario":
+      if (question.responseMode === "multipleChoice") {
+        formative.choices = question.choices;
+        formative.correctChoice = question.correctChoice;
+      } else {
+        formative.sampleAnswer = question.sampleAnswer;
+        formative.keyPoints = question.keyPoints;
+      }
+      break;
+    case "hotspot":
+      formative.hotspot = {
+        imageUrl: question.imageUrl,
+        targetX: question.targetX,
+        targetY: question.targetY,
+        toleranceRadius: question.toleranceRadius,
+      };
+      break;
+  }
+
+  return formative;
 }
 
 export function isLineupPlan(plan: ClassroomPlan): boolean {
