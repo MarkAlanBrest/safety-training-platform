@@ -322,6 +322,7 @@ export async function POST(request: Request) {
       ? body.assessmentQuestionIndex
       : 0;
     const presentation = body.presentation as PresentationView | undefined;
+    const includeImage = body.includeImage !== false;
     const messages = (Array.isArray(body.messages) ? body.messages : [])
       .filter(
         (item: ChatMessage) =>
@@ -361,7 +362,12 @@ export async function POST(request: Request) {
 
     const assessmentCount = plan.assessment?.length || 0;
     const requestOrigin = new URL(request.url).origin;
-    const slideImageDataUrl = await resolveSlideImageDataUrl(slide, requestOrigin);
+    // Skipping the image fetch/encode on follow-up turns (answering a question, grading,
+    // finishing an activity) meaningfully cuts response latency — the model already has
+    // the slide's teaching script and doesn't need fresh vision to reply on the same slide.
+    const slideImageDataUrl = includeImage
+      ? await resolveSlideImageDataUrl(slide, requestOrigin)
+      : null;
     const lineupMode = isLineupPlan(plan);
     const teachingScript = slide.speakerNotes?.trim()
       ? slide.speakerNotes
