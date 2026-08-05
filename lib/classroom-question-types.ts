@@ -110,6 +110,17 @@ export type ClassroomFinalTest = {
   questionBank: ClassroomQuestion[];
 };
 
+/**
+ * A generated formative check, kept as a plain ClassroomQuestion (shared shape with
+ * bank questions, so the review UI can use one editor) plus placement metadata.
+ * Converted to a LineupFormative only once the instructor accepts it.
+ */
+export type GeneratedFormative = {
+  slideIndex: number;
+  headline: string;
+  question: ClassroomQuestion;
+};
+
 export function defaultFinalTestConfig(
   overrides?: Partial<ClassroomFinalTestConfig>,
 ): ClassroomFinalTestConfig {

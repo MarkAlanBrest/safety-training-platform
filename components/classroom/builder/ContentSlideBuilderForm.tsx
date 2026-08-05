@@ -10,6 +10,7 @@ import {
   LoaderCircle,
   MessageSquare,
   Plus,
+  Sparkles,
   Trash2,
   UploadCloud,
 } from "lucide-react";
@@ -50,7 +51,21 @@ import {
   type LineupFormative,
   type SlideTransition,
 } from "@/lib/classroom-lineup";
-import type { MultipleChoiceQuestion } from "@/lib/classroom-question-types";
+import {
+  QUESTION_TYPES,
+  QUESTION_TYPE_LABELS,
+  defaultFinalTestConfig,
+  type ClassroomFinalTestConfig,
+  type ClassroomQuestion,
+  type MultipleChoiceQuestion,
+  type QuestionType,
+} from "@/lib/classroom-question-types";
+import {
+  formativeFromQuestion,
+  type GeneratedFormative,
+} from "@/lib/classroom-question-generator";
+import QuestionDraftReview from "@/components/classroom/builder/QuestionDraftReview";
+import FinalTestConfigSection from "@/components/classroom/builder/FinalTestConfigSection";
 
 type SubmitMode = "draft" | "publish";
 
@@ -397,6 +412,7 @@ export default function ContentSlideBuilderForm() {
         form.set("config", JSON.stringify(config));
         form.set("lineup", JSON.stringify(payloadLineup));
         form.set("assessment", JSON.stringify(cleanedAssessment()));
+        form.set("finalTest", JSON.stringify(finalTestPayload()));
 
         const response = await fetch("/api/classroom/import-pptx", {
           method: "POST",
@@ -427,6 +443,7 @@ export default function ContentSlideBuilderForm() {
           config,
           lineup: payloadLineup,
           assessment: cleanedAssessment(),
+          finalTest: finalTestPayload(),
         }),
       });
 

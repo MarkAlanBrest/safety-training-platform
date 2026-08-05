@@ -1,13 +1,14 @@
 import type { ParsedClassroomSlide } from "@/lib/ppt-ingest-core";
 import { extractResponseOutputText } from "@/lib/parse-response";
 import { analyzeSlideForClickTarget } from "@/lib/classroom-hotspots";
-import { createLineupId, type LineupFormative } from "@/lib/classroom-lineup";
+import { createLineupId } from "@/lib/classroom-lineup";
 import {
   hotspotSlidePlaceholder,
   normalizeAssessmentQuestion,
   normalizeAssessmentQuestions,
   QUESTION_TYPE_LABELS,
   type ClassroomQuestion,
+  type GeneratedFormative,
   type QuestionType,
 } from "@/lib/classroom-question-types";
 
@@ -32,78 +33,11 @@ export type QuestionGenerationRequest = {
   finalTestQuestionCount?: number;
 };
 
-/**
- * A generated formative check, kept as a plain ClassroomQuestion (shared shape with
- * bank questions, so the review UI can use one editor) plus placement metadata.
- * Converted to a LineupFormative only once the instructor accepts it.
- */
-export type GeneratedFormative = {
-  slideIndex: number;
-  headline: string;
-  question: ClassroomQuestion;
-};
-
 export type QuestionGenerationResult = {
   lineupFormatives: GeneratedFormative[];
   finalTestQuestionBank: ClassroomQuestion[];
   warnings: string[];
 };
-
-function toFormativeType(type: QuestionType): LineupFormative["type"] {
-  return type === "dragDrop" ? "dragdrop" : type;
-}
-
-export function formativeFromQuestion(
-  question: ClassroomQuestion,
-  headline: string,
-): LineupFormative {
-  const formative: LineupFormative = {
-    kind: "formative",
-    id: createLineupId("formative"),
-    headline,
-    prompt: question.prompt,
-    type: toFormativeType(question.type),
-  };
-
-  switch (question.type) {
-    case "multipleChoice":
-      formative.choices = question.choices;
-      formative.correctChoice = question.correctChoice;
-      break;
-    case "trueFalse":
-      formative.correctAnswerBool = question.correctAnswer;
-      break;
-    case "dragDrop":
-      formative.dragItems = question.dragItems;
-      break;
-    case "flashcard":
-      formative.flashcards = [{ front: question.front, back: question.back }];
-      break;
-    case "shortAnswer":
-      formative.sampleAnswer = question.sampleAnswer;
-      formative.keyPoints = question.keyPoints;
-      break;
-    case "scenario":
-      if (question.responseMode === "multipleChoice") {
-        formative.choices = question.choices;
-        formative.correctChoice = question.correctChoice;
-      } else {
-        formative.sampleAnswer = question.sampleAnswer;
-        formative.keyPoints = question.keyPoints;
-      }
-      break;
-    case "hotspot":
-      formative.hotspot = {
-        imageUrl: question.imageUrl,
-        targetX: question.targetX,
-        targetY: question.targetY,
-        toleranceRadius: question.toleranceRadius,
-      };
-      break;
-  }
-
-  return formative;
-}
 
 function slideDigest(slides: ParsedClassroomSlide[]) {
   return slides
