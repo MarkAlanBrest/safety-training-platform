@@ -13,6 +13,7 @@ import {
   presentationForBeat,
 } from "@/lib/classroom-lesson";
 import ClassroomTopBar from "@/components/classroom/ClassroomTopBar";
+import ClassroomFinalTestRunner from "@/components/classroom/ClassroomFinalTestRunner";
 import PresentationArea from "@/components/classroom/PresentationArea";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
 
@@ -57,6 +58,7 @@ export default function ClassroomShell({
   const [beatIndex, setBeatIndex] = useState(0);
   const [assessmentQuestionIndex, setAssessmentQuestionIndex] = useState(0);
   const [expectsResponse, setExpectsResponse] = useState(false);
+  const [finalTestCompleted, setFinalTestCompleted] = useState(false);
   const [presentation, setPresentation] = useState<PresentationView>({
     type: "welcome",
     headline: plan.title,
@@ -384,6 +386,9 @@ export default function ClassroomShell({
     }
     setQuickReplies([]);
 
+    // The Final Test is a standalone exam mode, not part of the AI chat loop.
+    if (beat.kind === "finalTest") return;
+
     const label = navLabelForBeat(beat, plan);
     const next: TeacherMessage[] = [
       ...messages,
@@ -415,6 +420,26 @@ export default function ClassroomShell({
     presentation.type === "assessment"
       ? presentation.prompt
       : undefined;
+
+  const currentBeat = lessonBeats[beatIndex];
+  if (currentBeat?.kind === "finalTest" && plan.finalTest && !finalTestCompleted) {
+    return (
+      <main className="flex h-screen flex-col overflow-hidden bg-white text-slate-900">
+        <ClassroomFinalTestRunner
+          courseSlug={course.slug}
+          finalTest={plan.finalTest}
+          onExit={() => {
+            setFinalTestCompleted(true);
+            setPresentation({
+              type: "welcome",
+              headline: "Course complete",
+              body: "Great work finishing the final test. You can review any slide from the navigation bar above.",
+            });
+          }}
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="flex h-screen flex-col overflow-hidden bg-white text-slate-900">

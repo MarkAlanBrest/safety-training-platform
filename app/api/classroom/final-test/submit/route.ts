@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { resolveClassroomCourse } from "@/lib/classroom-course-lookup";
 import { extractResponseOutputText } from "@/lib/parse-response";
@@ -178,7 +179,7 @@ export async function POST(request: Request) {
           studentEmail,
           studentName: studentName || null,
           attemptNumber,
-          answers: gradedAnswers,
+          answers: gradedAnswers as unknown as Prisma.InputJsonValue,
           score,
           passed,
           submittedAt: new Date(),
