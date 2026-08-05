@@ -52,7 +52,6 @@ export default function ClassroomShell({
   const [speaking, setSpeaking] = useState(false);
   const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [quickReplies, setQuickReplies] = useState<string[]>([]);
   const [, setTaughtSlideIndices] = useState<number[]>([]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [beatIndex, setBeatIndex] = useState(0);
@@ -237,9 +236,6 @@ export default function ClassroomShell({
       const assessmentBeat = lessonBeats.findIndex((beat) => beat.kind === "assessment");
       if (assessmentBeat >= 0) setBeatIndex(assessmentBeat);
     }
-    if (view.type === "flashcard" || view.type === "dragdrop") {
-      setQuickReplies([]);
-    }
   }
 
   async function sendToTeacher(
@@ -287,11 +283,6 @@ export default function ClassroomShell({
       if (data.presentation) {
         applyTeacherPresentation(data.presentation);
       }
-      if (data.quickReplies?.length) {
-        setQuickReplies(data.quickReplies);
-      } else {
-        setQuickReplies([]);
-      }
       const needsResponse =
         data.expectsResponse ??
         (data.presentation?.type === "question" ||
@@ -322,7 +313,6 @@ export default function ClassroomShell({
       body: plan.opening,
     };
     setPresentation(welcomeView);
-    setQuickReplies([]);
     setExpectsResponse(false);
 
     // Read exactly what is presented on the welcome screen — no AI improvisation.
@@ -385,7 +375,6 @@ export default function ClassroomShell({
       setCurrentSlideIndex(beat.slideIndex);
       markSlideTaught(beat.slideIndex);
     }
-    setQuickReplies([]);
 
     // The Final Test is a standalone exam mode, not part of the AI chat loop.
     if (beat.kind === "finalTest") return;
@@ -405,6 +394,27 @@ export default function ClassroomShell({
       slideIndex: nextSlideIndex,
       beatIndex: nextBeatIndex,
     });
+  }
+
+  /**
+   * Jumps back to the previous content slide. Skips over checkpoint/activity/finalTest
+   * beats — comprehension checks live in chat now, not as their own screen to revisit.
+   */
+  function previousSlideBeatIndex(fromBeatIndex: number): number {
+    for (let index = fromBeatIndex - 1; index >= 0; index -= 1) {
+      if (lessonBeats[index]?.kind === "slide" || lessonBeats[index]?.kind === "welcome") {
+        return index;
+      }
+    }
+    return -1;
+  }
+
+  const canGoBack = previousSlideBeatIndex(beatIndex) >= 0;
+
+  async function handleGoBack() {
+    const target = previousSlideBeatIndex(beatIndex);
+    if (target < 0) return;
+    await handleSelectBeat(target);
   }
 
   const awaitingInput =
@@ -483,9 +493,7 @@ export default function ClassroomShell({
 
         <TeacherChat
           messages={messages}
-          quickReplies={quickReplies}
           thinking={thinking}
-          speaking={speaking}
           needsAudioUnlock={needsAudioUnlock}
           speechToTextEnabled={builderConfig?.settings.speechText ?? true}
           awaitingInput={awaitingInput}
@@ -493,7 +501,9 @@ export default function ClassroomShell({
           onSend={handleSend}
           onSpeak={speak}
           onInteract={unlockAudio}
-          onContinue={() => void handleContinue()}
+          onForward={() => void handleContinue()}
+          onBack={() => void handleGoBack()}
+          canGoBack={canGoBack}
         />
       </div>
     </main>

@@ -1,7 +1,17 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ArrowRight, MessageCircleQuestion, Mic, MicOff, Send, Volume2, VolumeX, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  MessageCircleQuestion,
+  Mic,
+  MicOff,
+  Send,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
 
 export type TeacherMessage = {
   role: "user" | "assistant";
@@ -44,9 +54,7 @@ function getSpeechRecognition():
 
 export default function TeacherChat({
   messages,
-  quickReplies: _quickReplies,
   thinking,
-  speaking,
   needsAudioUnlock = false,
   speechToTextEnabled = false,
   awaitingInput = false,
@@ -54,12 +62,12 @@ export default function TeacherChat({
   onSend,
   onSpeak,
   onInteract,
-  onContinue,
+  onForward,
+  onBack,
+  canGoBack = false,
 }: {
   messages: TeacherMessage[];
-  quickReplies: string[];
   thinking: boolean;
-  speaking: boolean;
   needsAudioUnlock?: boolean;
   speechToTextEnabled?: boolean;
   awaitingInput?: boolean;
@@ -67,23 +75,20 @@ export default function TeacherChat({
   onSend: (message: string) => Promise<void>;
   onSpeak: (text: string) => Promise<void>;
   onInteract?: () => void;
-  onContinue?: () => void;
+  onForward?: () => void;
+  onBack?: () => void;
+  canGoBack?: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const [listening, setListening] = useState(false);
   const [asking, setAsking] = useState(false);
-  const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const speechSupported = Boolean(getSpeechRecognition());
 
   const showInput = awaitingInput || asking;
-
-  useEffect(() => {
-    const list = listRef.current;
-    if (!list) return;
-    list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
-  }, [messages, thinking]);
+  const visibleMessages = messages.filter((message) => !message.hidden);
+  const lastMessage = visibleMessages[visibleMessages.length - 1];
 
   useEffect(() => {
     return () => {
@@ -148,16 +153,7 @@ export default function TeacherChat({
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white">
-      <div
-        ref={listRef}
-        className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4"
-      >
-        {!messages.length && (
-          <div className="rounded-2xl bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-600">
-            Your instructor leads this session and paces the class for you. Ask a question
-            any time you want to jump in.
-          </div>
-        )}
+      <div className="flex min-h-0 flex-1 flex-col justify-center gap-3 overflow-y-auto px-5 py-6">
         {needsAudioUnlock ? (
           <button
             type="button"
@@ -168,36 +164,40 @@ export default function TeacherChat({
             Tap to enable the instructor&apos;s voice
           </button>
         ) : null}
-        {messages
-          .filter((message) => !message.hidden)
-          .map((message, index) => (
-          <div
-            key={`${message.role}-${index}`}
-            className={`rounded-2xl px-4 py-3 text-sm leading-7 ${
-              message.role === "assistant"
-                ? "bg-[#f1f5f9] text-slate-800"
-                : "bg-[#0f2b46] text-white"
-            }`}
-          >
-            {message.content}
-            {message.role === "assistant" ? (
-              <button
-                type="button"
-                onClick={() => {
-                  onInteract?.();
-                  void onSpeak(message.content);
-                }}
-                className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-slate-500"
-              >
-                <Volume2 size={14} />
-                Hear this
-              </button>
+
+        {!visibleMessages.length ? (
+          <div className="rounded-2xl bg-slate-50 px-4 py-4 text-center text-sm leading-7 text-slate-600">
+            Your instructor leads this session and paces the class for you. Ask a question
+            any time you want to jump in.
+          </div>
+        ) : lastMessage?.role === "user" ? (
+          <div className="space-y-3">
+            <div className="ml-auto max-w-[85%] rounded-2xl bg-[#0f2b46] px-4 py-3 text-sm leading-7 text-white">
+              {lastMessage.content}
+            </div>
+            {thinking ? (
+              <div className="rounded-2xl bg-[#f1f5f9] px-4 py-3 text-sm leading-7 text-slate-500">
+                Instructor is thinking…
+              </div>
             ) : null}
           </div>
-        ))}
-        {thinking ? (
-          <div className="rounded-2xl bg-[#f1f5f9] px-4 py-3 text-sm leading-7 text-slate-500">
-            Instructor is thinking…
+        ) : lastMessage ? (
+          <div
+            key={lastMessage.content}
+            className="rounded-2xl bg-[#f1f5f9] px-4 py-4 text-base leading-7 text-slate-800"
+          >
+            {lastMessage.content}
+            <button
+              type="button"
+              onClick={() => {
+                onInteract?.();
+                void onSpeak(lastMessage.content);
+              }}
+              className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-slate-500"
+            >
+              <Volume2 size={14} />
+              Hear this
+            </button>
           </div>
         ) : null}
       </div>
@@ -292,13 +292,13 @@ export default function TeacherChat({
               type="button"
               onClick={() => {
                 onInteract?.();
-                onContinue?.();
+                onBack?.();
               }}
-              disabled={thinking || !onContinue}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#0f2b46] px-4 py-3.5 text-sm font-bold text-white transition hover:bg-[#163a5d] disabled:opacity-50"
+              disabled={thinking || !canGoBack}
+              aria-label="Previous slide"
+              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-slate-300 bg-white text-slate-700 transition hover:border-amber-300 hover:bg-amber-50 disabled:opacity-40"
             >
-              Continue
-              <ArrowRight size={16} />
+              <ArrowLeft size={18} />
             </button>
             <button
               type="button"
@@ -307,10 +307,22 @@ export default function TeacherChat({
                 setAsking(true);
               }}
               disabled={thinking}
-              className="flex items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3.5 text-sm font-bold text-slate-700 transition hover:border-amber-300 hover:bg-amber-50 disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3.5 text-sm font-bold text-slate-700 transition hover:border-amber-300 hover:bg-amber-50 disabled:opacity-50"
             >
               <MessageCircleQuestion size={16} />
               Ask a question
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onInteract?.();
+                onForward?.();
+              }}
+              disabled={thinking || !onForward}
+              aria-label="Skip ahead"
+              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#0f2b46] text-white transition hover:bg-[#163a5d] disabled:opacity-50"
+            >
+              <ArrowRight size={18} />
             </button>
           </div>
         )}
