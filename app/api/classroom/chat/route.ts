@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import {
   classroomPlanForSlug,
   isClassroomPlan,
+  type ClassroomCheckQuestion,
   type ClassroomPlan,
   type PresentationView,
 } from "@/lib/classroom";
@@ -50,6 +51,23 @@ type RawPresentation = {
   questionIndex: number | null;
   questionCount: number | null;
 };
+
+type RawCheckQuestion = {
+  prompt: string;
+  type: "multipleChoice" | "trueFalse" | "shortAnswer";
+  options: string[] | null;
+} | null;
+
+function normalizeCheckQuestion(raw: RawCheckQuestion | undefined): ClassroomCheckQuestion | null {
+  const prompt = raw?.prompt?.trim();
+  if (!raw || !prompt) return null;
+  const options = raw.options?.map((option) => option.trim()).filter(Boolean);
+  return {
+    prompt,
+    type: raw.type,
+    options: options?.length ? options : undefined,
+  };
+}
 
 function normalizePresentation(
   raw: RawPresentation | null | undefined,
@@ -156,13 +174,29 @@ function normalizePresentation(
 const classroomTeacherTurnSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["reply", "presentation", "quickReplies", "expectsResponse"],
+  required: ["reply", "presentation", "quickReplies", "expectsResponse", "checkQuestion"],
   properties: {
     reply: { type: "string" },
     expectsResponse: {
       type: "boolean",
       description:
         "True only when the student should answer now (you asked a question or posed a check). False when you are only teaching or transitioning.",
+    },
+    checkQuestion: {
+      type: ["object", "null"],
+      description:
+        "Set ONLY on a turn where you are asking a comprehension check. Holds the actual question so the UI can show it in its own dedicated card — do not also restate the question or its options inside reply. Null on every other turn.",
+      additionalProperties: false,
+      required: ["prompt", "type", "options"],
+      properties: {
+        prompt: { type: "string" },
+        type: { type: "string", enum: ["multipleChoice", "trueFalse", "shortAnswer"] },
+        options: {
+          type: ["array", "null"],
+          description: "The answer options for multipleChoice or trueFalse. Null for shortAnswer.",
+          items: { type: "string" },
+        },
+      },
     },
     presentation: {
       type: "object",
@@ -401,11 +435,12 @@ export async function POST(request: Request) {
       "While teaching, keep presentation.type slide and set presentation.slideIndex to the slide you are teaching.",
       "Follow the lesson lineup in order.",
       "REQUIRED COMPREHENSION CHECKS: like a real teacher, you must periodically stop and actually quiz the student — this is not optional. Roughly every 2-3 slides, and always right after you've just taught something important, ask one genuine question: true/false, multiple choice, or short answer.",
-      "If the lineup places a formative check (type multipleChoice, trueFalse, shortAnswer, or scenario) at this point, ask exactly that question — the lesson lineup below gives you the correct answer for it in brackets; use it to grade the student, but never reveal it before they answer.",
+      "If the lineup places a formative check (type multipleChoice, trueFalse, shortAnswer, or scenario) at this point, ask exactly that question — the lesson lineup below gives you the correct answer for it in brackets; use it to grade the student, but never reveal it before they answer. A scenario check maps to checkQuestion.type multipleChoice or shortAnswer depending on which one the lineup gives it options for.",
       "If the lineup has gone 2-3 slides without a formative check, don't skip questioning — write your own true/false, multiple choice, or short-answer question testing the specific point you just taught, using the teaching script as your answer key.",
-      "Ask these directly in your spoken reply, like a teacher pausing the room to check understanding — do NOT change presentation.type or set presentation.choices for these, keep presentation.type slide and presentation.slideIndex on the current slide. For multiple choice or true/false, state the question and read out the options in your reply text.",
-      "THE STUDENT MUST ANSWER BEFORE YOU CONTINUE: when you ask a comprehension check, set expectsResponse true and stop there — do not teach further content or advance the slide in the same turn. Only continue once they've answered.",
-      "GIVE REAL FEEDBACK, not a one-word verdict — like a teacher would: if they're right, briefly affirm it and reinforce why it's right in one sentence, then move on. If they're wrong, correct them warmly, state the right answer, and explain in a sentence or two why — do not just say 'not quite,' actually reteach the point briefly so it sticks. Then move on; do not re-ask the same question.",
+      "HOW TO ASK A COMPREHENSION CHECK: put the actual question in the separate checkQuestion field (prompt, type, and options), NOT in your reply text — the UI shows checkQuestion in its own dedicated card, so reply must not restate the question or list its options. Your reply should only be a short natural lead-in, e.g. 'Let's check that this landed — I've got a quick question for you.' Set checkQuestion.type to multipleChoice, trueFalse, or shortAnswer, and fill options for multipleChoice/trueFalse (leave options null for shortAnswer). On every other turn, checkQuestion must be null.",
+      "Do NOT change presentation.type or set presentation.choices for a comprehension check — keep presentation.type slide and presentation.slideIndex on the current slide; the question lives in checkQuestion, not in the slide.",
+      "THE STUDENT MUST ANSWER BEFORE YOU CONTINUE: when you set checkQuestion, also set expectsResponse true and stop there — do not teach further content or advance the slide in the same turn. Only continue once they've answered.",
+      "GIVE REAL FEEDBACK, not a one-word verdict — like a teacher would: if they're right, briefly affirm it and reinforce why it's right in one sentence, then move on. If they're wrong, correct them warmly, state the right answer, and explain in a sentence or two why — do not just say 'not quite,' actually reteach the point briefly so it sticks. Then move on; do not re-ask the same question. Feedback goes in reply as normal narration, not in checkQuestion.",
       "PRACTICE ACTIVITIES (formative checks of type flashcard or dragdrop, and click-the-spot hotspot checks): these use a dedicated on-screen activity instead of chat — use presentation.type flashcard or dragdrop as appropriate when you reach one of these in the lineup.",
       "When you are only teaching or transitioning, set expectsResponse to false so the class keeps moving.",
       "Use presentation.type flashcard or dragdrop only for inserted practice activities of those types.",
@@ -427,8 +462,7 @@ export async function POST(request: Request) {
       "Teach most slides without forcing a question — explain, emphasize, give examples, then move on when the idea lands.",
       "Ask a question only when you genuinely want to check understanding, every few slides, or when the topic is easy to misunderstand.",
       "When you are only teaching or transitioning to the next slide, set expectsResponse to false and do not end with a question.",
-      "When you ask a question or need an answer, set expectsResponse to true.",
-      "Ask open-ended questions in your reply and wait for the student to type or speak — do not list answer options.",
+      "When you ask a comprehension question, put it in the separate checkQuestion field (prompt, type, options) instead of your reply text — the UI shows it in its own dedicated card. Set checkQuestion.type to multipleChoice, trueFalse, or shortAnswer, with options filled for multipleChoice/trueFalse and left null for shortAnswer. Set expectsResponse true whenever checkQuestion is set, and leave checkQuestion null on every other turn.",
       "Do not set presentation.choices or quickReplies that reveal answers.",
       "For formative checks, keep presentation.type slide (or welcome) while you ask the question in reply.",
       "Use presentation.type question or exercise only without choices when the center screen should show the question — never include choices.",
@@ -504,6 +538,7 @@ export async function POST(request: Request) {
       presentation?: RawPresentation;
       quickReplies?: string[];
       expectsResponse?: boolean;
+      checkQuestion?: RawCheckQuestion;
     };
 
     const reply =
@@ -524,6 +559,7 @@ export async function POST(request: Request) {
       presentation: presentationView,
       quickReplies: filterQuickReplies(parsed.quickReplies),
       expectsResponse: Boolean(parsed.expectsResponse),
+      checkQuestion: normalizeCheckQuestion(parsed.checkQuestion),
     });
   } catch (error) {
     console.error("Classroom chat failed:", error);

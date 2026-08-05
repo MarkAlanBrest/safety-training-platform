@@ -78,6 +78,13 @@ export type ClassroomPlan = {
 
 export type { ClassroomCheckpoint, ClassroomAssessmentQuestion, ClassroomLessonBeat };
 
+/** A comprehension check the AI is asking this turn, rendered in its own dedicated card. */
+export type ClassroomCheckQuestion = {
+  prompt: string;
+  type: "multipleChoice" | "trueFalse" | "shortAnswer";
+  options?: string[];
+};
+
 export type PresentationView =
   | {
       type: "slide";

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
+  ClassroomCheckQuestion,
   PresentationView,
   PublicClassroomCourse,
 } from "@/lib/classroom";
@@ -22,8 +23,23 @@ type ChatApiResponse = {
   presentation?: PresentationView;
   quickReplies?: string[];
   expectsResponse?: boolean;
+  checkQuestion?: ClassroomCheckQuestion | null;
   error?: string;
 };
+
+function speechTextForTurn(reply: string, checkQuestion: ClassroomCheckQuestion | null) {
+  if (!checkQuestion) return reply;
+  const options =
+    checkQuestion.options?.length
+      ? checkQuestion.options
+      : checkQuestion.type === "trueFalse"
+        ? ["True", "False"]
+        : undefined;
+  const optionsText = options?.length
+    ? " " + options.map((option, index) => `${String.fromCharCode(65 + index)}. ${option}`).join(" ")
+    : "";
+  return `${reply} ${checkQuestion.prompt}${optionsText}`.trim();
+}
 
 export default function ClassroomShell({
   course,
@@ -57,6 +73,7 @@ export default function ClassroomShell({
   const [beatIndex, setBeatIndex] = useState(0);
   const [assessmentQuestionIndex, setAssessmentQuestionIndex] = useState(0);
   const [expectsResponse, setExpectsResponse] = useState(false);
+  const [checkQuestion, setCheckQuestion] = useState<ClassroomCheckQuestion | null>(null);
   const [finalTestCompleted, setFinalTestCompleted] = useState(false);
   const [presentation, setPresentation] = useState<PresentationView>({
     type: "welcome",
@@ -283,13 +300,15 @@ export default function ClassroomShell({
       if (data.presentation) {
         applyTeacherPresentation(data.presentation);
       }
+      const nextCheckQuestion = data.checkQuestion || null;
+      setCheckQuestion(nextCheckQuestion);
       const needsResponse =
         data.expectsResponse ??
         (data.presentation?.type === "question" ||
           data.presentation?.type === "exercise" ||
           data.presentation?.type === "assessment");
       setExpectsResponse(Boolean(needsResponse));
-      speakNatural(reply);
+      speakNatural(speechTextForTurn(reply, nextCheckQuestion));
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       const message =
@@ -371,6 +390,7 @@ export default function ClassroomShell({
 
     setBeatIndex(nextBeatIndex);
     setPresentation(view);
+    setCheckQuestion(null);
     if (beat.kind === "slide") {
       setCurrentSlideIndex(beat.slideIndex);
       markSlideTaught(beat.slideIndex);
@@ -494,6 +514,7 @@ export default function ClassroomShell({
         <TeacherChat
           messages={messages}
           thinking={thinking}
+          checkQuestion={checkQuestion}
           needsAudioUnlock={needsAudioUnlock}
           speechToTextEnabled={builderConfig?.settings.speechText ?? true}
           awaitingInput={awaitingInput}
