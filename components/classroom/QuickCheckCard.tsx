@@ -11,12 +11,22 @@ const TYPE_LABEL: Record<ClassroomCheckQuestion["type"], string> = {
   shortAnswer: "Short answer",
 };
 
-export default function QuickCheckCard({ question }: { question: ClassroomCheckQuestion }) {
+export default function QuickCheckCard({
+  question,
+  onSelectOption,
+  disabled = false,
+}: {
+  question: ClassroomCheckQuestion;
+  /** When provided, multiple-choice/true-false options render as clickable buttons that submit directly. */
+  onSelectOption?: (option: string) => void;
+  disabled?: boolean;
+}) {
   const options = question.options?.length
     ? question.options
     : question.type === "trueFalse"
       ? ["True", "False"]
       : undefined;
+  const interactive = Boolean(onSelectOption);
 
   return (
     <div className="overflow-hidden rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 via-white to-amber-50/70 shadow-lg shadow-amber-900/10">
@@ -35,17 +45,32 @@ export default function QuickCheckCard({ question }: { question: ClassroomCheckQ
 
         {options?.length ? (
           <div className="mt-3 space-y-2">
-            {options.map((option, index) => (
-              <div
-                key={option}
-                className="flex items-center gap-3 rounded-xl border border-amber-200 bg-white px-3 py-2.5"
-              >
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-amber-100 text-xs font-bold text-amber-800">
-                  {OPTION_LETTERS[index] || index + 1}
-                </span>
-                <span className="text-sm font-medium text-slate-800">{option}</span>
-              </div>
-            ))}
+            {options.map((option, index) =>
+              interactive ? (
+                <button
+                  key={option}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onSelectOption?.(option)}
+                  className="flex w-full items-center gap-3 rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-left transition hover:border-amber-400 hover:bg-amber-100/60 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-amber-100 text-xs font-bold text-amber-800">
+                    {OPTION_LETTERS[index] || index + 1}
+                  </span>
+                  <span className="text-sm font-medium text-slate-800">{option}</span>
+                </button>
+              ) : (
+                <div
+                  key={option}
+                  className="flex items-center gap-3 rounded-xl border border-amber-200 bg-white px-3 py-2.5"
+                >
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-amber-100 text-xs font-bold text-amber-800">
+                    {OPTION_LETTERS[index] || index + 1}
+                  </span>
+                  <span className="text-sm font-medium text-slate-800">{option}</span>
+                </div>
+              ),
+            )}
           </div>
         ) : (
           <p className="mt-3 text-sm font-medium text-amber-700">

@@ -120,6 +120,14 @@ export default function TeacherChat({
     await onSend(clean);
   }
 
+  async function selectOption(option: string) {
+    if (thinking) return;
+    onInteract?.();
+    setDraft("");
+    setAsking(false);
+    await onSend(option);
+  }
+
   function toggleListening() {
     if (!speechSupported || thinking) return;
     onInteract?.();
@@ -207,7 +215,13 @@ export default function TeacherChat({
                 </button>
               </div>
             ) : null}
-            {checkQuestion ? <QuickCheckCard question={checkQuestion} /> : null}
+            {checkQuestion ? (
+              <QuickCheckCard
+                question={checkQuestion}
+                onSelectOption={awaitingInput ? selectOption : undefined}
+                disabled={thinking}
+              />
+            ) : null}
           </div>
         ) : null}
       </div>
