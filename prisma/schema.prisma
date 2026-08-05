@@ -51,6 +51,26 @@ model MasonCourse {
   enrollmentCodes EnrollmentCode[]
   enrollments      CourseEnrollment[]
   scormAssets      ScormAsset[]
+  classroomAttempts ClassroomAttempt[]
+}
+
+model ClassroomAttempt {
+  id               Int       @id @default(autoincrement())
+  courseId         Int
+  studentEmail     String
+  studentName      String?
+  attemptNumber    Int
+  answers          Json
+  score            Int
+  passed           Boolean
+  startedAt        DateTime  @default(now())
+  submittedAt      DateTime?
+  timeLimitMinutes Int?
+  aiReviewSummary  String?   @db.Text
+  certificateId    String?
+  course           MasonCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId, studentEmail])
 }
 
 model ScormAsset {

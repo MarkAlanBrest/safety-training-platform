@@ -7,31 +7,55 @@ import {
   isLineupPlan,
   lineupSummary,
 } from "@/lib/classroom-lineup";
+import type { ClassroomQuestion } from "@/lib/classroom-question-types";
+
+export type ClassroomCheckpointHotspot = {
+  imageUrl: string;
+  targetX: number;
+  targetY: number;
+  toleranceRadius: number;
+};
 
 export type ClassroomCheckpoint = {
   id: string;
   slideIndex: number;
-  type: "question" | "exercise" | "multipleChoice" | "flashcard" | "dragdrop";
+  type:
+    | "question"
+    | "exercise"
+    | "multipleChoice"
+    | "trueFalse"
+    | "hotspot"
+    | "shortAnswer"
+    | "scenario"
+    | "flashcard"
+    | "dragdrop";
   headline: string;
   prompt: string;
   choices?: string[];
   correctChoice?: string;
+  correctAnswerBool?: boolean;
+  hotspot?: ClassroomCheckpointHotspot;
+  sampleAnswer?: string;
+  keyPoints?: string[];
   flashcards?: Array<{ front: string; back: string }>;
   dragItems?: string[];
 };
 
-export type ClassroomAssessmentQuestion = {
-  id: string;
-  prompt: string;
-  choices: string[];
-  correctChoice: string;
-};
+/** The final assessment/question-bank type. Legacy plans only ever populate multipleChoice entries. */
+export type ClassroomAssessmentQuestion = ClassroomQuestion;
+
+export function choicesOfAssessmentQuestion(question: ClassroomQuestion): string[] | undefined {
+  if (question.type === "multipleChoice") return question.choices;
+  if (question.type === "scenario" && question.responseMode === "multipleChoice") return question.choices;
+  return undefined;
+}
 
 export type ClassroomLessonBeat =
   | { kind: "welcome" }
   | { kind: "slide"; slideIndex: number }
   | { kind: "checkpoint"; checkpointId: string }
-  | { kind: "assessment" };
+  | { kind: "assessment" }
+  | { kind: "finalTest" };
 
 function checkpointInterval(frequency: AssessmentFrequency) {
   switch (frequency) {
@@ -216,6 +240,7 @@ export function buildFallbackAssessment(
     const choices = fallbackChoices(slide);
     questions.push({
       id: `assessment-${i + 1}`,
+      type: "multipleChoice",
       prompt: `Final review: ${slide.title}. ${choices[0]}?`,
       choices,
       correctChoice: choices[0],
@@ -225,11 +250,16 @@ export function buildFallbackAssessment(
   return questions;
 }
 
+function hasEnabledFinalTest(plan: ClassroomPlan): boolean {
+  return Boolean(plan.finalTest?.config.enabled && plan.finalTest.questionBank.length);
+}
+
 export function buildLessonBeats(plan: ClassroomPlan): ClassroomLessonBeat[] {
   if (isLineupPlan(plan) && plan.lineup?.length) {
     if (plan.lessonBeats?.length) return plan.lessonBeats;
     return buildLessonBeatsFromLineup(plan.lineup, {
       hasAssessment: Boolean(plan.assessment?.length),
+      hasFinalTest: hasEnabledFinalTest(plan),
     });
   }
 
@@ -254,9 +284,13 @@ export function buildLessonBeats(plan: ClassroomPlan): ClassroomLessonBeat[] {
     }
   });
 
-  const assessment = plan.assessment || buildFallbackAssessment(plan.slides, config);
-  if (assessment.length) {
-    beats.push({ kind: "assessment" });
+  if (hasEnabledFinalTest(plan)) {
+    beats.push({ kind: "finalTest" });
+  } else {
+    const assessment = plan.assessment || buildFallbackAssessment(plan.slides, config);
+    if (assessment.length) {
+      beats.push({ kind: "assessment" });
+    }
   }
 
   return beats;
@@ -289,6 +323,8 @@ export function navLabelForBeat(beat: ClassroomLessonBeat, plan: ClassroomPlan):
     }
     case "assessment":
       return "Final assessment";
+    case "finalTest":
+      return "Final test";
     default:
       return "Lesson";
   }
@@ -308,6 +344,8 @@ export function navShortLabelForBeat(beat: ClassroomLessonBeat, plan: ClassroomP
     }
     case "assessment":
       return "Test";
+    case "finalTest":
+      return "Final";
     default:
       return "•";
   }
@@ -367,6 +405,41 @@ export function presentationForBeat(
           dragItems: checkpoint.dragItems || [],
         };
       }
+      if (checkpoint.type === "multipleChoice") {
+        const choices = activityChoices(
+          plan.slides[checkpoint.slideIndex] || plan.slides[0],
+          checkpoint.choices,
+        );
+        return {
+          type: "multipleChoice",
+          headline: checkpoint.headline,
+          prompt: checkpoint.prompt,
+          choices,
+          correctChoice:
+            checkpoint.correctChoice && choices.includes(checkpoint.correctChoice)
+              ? checkpoint.correctChoice
+              : choices[0],
+        };
+      }
+      if (checkpoint.type === "trueFalse") {
+        return {
+          type: "trueFalse",
+          headline: checkpoint.headline,
+          prompt: checkpoint.prompt,
+          correctAnswer: checkpoint.correctAnswerBool ?? true,
+        };
+      }
+      if (checkpoint.type === "hotspot" && checkpoint.hotspot) {
+        return {
+          type: "hotspot",
+          headline: checkpoint.headline,
+          prompt: checkpoint.prompt,
+          imageUrl: checkpoint.hotspot.imageUrl,
+          targetX: checkpoint.hotspot.targetX,
+          targetY: checkpoint.hotspot.targetY,
+          toleranceRadius: checkpoint.hotspot.toleranceRadius,
+        };
+      }
       return {
         type: checkpoint.type === "exercise" ? "exercise" : "question",
         headline: checkpoint.headline,
@@ -390,7 +463,7 @@ export function presentationForBeat(
         prompt: question.prompt,
         choices: activityChoices(
           plan.slides.find((slide) => question.prompt.includes(slide.title)) || plan.slides[0],
-          question.choices,
+          choicesOfAssessmentQuestion(question),
         ),
         questionIndex: assessmentIndex,
         questionCount: questions.length,

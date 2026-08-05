@@ -50,7 +50,7 @@ import {
   type LineupFormative,
   type SlideTransition,
 } from "@/lib/classroom-lineup";
-import type { ClassroomAssessmentQuestion } from "@/lib/classroom-lesson";
+import type { MultipleChoiceQuestion } from "@/lib/classroom-question-types";
 
 type SubmitMode = "draft" | "publish";
 
@@ -71,7 +71,7 @@ function isContentSlide(item: LineupDraftItem): item is ContentSlideDraft {
 export default function ContentSlideBuilderForm() {
   const [config, setConfig] = useState<ClassroomBuilderConfig>(defaultClassroomBuilderConfig());
   const [lineup, setLineup] = useState<LineupDraftItem[]>([emptyContentSlide("Slide 1")]);
-  const [assessment, setAssessment] = useState<ClassroomAssessmentQuestion[]>([]);
+  const [assessment, setAssessment] = useState<MultipleChoiceQuestion[]>([]);
   const [sourcePptx, setSourcePptx] = useState<File | null>(null);
   const [slideImagesFromZip, setSlideImagesFromZip] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -299,6 +299,7 @@ export default function ContentSlideBuilderForm() {
       ...current,
       {
         id: createLineupId("assessment"),
+        type: "multipleChoice",
         prompt: "",
         choices: ["", "", "", ""],
         correctChoice: "",
@@ -308,7 +309,7 @@ export default function ContentSlideBuilderForm() {
 
   function updateAssessmentQuestion(
     index: number,
-    patch: Partial<ClassroomAssessmentQuestion>,
+    patch: Partial<MultipleChoiceQuestion>,
   ) {
     setAssessment((current) =>
       current.map((question, questionIndex) =>
@@ -321,7 +322,7 @@ export default function ContentSlideBuilderForm() {
     setAssessment((current) => current.filter((_, questionIndex) => questionIndex !== index));
   }
 
-  function cleanedAssessment(): ClassroomAssessmentQuestion[] {
+  function cleanedAssessment(): MultipleChoiceQuestion[] {
     return assessment
       .map((question) => ({
         ...question,

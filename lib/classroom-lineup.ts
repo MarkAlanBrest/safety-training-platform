@@ -3,9 +3,11 @@ import type { ClassroomBuilderConfig } from "@/lib/classroom-builder";
 import type {
   ClassroomAssessmentQuestion,
   ClassroomCheckpoint,
+  ClassroomCheckpointHotspot,
   ClassroomLessonBeat,
 } from "@/lib/classroom-lesson";
 import { classroomChapterSlideAssetPath } from "@/lib/classroom-chapters";
+import type { ClassroomFinalTest } from "@/lib/classroom-question-types";
 
 /** Visual transition used when a slide enters the stage. */
 export type SlideTransition = "none" | "fade" | "slide-left" | "slide-up" | "zoom" | "flip";
@@ -38,9 +40,21 @@ export type LineupFormative = {
   id: string;
   headline: string;
   prompt: string;
-  type: "multipleChoice" | "exercise" | "flashcard" | "dragdrop";
+  type:
+    | "multipleChoice"
+    | "trueFalse"
+    | "hotspot"
+    | "shortAnswer"
+    | "scenario"
+    | "exercise"
+    | "flashcard"
+    | "dragdrop";
   choices?: string[];
   correctChoice?: string;
+  correctAnswerBool?: boolean;
+  hotspot?: ClassroomCheckpointHotspot;
+  sampleAnswer?: string;
+  keyPoints?: string[];
   flashcards?: Array<{ front: string; back: string }>;
   dragItems?: string[];
 };
@@ -139,6 +153,10 @@ export function checkpointsFromLineup(lineup: LessonLineupItem[]): ClassroomChec
         prompt: item.prompt,
         choices: item.choices?.filter(Boolean),
         correctChoice: item.correctChoice,
+        correctAnswerBool: item.correctAnswerBool,
+        hotspot: item.hotspot,
+        sampleAnswer: item.sampleAnswer,
+        keyPoints: item.keyPoints,
         flashcards: item.flashcards,
         dragItems: item.dragItems,
       });
@@ -177,7 +195,7 @@ function lastContentSlideIndex(lineup: LessonLineupItem[], beforeItem: LessonLin
 
 export function buildLessonBeatsFromLineup(
   lineup: LessonLineupItem[],
-  options?: { hasAssessment?: boolean },
+  options?: { hasAssessment?: boolean; hasFinalTest?: boolean },
 ): ClassroomLessonBeat[] {
   const beats: ClassroomLessonBeat[] = [{ kind: "welcome" }];
   let slideIndex = 0;
@@ -192,7 +210,9 @@ export function buildLessonBeatsFromLineup(
     beats.push({ kind: "checkpoint", checkpointId: item.id });
   }
 
-  if (options?.hasAssessment) {
+  if (options?.hasFinalTest) {
+    beats.push({ kind: "finalTest" });
+  } else if (options?.hasAssessment) {
     beats.push({ kind: "assessment" });
   }
 
@@ -218,6 +238,7 @@ export function buildClassroomPlanFromLineup(
   options?: {
     description?: string;
     assessment?: ClassroomAssessmentQuestion[];
+    finalTest?: ClassroomFinalTest;
   },
 ): ClassroomPlan {
   const attachedLineup = attachSlideIndicesToLineup(lineup);
@@ -249,9 +270,13 @@ export function buildClassroomPlanFromLineup(
     lineup: attachedLineup,
     checkpoints,
     assessment: options?.assessment || [],
+    finalTest: options?.finalTest,
     config,
     lessonBeats: buildLessonBeatsFromLineup(attachedLineup, {
       hasAssessment: Boolean(options?.assessment?.length),
+      hasFinalTest: Boolean(
+        options?.finalTest?.config.enabled && options?.finalTest?.questionBank.length,
+      ),
     }),
   };
 

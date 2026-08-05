@@ -16,6 +16,11 @@ import {
   type LineupContentSlide,
 } from "@/lib/classroom-lineup";
 import type { ClassroomAssessmentQuestion } from "@/lib/classroom-lesson";
+import {
+  normalizeAssessmentQuestions,
+  type ClassroomFinalTest,
+  type QuestionType,
+} from "@/lib/classroom-question-types";
 import { slugify } from "@/lib/mason";
 
 type ContentUploadBody = {
@@ -25,6 +30,7 @@ type ContentUploadBody = {
   config?: ClassroomBuilderConfig;
   lineup?: LessonLineupItem[];
   assessment?: ClassroomAssessmentQuestion[];
+  finalTest?: ClassroomFinalTest;
 };
 
 function parseLineup(raw: unknown): LessonLineupItem[] {
@@ -37,28 +43,36 @@ function parseLineup(raw: unknown): LessonLineupItem[] {
 }
 
 function parseAssessment(raw: unknown): ClassroomAssessmentQuestion[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .filter(
-      (item): item is ClassroomAssessmentQuestion =>
-        Boolean(item) &&
-        typeof item === "object" &&
-        typeof (item as ClassroomAssessmentQuestion).prompt === "string" &&
-        Array.isArray((item as ClassroomAssessmentQuestion).choices),
-    )
-    .map((item, index) => ({
-      id: item.id || `assessment-${index + 1}`,
-      prompt: item.prompt.trim(),
-      choices: item.choices.map((choice) => String(choice).trim()).filter(Boolean),
-      correctChoice: String(item.correctChoice || "").trim(),
-    }))
-    .filter((item) => item.prompt && item.choices.length >= 2)
-    .map((item) => ({
-      ...item,
-      correctChoice: item.choices.includes(item.correctChoice)
-        ? item.correctChoice
-        : item.choices[0],
-    }));
+  return normalizeAssessmentQuestions(raw);
+}
+
+function parseFinalTest(raw: unknown): ClassroomFinalTest | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const value = raw as Record<string, unknown>;
+  const configRaw = (value.config || {}) as Record<string, unknown>;
+  const questionBank = normalizeAssessmentQuestions(value.questionBank);
+  if (!questionBank.length) return undefined;
+
+  return {
+    questionBank,
+    config: {
+      enabled: configRaw.enabled === true,
+      questionCount: Math.max(1, Number(configRaw.questionCount) || questionBank.length),
+      includedTypes: Array.isArray(configRaw.includedTypes)
+        ? (configRaw.includedTypes.filter((item) => typeof item === "string") as QuestionType[])
+        : [],
+      randomizeQuestions: configRaw.randomizeQuestions !== false,
+      randomizeChoiceOrder: configRaw.randomizeChoiceOrder !== false,
+      passingScore: Math.min(100, Math.max(0, Number(configRaw.passingScore) || 80)),
+      attemptsAllowed: Math.max(0, Number(configRaw.attemptsAllowed) || 0),
+      timeLimitMinutes:
+        typeof configRaw.timeLimitMinutes === "number" && configRaw.timeLimitMinutes > 0
+          ? configRaw.timeLimitMinutes
+          : null,
+      certificateOnPass: configRaw.certificateOnPass !== false,
+      aiReviewAfterSubmission: configRaw.aiReviewAfterSubmission !== false,
+    },
+  };
 }
 
 function contentSlideCount(lineup: LessonLineupItem[]) {
@@ -76,6 +90,7 @@ export async function POST(request: Request) {
     const published = body.published === true;
     const lineup = parseLineup(body.lineup);
     const assessment = parseAssessment(body.assessment);
+    const finalTest = parseFinalTest(body.finalTest);
     const config = defaultClassroomBuilderConfig(body.config);
 
     if (!title) {
@@ -104,7 +119,7 @@ export async function POST(request: Request) {
         courseName: title,
         description: description || config.knowledge.description,
       },
-    }, { description, assessment });
+    }, { description, assessment, finalTest });
 
     const slideCount = contentSlideCount(attachedLineup);
     const estimates = estimateClassroomCourse(slideCount, config);

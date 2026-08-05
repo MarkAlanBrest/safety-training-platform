@@ -19,6 +19,11 @@ import {
 } from "@/lib/classroom-lineup";
 import { MAX_FILE_BYTES, parsePptxBuffer, teachingContentFromParsedSlide } from "@/lib/ppt-ingest-core";
 import type { ClassroomAssessmentQuestion } from "@/lib/classroom-lesson";
+import {
+  normalizeAssessmentQuestions,
+  type ClassroomFinalTest,
+  type QuestionType,
+} from "@/lib/classroom-question-types";
 import { slugify } from "@/lib/mason";
 import { renderPptxSlides } from "@/lib/pptx-render-server";
 
@@ -32,28 +37,36 @@ function parseLineup(raw: unknown): LessonLineupItem[] {
 }
 
 function parseAssessment(raw: unknown): ClassroomAssessmentQuestion[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .filter(
-      (item): item is ClassroomAssessmentQuestion =>
-        Boolean(item) &&
-        typeof item === "object" &&
-        typeof (item as ClassroomAssessmentQuestion).prompt === "string" &&
-        Array.isArray((item as ClassroomAssessmentQuestion).choices),
-    )
-    .map((item, index) => ({
-      id: item.id || `assessment-${index + 1}`,
-      prompt: item.prompt.trim(),
-      choices: item.choices.map((choice) => String(choice).trim()).filter(Boolean),
-      correctChoice: String(item.correctChoice || "").trim(),
-    }))
-    .filter((item) => item.prompt && item.choices.length >= 2)
-    .map((item) => ({
-      ...item,
-      correctChoice: item.choices.includes(item.correctChoice)
-        ? item.correctChoice
-        : item.choices[0],
-    }));
+  return normalizeAssessmentQuestions(raw);
+}
+
+function parseFinalTest(raw: unknown): ClassroomFinalTest | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const value = raw as Record<string, unknown>;
+  const configRaw = (value.config || {}) as Record<string, unknown>;
+  const questionBank = normalizeAssessmentQuestions(value.questionBank);
+  if (!questionBank.length) return undefined;
+
+  return {
+    questionBank,
+    config: {
+      enabled: configRaw.enabled === true,
+      questionCount: Math.max(1, Number(configRaw.questionCount) || questionBank.length),
+      includedTypes: Array.isArray(configRaw.includedTypes)
+        ? (configRaw.includedTypes.filter((item) => typeof item === "string") as QuestionType[])
+        : [],
+      randomizeQuestions: configRaw.randomizeQuestions !== false,
+      randomizeChoiceOrder: configRaw.randomizeChoiceOrder !== false,
+      passingScore: Math.min(100, Math.max(0, Number(configRaw.passingScore) || 80)),
+      attemptsAllowed: Math.max(0, Number(configRaw.attemptsAllowed) || 0),
+      timeLimitMinutes:
+        typeof configRaw.timeLimitMinutes === "number" && configRaw.timeLimitMinutes > 0
+          ? configRaw.timeLimitMinutes
+          : null,
+      certificateOnPass: configRaw.certificateOnPass !== false,
+      aiReviewAfterSubmission: configRaw.aiReviewAfterSubmission !== false,
+    },
+  };
 }
 
 function parseBuilderConfig(raw: string | null): ClassroomBuilderConfig {
@@ -77,6 +90,7 @@ export async function POST(request: Request) {
     const published = String(form.get("published") || "false") === "true";
     const lineup = parseLineup(JSON.parse(String(form.get("lineup") || "[]")));
     const assessment = parseAssessment(JSON.parse(String(form.get("assessment") || "[]")));
+    const finalTest = parseFinalTest(JSON.parse(String(form.get("finalTest") || "null")));
     const config = parseBuilderConfig(String(form.get("config") || ""));
 
     if (!(file instanceof File) || !/\.pptx$/i.test(file.name)) {
@@ -135,6 +149,7 @@ export async function POST(request: Request) {
     const plan = buildClassroomPlanFromLineup(attachedLineup, title, slug, mergedConfig, {
       description,
       assessment,
+      finalTest,
     });
 
     const slideCount = attachedLineup.filter((item) => item.kind === "content").length;

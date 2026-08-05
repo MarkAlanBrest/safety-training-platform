@@ -11,6 +11,7 @@ import {
   buildFallbackCheckpoints,
   buildLessonBeats,
 } from "@/lib/classroom-lesson";
+import type { ClassroomFinalTest } from "@/lib/classroom-question-types";
 
 export type { LessonLineupItem, LineupContentSlide, LineupFormative, LineupActivity, SlideTransition } from "@/lib/classroom-lineup";
 
@@ -69,6 +70,8 @@ export type ClassroomPlan = {
   lineup?: LessonLineupItem[];
   checkpoints?: ClassroomCheckpoint[];
   assessment?: ClassroomAssessmentQuestion[];
+  /** New configurable Final Test container. Additive — old plans have no finalTest and keep using `assessment`. */
+  finalTest?: ClassroomFinalTest;
   lessonBeats?: ClassroomLessonBeat[];
   config?: ClassroomBuilderConfig;
 };
@@ -120,6 +123,28 @@ export type PresentationView =
       headline: string;
       prompt: string;
       dragItems: string[];
+    }
+  | {
+      type: "multipleChoice";
+      headline: string;
+      prompt: string;
+      choices: string[];
+      correctChoice: string;
+    }
+  | {
+      type: "trueFalse";
+      headline: string;
+      prompt: string;
+      correctAnswer: boolean;
+    }
+  | {
+      type: "hotspot";
+      headline: string;
+      prompt: string;
+      imageUrl: string;
+      targetX: number;
+      targetY: number;
+      toleranceRadius: number;
     }
   | {
       type: "welcome";
