@@ -32,7 +32,6 @@ type ChatApiResponse = {
   checkQuestion?: ClassroomCheckQuestion | null;
   lastAnswerCorrect?: boolean | null;
   error?: string;
-  code?: string;
 };
 
 type AnswerStreak = { correctInRow: number; incorrectInRow: number };
@@ -94,7 +93,6 @@ export default function ClassroomShell({
   const [classStarted, setClassStarted] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [studentName, setStudentName] = useState("");
-  const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
   const [streak, setStreak] = useState<AnswerStreak>({ correctInRow: 0, incorrectInRow: 0 });
   const [presentation, setPresentation] = useState<PresentationView>({
     type: "welcome",
@@ -142,21 +140,6 @@ export default function ClassroomShell({
     unlockAudio();
     void beginClass();
   }
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/classroom/health")
-      .then((response) => response.json())
-      .then((data: { aiConfigured?: boolean }) => {
-        if (!cancelled) setAiConfigured(Boolean(data.aiConfigured));
-      })
-      .catch(() => {
-        if (!cancelled) setAiConfigured(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -470,9 +453,6 @@ export default function ClassroomShell({
       const data = (await response.json()) as ChatApiResponse;
       const reply =
         data.reply ||
-        (data.code === "AI_NOT_CONFIGURED"
-          ? "The AI instructor is not connected yet. An administrator needs to add OPENAI_API_KEY to the server environment and redeploy."
-          : undefined) ||
         data.error ||
         "Let's keep going. Tell me what you're thinking so far.";
 
@@ -675,39 +655,6 @@ export default function ClassroomShell({
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paused, thinking, speaking, expectsResponse, checkQuestion, beatIndex, messages.length, currentBeat]);
-
-  if (aiConfigured === null) {
-    return (
-      <main className="flex h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-[#0f2b46] to-[#163a5d] px-6 text-white">
-        <p className="text-sm text-slate-200">Loading classroom…</p>
-      </main>
-    );
-  }
-
-  if (!aiConfigured) {
-    return (
-      <main className="flex h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-[#0f2b46] to-[#163a5d] px-6 text-white">
-        <div className="w-full max-w-lg rounded-3xl bg-white/10 p-8 backdrop-blur">
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-amber-200">
-            {plan.title}
-          </p>
-          <h2 className="mt-3 text-2xl font-bold">AI instructor not connected</h2>
-          <p className="mt-4 text-sm leading-7 text-slate-200">
-            This classroom does not ask learners for an API key. The OpenAI key must be
-            configured on the server that hosts this site.
-          </p>
-          <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm leading-7 text-slate-200">
-            <li>Open your hosting dashboard (for example Vercel → Project Settings → Environment Variables).</li>
-            <li>Add <span className="font-mono text-amber-200">OPENAI_API_KEY</span> with a valid OpenAI secret key.</li>
-            <li>Redeploy the site, then reload this page.</li>
-          </ol>
-          <p className="mt-4 text-xs leading-6 text-slate-300">
-            For local development, add the same variable to your <span className="font-mono">.env</span> file.
-          </p>
-        </div>
-      </main>
-    );
-  }
 
   if (!classStarted) {
     return (
