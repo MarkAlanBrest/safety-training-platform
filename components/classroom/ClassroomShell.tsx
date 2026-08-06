@@ -104,6 +104,7 @@ export default function ClassroomShell({
   const speechAbortRef = useRef<AbortController | null>(null);
   const turnRequestIdRef = useRef(0);
   const autoAdvanceCountRef = useRef(0);
+  const speechGenerationRef = useRef(0);
 
   function markSlideTaught(slideIndex: number) {
     setTaughtSlideIndices((current) =>
@@ -148,6 +149,7 @@ export default function ClassroomShell({
   }, []);
 
   function cancelSpeech() {
+    speechGenerationRef.current += 1;
     speechAbortRef.current?.abort();
     speechAbortRef.current = null;
     window.speechSynthesis.cancel();
@@ -294,19 +296,28 @@ export default function ClassroomShell({
   async function speak(text: string) {
     if (!voiceSettings.enabled || !text.trim()) return;
 
+    // Cancel whatever is currently playing (or still queued) IMMEDIATELY, not once
+    // this call reaches the front of the queue — otherwise stale audio from a
+    // previous turn keeps playing after the visuals (like a Quick Check card) have
+    // already moved on, so the student hears narration that no longer matches what's
+    // on screen. The generation counter also lets an already-queued, now-stale run()
+    // recognize it's been superseded and skip itself instead of playing late.
+    const generation = ++speechGenerationRef.current;
+    speechAbortRef.current?.abort();
+    audioRef.current?.pause();
+    window.speechSynthesis.cancel();
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+
     const run = async () => {
-      speechAbortRef.current?.abort();
-      audioRef.current?.pause();
-      if (audioUrlRef.current) {
-        URL.revokeObjectURL(audioUrlRef.current);
-        audioUrlRef.current = null;
-      }
+      if (generation !== speechGenerationRef.current) return;
 
       const controller = new AbortController();
       speechAbortRef.current = controller;
 
       setSpeaking(true);
-      window.speechSynthesis.cancel();
 
       // Hard safety net: never let a stuck audio element freeze the class — a stuck
       // `speaking` state blocks auto-advance forever. If playback genuinely hasn't
@@ -339,9 +350,9 @@ export default function ClassroomShell({
         }
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
-        setSpeaking(false);
+        if (generation === speechGenerationRef.current) setSpeaking(false);
       } finally {
-        setSpeaking(false);
+        if (generation === speechGenerationRef.current) setSpeaking(false);
       }
     };
 
