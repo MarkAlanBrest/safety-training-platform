@@ -36,20 +36,6 @@ type ChatApiResponse = {
 
 type AnswerStreak = { correctInRow: number; incorrectInRow: number };
 
-function captionSentenceAt(text: string, characterIndex: number) {
-  const sentences = text.match(/[^.!?]+(?:[.!?]+|$)/g)?.map((sentence) => sentence.trim()).filter(Boolean);
-  if (!sentences?.length) return text.trim();
-
-  let searchFrom = 0;
-  for (const sentence of sentences) {
-    const start = text.indexOf(sentence, searchFrom);
-    const end = start + sentence.length;
-    if (characterIndex < end) return sentence;
-    searchFrom = end;
-  }
-  return sentences[sentences.length - 1];
-}
-
 function speechTextForTurn(reply: string, checkQuestion: ClassroomCheckQuestion | null) {
   if (!checkQuestion) return reply;
   const options =
@@ -95,8 +81,6 @@ export default function ClassroomShell({
   const [messages, setMessages] = useState<TeacherMessage[]>([]);
   const [thinking, setThinking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [captionText, setCaptionText] = useState("");
-  const [captionsEnabled, setCaptionsEnabled] = useState(true);
   const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
   const [paused, setPaused] = useState(false);
   const [taughtSlideIndices, setTaughtSlideIndices] = useState<number[]>([]);
@@ -181,7 +165,6 @@ export default function ClassroomShell({
       audioUrlRef.current = null;
     }
     setSpeaking(false);
-    setCaptionText("");
   }
 
   function toggleBreak() {
@@ -198,28 +181,14 @@ export default function ClassroomShell({
    * waiting on a `sourceopen` event that never fired, freezing the whole class — this
    * is simpler and doesn't have that failure mode since it's just native <audio src>.)
    */
-  async function playFromUrl(
-    url: string,
-    controller: AbortController,
-    captionSource: string,
-  ): Promise<void> {
+  async function playFromUrl(url: string, controller: AbortController): Promise<void> {
     const audio = new Audio();
     audioRef.current = audio;
     audio.src = url;
 
-    const syncCaption = () => {
-      if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
-      const characterIndex = Math.floor(
-        (audio.currentTime / audio.duration) * captionSource.length,
-      );
-      setCaptionText(captionSentenceAt(captionSource, characterIndex));
-    };
-    audio.addEventListener("timeupdate", syncCaption);
-
     const finished = new Promise<void>((resolve) => {
       const done = () => {
         setSpeaking(false);
-        setCaptionText("");
         resolve();
       };
       audio.addEventListener("ended", done, { once: true });
@@ -234,7 +203,6 @@ export default function ClassroomShell({
       );
     });
 
-    setCaptionText(captionSentenceAt(captionSource, 0));
     if (!audioUnlockedRef.current) {
       try {
         await audio.play();
@@ -254,11 +222,7 @@ export default function ClassroomShell({
 
   /** Fallback for text too long to fit safely in a GET URL — downloads then plays the
    * whole clip. Rare in practice since replies are kept short. */
-  async function playBuffered(
-    response: Response,
-    controller: AbortController,
-    captionSource: string,
-  ): Promise<void> {
+  async function playBuffered(response: Response, controller: AbortController): Promise<void> {
     const url = URL.createObjectURL(await response.blob());
     if (controller.signal.aborted) {
       URL.revokeObjectURL(url);
@@ -269,19 +233,9 @@ export default function ClassroomShell({
     const audio = new Audio(url);
     audioRef.current = audio;
 
-    const syncCaption = () => {
-      if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
-      const characterIndex = Math.floor(
-        (audio.currentTime / audio.duration) * captionSource.length,
-      );
-      setCaptionText(captionSentenceAt(captionSource, characterIndex));
-    };
-    audio.addEventListener("timeupdate", syncCaption);
-
     const finished = new Promise<void>((resolve) => {
       const done = () => {
         setSpeaking(false);
-        setCaptionText("");
         if (audioUrlRef.current === url) {
           URL.revokeObjectURL(url);
           audioUrlRef.current = null;
@@ -293,7 +247,6 @@ export default function ClassroomShell({
       controller.signal.addEventListener("abort", () => resolve(), { once: true });
     });
 
-    setCaptionText(captionSentenceAt(captionSource, 0));
     if (!audioUnlockedRef.current) {
       try {
         await audio.play();
@@ -341,14 +294,10 @@ export default function ClassroomShell({
     const preferredVoice =
       markVoice || voices.find((voice) => voice.lang?.startsWith("en")) || voices[0];
     if (preferredVoice) utterance.voice = preferredVoice;
-    utterance.onboundary = (event) => {
-      setCaptionText(captionSentenceAt(text, event.charIndex));
-    };
 
     await new Promise<void>((resolve) => {
       const done = () => {
         setSpeaking(false);
-        setCaptionText("");
         resolve();
       };
       utterance.onend = done;
@@ -362,7 +311,6 @@ export default function ClassroomShell({
         { once: true },
       );
 
-      setCaptionText(captionSentenceAt(text, 0));
       synth.speak(utterance);
     });
   }
@@ -407,7 +355,7 @@ export default function ClassroomShell({
             voice: voiceSettings.voice,
             speed: String(voiceSettings.speed),
           }).toString()}`;
-          await Promise.race([playFromUrl(url, controller, text), safetyTimeout]);
+          await Promise.race([playFromUrl(url, controller), safetyTimeout]);
         } else {
           const response = await fetch("/api/mason/speech", {
             method: "POST",
@@ -420,16 +368,13 @@ export default function ClassroomShell({
             signal: controller.signal,
           });
           if (!response.ok) throw new Error("speech failed");
-          await Promise.race([playBuffered(response, controller, text), safetyTimeout]);
+          await Promise.race([playBuffered(response, controller), safetyTimeout]);
         }
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         if (generation === speechGenerationRef.current) setSpeaking(false);
       } finally {
-        if (generation === speechGenerationRef.current) {
-          setSpeaking(false);
-          setCaptionText("");
-        }
+        if (generation === speechGenerationRef.current) setSpeaking(false);
       }
     };
 
@@ -764,8 +709,6 @@ export default function ClassroomShell({
         onSelectBeat={(index) => void handleSelectBeat(index)}
         paused={paused}
         onToggleBreak={toggleBreak}
-        captionsEnabled={captionsEnabled}
-        onToggleCaptions={() => setCaptionsEnabled((current) => !current)}
       />
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
         <PresentationArea
@@ -775,7 +718,6 @@ export default function ClassroomShell({
           onToggleBreak={toggleBreak}
           paused={paused}
           onActivityComplete={() => void handleActivityComplete()}
-          captionText={captionsEnabled ? captionText : ""}
         />
 
         <TeacherChat

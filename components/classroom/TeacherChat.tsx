@@ -4,13 +4,10 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
-  FileText,
-  Lightbulb,
   MessageCircleQuestion,
   Mic,
   MicOff,
   Send,
-  RefreshCw,
   Volume2,
   VolumeX,
   X,
@@ -92,7 +89,6 @@ export default function TeacherChat({
   const [draft, setDraft] = useState("");
   const [listening, setListening] = useState(false);
   const [asking, setAsking] = useState(false);
-  const [transcriptOpen, setTranscriptOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const speechSupported = Boolean(getSpeechRecognition());
@@ -195,81 +191,23 @@ export default function TeacherChat({
             ) : null}
           </div>
         ) : lastMessage?.content ? (
-          transcriptOpen ? (
-            <div className="flex max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-              <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-                <span className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                  <FileText size={16} />
-                  Class transcript
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setTranscriptOpen(false)}
-                  className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
-                  aria-label="Close transcript"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              <div className="space-y-3 overflow-y-auto p-4">
-                {visibleMessages.map((message, index) => (
-                  <div
-                    key={`${message.role}-${index}-${message.content}`}
-                    className={`rounded-xl px-3 py-2.5 text-sm leading-6 ${
-                      message.role === "user"
-                        ? "ml-6 bg-[#0f2b46] text-white"
-                        : "mr-6 bg-white text-slate-700 shadow-sm"
-                    }`}
-                  >
-                    {message.content}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-[.14em] text-slate-500">
-                Interact with your teacher
-              </p>
-              <div className="mt-3 grid gap-2">
-                <button
-                  type="button"
-                  onClick={() => void onSend("Please explain that another way.")}
-                  className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-sm font-semibold text-slate-700 hover:border-amber-300 hover:bg-amber-50"
-                >
-                  <RefreshCw size={16} className="text-amber-600" />
-                  Explain that another way
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void onSend("Please give me a practical example of that.")}
-                  className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-sm font-semibold text-slate-700 hover:border-amber-300 hover:bg-amber-50"
-                >
-                  <Lightbulb size={16} className="text-amber-600" />
-                  Give me an example
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onInteract?.();
-                    void onSpeak(lastMessage.content);
-                  }}
-                  className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-sm font-semibold text-slate-700 hover:border-amber-300 hover:bg-amber-50"
-                >
-                  <Volume2 size={16} className="text-amber-600" />
-                  Repeat the narration
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={() => setTranscriptOpen(true)}
-                className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-800"
-              >
-                <FileText size={14} />
-                View transcript
-              </button>
-            </div>
-          )
+          <div
+            key={lastMessage.content}
+            className="rounded-2xl bg-[#f1f5f9] px-4 py-4 text-base leading-7 text-slate-800"
+          >
+            {lastMessage.content}
+            <button
+              type="button"
+              onClick={() => {
+                onInteract?.();
+                void onSpeak(lastMessage.content);
+              }}
+              className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-slate-500"
+            >
+              <Volume2 size={14} />
+              Hear this
+            </button>
+          </div>
         ) : null}
       </div>
 

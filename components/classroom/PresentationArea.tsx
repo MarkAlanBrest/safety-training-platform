@@ -17,7 +17,6 @@ export default function PresentationArea({
   onToggleBreak,
   paused = false,
   onActivityComplete,
-  captionText = "",
 }: {
   plan: ClassroomPlan;
   view: PresentationView;
@@ -25,7 +24,6 @@ export default function PresentationArea({
   onToggleBreak: () => void;
   paused?: boolean;
   onActivityComplete?: () => void;
-  captionText?: string;
 }) {
   const safeView: PresentationView =
     view?.type === "welcome"
@@ -205,17 +203,6 @@ export default function PresentationArea({
             </div>
           ) : null}
           </SlideStageTransition>
-          {captionText ? (
-            <div
-              className="pointer-events-none absolute inset-x-4 bottom-4 z-30 flex justify-center"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              <p className="max-w-4xl rounded-xl bg-slate-950/90 px-5 py-3 text-center text-base font-semibold leading-7 text-white shadow-2xl backdrop-blur-sm lg:text-lg">
-                {captionText}
-              </p>
-            </div>
-          ) : null}
         </div>
       </div>
     </section>
