@@ -64,6 +64,7 @@ export default function ClassroomShell({
       voice: builderConfig?.teaching.voice ?? defaults.voice,
       speed: builderConfig?.teaching.voiceSpeed ?? defaults.voiceSpeed,
       enabled: builderConfig?.settings.speechVoice ?? settings.speechVoice,
+      provider: builderConfig?.teaching.voiceProvider ?? defaults.voiceProvider,
     };
   }, [builderConfig]);
 
@@ -256,6 +257,40 @@ export default function ClassroomShell({
     await finished;
   }
 
+  /** Free, on-device narration via the browser's own speech engine — no AI speech
+   * cost, but voice/quality depend entirely on the student's browser and OS. */
+  function speakWithBrowserVoice(text: string, controller: AbortController): Promise<void> {
+    return new Promise((resolve) => {
+      if (typeof window === "undefined" || !window.speechSynthesis) {
+        resolve();
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = Math.min(2, Math.max(0.5, voiceSettings.speed || 1));
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoice = voices.find((voice) => voice.lang?.startsWith("en")) || voices[0];
+      if (preferredVoice) utterance.voice = preferredVoice;
+
+      const done = () => {
+        setSpeaking(false);
+        resolve();
+      };
+      utterance.onend = done;
+      utterance.onerror = done;
+      controller.signal.addEventListener(
+        "abort",
+        () => {
+          window.speechSynthesis.cancel();
+          done();
+        },
+        { once: true },
+      );
+
+      window.speechSynthesis.speak(utterance);
+    });
+  }
+
   async function speak(text: string) {
     if (!voiceSettings.enabled || !text.trim()) return;
 
@@ -279,7 +314,9 @@ export default function ClassroomShell({
       const safetyTimeout = new Promise<void>((resolve) => setTimeout(resolve, 45_000));
 
       try {
-        if (text.length <= MAX_STREAMABLE_SPEECH_LENGTH) {
+        if (voiceSettings.provider === "browser") {
+          await Promise.race([speakWithBrowserVoice(text, controller), safetyTimeout]);
+        } else if (text.length <= MAX_STREAMABLE_SPEECH_LENGTH) {
           const url = `/api/mason/speech?${new URLSearchParams({
             text,
             voice: voiceSettings.voice,
@@ -643,15 +680,13 @@ export default function ClassroomShell({
           onToggleBreak={toggleBreak}
           paused={paused}
           onActivityComplete={() => void handleActivityComplete()}
-          checkQuestion={checkQuestion}
-          onSelectCheckOption={(option) => void handleSend(option)}
-          checkQuestionAwaiting={awaitingInput}
-          checkQuestionDisabled={thinking}
         />
 
         <TeacherChat
           messages={messages}
           thinking={thinking}
+          checkQuestion={checkQuestion}
+          onSelectOption={(option) => void handleSend(option)}
           needsAudioUnlock={needsAudioUnlock}
           speechToTextEnabled={builderConfig?.settings.speechText ?? true}
           awaitingInput={awaitingInput}

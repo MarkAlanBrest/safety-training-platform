@@ -19,6 +19,7 @@ import {
   ClassroomBuilderConfig,
   TEACHING_STYLES,
   VOICE_OPTIONS,
+  VOICE_PROVIDER_OPTIONS,
   defaultClassroomBuilderConfig,
 } from "@/lib/classroom-builder";
 import {
@@ -1246,16 +1247,58 @@ export default function ContentSlideBuilderForm() {
             />
           </BuilderField>
         </div>
-        <BuilderField label="Voice">
+        <BuilderField
+          label="Voice quality"
+          hint="Premium sounds better and stays consistent for every student, but costs money to run. Browser voice is free but varies by student device."
+        >
+          <div className="grid gap-2 sm:grid-cols-2">
+            {VOICE_PROVIDER_OPTIONS.map((option) => (
+              <label
+                key={option.id}
+                className={`flex cursor-pointer flex-col gap-1 rounded-xl border px-4 py-3 text-sm ${
+                  config.teaching.voiceProvider === option.id
+                    ? "border-[#c68b1b] bg-[#fff9eb] ring-2 ring-[#e8c273]/25"
+                    : "border-[#10283f]/10 hover:bg-[#faf8f3]"
+                }`}
+              >
+                <span className="flex items-center gap-2 font-semibold text-[#10283f]">
+                  <input
+                    type="radio"
+                    name="voiceProvider"
+                    checked={config.teaching.voiceProvider === option.id}
+                    onChange={() =>
+                      setConfig((current) => ({
+                        ...current,
+                        teaching: { ...current.teaching, voiceProvider: option.id },
+                      }))
+                    }
+                    className="accent-[#c68b1b]"
+                  />
+                  {option.label}
+                </span>
+                <span className="text-xs leading-5 text-[#69757e]">{option.description}</span>
+              </label>
+            ))}
+          </div>
+        </BuilderField>
+        <BuilderField
+          label="Voice"
+          hint={
+            config.teaching.voiceProvider === "browser"
+              ? "Not used — the student's browser picks its own voice."
+              : undefined
+          }
+        >
           <select
             value={config.teaching.voice}
+            disabled={config.teaching.voiceProvider === "browser"}
             onChange={(event) =>
               setConfig((current) => ({
                 ...current,
                 teaching: { ...current.teaching, voice: event.target.value },
               }))
             }
-            className="w-full rounded-xl border border-[#10283f]/15 px-4 py-3"
+            className="w-full rounded-xl border border-[#10283f]/15 px-4 py-3 disabled:opacity-50"
           >
             {VOICE_OPTIONS.map((voice) => (
               <option key={voice.id} value={voice.id}>

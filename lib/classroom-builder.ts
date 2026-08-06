@@ -29,6 +29,11 @@ export type ConversationMode =
 
 export type RetakeRule = "unlimited" | "once" | "twice" | "none";
 
+/** "premium" = OpenAI TTS (costs money, consistent high-quality voice). "browser" =
+ * the device's built-in speech synthesis (free, instant, but quality/voice varies by
+ * student device/browser). */
+export type VoiceProvider = "premium" | "browser";
+
 export type ClassroomBuilderConfig = {
   knowledge: {
     courseName: string;
@@ -45,6 +50,7 @@ export type ClassroomBuilderConfig = {
     personality: AiPersonality;
     voice: string;
     voiceSpeed: number;
+    voiceProvider: VoiceProvider;
     accent: string;
     readBulletPoints: ReadBulletPoints;
   };
@@ -100,6 +106,23 @@ export const AI_PERSONALITIES: Array<{ id: AiPersonality; label: string }> = [
   { id: "energetic", label: "Energetic" },
   { id: "direct", label: "Direct" },
   { id: "funny", label: "Funny" },
+];
+
+export const VOICE_PROVIDER_OPTIONS: Array<{
+  id: VoiceProvider;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "premium",
+    label: "Premium AI voice",
+    description: "Natural, consistent, choose the specific voice below. Uses paid AI speech generation.",
+  },
+  {
+    id: "browser",
+    label: "Free browser voice",
+    description: "Uses the student's own device voice — no AI speech cost, but quality and voice vary by browser/device.",
+  },
 ];
 
 export const VOICE_OPTIONS = [
@@ -415,6 +438,7 @@ export function defaultClassroomBuilderConfig(
       personality: "encouraging",
       voice: "cedar",
       voiceSpeed: 0.96,
+      voiceProvider: "premium",
       accent: "neutral",
       readBulletPoints: "when-important",
     },

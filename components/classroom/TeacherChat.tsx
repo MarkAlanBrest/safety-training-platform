@@ -12,6 +12,9 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
+import type { ClassroomCheckQuestion } from "@/lib/classroom";
+import QuickCheckCard from "@/components/classroom/QuickCheckCard";
+
 export type TeacherMessage = {
   role: "user" | "assistant";
   content: string;
@@ -54,6 +57,8 @@ function getSpeechRecognition():
 export default function TeacherChat({
   messages,
   thinking,
+  checkQuestion,
+  onSelectOption,
   needsAudioUnlock = false,
   speechToTextEnabled = false,
   awaitingInput = false,
@@ -67,6 +72,9 @@ export default function TeacherChat({
 }: {
   messages: TeacherMessage[];
   thinking: boolean;
+  /** The live comprehension check, if any — shown by itself, replacing the narration text. */
+  checkQuestion?: ClassroomCheckQuestion | null;
+  onSelectOption?: (option: string) => void;
   needsAudioUnlock?: boolean;
   speechToTextEnabled?: boolean;
   awaitingInput?: boolean;
@@ -164,7 +172,13 @@ export default function TeacherChat({
           </button>
         ) : null}
 
-        {!visibleMessages.length ? (
+        {checkQuestion ? (
+          <QuickCheckCard
+            question={checkQuestion}
+            onSelectOption={awaitingInput ? onSelectOption : undefined}
+            disabled={thinking}
+          />
+        ) : !visibleMessages.length ? (
           <div className="rounded-2xl bg-slate-50 px-4 py-4 text-center text-sm leading-7 text-slate-600">
             Your instructor leads this session and paces the class for you. Ask a question
             any time you want to jump in.
