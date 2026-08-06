@@ -511,19 +511,13 @@ export default function ClassroomShell({
   }
 
   async function handleContinue() {
-    unlockAudio();
-    cancelSpeech();
-    const next: TeacherMessage[] = [
-      ...messages,
-      {
-        role: "user",
-        hidden: true,
-        content:
-          "Continue the lesson. Move to the next beat in the lineup and teach it. Remember: your reply must teach exactly the slide you place on screen.",
-      },
-    ];
-    setMessages(next);
-    await sendToTeacher(next);
+    const nextBeatIndex = beatIndex + 1;
+    if (nextBeatIndex >= lessonBeats.length) return;
+
+    // Put the next visual on screen immediately, then let the instructor prepare its
+    // narration. This removes the dead pause where the completed slide used to remain
+    // visible throughout the entire AI request.
+    await handleSelectBeat(nextBeatIndex);
   }
 
   async function handleSend(message: string) {
@@ -583,6 +577,12 @@ export default function ClassroomShell({
       presentation: view,
       slideIndex: nextSlideIndex,
       beatIndex: nextBeatIndex,
+      // Speaker notes already provide the grounded teaching script for normal slides.
+      // Sending a large image through vision adds noticeable latency, so only do it
+      // when a slide has no notes and the instructor genuinely needs to inspect it.
+      includeImage:
+        beat.kind === "slide" &&
+        !plan.slides[beat.slideIndex]?.speakerNotes?.trim(),
     });
   }
 
@@ -642,7 +642,7 @@ export default function ClassroomShell({
     const timer = setTimeout(() => {
       autoAdvanceCountRef.current += 1;
       void handleContinue();
-    }, 900);
+    }, 250);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paused, thinking, speaking, expectsResponse, checkQuestion, beatIndex, messages.length, currentBeat]);
