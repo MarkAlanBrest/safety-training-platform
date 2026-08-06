@@ -18,6 +18,12 @@ import ClassroomFinalTestRunner from "@/components/classroom/ClassroomFinalTestR
 import PresentationArea from "@/components/classroom/PresentationArea";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
 
+/** Text at or under this length is played via a direct <audio src> GET request so the
+ * browser can stream/play it progressively. Longer text falls back to POST + full
+ * download (rare — replies are kept short by instruction) since it's safer than risking
+ * an oversized URL. */
+const MAX_STREAMABLE_SPEECH_LENGTH = 1500;
+
 type ChatApiResponse = {
   reply?: string;
   presentation?: PresentationView;
@@ -161,12 +167,53 @@ export default function ClassroomShell({
   }
 
   /**
-   * Downloads then plays the whole clip. Simple and reliable — an earlier attempt at
-   * progressive MediaSource streaming here could hang indefinitely (no timeout on
-   * `sourceopen`) and freeze the whole class, since a stuck `speaking` state blocks
-   * auto-advance forever. TTS caching on the server keeps this fast in practice since
-   * most requests now hit a cached clip instead of waiting on live synthesis.
+   * Hands the audio element a real network URL and lets the browser stream/play it
+   * progressively on its own — no custom buffering code. This is the normal path.
+   * (An earlier attempt at manual MediaSource streaming here could hang indefinitely
+   * waiting on a `sourceopen` event that never fired, freezing the whole class — this
+   * is simpler and doesn't have that failure mode since it's just native <audio src>.)
    */
+  async function playFromUrl(url: string, controller: AbortController): Promise<void> {
+    const audio = new Audio();
+    audioRef.current = audio;
+    audio.src = url;
+
+    const finished = new Promise<void>((resolve) => {
+      const done = () => {
+        setSpeaking(false);
+        resolve();
+      };
+      audio.addEventListener("ended", done, { once: true });
+      audio.addEventListener("error", done, { once: true });
+      controller.signal.addEventListener(
+        "abort",
+        () => {
+          audio.pause();
+          done();
+        },
+        { once: true },
+      );
+    });
+
+    if (!audioUnlockedRef.current) {
+      try {
+        await audio.play();
+        audioUnlockedRef.current = true;
+      } catch {
+        pendingAudioRef.current = audio;
+        setNeedsAudioUnlock(true);
+        setSpeaking(false);
+        return;
+      }
+    } else {
+      await audio.play();
+    }
+
+    await finished;
+  }
+
+  /** Fallback for text too long to fit safely in a GET URL — downloads then plays the
+   * whole clip. Rare in practice since replies are kept short. */
   async function playBuffered(response: Response, controller: AbortController): Promise<void> {
     const url = URL.createObjectURL(await response.blob());
     if (controller.signal.aborted) {
@@ -224,28 +271,35 @@ export default function ClassroomShell({
       speechAbortRef.current = controller;
 
       setSpeaking(true);
+      window.speechSynthesis.cancel();
+
+      // Hard safety net: never let a stuck audio element freeze the class — a stuck
+      // `speaking` state blocks auto-advance forever. If playback genuinely hasn't
+      // finished in 45s (a normal clip takes a few seconds), give up on it.
+      const safetyTimeout = new Promise<void>((resolve) => setTimeout(resolve, 45_000));
+
       try {
-        const response = await fetch("/api/mason/speech", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        if (text.length <= MAX_STREAMABLE_SPEECH_LENGTH) {
+          const url = `/api/mason/speech?${new URLSearchParams({
             text,
             voice: voiceSettings.voice,
-            speed: voiceSettings.speed,
-          }),
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error("speech failed");
-
-        window.speechSynthesis.cancel();
-
-        // Hard safety net: never let a stuck audio element freeze the class — a stuck
-        // `speaking` state blocks auto-advance forever. If playback genuinely hasn't
-        // finished in 45s (a normal clip takes a few seconds), give up on it.
-        await Promise.race([
-          playBuffered(response, controller),
-          new Promise<void>((resolve) => setTimeout(resolve, 45_000)),
-        ]);
+            speed: String(voiceSettings.speed),
+          }).toString()}`;
+          await Promise.race([playFromUrl(url, controller), safetyTimeout]);
+        } else {
+          const response = await fetch("/api/mason/speech", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text,
+              voice: voiceSettings.voice,
+              speed: voiceSettings.speed,
+            }),
+            signal: controller.signal,
+          });
+          if (!response.ok) throw new Error("speech failed");
+          await Promise.race([playBuffered(response, controller), safetyTimeout]);
+        }
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         setSpeaking(false);
@@ -589,12 +643,15 @@ export default function ClassroomShell({
           onToggleBreak={toggleBreak}
           paused={paused}
           onActivityComplete={() => void handleActivityComplete()}
+          checkQuestion={checkQuestion}
+          onSelectCheckOption={(option) => void handleSend(option)}
+          checkQuestionAwaiting={awaitingInput}
+          checkQuestionDisabled={thinking}
         />
 
         <TeacherChat
           messages={messages}
           thinking={thinking}
-          checkQuestion={checkQuestion}
           needsAudioUnlock={needsAudioUnlock}
           speechToTextEnabled={builderConfig?.settings.speechText ?? true}
           awaitingInput={awaitingInput}

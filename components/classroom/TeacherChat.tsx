@@ -12,9 +12,6 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
-import type { ClassroomCheckQuestion } from "@/lib/classroom";
-import QuickCheckCard from "@/components/classroom/QuickCheckCard";
-
 export type TeacherMessage = {
   role: "user" | "assistant";
   content: string;
@@ -57,7 +54,6 @@ function getSpeechRecognition():
 export default function TeacherChat({
   messages,
   thinking,
-  checkQuestion,
   needsAudioUnlock = false,
   speechToTextEnabled = false,
   awaitingInput = false,
@@ -71,7 +67,6 @@ export default function TeacherChat({
 }: {
   messages: TeacherMessage[];
   thinking: boolean;
-  checkQuestion?: ClassroomCheckQuestion | null;
   needsAudioUnlock?: boolean;
   speechToTextEnabled?: boolean;
   awaitingInput?: boolean;
@@ -118,14 +113,6 @@ export default function TeacherChat({
     setDraft("");
     setAsking(false);
     await onSend(clean);
-  }
-
-  async function selectOption(option: string) {
-    if (thinking) return;
-    onInteract?.();
-    setDraft("");
-    setAsking(false);
-    await onSend(option);
   }
 
   function toggleListening() {
@@ -184,7 +171,6 @@ export default function TeacherChat({
           </div>
         ) : lastMessage?.role === "user" ? (
           <div className="space-y-3">
-            {checkQuestion ? <QuickCheckCard question={checkQuestion} /> : null}
             <div className="ml-auto max-w-[85%] rounded-2xl bg-[#0f2b46] px-4 py-3 text-sm leading-7 text-white">
               {lastMessage.content}
             </div>
@@ -194,34 +180,23 @@ export default function TeacherChat({
               </div>
             ) : null}
           </div>
-        ) : lastMessage ? (
-          <div className="space-y-3">
-            {lastMessage.content ? (
-              <div
-                key={lastMessage.content}
-                className="rounded-2xl bg-[#f1f5f9] px-4 py-4 text-base leading-7 text-slate-800"
-              >
-                {lastMessage.content}
-                <button
-                  type="button"
-                  onClick={() => {
-                    onInteract?.();
-                    void onSpeak(lastMessage.content);
-                  }}
-                  className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-slate-500"
-                >
-                  <Volume2 size={14} />
-                  Hear this
-                </button>
-              </div>
-            ) : null}
-            {checkQuestion ? (
-              <QuickCheckCard
-                question={checkQuestion}
-                onSelectOption={awaitingInput ? selectOption : undefined}
-                disabled={thinking}
-              />
-            ) : null}
+        ) : lastMessage?.content ? (
+          <div
+            key={lastMessage.content}
+            className="rounded-2xl bg-[#f1f5f9] px-4 py-4 text-base leading-7 text-slate-800"
+          >
+            {lastMessage.content}
+            <button
+              type="button"
+              onClick={() => {
+                onInteract?.();
+                void onSpeak(lastMessage.content);
+              }}
+              className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-slate-500"
+            >
+              <Volume2 size={14} />
+              Hear this
+            </button>
           </div>
         ) : null}
       </div>

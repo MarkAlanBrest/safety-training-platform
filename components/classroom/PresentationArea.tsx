@@ -1,12 +1,13 @@
 "use client";
 
-import type { ClassroomPlan, PresentationView } from "@/lib/classroom";
+import type { ClassroomCheckQuestion, ClassroomPlan, PresentationView } from "@/lib/classroom";
 import { slideDeckContext } from "@/lib/classroom";
 import { Coffee } from "lucide-react";
 import ClassroomDragOrder from "@/components/classroom/ClassroomDragOrder";
 import ClassroomFlashcards from "@/components/classroom/ClassroomFlashcards";
 import ClassroomHotspotQuestion from "@/components/classroom/ClassroomHotspotQuestion";
 import PptxSlideViewer from "@/components/classroom/PptxSlideViewer";
+import QuickCheckCard from "@/components/classroom/QuickCheckCard";
 import SlideImageStage from "@/components/classroom/SlideImageStage";
 import SlideStageTransition from "@/components/classroom/SlideStageTransition";
 
@@ -17,6 +18,10 @@ export default function PresentationArea({
   onToggleBreak,
   paused = false,
   onActivityComplete,
+  checkQuestion,
+  onSelectCheckOption,
+  checkQuestionAwaiting = false,
+  checkQuestionDisabled = false,
 }: {
   plan: ClassroomPlan;
   view: PresentationView;
@@ -24,6 +29,11 @@ export default function PresentationArea({
   onToggleBreak: () => void;
   paused?: boolean;
   onActivityComplete?: () => void;
+  /** The live comprehension check, if any — shown as its own overlay, separate from the chat. */
+  checkQuestion?: ClassroomCheckQuestion | null;
+  onSelectCheckOption?: (option: string) => void;
+  checkQuestionAwaiting?: boolean;
+  checkQuestionDisabled?: boolean;
 }) {
   const safeView: PresentationView =
     view?.type === "welcome"
@@ -78,6 +88,17 @@ export default function PresentationArea({
                 >
                   Resume class
                 </button>
+              </div>
+            </div>
+          ) : null}
+          {checkQuestion && !paused ? (
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/55 p-6 backdrop-blur-sm">
+              <div className="w-full max-w-lg">
+                <QuickCheckCard
+                  question={checkQuestion}
+                  onSelectOption={checkQuestionAwaiting ? onSelectCheckOption : undefined}
+                  disabled={checkQuestionDisabled}
+                />
               </div>
             </div>
           ) : null}
