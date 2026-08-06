@@ -6,9 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-session";
 
 const MAX_CHUNK_BYTES = 3 * 1024 * 1024;
-const TARGET_PATH = /^(?:classroom\/deck\.pptx|classroom\/slides\/\d+|classroom\/chapters\/[1-9]\d*\/(?:deck\.pptx|slides\/\d+))$/;
+const TARGET_PATH = /^(?:classroom\/deck\.pptx|classroom\/slides\/\d+|classroom\/(?:media|activities)\/[a-z0-9-]+|classroom\/chapters\/[1-9]\d*\/(?:deck\.pptx|slides\/\d+))$/;
 const UPLOAD_ID = /^[a-f0-9-]{20,50}$/i;
-const ALLOWED_MIME = /^(?:image\/(?:png|jpeg|webp)|application\/vnd\.openxmlformats-officedocument\.presentationml\.presentation)$/;
+const ALLOWED_MIME = /^(?:image\/(?:png|jpeg|webp)|video\/(?:mp4|webm)|application\/vnd\.openxmlformats-officedocument\.presentationml\.presentation)$/;
 
 export async function POST(
   request: Request,

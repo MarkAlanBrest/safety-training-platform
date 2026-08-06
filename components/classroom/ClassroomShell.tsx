@@ -562,6 +562,9 @@ export default function ClassroomShell({
 
     // The Final Test is a standalone exam mode, not part of the AI chat loop.
     if (beat.kind === "finalTest") return;
+    // Video moments are learner-controlled. Wait until playback finishes before
+    // asking the instructor to continue to the next lesson beat.
+    if (view.type === "video") return;
 
     const label = navLabelForBeat(beat, plan);
     const next: TeacherMessage[] = [
@@ -636,6 +639,12 @@ export default function ClassroomShell({
     if (paused || thinking || speaking || expectsResponse || checkQuestion) return;
     if (!messages.length) return;
     if (currentBeat?.kind === "finalTest") return;
+    if (
+      presentation.type === "video" ||
+      presentation.type === "dragdrop" ||
+      presentation.type === "hotspot" ||
+      presentation.type === "flashcard"
+    ) return;
     if (beatIndex >= lessonBeats.length - 1) return;
     if (autoAdvanceCountRef.current > 300) return;
 

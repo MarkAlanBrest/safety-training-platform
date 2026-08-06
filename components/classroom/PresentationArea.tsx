@@ -6,6 +6,7 @@ import { Coffee, Headphones, MessageSquareText, MousePointerClick } from "lucide
 import ClassroomDragOrder from "@/components/classroom/ClassroomDragOrder";
 import ClassroomFlashcards from "@/components/classroom/ClassroomFlashcards";
 import ClassroomHotspotQuestion from "@/components/classroom/ClassroomHotspotQuestion";
+import ClassroomVideoSlide from "@/components/classroom/ClassroomVideoSlide";
 import PptxSlideViewer from "@/components/classroom/PptxSlideViewer";
 import SlideImageStage from "@/components/classroom/SlideImageStage";
 import SlideStageTransition from "@/components/classroom/SlideStageTransition";
@@ -37,6 +38,7 @@ export default function PresentationArea({
             view?.type === "flashcard" ||
             view?.type === "dragdrop" ||
             view?.type === "hotspot"
+            || view?.type === "video"
           ? view
           : {
               type: "welcome",
@@ -172,6 +174,13 @@ export default function PresentationArea({
               targetX={safeView.targetX}
               targetY={safeView.targetY}
               toleranceRadius={safeView.toleranceRadius}
+              onComplete={onActivityComplete}
+            />
+          ) : safeView.type === "video" ? (
+            <ClassroomVideoSlide
+              headline={safeView.headline}
+              prompt={safeView.prompt}
+              videoUrl={safeView.videoUrl}
               onComplete={onActivityComplete}
             />
           ) : isCheckpoint ? (

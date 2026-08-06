@@ -28,7 +28,8 @@ export type ClassroomCheckpoint = {
     | "shortAnswer"
     | "scenario"
     | "flashcard"
-    | "dragdrop";
+    | "dragdrop"
+    | "video";
   headline: string;
   prompt: string;
   choices?: string[];
@@ -39,6 +40,7 @@ export type ClassroomCheckpoint = {
   keyPoints?: string[];
   flashcards?: Array<{ front: string; back: string }>;
   dragItems?: string[];
+  videoUrl?: string;
 };
 
 /** The final assessment/question-bank type. Legacy plans only ever populate multipleChoice entries. */
@@ -318,6 +320,7 @@ export function navLabelForBeat(beat: ClassroomLessonBeat, plan: ClassroomPlan):
       if (!checkpoint) return "Activity";
       if (checkpoint.type === "flashcard") return "Flash cards";
       if (checkpoint.type === "dragdrop") return "Drag & drop";
+      if (checkpoint.type === "video") return checkpoint.headline || "Video";
       if (checkpoint.type === "exercise") return "Try this";
       return checkpoint.headline || "Quick check";
     }
@@ -340,6 +343,7 @@ export function navShortLabelForBeat(beat: ClassroomLessonBeat, plan: ClassroomP
       const checkpoint = plan.checkpoints?.find((item) => item.id === beat.checkpointId);
       if (checkpoint?.type === "flashcard") return "Cards";
       if (checkpoint?.type === "dragdrop") return "Order";
+      if (checkpoint?.type === "video") return "Video";
       return "Quiz";
     }
     case "assessment":
@@ -403,6 +407,14 @@ export function presentationForBeat(
           headline: checkpoint.headline,
           prompt: checkpoint.prompt,
           dragItems: checkpoint.dragItems || [],
+        };
+      }
+      if (checkpoint.type === "video" && checkpoint.videoUrl) {
+        return {
+          type: "video",
+          headline: checkpoint.headline,
+          prompt: checkpoint.prompt,
+          videoUrl: checkpoint.videoUrl,
         };
       }
       if (checkpoint.type === "hotspot" && checkpoint.hotspot) {

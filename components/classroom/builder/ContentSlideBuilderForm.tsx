@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, type MouseEvent as ReactMouseEvent, useMemo, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
   ClipboardCheck,
+  Crosshair,
   ImagePlus,
   LoaderCircle,
   MessageSquare,
@@ -13,6 +14,7 @@ import {
   Sparkles,
   Trash2,
   UploadCloud,
+  Video,
 } from "lucide-react";
 import {
   AI_PERSONALITIES,
@@ -44,6 +46,7 @@ import {
   emptyActivity,
   emptyContentSlide,
   emptyFormative,
+  emptyVideo,
   createLineupId,
   formativeFromQuestion,
   SLIDE_TRANSITIONS,
@@ -51,6 +54,7 @@ import {
   type LineupActivity,
   type LineupContentSlide,
   type LineupFormative,
+  type LineupVideo,
   type SlideTransition,
 } from "@/lib/classroom-lineup";
 import {
@@ -62,6 +66,7 @@ import {
   type GeneratedFormative,
   type MultipleChoiceQuestion,
   type QuestionType,
+  DEFAULT_HOTSPOT_TOLERANCE,
 } from "@/lib/classroom-question-types";
 import QuestionDraftReview from "@/components/classroom/builder/QuestionDraftReview";
 import FinalTestConfigSection from "@/components/classroom/builder/FinalTestConfigSection";
@@ -73,13 +78,29 @@ type ContentSlideDraft = LineupContentSlide & {
   previewUrl?: string;
 };
 
+type VideoDraft = LineupVideo & {
+  videoFile?: File;
+  previewUrl?: string;
+};
+
+type FormativeDraft = LineupFormative & {
+  hotspotImageFile?: File;
+  hotspotPreviewUrl?: string;
+  hotspotTargetSet?: boolean;
+};
+
 type LineupDraftItem =
   | ContentSlideDraft
-  | LineupFormative
-  | LineupActivity;
+  | FormativeDraft
+  | LineupActivity
+  | VideoDraft;
 
 function isContentSlide(item: LineupDraftItem): item is ContentSlideDraft {
   return item.kind === "content";
+}
+
+function isVideo(item: LineupDraftItem): item is VideoDraft {
+  return item.kind === "video";
 }
 
 export default function ContentSlideBuilderForm() {
@@ -122,8 +143,12 @@ export default function ContentSlideBuilderForm() {
     if (!config.knowledge.courseName.trim()) return false;
     if (!contentSlideCount) return false;
     return lineup.every((item) => {
-      if (!isContentSlide(item)) return true;
-      return Boolean(item.imageFile);
+      if (isContentSlide(item)) return Boolean(item.imageFile);
+      if (isVideo(item)) return Boolean(item.videoFile);
+      if (item.kind === "formative" && item.type === "hotspot") {
+        return Boolean(item.hotspotImageFile && item.hotspot && item.hotspotTargetSet);
+      }
+      return true;
     });
   }, [config.knowledge.courseName, contentSlideCount, lineup]);
 
@@ -153,7 +178,7 @@ export default function ContentSlideBuilderForm() {
     );
   }
 
-  function updateFormative(index: number, patch: Partial<LineupFormative>) {
+  function updateFormative(index: number, patch: Partial<FormativeDraft>) {
     updateLineup((current) =>
       current.map((item, itemIndex) =>
         itemIndex === index && item.kind === "formative" ? { ...item, ...patch } : item,
@@ -167,6 +192,87 @@ export default function ContentSlideBuilderForm() {
         itemIndex === index && item.kind === "activity" ? { ...item, ...patch } : item,
       ),
     );
+  }
+
+  function updateVideo(index: number, patch: Partial<VideoDraft>) {
+    updateLineup((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index && isVideo(item) ? { ...item, ...patch } : item,
+      ),
+    );
+  }
+
+  function handleVideoSelect(index: number, file: File | null) {
+    if (!file) return;
+    if (!/^video\/(?:mp4|webm)$/.test(file.type)) {
+      setError("Video slides support MP4 and WebM files.");
+      return;
+    }
+    if (file.size > 200 * 1024 * 1024) {
+      setError("Video files are limited to 200 MB.");
+      return;
+    }
+    setError("");
+    updateVideo(index, { videoFile: file, previewUrl: URL.createObjectURL(file) });
+  }
+
+  function handleHotspotImageSelect(index: number, file: File | null) {
+    if (!file) return;
+    if (!/^image\/(?:png|jpeg|webp)$/.test(file.type)) {
+      setError("Click-the-picture activities support PNG, JPEG, and WebP images.");
+      return;
+    }
+    setError("");
+    updateFormative(index, {
+      hotspotImageFile: file,
+      hotspotPreviewUrl: URL.createObjectURL(file),
+      hotspotTargetSet: false,
+    });
+  }
+
+  function setHotspotTarget(index: number, event: ReactMouseEvent<HTMLElement>) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const targetX = ((event.clientX - bounds.left) / bounds.width) * 100;
+    const targetY = ((event.clientY - bounds.top) / bounds.height) * 100;
+    const item = lineup[index];
+    if (item?.kind !== "formative") return;
+    updateFormative(index, {
+      hotspotTargetSet: true,
+      hotspot: {
+        imageUrl: item.hotspot?.imageUrl || `asset:classroom/activities/${item.id}`,
+        targetX,
+        targetY,
+        toleranceRadius: item.hotspot?.toleranceRadius || DEFAULT_HOTSPOT_TOLERANCE,
+      },
+    });
+  }
+
+  function emptyDragDrop(): FormativeDraft {
+    return {
+      ...emptyFormative(),
+      type: "dragdrop",
+      headline: "Put the steps in order",
+      prompt: "Drag these items into the correct order.",
+      choices: undefined,
+      dragItems: ["First step", "Second step", "Third step"],
+    };
+  }
+
+  function emptyHotspot(): FormativeDraft {
+    const item = emptyFormative();
+    return {
+      ...item,
+      type: "hotspot",
+      headline: "Click the correct area",
+      prompt: "Select the correct item in the picture.",
+      choices: undefined,
+      hotspot: {
+        imageUrl: `asset:classroom/activities/${item.id}`,
+        targetX: 50,
+        targetY: 50,
+        toleranceRadius: DEFAULT_HOTSPOT_TOLERANCE,
+      },
+    };
   }
 
   function applyImportedContentSlides(
@@ -457,10 +563,38 @@ export default function ContentSlideBuilderForm() {
     }
   }
 
+  async function uploadManualAddonAssets(slug: string) {
+    for (const item of lineup) {
+      if (isVideo(item) && item.videoFile) {
+        setUploadProgress(`Uploading video: ${item.title || item.videoFile.name}â€¦`);
+        await uploadClassroomAsset(
+          slug,
+          `classroom/media/${item.id}`,
+          item.videoFile,
+          item.videoFile.type,
+        );
+      }
+
+      if (
+        item.kind === "formative" &&
+        item.type === "hotspot" &&
+        item.hotspotImageFile
+      ) {
+        setUploadProgress(`Uploading activity image: ${item.headline}â€¦`);
+        await uploadClassroomAsset(
+          slug,
+          `classroom/activities/${item.id}`,
+          item.hotspotImageFile,
+          item.hotspotImageFile.type,
+        );
+      }
+    }
+  }
+
   async function onSubmit(event: FormEvent, mode: SubmitMode) {
     event.preventDefault();
     if (!canSubmit) {
-      setError("Add a slide image for every content slide before continuing.");
+      setError("Add every required slide image, video, and click-the-picture image before continuing.");
       return;
     }
 
@@ -481,6 +615,15 @@ export default function ContentSlideBuilderForm() {
               `Teach what's shown on "${item.title || "this slide"}".`,
           };
         }
+        if (isVideo(item)) {
+          return {
+            kind: "video",
+            id: item.id,
+            title: item.title.trim() || "Video demonstration",
+            prompt: item.prompt.trim(),
+            videoUrl: `asset:classroom/media/${item.id}`,
+          };
+        }
         if (item.kind === "formative") {
           return {
             kind: "formative",
@@ -490,8 +633,17 @@ export default function ContentSlideBuilderForm() {
             type: item.type,
             choices: item.choices?.map((choice) => choice.trim()).filter(Boolean),
             correctChoice: item.correctChoice,
+            correctAnswerBool: item.correctAnswerBool,
             flashcards: item.flashcards,
-            dragItems: item.dragItems,
+            dragItems: item.dragItems?.map((entry) => entry.trim()).filter(Boolean),
+            hotspot: item.hotspot
+              ? {
+                  ...item.hotspot,
+                  imageUrl: `asset:classroom/activities/${item.id}`,
+                }
+              : undefined,
+            sampleAnswer: item.sampleAnswer,
+            keyPoints: item.keyPoints,
           };
         }
         return {
@@ -531,6 +683,7 @@ export default function ContentSlideBuilderForm() {
         }>(response);
 
         if (!response.ok) throw new Error(data.error || "Course could not be created.");
+        await uploadManualAddonAssets(data.course.slug);
         setResult(data);
         return;
       }
@@ -572,6 +725,8 @@ export default function ContentSlideBuilderForm() {
         );
         slideIndex += 1;
       }
+
+      await uploadManualAddonAssets(data.course.slug);
 
       if (sourcePptx) {
         setUploadProgress("Saving PowerPoint source file…");
@@ -764,6 +919,11 @@ export default function ContentSlideBuilderForm() {
                       <ImagePlus size={14} />
                       Content slide
                     </>
+                  ) : item.kind === "video" ? (
+                    <>
+                      <Video size={14} />
+                      Video slide
+                    </>
                   ) : item.kind === "formative" ? (
                     <>
                       <ClipboardCheck size={14} />
@@ -873,6 +1033,50 @@ export default function ContentSlideBuilderForm() {
                 </div>
               ) : null}
 
+              {isVideo(item) ? (
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(260px,.8fr)]">
+                  <BuilderField label="Video file" hint="MP4 or WebM, up to 200 MB">
+                    <label className="block cursor-pointer rounded-xl border border-dashed border-[#10283f]/20 bg-[#faf8f3] p-4 text-center">
+                      {item.previewUrl ? (
+                        <video
+                          src={item.previewUrl}
+                          controls
+                          className="mx-auto max-h-64 w-full rounded-lg bg-black"
+                        />
+                      ) : (
+                        <div className="py-8 text-sm text-[#69757e]">
+                          <Video className="mx-auto mb-2 text-[#a06e16]" size={26} />
+                          Select an MP4 or WebM video
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm"
+                        className="sr-only"
+                        onChange={(event) =>
+                          handleVideoSelect(index, event.target.files?.[0] || null)
+                        }
+                      />
+                    </label>
+                  </BuilderField>
+                  <div className="space-y-4">
+                    <BuilderField label="Video title">
+                      <BuilderInput
+                        value={item.title}
+                        onChange={(event) => updateVideo(index, { title: event.target.value })}
+                      />
+                    </BuilderField>
+                    <BuilderField label="Instructions shown above the video">
+                      <BuilderTextarea
+                        rows={4}
+                        value={item.prompt}
+                        onChange={(event) => updateVideo(index, { prompt: event.target.value })}
+                      />
+                    </BuilderField>
+                  </div>
+                </div>
+              ) : null}
+
               {item.kind === "formative" ? (
                 <div className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
@@ -885,17 +1089,32 @@ export default function ContentSlideBuilderForm() {
                     <BuilderField label="Question type">
                       <select
                         value={item.type}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const type = event.target.value as LineupFormative["type"];
                           updateFormative(index, {
-                            type: event.target.value as LineupFormative["type"],
-                          })
-                        }
+                            type,
+                            dragItems:
+                              type === "dragdrop"
+                                ? item.dragItems || ["First step", "Second step", "Third step"]
+                                : item.dragItems,
+                            hotspot:
+                              type === "hotspot"
+                                ? item.hotspot || {
+                                    imageUrl: `asset:classroom/activities/${item.id}`,
+                                    targetX: 50,
+                                    targetY: 50,
+                                    toleranceRadius: DEFAULT_HOTSPOT_TOLERANCE,
+                                  }
+                                : item.hotspot,
+                          });
+                        }}
                         className="w-full rounded-xl border border-[#10283f]/15 px-4 py-3"
                       >
                         <option value="multipleChoice">Multiple choice</option>
                         <option value="exercise">Open exercise</option>
                         <option value="flashcard">Flash cards</option>
                         <option value="dragdrop">Drag & drop order</option>
+                        <option value="hotspot">Click the picture</option>
                       </select>
                     </BuilderField>
                   </div>
@@ -920,6 +1139,153 @@ export default function ContentSlideBuilderForm() {
                           placeholder={`Choice ${choiceIndex + 1}`}
                         />
                       ))}
+                    </div>
+                  ) : null}
+                  {item.type === "dragdrop" ? (
+                    <BuilderField
+                      label="Correct order"
+                      hint="Enter the steps in the correct order. Learners will receive them shuffled."
+                    >
+                      <div className="space-y-2">
+                        {(item.dragItems || []).map((entry, entryIndex) => (
+                          <div key={entryIndex} className="flex items-center gap-2">
+                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-700">
+                              {entryIndex + 1}
+                            </span>
+                            <BuilderInput
+                              value={entry}
+                              onChange={(event) => {
+                                const dragItems = [...(item.dragItems || [])];
+                                dragItems[entryIndex] = event.target.value;
+                                updateFormative(index, { dragItems });
+                              }}
+                              placeholder={`Step ${entryIndex + 1}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateFormative(index, {
+                                  dragItems: (item.dragItems || []).filter(
+                                    (_, itemIndex) => itemIndex !== entryIndex,
+                                  ),
+                                })
+                              }
+                              disabled={(item.dragItems?.length || 0) <= 2}
+                              className="rounded-lg border border-red-200 p-2 text-red-600 disabled:opacity-30"
+                              aria-label={`Remove step ${entryIndex + 1}`}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateFormative(index, {
+                              dragItems: [...(item.dragItems || []), ""],
+                            })
+                          }
+                          className="inline-flex items-center gap-2 rounded-full border border-[#10283f]/15 px-3 py-1.5 text-xs font-semibold text-[#10283f]"
+                        >
+                          <Plus size={13} /> Add step
+                        </button>
+                      </div>
+                    </BuilderField>
+                  ) : null}
+                  {item.type === "hotspot" ? (
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+                      <BuilderField
+                        label="Activity image"
+                        hint="Upload the picture, then click the correct target directly on it."
+                      >
+                        {item.hotspotPreviewUrl ? (
+                          <button
+                            type="button"
+                            onClick={(event) => setHotspotTarget(index, event)}
+                            className="relative block w-full cursor-crosshair overflow-hidden rounded-xl border-2 border-amber-300 text-left"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.hotspotPreviewUrl}
+                              alt={item.prompt}
+                              className="block w-full select-none"
+                              draggable={false}
+                            />
+                            {item.hotspot && item.hotspotTargetSet ? (
+                              <span
+                                className="pointer-events-none absolute h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-red-500 bg-red-100/50 shadow-lg"
+                                style={{
+                                  left: `${item.hotspot.targetX}%`,
+                                  top: `${item.hotspot.targetY}%`,
+                                }}
+                              />
+                            ) : null}
+                          </button>
+                          <p className="mt-2 text-xs font-semibold text-amber-700">
+                            {item.hotspotTargetSet
+                              ? "Target saved. Click again to move it."
+                              : "Click the correct target in the image to save its location."}
+                          </p>
+                        ) : (
+                          <label className="block cursor-pointer rounded-xl border border-dashed border-[#10283f]/20 bg-[#faf8f3] p-8 text-center text-sm text-[#69757e]">
+                            <Crosshair className="mx-auto mb-2 text-[#a06e16]" size={24} />
+                            Upload the activity picture
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp"
+                              className="sr-only"
+                              onChange={(event) =>
+                                handleHotspotImageSelect(
+                                  index,
+                                  event.target.files?.[0] || null,
+                                )
+                              }
+                            />
+                          </label>
+                        )}
+                        {item.hotspotPreviewUrl ? (
+                          <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-[#69757e]">
+                            Replace image
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp"
+                              className="sr-only"
+                              onChange={(event) =>
+                                handleHotspotImageSelect(
+                                  index,
+                                  event.target.files?.[0] || null,
+                                )
+                              }
+                            />
+                          </label>
+                        ) : null}
+                      </BuilderField>
+                      <BuilderField
+                        label="Click tolerance"
+                        hint="How close the learner must click, as a percentage of the image."
+                      >
+                        <BuilderInput
+                          type="number"
+                          min={2}
+                          max={25}
+                          value={item.hotspot?.toleranceRadius || DEFAULT_HOTSPOT_TOLERANCE}
+                          onChange={(event) =>
+                            updateFormative(index, {
+                              hotspot: {
+                                imageUrl:
+                                  item.hotspot?.imageUrl ||
+                                  `asset:classroom/activities/${item.id}`,
+                                targetX: item.hotspot?.targetX ?? 50,
+                                targetY: item.hotspot?.targetY ?? 50,
+                                toleranceRadius: Math.min(
+                                  25,
+                                  Math.max(2, Number(event.target.value) || 8),
+                                ),
+                              },
+                            })
+                          }
+                        />
+                      </BuilderField>
                     </div>
                   ) : null}
                 </div>
@@ -980,11 +1346,35 @@ export default function ContentSlideBuilderForm() {
           </button>
           <button
             type="button"
+            onClick={() => updateLineup((current) => [...current, emptyVideo()])}
+            className="inline-flex items-center gap-2 rounded-full border border-[#10283f]/15 px-4 py-2 text-sm font-semibold text-[#10283f]"
+          >
+            <Video size={14} />
+            Insert video
+          </button>
+          <button
+            type="button"
             onClick={() => updateLineup((current) => [...current, emptyFormative()])}
             className="inline-flex items-center gap-2 rounded-full border border-[#10283f]/15 px-4 py-2 text-sm font-semibold text-[#10283f]"
           >
             <ClipboardCheck size={14} />
             Insert formative check
+          </button>
+          <button
+            type="button"
+            onClick={() => updateLineup((current) => [...current, emptyDragDrop()])}
+            className="inline-flex items-center gap-2 rounded-full border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800"
+          >
+            <ClipboardCheck size={14} />
+            Insert drag &amp; drop
+          </button>
+          <button
+            type="button"
+            onClick={() => updateLineup((current) => [...current, emptyHotspot()])}
+            className="inline-flex items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800"
+          >
+            <Crosshair size={14} />
+            Insert click-the-picture
           </button>
           <button
             type="button"

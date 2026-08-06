@@ -74,10 +74,30 @@ export type LineupActivity = {
   choices?: string[];
 };
 
-export type LessonLineupItem = LineupContentSlide | LineupFormative | LineupActivity;
+/** A manually inserted video moment between teaching slides. */
+export type LineupVideo = {
+  kind: "video";
+  id: string;
+  title: string;
+  prompt: string;
+  videoUrl: string;
+};
+
+export type LessonLineupItem =
+  | LineupContentSlide
+  | LineupFormative
+  | LineupActivity
+  | LineupVideo;
 
 export function createLineupId(prefix: string) {
   return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+export function resolveLineupAssetUrl(value: string, slug: string) {
+  const prefix = "asset:";
+  if (!value.startsWith(prefix)) return value;
+  const path = value.slice(prefix.length).split("/").map(encodeURIComponent).join("/");
+  return `/api/classroom/${encodeURIComponent(slug)}/asset/${path}`;
 }
 
 export function emptyContentSlide(title = "New slide"): LineupContentSlide {
@@ -108,6 +128,17 @@ export function emptyActivity(): LineupActivity {
     headline: "Let's practice",
     prompt: "Think about how you would apply this on the job.",
     activityType: "discussion",
+  };
+}
+
+export function emptyVideo(): LineupVideo {
+  const id = createLineupId("video");
+  return {
+    kind: "video",
+    id,
+    title: "Video demonstration",
+    prompt: "Watch this video, then continue with your instructor.",
+    videoUrl: `asset:classroom/media/${id}`,
   };
 }
 
@@ -203,6 +234,18 @@ export function checkpointsFromLineup(lineup: LessonLineupItem[]): ClassroomChec
   const checkpoints: ClassroomCheckpoint[] = [];
 
   for (const item of lineup) {
+    if (item.kind === "video") {
+      checkpoints.push({
+        id: item.id,
+        slideIndex: lastContentSlideIndex(lineup, item),
+        type: "video",
+        headline: item.title,
+        prompt: item.prompt,
+        videoUrl: item.videoUrl,
+      });
+      continue;
+    }
+
     if (item.kind === "formative") {
       checkpoints.push({
         id: item.id,
@@ -303,10 +346,18 @@ export function buildClassroomPlanFromLineup(
   const attachedLineup = attachSlideIndicesToLineup(lineup);
   const slides = slidesFromLineup(attachedLineup, slug);
   const checkpoints = checkpointsFromLineup(attachedLineup).map((checkpoint) =>
-    checkpoint.hotspot
+    checkpoint.videoUrl
+      ? { ...checkpoint, videoUrl: resolveLineupAssetUrl(checkpoint.videoUrl, slug) }
+      : checkpoint.hotspot
       ? {
           ...checkpoint,
-          hotspot: { ...checkpoint.hotspot, imageUrl: resolveHotspotImageUrl(checkpoint.hotspot.imageUrl, slug) },
+          hotspot: {
+            ...checkpoint.hotspot,
+            imageUrl: resolveLineupAssetUrl(
+              resolveHotspotImageUrl(checkpoint.hotspot.imageUrl, slug),
+              slug,
+            ),
+          },
         }
       : checkpoint,
   );
@@ -365,6 +416,8 @@ export function lineupItemLabel(item: LessonLineupItem): string {
       return item.headline || "Formative check";
     case "activity":
       return item.headline || "Activity";
+    case "video":
+      return item.title || "Video";
     default:
       return "Lesson item";
   }
@@ -376,6 +429,7 @@ export function lineupSummary(plan: ClassroomPlan): string {
   const contentCount = plan.lineup.filter((item) => item.kind === "content").length;
   const formativeCount = plan.lineup.filter((item) => item.kind === "formative").length;
   const activityCount = plan.lineup.filter((item) => item.kind === "activity").length;
+  const videoCount = plan.lineup.filter((item) => item.kind === "video").length;
 
   // Titles only, not full teaching notes — the current/next slide's full script is sent
   // separately per turn (see chat/route.ts), and resending every slide's full notes on
@@ -386,16 +440,21 @@ export function lineupSummary(plan: ClassroomPlan): string {
     .join(", ");
 
   const assessments = plan.lineup
-    .filter((item): item is LineupFormative | LineupActivity => item.kind !== "content")
+    .filter(
+      (item): item is LineupFormative | LineupActivity | LineupVideo =>
+        item.kind !== "content",
+    )
     .map((item) =>
       item.kind === "formative"
         ? `- Formative check (${item.type}): "${item.headline}" — ${item.prompt}${formativeAnswerKeyText(item)}`
-        : `- Activity: "${item.headline}" — ${item.prompt}`,
+        : item.kind === "video"
+          ? `- Video: "${item.title}" — ${item.prompt}`
+          : `- Activity: "${item.headline}" — ${item.prompt}`,
     )
     .join("\n");
 
   return [
-    `Lesson lineup: ${contentCount} content slides, ${formativeCount} formative checks, ${activityCount} activities (in author-defined order).`,
+    `Lesson lineup: ${contentCount} content slides, ${videoCount} videos, ${formativeCount} formative checks, ${activityCount} activities (in author-defined order).`,
     "Slides are shown exactly as uploaded. Zoomed or circled views are separate slides in the deck — do not zoom or circle on screen.",
     `All slide titles in order: ${slideTitles}`,
     assessments ? `Inserted checks and activities:\n${assessments}` : "No formative checks or activities in the lineup.",

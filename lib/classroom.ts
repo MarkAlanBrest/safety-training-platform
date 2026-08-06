@@ -141,6 +141,12 @@ export type PresentationView =
       toleranceRadius: number;
     }
   | {
+      type: "video";
+      headline: string;
+      prompt: string;
+      videoUrl: string;
+    }
+  | {
       type: "welcome";
       headline: string;
       body: string;

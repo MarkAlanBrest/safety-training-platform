@@ -32,7 +32,12 @@ function parseLineup(raw: unknown): LessonLineupItem[] {
   return raw.filter((item): item is LessonLineupItem => {
     if (!item || typeof item !== "object") return false;
     const kind = (item as { kind?: string }).kind;
-    return kind === "content" || kind === "formative" || kind === "activity";
+    return (
+      kind === "content" ||
+      kind === "formative" ||
+      kind === "activity" ||
+      kind === "video"
+    );
   });
 }
 
