@@ -355,7 +355,12 @@ export function navShortLabelForBeat(beat: ClassroomLessonBeat, plan: ClassroomP
   }
 }
 
-export type ClassroomNavBeatKind = ClassroomLessonBeat["kind"] | "checkpoint-flashcard" | "checkpoint-dragdrop" | "checkpoint-question";
+export type ClassroomNavBeatKind =
+  | ClassroomLessonBeat["kind"]
+  | "checkpoint-flashcard"
+  | "checkpoint-dragdrop"
+  | "checkpoint-video"
+  | "checkpoint-question";
 
 export function navBeatKind(
   beat: ClassroomLessonBeat,
@@ -365,6 +370,7 @@ export function navBeatKind(
   const checkpoint = plan.checkpoints?.find((item) => item.id === beat.checkpointId);
   if (checkpoint?.type === "flashcard") return "checkpoint-flashcard";
   if (checkpoint?.type === "dragdrop") return "checkpoint-dragdrop";
+  if (checkpoint?.type === "video") return "checkpoint-video";
   return "checkpoint-question";
 }
 

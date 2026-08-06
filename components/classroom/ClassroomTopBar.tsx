@@ -10,6 +10,7 @@ import {
   GripVertical,
   Layers,
   MessageCircleQuestion,
+  Play,
   Presentation,
   Sparkles,
 } from "lucide-react";
@@ -80,6 +81,12 @@ function BeatIcon({
       return (
         <span className={className}>
           <MessageCircleQuestion size={iconSize} />
+        </span>
+      );
+    case "checkpoint-video":
+      return (
+        <span className={className}>
+          <Play size={iconSize} />
         </span>
       );
     case "assessment":

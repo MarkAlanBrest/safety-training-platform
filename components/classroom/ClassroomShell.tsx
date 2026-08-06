@@ -726,7 +726,11 @@ export default function ClassroomShell({
           activeSlideIndex={currentSlideIndex}
           onToggleBreak={toggleBreak}
           paused={paused}
-          onActivityComplete={() => void handleActivityComplete()}
+          onActivityComplete={() =>
+            void (presentation.type === "video"
+              ? handleContinue()
+              : handleActivityComplete())
+          }
         />
 
         <TeacherChat

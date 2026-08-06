@@ -1199,33 +1199,35 @@ export default function ContentSlideBuilderForm() {
                         hint="Upload the picture, then click the correct target directly on it."
                       >
                         {item.hotspotPreviewUrl ? (
-                          <button
-                            type="button"
-                            onClick={(event) => setHotspotTarget(index, event)}
-                            className="relative block w-full cursor-crosshair overflow-hidden rounded-xl border-2 border-amber-300 text-left"
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={item.hotspotPreviewUrl}
-                              alt={item.prompt}
-                              className="block w-full select-none"
-                              draggable={false}
-                            />
-                            {item.hotspot && item.hotspotTargetSet ? (
-                              <span
-                                className="pointer-events-none absolute h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-red-500 bg-red-100/50 shadow-lg"
-                                style={{
-                                  left: `${item.hotspot.targetX}%`,
-                                  top: `${item.hotspot.targetY}%`,
-                                }}
+                          <>
+                            <button
+                              type="button"
+                              onClick={(event) => setHotspotTarget(index, event)}
+                              className="relative block w-full cursor-crosshair overflow-hidden rounded-xl border-2 border-amber-300 text-left"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={item.hotspotPreviewUrl}
+                                alt={item.prompt}
+                                className="block w-full select-none"
+                                draggable={false}
                               />
-                            ) : null}
-                          </button>
-                          <p className="mt-2 text-xs font-semibold text-amber-700">
-                            {item.hotspotTargetSet
-                              ? "Target saved. Click again to move it."
-                              : "Click the correct target in the image to save its location."}
-                          </p>
+                              {item.hotspot && item.hotspotTargetSet ? (
+                                <span
+                                  className="pointer-events-none absolute h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-4 border-red-500 bg-red-100/50 shadow-lg"
+                                  style={{
+                                    left: `${item.hotspot.targetX}%`,
+                                    top: `${item.hotspot.targetY}%`,
+                                  }}
+                                />
+                              ) : null}
+                            </button>
+                            <p className="mt-2 text-xs font-semibold text-amber-700">
+                              {item.hotspotTargetSet
+                                ? "Target saved. Click again to move it."
+                                : "Click the correct target in the image to save its location."}
+                            </p>
+                          </>
                         ) : (
                           <label className="block cursor-pointer rounded-xl border border-dashed border-[#10283f]/20 bg-[#faf8f3] p-8 text-center text-sm text-[#69757e]">
                             <Crosshair className="mx-auto mb-2 text-[#a06e16]" size={24} />

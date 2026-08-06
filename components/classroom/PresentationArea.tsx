@@ -59,6 +59,8 @@ export default function PresentationArea({
   const stageKey =
     safeView.type === "slide"
       ? `slide-${displaySlideIndex}`
+      : safeView.type === "video"
+        ? `video-${safeView.videoUrl}`
       : `${safeView.type}-${safeView.type === "assessment" ? safeView.questionIndex ?? 0 : ""}`;
 
   const stageTransition =
