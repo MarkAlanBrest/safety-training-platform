@@ -2,7 +2,7 @@
 
 import type { ClassroomPlan, PresentationView } from "@/lib/classroom";
 import { slideDeckContext } from "@/lib/classroom";
-import { Coffee } from "lucide-react";
+import { Coffee, Headphones, MessageSquareText, MousePointerClick } from "lucide-react";
 import ClassroomDragOrder from "@/components/classroom/ClassroomDragOrder";
 import ClassroomFlashcards from "@/components/classroom/ClassroomFlashcards";
 import ClassroomHotspotQuestion from "@/components/classroom/ClassroomHotspotQuestion";
@@ -17,6 +17,7 @@ export default function PresentationArea({
   onToggleBreak,
   paused = false,
   onActivityComplete,
+  captionText = "",
 }: {
   plan: ClassroomPlan;
   view: PresentationView;
@@ -24,6 +25,7 @@ export default function PresentationArea({
   onToggleBreak: () => void;
   paused?: boolean;
   onActivityComplete?: () => void;
+  captionText?: string;
 }) {
   const safeView: PresentationView =
     view?.type === "welcome"
@@ -83,17 +85,50 @@ export default function PresentationArea({
           ) : null}
           <SlideStageTransition stageKey={stageKey} transition={stageTransition}>
             {safeView.type === "welcome" ? (
-            <div className="flex h-full w-full flex-col justify-center bg-gradient-to-br from-[#0f2b46] to-[#163a5d] p-10 text-white">
+            <div className="h-full w-full overflow-y-auto bg-gradient-to-br from-[#0f2b46] to-[#163a5d] px-6 py-8 text-white sm:px-10 lg:px-12">
+              <div className="mx-auto flex min-h-full max-w-5xl flex-col justify-center">
               <p className="text-xs font-bold uppercase tracking-[.2em] text-amber-200">
-                Welcome
+                Welcome to your course
               </p>
-              <h2 className="mt-4 max-w-3xl text-4xl font-bold leading-tight">
+              <h2 className="mt-3 max-w-4xl text-3xl font-bold leading-tight lg:text-4xl">
                 {safeView.headline}
               </h2>
-              <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-200">{safeView.body}</p>
+              <p className="mt-3 max-w-3xl text-base leading-7 text-slate-200 lg:text-lg">{safeView.body}</p>
               <p className="mt-6 max-w-xl text-sm text-slate-300">
                 Your instructor will guide this session — respond in the chat when prompted.
               </p>
+              <div className="mt-7">
+                <p className="text-sm font-bold uppercase tracking-[.16em] text-white">
+                  How to take this course
+                </p>
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
+                    <Headphones className="text-amber-300" size={23} aria-hidden="true" />
+                    <p className="mt-3 font-bold">1. Watch and listen</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-300">
+                      Your AI instructor will explain each slide and move through the lesson with you.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
+                    <MessageSquareText className="text-amber-300" size={23} aria-hidden="true" />
+                    <p className="mt-3 font-bold">2. Join the conversation</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-300">
+                      Type or speak in the instructor panel whenever you have a question or are asked to respond.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
+                    <MousePointerClick className="text-amber-300" size={23} aria-hidden="true" />
+                    <p className="mt-3 font-bold">3. Complete each activity</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-300">
+                      Answer knowledge checks and finish the final test. Use the top menu to review earlier topics.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-5 rounded-xl border border-amber-300/25 bg-amber-300/10 px-4 py-3 text-sm font-semibold text-amber-100">
+                The lesson advances automatically. Select Pause at the top any time you need a break.
+              </p>
+              </div>
             </div>
           ) : safeView.type === "slide" && slideImage ? (
             <SlideImageStage
@@ -170,6 +205,17 @@ export default function PresentationArea({
             </div>
           ) : null}
           </SlideStageTransition>
+          {captionText ? (
+            <div
+              className="pointer-events-none absolute inset-x-4 bottom-4 z-30 flex justify-center"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <p className="max-w-4xl rounded-xl bg-slate-950/90 px-5 py-3 text-center text-base font-semibold leading-7 text-white shadow-2xl backdrop-blur-sm lg:text-lg">
+                {captionText}
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>

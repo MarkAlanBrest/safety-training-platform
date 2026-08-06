@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Check,
+  Captions,
   ChevronDown,
   ClipboardCheck,
   Coffee,
@@ -104,6 +105,8 @@ export default function ClassroomTopBar({
   onSelectBeat,
   paused = false,
   onToggleBreak,
+  captionsEnabled = false,
+  onToggleCaptions,
 }: {
   plan: ClassroomPlan;
   lessonBeats: ClassroomLessonBeat[];
@@ -111,6 +114,8 @@ export default function ClassroomTopBar({
   onSelectBeat: (beatIndex: number) => void;
   paused?: boolean;
   onToggleBreak?: () => void;
+  captionsEnabled?: boolean;
+  onToggleCaptions?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -228,6 +233,22 @@ export default function ClassroomTopBar({
       </div>
 
       <div className="flex shrink-0 items-center gap-3">
+        {onToggleCaptions ? (
+          <button
+            type="button"
+            onClick={onToggleCaptions}
+            aria-pressed={captionsEnabled}
+            title={captionsEnabled ? "Turn captions off" : "Turn captions on"}
+            className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 py-1.5 text-xs font-bold transition ${
+              captionsEnabled
+                ? "border-amber-300/60 bg-amber-400/20 text-amber-100"
+                : "border-white/15 bg-white/10 text-white hover:bg-white/20"
+            }`}
+          >
+            <Captions size={16} />
+            <span className="hidden md:inline">Captions</span>
+          </button>
+        ) : null}
         {onToggleBreak ? (
           <button
             type="button"

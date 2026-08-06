@@ -120,8 +120,8 @@ export const VOICE_PROVIDER_OPTIONS: Array<{
   },
   {
     id: "browser",
-    label: "Free browser voice",
-    description: "Uses the student's own device voice — no AI speech cost, but quality and voice vary by browser/device.",
+    label: "Free browser voice (Mark)",
+    description: "Uses the Mark voice when it is available on the student's device, with a free English system voice as a fallback.",
   },
 ];
 
@@ -464,7 +464,7 @@ export function defaultClassroomBuilderConfig(
       conversationMode: "interrupt-anytime",
       speechText: true,
       speechVoice: true,
-      captions: false,
+      captions: true,
       bookmarks: true,
     },
   };
