@@ -361,8 +361,10 @@ export async function POST(request: Request) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return Response.json({
+        code: "AI_NOT_CONFIGURED",
+        error: "AI_NOT_CONFIGURED",
         reply:
-          "I'm ready to teach once the OpenAI API key is connected. You can still browse the slides while we set that up.",
+          "The AI instructor is not connected yet. An administrator needs to add OPENAI_API_KEY to the server environment (for example in Vercel → Project Settings → Environment Variables), then redeploy this site.",
         presentation: {
           type: "slide",
           slideIndex: slide.index,
@@ -575,7 +577,14 @@ export async function POST(request: Request) {
 
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data?.error?.message || "The instructor could not respond.");
+      const apiMessage =
+        typeof data?.error?.message === "string" ? data.error.message : "";
+      if (response.status === 401 || /api key/i.test(apiMessage)) {
+        throw new Error(
+          "The OpenAI API key on the server is missing or invalid. Check OPENAI_API_KEY in your hosting environment and redeploy.",
+        );
+      }
+      throw new Error(apiMessage || "The instructor could not respond.");
     }
 
     const outputText = extractResponseOutputText(data);
