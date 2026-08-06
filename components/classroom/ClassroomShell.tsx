@@ -579,6 +579,7 @@ export default function ClassroomShell({
     !thinking &&
     !speaking &&
     (expectsResponse ||
+      Boolean(checkQuestion) ||
       presentation.type === "question" ||
       presentation.type === "exercise" ||
       presentation.type === "assessment");
@@ -595,7 +596,11 @@ export default function ClassroomShell({
   // click required. Only pauses when the AI is waiting on a student answer,
   // during the Final Test, or once the lineup has run out of beats.
   useEffect(() => {
-    if (paused || thinking || speaking || expectsResponse) return;
+    // checkQuestion is checked directly (not just expectsResponse) so a live
+    // comprehension check always blocks auto-advance even if the AI forgets to set
+    // expectsResponse on that turn — the structural signal is more reliable than
+    // trusting the model got every flag right.
+    if (paused || thinking || speaking || expectsResponse || checkQuestion) return;
     if (!messages.length) return;
     if (currentBeat?.kind === "finalTest") return;
     if (beatIndex >= lessonBeats.length - 1) return;
@@ -607,7 +612,7 @@ export default function ClassroomShell({
     }, 900);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paused, thinking, speaking, expectsResponse, beatIndex, messages.length, currentBeat]);
+  }, [paused, thinking, speaking, expectsResponse, checkQuestion, beatIndex, messages.length, currentBeat]);
 
   if (!classStarted) {
     return (
