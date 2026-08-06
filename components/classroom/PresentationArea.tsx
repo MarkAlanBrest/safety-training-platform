@@ -81,7 +81,7 @@ export default function PresentationArea({
               </div>
             </div>
           ) : null}
-          <SlideStageTransition stageKey={stageKey} transition={stageTransition}>
+          <SlideStageTransition key={stageKey} transition={stageTransition}>
             {safeView.type === "welcome" ? (
             <div className="h-full w-full overflow-y-auto bg-gradient-to-br from-[#0f2b46] to-[#163a5d] px-6 py-8 text-white sm:px-10 lg:px-12">
               <div className="mx-auto flex min-h-full max-w-5xl flex-col justify-center">
