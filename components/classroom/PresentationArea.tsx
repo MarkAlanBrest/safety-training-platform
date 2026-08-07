@@ -1,8 +1,7 @@
 "use client";
 
 import type { ClassroomPlan, PresentationView } from "@/lib/classroom";
-import { slideDeckContext } from "@/lib/classroom";
-import { classroomEmbedDeckUrl } from "@/lib/classroom-deck-serve";
+import { classroomEmbedDeckUrl, slideDeckContext } from "@/lib/classroom";
 import { Coffee, Headphones, MessageSquareText, MousePointerClick } from "lucide-react";
 import ClassroomDragOrder from "@/components/classroom/ClassroomDragOrder";
 import ClassroomFlashcards from "@/components/classroom/ClassroomFlashcards";
