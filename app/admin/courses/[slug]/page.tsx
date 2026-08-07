@@ -454,7 +454,7 @@ export default function CourseEditorPage() {
       )}
 
       {tab === "content" && (course.courseType === "classroom" ? (
-        <section>
+        <section className="min-w-0">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">
@@ -486,7 +486,7 @@ export default function CourseEditorPage() {
                   key={section.id}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={() => void reorderSections(section.id)}
-                  className="grid gap-4 rounded-2xl border border-[#10283f]/10 bg-white p-5 shadow-sm sm:grid-cols-[56px_1fr_auto] sm:items-center"
+                  className="grid min-w-0 gap-4 rounded-2xl border border-[#10283f]/10 bg-white p-5 shadow-sm sm:grid-cols-[56px_minmax(0,1fr)_auto] sm:items-center"
                 >
                   <div
                     draggable
@@ -500,10 +500,10 @@ export default function CourseEditorPage() {
                   >
                     <GripVertical size={19} />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs font-bold uppercase tracking-[.14em] text-[#a06e16]">Chapter {index + 1}</p>
                     <h3 className="mt-1 font-bold text-[#10283f]">{section.title}</h3>
-                    <p className="mt-1 text-xs text-[#7b858c]">{section.fileName}</p>
+                    <p className="mt-1 truncate text-xs text-[#7b858c]" title={section.fileName}>{section.fileName}</p>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
                         {section.lessonPlan.slides?.length || 0} slides
@@ -716,8 +716,8 @@ export default function CourseEditorPage() {
       ))}
 
       {tab === "settings" && (course.courseType === "classroom" ? (
-        <form onSubmit={saveSettings} className="grid gap-7 xl:grid-cols-[1fr_.8fr]">
-          <section className="space-y-6 rounded-3xl border border-[#10283f]/10 bg-white p-7">
+        <form onSubmit={saveSettings} className="grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1fr)_minmax(0,.8fr)]">
+          <section className="min-w-0 space-y-6 rounded-3xl border border-[#10283f]/10 bg-white p-7">
             <div>
               <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">AI course settings</p>
               <h2 className="mt-2 font-serif text-2xl font-semibold text-[#10283f]">Course and instructor</h2>
@@ -757,7 +757,7 @@ export default function CourseEditorPage() {
               <select
                 name="classroomVoice"
                 defaultValue={course.sections[0]?.lessonPlan.config?.teaching?.voice || "cedar"}
-                className="w-full rounded-xl border border-[#10283f]/15 bg-white px-4 py-3"
+                className="w-full min-w-0 max-w-full rounded-xl border border-[#10283f]/15 bg-white px-4 py-3"
               >
                 {VOICE_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>{option.label}</option>
@@ -779,7 +779,7 @@ export default function CourseEditorPage() {
             <input type="hidden" name="intensity" value={course.intensity} />
           </section>
 
-          <aside className="space-y-6">
+          <aside className="min-w-0 space-y-6">
             <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6">
               <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">Course summary</p>
               <dl className="mt-4 space-y-3 text-sm">
