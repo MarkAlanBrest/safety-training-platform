@@ -6,7 +6,6 @@ import { ReactNode } from "react";
 import {
   BookOpen,
   ExternalLink,
-  LayoutDashboard,
   LogOut,
   Plus,
   ShieldCheck,
@@ -20,7 +19,6 @@ type Props = {
 };
 
 const navItems = [
-  { href: "/admin/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/courses", label: "Training programs", icon: BookOpen },
   { href: "/admin/classroom/new", label: "New PowerPoint course", icon: Plus },
 ];
