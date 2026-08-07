@@ -22,8 +22,7 @@ type Props = {
 const navItems = [
   { href: "/admin/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/courses", label: "Training programs", icon: BookOpen },
-  { href: "/admin/classroom/new", label: "AI classroom", icon: Plus },
-  { href: "/admin/courses/new", label: "New program", icon: Plus },
+  { href: "/admin/classroom/new", label: "New PowerPoint course", icon: Plus },
 ];
 
 export default function AdminShell({
@@ -64,8 +63,7 @@ export default function AdminShell({
               const active =
                 currentPath === item.href ||
                 (item.href === "/admin/courses" &&
-                  currentPath.startsWith("/admin/courses/") &&
-                  currentPath !== "/admin/courses/new");
+                  currentPath.startsWith("/admin/courses/"));
               return (
                 <Link
                   key={item.href}

@@ -91,7 +91,7 @@ export default function CoursesPage() {
       eyebrow="Course library"
       actions={
         <Link
-          href="/admin/courses/new"
+          href="/admin/classroom/new"
           className="flex items-center gap-2 rounded-xl bg-[#10283f] px-4 py-3 text-sm font-bold text-white"
         >
           <Plus size={17} /> New program
@@ -122,7 +122,7 @@ export default function CoursesPage() {
             section from uploaded source material.
           </p>
           <Link
-            href="/admin/courses/new"
+            href="/admin/classroom/new"
             className="mt-7 inline-flex items-center gap-2 rounded-xl bg-[#10283f] px-5 py-3 font-bold text-white"
           >
             Create a program <ArrowRight size={18} />

@@ -51,7 +51,7 @@ export default function AdminDashboardPage() {
       eyebrow="Overview"
       actions={
         <Link
-          href="/admin/courses/new"
+          href="/admin/classroom/new"
           className="flex items-center gap-2 rounded-xl bg-[#10283f] px-4 py-3 text-sm font-bold text-white"
         >
           <Plus size={17} /> New program
@@ -115,7 +115,7 @@ export default function AdminDashboardPage() {
               {courses.length === 0 && (
                 <div className="py-10 text-center">
                   <p className="text-[#6c7881]">No programs yet.</p>
-                  <Link href="/admin/courses/new" className="mt-4 inline-flex items-center gap-2 font-bold text-[#10283f]">
+                  <Link href="/admin/classroom/new" className="mt-4 inline-flex items-center gap-2 font-bold text-[#10283f]">
                     Create the first program <ArrowRight size={17} />
                   </Link>
                 </div>
