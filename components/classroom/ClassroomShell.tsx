@@ -692,7 +692,11 @@ export default function ClassroomShell({
         plan={plan}
         lessonBeats={lessonBeats}
         activeBeatIndex={beatIndex}
-        onSelectBeat={(index) => void handleSelectBeat(index)}
+        activeSlideIndex={currentSlideIndex}
+        onSelectSlide={(slideIndex) => {
+          const nextBeatIndex = beatIndexForSlide(lessonBeats, slideIndex);
+          if (nextBeatIndex >= 0) void handleSelectBeat(nextBeatIndex);
+        }}
         paused={paused}
         onToggleBreak={toggleBreak}
       />
