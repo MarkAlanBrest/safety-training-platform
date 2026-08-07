@@ -3,11 +3,13 @@ export const runtime = "nodejs";
 import { prisma } from "@/lib/prisma";
 import {
   classroomPlanForSlug,
+  hydrateClassroomPlan,
   isClassroomPlan,
   type ClassroomCheckQuestion,
   type ClassroomPlan,
   type PresentationView,
 } from "@/lib/classroom";
+import { classroomPlanFromSections } from "@/lib/classroom-chapters";
 import {
   classroomInstructorPrompt,
   defaultClassroomBuilderConfig,
@@ -294,13 +296,27 @@ async function resolvePlan(
       include: {
         sections: {
           orderBy: { position: "asc" },
-          take: 1,
-          select: { lessonPlan: true },
+          select: { id: true, title: true, position: true, lessonPlan: true },
         },
       },
     });
-    const plan = course?.sections[0]?.lessonPlan;
-    return isClassroomPlan(plan) ? plan : null;
+    if (!course) return null;
+    let globalIndexOffset = 0;
+    const sections = course.sections.flatMap((section: {
+      id: number;
+      title: string;
+      position: number;
+      lessonPlan: unknown;
+    }) => {
+      if (!isClassroomPlan(section.lessonPlan)) return [];
+      const plan = hydrateClassroomPlan(section.lessonPlan, courseSlug, [], {
+        chapterPosition: section.position,
+        globalIndexOffset,
+      });
+      globalIndexOffset += plan.slides.length;
+      return [{ ...section, plan }];
+    });
+    return sections.length ? classroomPlanFromSections(course.title, sections) : null;
   }
 
   const section = await prisma.masonSection.findUnique({

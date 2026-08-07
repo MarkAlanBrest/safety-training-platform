@@ -29,6 +29,11 @@ type ContentUploadBody = {
   published?: boolean;
   config?: ClassroomBuilderConfig;
   lineup?: LessonLineupItem[];
+  chapters?: Array<{
+    title?: string;
+    fileName?: string;
+    lineup?: LessonLineupItem[];
+  }>;
   assessment?: ClassroomAssessmentQuestion[];
   finalTest?: ClassroomFinalTest;
 };
@@ -102,12 +107,28 @@ export async function POST(request: Request) {
       return Response.json({ error: "A course title is required." }, { status: 400 });
     }
 
-    const contentSlides = lineup.filter(
-      (item): item is LineupContentSlide => item.kind === "content",
-    );
-    if (!contentSlides.length) {
+    const requestedChapters = Array.isArray(body.chapters)
+      ? body.chapters
+          .map((chapter, index) => ({
+            title: String(chapter?.title || `Chapter ${index + 1}`).trim(),
+            fileName: String(chapter?.fileName || `chapter-${index + 1}.pptx`).trim(),
+            lineup: parseLineup(chapter?.lineup),
+          }))
+          .filter((chapter) => chapter.lineup.length > 0)
+      : [];
+    const chapterInputs = requestedChapters.length
+      ? requestedChapters
+      : [{ title, fileName: "content-slides", lineup }];
+
+    if (
+      !chapterInputs.length ||
+      chapterInputs.some(
+        (chapter) =>
+          !chapter.lineup.some((item): item is LineupContentSlide => item.kind === "content"),
+      )
+    ) {
       return Response.json(
-        { error: "Add at least one content slide with teaching notes." },
+        { error: "Every PowerPoint chapter must contain at least one slide." },
         { status: 400 },
       );
     }
@@ -116,17 +137,39 @@ export async function POST(request: Request) {
     const existing = await prisma.masonCourse.findUnique({ where: { slug } });
     if (existing) slug = `${slug}-${Date.now().toString(36)}`;
 
-    const attachedLineup = attachSlideIndicesToLineup(lineup);
-    const plan = buildClassroomPlanFromLineup(attachedLineup, title, slug, {
+    const mergedConfig = {
       ...config,
       knowledge: {
         ...config.knowledge,
         courseName: title,
         description: description || config.knowledge.description,
       },
-    }, { description, assessment, finalTest });
+    };
+    const sectionPlans = chapterInputs.map((chapter, index) => {
+      const attachedLineup = attachSlideIndicesToLineup(chapter.lineup);
+      return {
+        title: chapter.title || `Chapter ${index + 1}`,
+        fileName: chapter.fileName,
+        position: index + 1,
+        lineup: attachedLineup,
+        plan: buildClassroomPlanFromLineup(
+          attachedLineup,
+          chapter.title || title,
+          slug,
+          mergedConfig,
+          {
+            description: "",
+            assessment: index === chapterInputs.length - 1 ? assessment : [],
+            finalTest: index === chapterInputs.length - 1 ? finalTest : undefined,
+          },
+        ),
+      };
+    });
 
-    const slideCount = contentSlideCount(attachedLineup);
+    const slideCount = sectionPlans.reduce(
+      (total, section) => total + contentSlideCount(section.lineup),
+      0,
+    );
     const estimates = estimateClassroomCourse(slideCount, config);
 
     const course = await prisma.masonCourse.create({
@@ -148,15 +191,13 @@ export async function POST(request: Request) {
               ? "comprehensive"
               : "standard",
         sections: {
-          create: [
-            {
-              title,
-              position: 1,
+          create: sectionPlans.map((section) => ({
+              title: section.title,
+              position: section.position,
               estimatedMinutes: estimates.courseLengthMinutes,
-              fileName: "content-slides",
-              lessonPlan: plan,
-            },
-          ],
+              fileName: section.fileName,
+              lessonPlan: section.plan,
+            })),
         },
       },
       select: { id: true, title: true, slug: true, published: true },

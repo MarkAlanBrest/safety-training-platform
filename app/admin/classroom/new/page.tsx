@@ -10,8 +10,8 @@ export default function NewClassroomPage() {
             PowerPoint course builder
           </p>
           <p className="mt-2 max-w-3xl text-sm leading-7 text-white/80">
-            Upload one PowerPoint. The deck supplies the course visuals and its speaker notes direct
-            the AI instructor on each slide.
+            Upload one or more PowerPoints as ordered chapters. The decks supply the course visuals,
+            and their speaker notes direct the AI instructor on each slide.
           </p>
         </div>
         <PowerPointCourseBuilderForm />

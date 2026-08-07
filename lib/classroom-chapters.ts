@@ -4,6 +4,11 @@ import {
   buildFallbackCheckpoints,
   buildLessonBeats,
 } from "@/lib/classroom-lesson";
+import {
+  attachSlideIndicesToLineup,
+  buildLessonBeatsFromLineup,
+  type LessonLineupItem,
+} from "@/lib/classroom-lineup";
 
 export type { ClassroomChapter };
 
@@ -68,6 +73,7 @@ export function classroomPlanFromSections(
   const slides: ClassroomSlide[] = [];
   const chapters: ClassroomChapter[] = [];
   const topics: ClassroomTopic[] = [];
+  const lineup: LessonLineupItem[] = [];
   let offset = 0;
 
   for (const section of sections) {
@@ -93,6 +99,7 @@ export function classroomPlanFromSections(
       slideEnd,
     });
     slides.push(...chapterSlides);
+    if (section.plan.lineup?.length) lineup.push(...section.plan.lineup);
   }
 
   let checkpointOffset = 0;
@@ -123,8 +130,13 @@ export function classroomPlanFromSections(
     assessment: assessment.length
       ? assessment
       : buildFallbackAssessment(slides, config),
+    lineup: lineup.length ? attachSlideIndicesToLineup(lineup) : undefined,
     config,
   };
-  merged.lessonBeats = buildLessonBeats(merged);
+  merged.lessonBeats = merged.lineup?.length
+    ? buildLessonBeatsFromLineup(merged.lineup, {
+        hasAssessment: Boolean(merged.assessment?.length),
+      })
+    : buildLessonBeats(merged);
   return merged;
 }

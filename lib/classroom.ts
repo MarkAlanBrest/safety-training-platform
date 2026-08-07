@@ -507,7 +507,9 @@ export function hydrateClassroomPlan(
     if (!hasAsset) return { ...slide, index: globalIndexOffset + localIndex };
 
     const imageUrl =
-      slide.imageUrl || slideAssetUrl(slug, localIndex, 0, chapterPosition);
+      slide.imageUrl && !slide.imageUrl.startsWith("/api/classroom/")
+        ? slide.imageUrl
+        : slideAssetUrl(slug, localIndex, 0, chapterPosition);
 
     return {
       ...slide,
