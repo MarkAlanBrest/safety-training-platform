@@ -23,6 +23,7 @@ export default function PresentationArea({
   onActivityComplete,
   courseSlug,
   coursePublished = false,
+  onSelectSlide,
   finalTest,
   finalTestActive = false,
   onFinalTestComplete,
@@ -35,6 +36,7 @@ export default function PresentationArea({
   onActivityComplete?: () => void;
   courseSlug?: string;
   coursePublished?: boolean;
+  onSelectSlide?: (slideIndex: number) => void;
   finalTest?: ClassroomFinalTest;
   finalTestActive?: boolean;
   onFinalTestComplete?: () => void;
@@ -157,6 +159,18 @@ export default function PresentationArea({
               deckUrl={deckContext.deckUrl}
               slideIndex={deckContext.localSlideIndex}
               title={slide?.title || plan.title}
+              slideCount={plan.slides.length}
+              currentSlideNumber={displaySlideIndex + 1}
+              onPreviousSlide={
+                displaySlideIndex > 0 && onSelectSlide
+                  ? () => onSelectSlide(displaySlideIndex - 1)
+                  : undefined
+              }
+              onNextSlide={
+                displaySlideIndex < plan.slides.length - 1 && onSelectSlide
+                  ? () => onSelectSlide(displaySlideIndex + 1)
+                  : undefined
+              }
               fallback={
                 <ClassroomPptxPlayer
                   deckUrl={deckContext.deckUrl}

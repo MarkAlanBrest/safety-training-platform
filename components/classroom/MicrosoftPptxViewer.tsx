@@ -1,18 +1,26 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { LoaderCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
 
 export default function MicrosoftPptxViewer({
   deckUrl,
   slideIndex,
   title,
   fallback,
+  slideCount,
+  currentSlideNumber,
+  onPreviousSlide,
+  onNextSlide,
 }: {
   deckUrl: string;
   slideIndex: number;
   title: string;
   fallback?: ReactNode;
+  slideCount: number;
+  currentSlideNumber: number;
+  onPreviousSlide?: () => void;
+  onNextSlide?: () => void;
 }) {
   const [viewerUrl, setViewerUrl] = useState("");
   const [loading, setLoading] = useState(true);
@@ -50,7 +58,7 @@ export default function MicrosoftPptxViewer({
   return (
     <div className="relative h-full min-h-0 w-full overflow-hidden bg-black" aria-label={title}>
       {viewerUrl ? (
-        <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-x-0 bottom-9 top-0 overflow-hidden">
           <iframe
             key={viewerUrl}
             src={viewerUrl}
@@ -76,6 +84,29 @@ export default function MicrosoftPptxViewer({
           Use backup viewer
         </button>
       ) : null}
+      <div className="absolute inset-x-0 bottom-0 z-20 flex h-9 items-center justify-center gap-3 bg-slate-950 text-white">
+        <button
+          type="button"
+          onClick={onPreviousSlide}
+          disabled={!onPreviousSlide}
+          className="grid h-7 w-9 place-items-center rounded-md transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-30"
+          aria-label="Previous slide"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <span className="min-w-16 text-center text-xs font-semibold tabular-nums text-white/80">
+          {currentSlideNumber} / {slideCount}
+        </span>
+        <button
+          type="button"
+          onClick={onNextSlide}
+          disabled={!onNextSlide}
+          className="grid h-7 w-9 place-items-center rounded-md transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-30"
+          aria-label="Next slide"
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
     </div>
   );
 }

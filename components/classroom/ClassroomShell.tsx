@@ -714,6 +714,10 @@ export default function ClassroomShell({
           paused={paused}
           courseSlug={course.slug}
           coursePublished={course.published}
+          onSelectSlide={(slideIndex) => {
+            const nextBeatIndex = beatIndexForSlide(lessonBeats, slideIndex);
+            if (nextBeatIndex >= 0) void handleSelectBeat(nextBeatIndex);
+          }}
           finalTest={plan.finalTest}
           finalTestActive={finalTestActive}
           onFinalTestComplete={() => {
