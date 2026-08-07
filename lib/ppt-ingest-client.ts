@@ -57,6 +57,22 @@ export async function parsePptxTeachingNotes(file: File): Promise<ParsedTeaching
   }));
 }
 
+/** Import speaker notes and titles from a PowerPoint without generating slide images. */
+export async function prepareContentSlidesFromPptxNotesOnly(
+  file: File,
+  onProgress?: (message: string) => void,
+): Promise<Array<{ index: number; title: string; teachingContent: string }>> {
+  assertPptxFile(file);
+  onProgress?.("Reading speaker notes from PowerPoint…");
+  const notes = await parsePptxTeachingNotes(file);
+  onProgress?.(`Ready — ${notes.length} slides prepared.`);
+  return notes.map((note, index) => ({
+    index,
+    title: note.title,
+    teachingContent: note.teachingContent,
+  }));
+}
+
 function contentSlidesFromImagesAndNotes(
   images: Array<{ bytes: Uint8Array; mimeType: string }>,
   notes: ParsedTeachingSlide[],

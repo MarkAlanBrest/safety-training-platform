@@ -243,10 +243,12 @@ export default function ClassroomFinalTestRunner({
   courseSlug,
   finalTest,
   onExit,
+  embedded = false,
 }: {
   courseSlug: string;
   finalTest: ClassroomFinalTest;
   onExit: () => void;
+  embedded?: boolean;
 }) {
   const [phase, setPhase] = useState<Phase>("intro");
   const [studentName, setStudentName] = useState("");
@@ -351,14 +353,30 @@ export default function ClassroomFinalTestRunner({
 
   if (phase === "intro") {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#0f2b46] to-[#163a5d] px-6 text-white">
-        <div className="w-full max-w-md rounded-3xl bg-white/10 p-8 backdrop-blur">
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-amber-200">Final test</p>
+      <div
+        className={`flex h-full w-full flex-col items-center justify-center px-6 ${
+          embedded
+            ? "bg-gradient-to-br from-amber-50 via-white to-slate-50 text-slate-900"
+            : "bg-gradient-to-br from-[#0f2b46] to-[#163a5d] text-white"
+        }`}
+      >
+        <div
+          className={`w-full max-w-md rounded-3xl p-8 ${
+            embedded ? "border border-slate-200 bg-white shadow-xl" : "bg-white/10 backdrop-blur"
+          }`}
+        >
+          <p
+            className={`text-xs font-bold uppercase tracking-[.2em] ${
+              embedded ? "text-amber-700" : "text-amber-200"
+            }`}
+          >
+            Final test
+          </p>
           <h2 className="mt-3 text-2xl font-bold">
             {questions.length} question{questions.length === 1 ? "" : "s"}
             {finalTest.config.timeLimitMinutes ? ` · ${finalTest.config.timeLimitMinutes} min` : ""}
           </h2>
-          <p className="mt-2 text-sm text-slate-200">
+          <p className={`mt-2 text-sm ${embedded ? "text-slate-600" : "text-slate-200"}`}>
             Passing score: {finalTest.config.passingScore}%. Enter your name and email to begin.
           </p>
           <div className="mt-6 space-y-3">
@@ -366,17 +384,29 @@ export default function ClassroomFinalTestRunner({
               value={studentName}
               onChange={(event) => setStudentName(event.target.value)}
               placeholder="Full name"
-              className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white placeholder:text-slate-300 outline-none"
+              className={`w-full rounded-xl border px-4 py-3 outline-none ${
+                embedded
+                  ? "border-slate-200 bg-white text-slate-900 placeholder:text-slate-400"
+                  : "border-white/20 bg-white/10 text-white placeholder:text-slate-300"
+              }`}
             />
             <input
               value={studentEmail}
               onChange={(event) => setStudentEmail(event.target.value)}
               placeholder="Email"
               type="email"
-              className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white placeholder:text-slate-300 outline-none"
+              className={`w-full rounded-xl border px-4 py-3 outline-none ${
+                embedded
+                  ? "border-slate-200 bg-white text-slate-900 placeholder:text-slate-400"
+                  : "border-white/20 bg-white/10 text-white placeholder:text-slate-300"
+              }`}
             />
           </div>
-          {introError ? <p className="mt-3 text-sm font-semibold text-red-200">{introError}</p> : null}
+          {introError ? (
+            <p className={`mt-3 text-sm font-semibold ${embedded ? "text-red-700" : "text-red-200"}`}>
+              {introError}
+            </p>
+          ) : null}
           <button
             type="button"
             disabled={checkingAttempts}
