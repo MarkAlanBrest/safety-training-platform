@@ -432,7 +432,9 @@ export function classroomDeckUrl(slug: string, chapterPosition = 1) {
 }
 
 export function classroomEmbedDeckUrl(deckUrl: string) {
-  return deckUrl.replace(/\/deck$/, "/embed/deck");
+  // Office's remote fetcher is more reliable when the actual path ends in the
+  // document extension (a query-string filename hint is not always honored).
+  return deckUrl.replace(/\/deck$/, "/presentation.pptx");
 }
 
 export function slideDeckContext(plan: ClassroomPlan, globalSlideIndex: number) {

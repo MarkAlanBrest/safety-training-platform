@@ -9,6 +9,7 @@ type ServeDeckOptions = {
   /** When true, only published courses are served and headers are Office-embed friendly. */
   publicEmbed?: boolean;
   allowUnpublished?: boolean;
+  rangeHeader?: string | null;
 };
 
 export async function serveClassroomDeck({
@@ -16,6 +17,7 @@ export async function serveClassroomDeck({
   chapterPosition = 1,
   publicEmbed = false,
   allowUnpublished = false,
+  rangeHeader,
 }: ServeDeckOptions): Promise<Response> {
   const course = await prisma.masonCourse.findUnique({
     where: { slug },
@@ -49,13 +51,36 @@ export async function serveClassroomDeck({
     asset.mimeType ||
     "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
-  return new Response(asset.content, {
-    headers: {
-      "Content-Type": mimeType,
-      "Content-Disposition": 'inline; filename="presentation.pptx"',
-      "Cache-Control": publicEmbed ? "public, max-age=3600" : "private, max-age=86400",
-      "Access-Control-Allow-Origin": "*",
-      "X-Content-Type-Options": "nosniff",
-    },
+  const content = new Uint8Array(asset.content);
+  const headers = new Headers({
+    "Content-Type": mimeType,
+    "Content-Disposition": 'inline; filename="presentation.pptx"',
+    "Cache-Control": publicEmbed ? "public, max-age=3600" : "private, max-age=86400",
+    "Access-Control-Allow-Origin": "*",
+    "Accept-Ranges": "bytes",
+    "X-Content-Type-Options": "nosniff",
   });
+
+  const range = rangeHeader?.match(/^bytes=(\d*)-(\d*)$/i);
+  if (range) {
+    const requestedStart = range[1] ? Number(range[1]) : 0;
+    const requestedEnd = range[2] ? Number(range[2]) : content.byteLength - 1;
+    const start = Math.max(0, requestedStart);
+    const end = Math.min(content.byteLength - 1, requestedEnd);
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start > end) {
+      return new Response(null, {
+        status: 416,
+        headers: { "Content-Range": `bytes */${content.byteLength}` },
+      });
+    }
+
+    const partial = content.slice(start, end + 1);
+    headers.set("Content-Length", String(partial.byteLength));
+    headers.set("Content-Range", `bytes ${start}-${end}/${content.byteLength}`);
+    return new Response(partial, { status: 206, headers });
+  }
+
+  headers.set("Content-Length", String(content.byteLength));
+
+  return new Response(content, { headers });
 }

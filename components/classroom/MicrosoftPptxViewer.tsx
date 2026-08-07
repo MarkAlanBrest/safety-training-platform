@@ -38,8 +38,6 @@ export default function MicrosoftPptxViewer({
   const viewerUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
     const deck = new URL(publicDeckUrl, window.location.origin);
-    // A filename helps Office identify extensionless application routes as PPTX.
-    deck.searchParams.set("file", "presentation.pptx");
     const viewer = new URL("https://view.officeapps.live.com/op/embed.aspx");
     viewer.searchParams.set("src", deck.href);
     viewer.searchParams.set("wdSlideIndex", String(slideIndex + 1));
