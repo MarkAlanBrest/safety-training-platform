@@ -25,6 +25,12 @@ body {
 /* The administration workspace is intentionally denser than the learner course.
  * Scale the complete shell as one unit so typography, cards, controls, and spacing
  * all fit at normal browser zoom without changing their relative proportions. */
+.admin-viewport {
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
 .admin-scale {
   width: 117.647%;
   min-height: 117.647vh;
@@ -39,6 +45,10 @@ body {
 }
 
 @media (max-width: 767px) {
+  .admin-viewport {
+    overflow-x: visible;
+  }
+
   .admin-scale {
     width: 100%;
     min-height: 100vh;
