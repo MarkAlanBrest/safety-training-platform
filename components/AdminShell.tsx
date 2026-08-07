@@ -42,7 +42,7 @@ export default function AdminShell({
   }
 
   return (
-    <div className="min-h-screen bg-[#edf1f2] text-[#17202b]">
+    <div className="min-h-screen overflow-x-hidden bg-[#edf1f2] text-[#17202b]">
       <div className="flex min-h-screen">
         <aside className="hidden w-64 shrink-0 flex-col bg-[#10283f] text-white lg:flex">
           <div className="border-b border-white/10 px-6 py-7">
@@ -50,7 +50,7 @@ export default function AdminShell({
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f2b744] text-[#10283f]">
                 <ShieldCheck size={23} />
               </span>
-              <div>
+              <div className="min-w-0">
                 <p className="font-serif text-xl font-semibold">Training Studio</p>
                 <p className="text-xs text-slate-400">Administration</p>
               </div>
@@ -104,7 +104,7 @@ export default function AdminShell({
                 <p className="text-[11px] font-black uppercase tracking-[.18em] text-[#a06e16]">
                   {eyebrow}
                 </p>
-                <h1 className="mt-1 font-serif text-3xl font-semibold text-[#10283f]">
+                <h1 className="mt-1 break-words font-serif text-3xl font-semibold text-[#10283f]">
                   {title}
                 </h1>
               </div>
@@ -112,7 +112,7 @@ export default function AdminShell({
             </div>
           </header>
 
-          <main className="mx-auto max-w-[1500px] px-5 py-8 sm:px-8">
+          <main className="mx-auto min-w-0 max-w-[1500px] overflow-x-hidden px-5 py-8 sm:px-8">
             {children}
           </main>
         </div>
