@@ -312,7 +312,7 @@ export default function ResumeIntake() {
   return (
     <main className="resume-page">
       <header className="resume-header">
-        <a href="/admin/dashboard"><ArrowLeft size={16} /> Dashboard</a>
+        <a href="/admin/courses"><ArrowLeft size={16} /> Dashboard</a>
         <div>
           <span>Career Services</span>
           <h1>Student Resumes</h1>

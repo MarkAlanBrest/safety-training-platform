@@ -21,7 +21,7 @@ export default function Page() {
       return;
     }
 
-    window.location.href = "/admin/dashboard"; // force redirect
+    window.location.href = "/admin/courses"; // force redirect
   };
 
   return (
