@@ -48,6 +48,12 @@ function speakerNotesRequestVisualInspection(notes?: string) {
     ) ||
     /\bask\b[\s\S]{0,180}\b(?:if|when)\b[\s\S]{0,140}\b(?:graphic|image|picture|photo|diagram|chart|visual|screen|slide)\b/i.test(
       notes,
+    ) ||
+    /\bread\b[\s\S]{0,100}\b(?:text|words|bullets|content)\b[\s\S]{0,100}\b(?:slide|screen)\b/i.test(
+      notes,
+    ) ||
+    /\bread\b[\s\S]{0,100}\b(?:slide|screen)\b[\s\S]{0,100}\b(?:text|words|bullets|content)\b/i.test(
+      notes,
     )
   );
 }

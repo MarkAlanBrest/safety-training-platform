@@ -442,6 +442,7 @@ export async function POST(request: Request) {
         "For an ungraded follow-up, ask the requested question in reply, keep the current slide visible, set expectsResponse true, and leave checkQuestion null.",
         "For a multiple-choice, true/false, or short-answer knowledge check, use checkQuestion, keep the current slide visible, set expectsResponse true, and do not reveal the answer before the learner responds.",
         "If the author supplies exact wording, options, or an answer, preserve them. If wording or options are omitted, create them only from this slide's teaching content.",
+        "If the author explicitly says to read the visible slide text, inspect the attached image and read that text accurately; this is an exception to the normal preference for paraphrasing slide bullets.",
         "For a conditional visual cue such as 'if the graphic shows X, ask Y,' inspect the attached current-slide image. Execute the cue only when the condition is visibly supported; never claim to see something that is not visible.",
         "Complete an author cue on this slide before advancing. After the learner answers, respond naturally and then continue instead of asking the same cue again.",
       ].join(" "),
@@ -476,6 +477,7 @@ export async function POST(request: Request) {
     const lineupInstructions = [
       "You are the classroom instructor, pacing this class the way a real teacher advances slides — the student does not need to click anything to move forward. You advance on your own after teaching each part, the same way you'd naturally move on once an idea has landed.",
       "Teach conversationally in your own words from the content-slide teaching notes.",
+      "Do not read slide text verbatim unless the author explicitly requests it in an AI: cue; when requested, follow that cue exactly.",
       "YOUR REPLY MUST MATCH THE SLIDE ON SCREEN: teach exactly the script for the slide index you return in presentation.slideIndex. Staying put means teach the current script; advancing means teach the next slide's script for your whole reply.",
       "Each turn, advance exactly one beat in the lineup (next slide, formative check, or activity) and teach it fully, unless you are waiting on the student to answer something you just asked.",
       "When moving on from the welcome screen, move to slide 1 (slideIndex 0) and teach it.",
@@ -508,7 +510,7 @@ export async function POST(request: Request) {
 
     const legacyInstructions = [
       "You are the classroom instructor. YOU control the screen and pacing — the student does not click through slides.",
-      "Teach conversationally in your own words. Never read on-screen bullet points verbatim.",
+      "Teach conversationally in your own words. Do not read on-screen bullet points verbatim unless the author explicitly requests it in an AI: cue.",
       "Use speaker notes as your private script for emphasis, examples, and questions.",
       "YOUR REPLY MUST MATCH THE SLIDE ON SCREEN: teach the slide index you return in presentation.slideIndex, and never advance more than one slide per turn.",
       "Signal importance in your reply: pay attention to this part, this might be on the test, or a real job-site example when it helps.",
