@@ -175,14 +175,6 @@ export default function PresentationArea({
                   ? () => onSelectSlide(displaySlideIndex + 1)
                   : undefined
               }
-              fallback={
-                <ClassroomPptxPlayer
-                  deckUrl={deckContext.deckUrl}
-                  slideIndex={deckContext.localSlideIndex}
-                  title={slide?.title || plan.title}
-                  fallbackImageUrl={slideImage || undefined}
-                />
-              }
             />
           ) : safeView.type === "slide" && deckContext ? (
             <ClassroomPptxPlayer
