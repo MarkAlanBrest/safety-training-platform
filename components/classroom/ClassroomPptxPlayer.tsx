@@ -111,6 +111,12 @@ function ClassroomPptxPlayerInner({
   const containerRef = useRef<HTMLDivElement>(null);
   const lastSlideRef = useRef(slideIndex);
 
+  const markViewerReady = useCallback(() => {
+    setState((current) =>
+      current.viewerReady ? current : { ...current, viewerReady: true },
+    );
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     setState((current) => ({
@@ -227,14 +233,8 @@ function ClassroomPptxPlayerInner({
           canEdit={false}
           hiddenActions={HIDDEN_ACTIONS}
           className="h-full w-full"
-          onActiveSlideChange={() => {
-            setState((current) => ({ ...current, viewerReady: true }));
-            window.requestAnimationFrame(() => syncViewer());
-          }}
-          onSlideCountChange={() => {
-            setState((current) => ({ ...current, viewerReady: true }));
-            window.requestAnimationFrame(() => syncViewer());
-          }}
+          onActiveSlideChange={markViewerReady}
+          onSlideCountChange={markViewerReady}
         />
       </I18nextProvider>
     </div>
