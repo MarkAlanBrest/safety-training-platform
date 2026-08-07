@@ -1,39 +1,80 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
+
+const OFFICE_LOAD_TIMEOUT_MS = 12_000;
 
 export default function MicrosoftPptxViewer({
   deckUrl,
+  embedDeckUrl,
   slideIndex,
   title,
   slideCount,
   currentSlideNumber,
   onPreviousSlide,
   onNextSlide,
+  fallback,
 }: {
   deckUrl: string;
+  /** Public Office-embed URL. Microsoft's servers must fetch this without cookies. */
+  embedDeckUrl?: string;
   slideIndex: number;
   title: string;
   slideCount: number;
   currentSlideNumber: number;
   onPreviousSlide?: () => void;
   onNextSlide?: () => void;
+  fallback?: ReactNode;
 }) {
+  const publicDeckUrl = embedDeckUrl || deckUrl;
   const [viewerUrl, setViewerUrl] = useState("");
   const [loading, setLoading] = useState(true);
+  const [useFallback, setUseFallback] = useState(false);
 
   useEffect(() => {
-    const deck = new URL(deckUrl, window.location.origin);
-    // A filename hint helps Office identify extensionless API download URLs as PowerPoints.
-    deck.searchParams.set("file", "presentation.pptx");
-
-    const viewer = new URL("https://view.officeapps.live.com/op/embed.aspx");
-    viewer.searchParams.set("src", deck.href);
-    viewer.searchParams.set("wdSlideIndex", String(slideIndex + 1));
-    setViewerUrl(viewer.href);
+    let cancelled = false;
+    setUseFallback(false);
+    setViewerUrl("");
     setLoading(true);
-  }, [deckUrl, slideIndex]);
+
+    async function prepareViewer() {
+      try {
+        const response = await fetch(publicDeckUrl, { method: "HEAD", cache: "no-store" });
+        if (!response.ok) {
+          if (!cancelled) setUseFallback(true);
+          return;
+        }
+      } catch {
+        if (!cancelled) setUseFallback(true);
+        return;
+      }
+
+      const deck = new URL(publicDeckUrl, window.location.origin);
+      const viewer = new URL("https://view.officeapps.live.com/op/embed.aspx");
+      viewer.searchParams.set("src", deck.href);
+      viewer.searchParams.set("wdSlideIndex", String(slideIndex + 1));
+      if (!cancelled) {
+        setViewerUrl(viewer.href);
+        setLoading(true);
+      }
+    }
+
+    void prepareViewer();
+    return () => {
+      cancelled = true;
+    };
+  }, [publicDeckUrl, slideIndex]);
+
+  useEffect(() => {
+    if (!viewerUrl || useFallback) return;
+    const timer = window.setTimeout(() => setUseFallback(true), OFFICE_LOAD_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [viewerUrl, useFallback]);
+
+  if (useFallback && fallback) {
+    return <div className="relative h-full min-h-0 w-full">{fallback}</div>;
+  }
 
   return (
     <div className="relative h-full min-h-0 w-full overflow-hidden bg-black" aria-label={title}>
