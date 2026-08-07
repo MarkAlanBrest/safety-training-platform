@@ -92,7 +92,7 @@ export default function MicrosoftPptxViewer({
               key={frame.key}
               src={frame.url}
               title={`${title} — Microsoft PowerPoint viewer`}
-              className={`absolute inset-0 h-full w-full border-0 ${
+              className={`absolute inset-x-0 bottom-0 top-1.5 w-full border-0 ${
                 frame.index === slideIndex ? "visible z-0" : "invisible pointer-events-none -z-10"
               }`}
               allow="fullscreen; autoplay; clipboard-read; clipboard-write"
