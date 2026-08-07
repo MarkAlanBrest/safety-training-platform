@@ -157,6 +157,11 @@ export default function PresentationArea({
               embedded
               onExit={() => onFinalTestComplete?.()}
             />
+          ) : safeView.type === "slide" && slideImage ? (
+            <SlideImageStage
+              imageUrl={slideImage}
+              title={slide?.title || plan.title}
+            />
           ) : safeView.type === "slide" && deckContext && coursePublished ? (
             <MicrosoftPptxViewer
               deckUrl={deckContext.deckUrl}
@@ -181,11 +186,6 @@ export default function PresentationArea({
               slideIndex={deckContext.localSlideIndex}
               title={slide?.title || plan.title}
               fallbackImageUrl={slideImage || undefined}
-            />
-          ) : safeView.type === "slide" && slideImage ? (
-            <SlideImageStage
-              imageUrl={slideImage}
-              title={slide?.title || plan.title}
             />
           ) : safeView.type === "slide" ? (
             <div className="flex h-full w-full items-center justify-center px-10 text-center">
