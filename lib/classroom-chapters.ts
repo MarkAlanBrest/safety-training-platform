@@ -1,4 +1,4 @@
-import type { ClassroomChapter, ClassroomPlan, ClassroomSlide, ClassroomTopic } from "@/lib/classroom";
+import type { ClassroomChapter, ClassroomLessonBeat, ClassroomPlan, ClassroomSlide, ClassroomTopic } from "@/lib/classroom";
 import {
   buildFallbackAssessment,
   buildFallbackCheckpoints,
@@ -65,6 +65,7 @@ export function classroomPlanFromSections(
           slideStart: 0,
           slideEnd: Math.max(0, plan.slides.length - 1),
           deckUrl: sections[0].deckUrl,
+          finalTest: plan.finalTest,
         },
       ],
     };
@@ -74,6 +75,7 @@ export function classroomPlanFromSections(
   const chapters: ClassroomChapter[] = [];
   const topics: ClassroomTopic[] = [];
   const lineup: LessonLineupItem[] = [];
+  const lessonBeats: ClassroomLessonBeat[] = [];
   let offset = 0;
 
   for (const section of sections) {
@@ -91,6 +93,7 @@ export function classroomPlanFromSections(
       slideStart,
       slideEnd,
       deckUrl: section.deckUrl,
+      finalTest: section.plan.finalTest,
     });
     topics.push({
       id: `chapter-${section.position}`,
@@ -100,6 +103,18 @@ export function classroomPlanFromSections(
     });
     slides.push(...chapterSlides);
     if (section.plan.lineup?.length) lineup.push(...section.plan.lineup);
+
+    const localBeats = section.plan.lessonBeats || buildLessonBeats(section.plan);
+    for (const beat of localBeats) {
+      if (beat.kind === "welcome") continue;
+      if (beat.kind === "slide") {
+        lessonBeats.push({ kind: "slide" as const, slideIndex: slideStart + beat.slideIndex });
+      } else if (beat.kind === "finalTest") {
+        lessonBeats.push({ kind: "chapterTest" as const, chapterIndex: chapters.length - 1 });
+      } else {
+        lessonBeats.push(beat);
+      }
+    }
   }
 
   let checkpointOffset = 0;
@@ -133,10 +148,12 @@ export function classroomPlanFromSections(
     lineup: lineup.length ? attachSlideIndicesToLineup(lineup) : undefined,
     config,
   };
-  merged.lessonBeats = merged.lineup?.length
-    ? buildLessonBeatsFromLineup(merged.lineup, {
-        hasAssessment: Boolean(merged.assessment?.length),
-      })
-    : buildLessonBeats(merged);
+  merged.lessonBeats = lessonBeats.length
+    ? lessonBeats
+    : merged.lineup?.length
+      ? buildLessonBeatsFromLineup(merged.lineup, {
+          hasAssessment: Boolean(merged.assessment?.length),
+        })
+      : buildLessonBeats(merged);
   return merged;
 }

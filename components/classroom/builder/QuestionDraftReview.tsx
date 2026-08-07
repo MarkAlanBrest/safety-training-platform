@@ -16,7 +16,7 @@ function updateChoice(choices: string[], index: number, value: string) {
 }
 
 /** Editable fields for one question, shared by both formative and final-test-bank drafts. */
-function QuestionEditorFields({
+export function QuestionEditorFields({
   question,
   onChange,
 }: {

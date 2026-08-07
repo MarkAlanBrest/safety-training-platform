@@ -118,6 +118,7 @@ export async function POST(request: Request) {
       studentName?: string;
       timeElapsedSeconds?: number;
       answers?: SubmittedAnswer[];
+      chapterPosition?: number;
     };
 
     const courseSlug = String(body.courseSlug || "").trim();
@@ -129,7 +130,10 @@ export async function POST(request: Request) {
       return Response.json({ error: "Missing course, student email, or answers." }, { status: 400 });
     }
 
-    const resolved = await resolveClassroomCourse(courseSlug);
+    const chapterPosition = Number.isInteger(body.chapterPosition) && Number(body.chapterPosition) > 0
+      ? Number(body.chapterPosition)
+      : undefined;
+    const resolved = await resolveClassroomCourse(courseSlug, chapterPosition);
     if (!resolved || !resolved.plan.finalTest?.config.enabled) {
       return Response.json({ error: "This course has no final test configured." }, { status: 404 });
     }

@@ -33,6 +33,7 @@ type ContentUploadBody = {
     title?: string;
     fileName?: string;
     lineup?: LessonLineupItem[];
+    finalTest?: ClassroomFinalTest;
   }>;
   assessment?: ClassroomAssessmentQuestion[];
   finalTest?: ClassroomFinalTest;
@@ -113,12 +114,15 @@ export async function POST(request: Request) {
             title: String(chapter?.title || `Chapter ${index + 1}`).trim(),
             fileName: String(chapter?.fileName || `chapter-${index + 1}.pptx`).trim(),
             lineup: parseLineup(chapter?.lineup),
+            finalTest:
+              parseFinalTest(chapter?.finalTest) ||
+              (index === body.chapters!.length - 1 ? finalTest : undefined),
           }))
           .filter((chapter) => chapter.lineup.length > 0)
       : [];
     const chapterInputs = requestedChapters.length
       ? requestedChapters
-      : [{ title, fileName: "content-slides", lineup }];
+      : [{ title, fileName: "content-slides", lineup, finalTest }];
 
     if (
       !chapterInputs.length ||
@@ -160,7 +164,7 @@ export async function POST(request: Request) {
           {
             description: "",
             assessment: index === chapterInputs.length - 1 ? assessment : [],
-            finalTest: index === chapterInputs.length - 1 ? finalTest : undefined,
+            finalTest: chapter.finalTest,
           },
         ),
       };

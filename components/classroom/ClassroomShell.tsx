@@ -113,7 +113,7 @@ export default function ClassroomShell({
   const [assessmentQuestionIndex, setAssessmentQuestionIndex] = useState(0);
   const [expectsResponse, setExpectsResponse] = useState(false);
   const [checkQuestion, setCheckQuestion] = useState<ClassroomCheckQuestion | null>(null);
-  const [finalTestCompleted, setFinalTestCompleted] = useState(false);
+  const [completedTestKeys, setCompletedTestKeys] = useState<string[]>([]);
   const [streak, setStreak] = useState<AnswerStreak>({ correctInRow: 0, incorrectInRow: 0 });
   const [presentation, setPresentation] = useState<PresentationView>({
     type: "slide",
@@ -603,7 +603,7 @@ export default function ClassroomShell({
     }
 
     // The Final Test is a standalone exam mode, not part of the AI chat loop.
-    if (beat.kind === "finalTest") return;
+    if (beat.kind === "finalTest" || beat.kind === "chapterTest") return;
     // Video moments are learner-controlled. Wait until playback finishes before
     // asking the instructor to continue to the next lesson beat.
     if (view.type === "video") return;
@@ -651,8 +651,20 @@ export default function ClassroomShell({
       : undefined;
 
   const currentBeat = lessonBeats[beatIndex];
+  const activeFinalTest =
+    currentBeat?.kind === "chapterTest"
+      ? plan.chapters?.[currentBeat.chapterIndex]?.finalTest
+      : currentBeat?.kind === "finalTest"
+        ? plan.finalTest
+        : undefined;
+  const activeTestKey =
+    currentBeat?.kind === "chapterTest"
+      ? `chapter-${currentBeat.chapterIndex}`
+      : currentBeat?.kind === "finalTest"
+        ? "final"
+        : "";
   const finalTestActive =
-    currentBeat?.kind === "finalTest" && Boolean(plan.finalTest) && !finalTestCompleted;
+    Boolean(activeFinalTest) && Boolean(activeTestKey) && !completedTestKeys.includes(activeTestKey);
 
   useEffect(() => {
     if (finalTestActive) cancelSpeech();
@@ -668,7 +680,7 @@ export default function ClassroomShell({
     // trusting the model got every flag right.
     if (paused || thinking || speaking || expectsResponse || checkQuestion) return;
     if (!messages.length) return;
-    if (currentBeat?.kind === "finalTest") return;
+    if (currentBeat?.kind === "finalTest" || currentBeat?.kind === "chapterTest") return;
     if (
       presentation.type === "video" ||
       presentation.type === "dragdrop" ||
@@ -713,15 +725,26 @@ export default function ClassroomShell({
             const nextBeatIndex = beatIndexForSlide(lessonBeats, slideIndex);
             if (nextBeatIndex >= 0) void handleSelectBeat(nextBeatIndex);
           }}
-          finalTest={plan.finalTest}
+          finalTest={activeFinalTest}
           finalTestActive={finalTestActive}
+          finalTestChapterPosition={
+            currentBeat?.kind === "chapterTest" ? currentBeat.chapterIndex + 1 : undefined
+          }
           onFinalTestComplete={() => {
-            setFinalTestCompleted(true);
-            setPresentation({
-              type: "welcome",
-              headline: "Course complete",
-              body: "Great work finishing the final test. You can review any slide from the navigation bar above.",
-            });
+            if (activeTestKey) {
+              setCompletedTestKeys((current) =>
+                current.includes(activeTestKey) ? current : [...current, activeTestKey],
+              );
+            }
+            if (beatIndex < lessonBeats.length - 1) {
+              void handleSelectBeat(beatIndex + 1);
+            } else {
+              setPresentation({
+                type: "welcome",
+                headline: "Course complete",
+                body: "Great work finishing the course. You can review any chapter from the navigation bar above.",
+              });
+            }
           }}
           onActivityComplete={() =>
             void (presentation.type === "video"
@@ -731,15 +754,8 @@ export default function ClassroomShell({
         />
 
         {finalTestActive ? (
-          <aside className="hidden border-l border-slate-200 bg-slate-50 px-6 py-8 lg:flex lg:flex-col lg:justify-center">
-            <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-700">
-              Final test
-            </p>
-            <h2 className="mt-3 text-2xl font-bold text-slate-900">Complete the test on the left</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-600">
-              Your instructor is paused while you finish the final assessment. Use the main
-              screen to answer each question.
-            </p>
+          <aside className="hidden min-h-0 overflow-y-auto border-l border-slate-200 bg-slate-50 px-6 py-8 lg:flex lg:flex-col lg:justify-center">
+            <div id="classroom-test-navigation" className="w-full" />
           </aside>
         ) : (
           <TeacherChat

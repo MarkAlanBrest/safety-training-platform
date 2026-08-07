@@ -27,6 +27,7 @@ export default function PresentationArea({
   finalTest,
   finalTestActive = false,
   onFinalTestComplete,
+  finalTestChapterPosition,
 }: {
   plan: ClassroomPlan;
   view: PresentationView;
@@ -40,6 +41,7 @@ export default function PresentationArea({
   finalTest?: ClassroomFinalTest;
   finalTestActive?: boolean;
   onFinalTestComplete?: () => void;
+  finalTestChapterPosition?: number;
 }) {
   const safeView: PresentationView =
     view?.type === "welcome"
@@ -151,6 +153,7 @@ export default function PresentationArea({
             <ClassroomFinalTestRunner
               courseSlug={courseSlug}
               finalTest={finalTest}
+              chapterPosition={finalTestChapterPosition}
               embedded
               onExit={() => onFinalTestComplete?.()}
             />

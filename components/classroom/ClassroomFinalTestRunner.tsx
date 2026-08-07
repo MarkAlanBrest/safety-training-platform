@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Award, CheckCircle2, Clock, LoaderCircle, XCircle } from "lucide-react";
 import type { ClassroomFinalTest } from "@/lib/classroom-question-types";
 import type { ClassroomQuestion } from "@/lib/classroom-question-types";
@@ -18,6 +19,21 @@ type SubmitResult = {
   certificateId: string | null;
   attemptId: number | null;
 };
+
+function TestNavigationPortal({ children }: { children: ReactNode }) {
+  const [target, setTarget] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setTarget(document.getElementById("classroom-test-navigation"));
+  }, []);
+
+  return (
+    <>
+      {target ? createPortal(children, target) : null}
+      <div className="mt-6 border-t border-slate-200 pt-5 lg:hidden">{children}</div>
+    </>
+  );
+}
 
 function shuffle<T>(items: T[]): T[] {
   const next = [...items];
@@ -244,11 +260,13 @@ export default function ClassroomFinalTestRunner({
   finalTest,
   onExit,
   embedded = false,
+  chapterPosition,
 }: {
   courseSlug: string;
   finalTest: ClassroomFinalTest;
   onExit: () => void;
   embedded?: boolean;
+  chapterPosition?: number;
 }) {
   const [phase, setPhase] = useState<Phase>("intro");
   const [studentName, setStudentName] = useState("");
@@ -289,7 +307,8 @@ export default function ClassroomFinalTestRunner({
     }
     setCheckingAttempts(true);
     try {
-      const url = `/api/classroom/final-test/attempts?courseSlug=${encodeURIComponent(courseSlug)}&studentEmail=${encodeURIComponent(studentEmail.trim())}`;
+      const chapterQuery = chapterPosition ? `&chapterPosition=${chapterPosition}` : "";
+      const url = `/api/classroom/final-test/attempts?courseSlug=${encodeURIComponent(courseSlug)}&studentEmail=${encodeURIComponent(studentEmail.trim())}${chapterQuery}`;
       const response = await fetch(url);
       const data = await parseJsonResponse<{
         error?: string;
@@ -320,6 +339,7 @@ export default function ClassroomFinalTestRunner({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           courseSlug,
+          chapterPosition,
           studentEmail: studentEmail.trim(),
           studentName: studentName.trim(),
           timeElapsedSeconds,
@@ -407,15 +427,29 @@ export default function ClassroomFinalTestRunner({
               {introError}
             </p>
           ) : null}
-          <button
-            type="button"
-            disabled={checkingAttempts}
-            onClick={() => void handleStart()}
-            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 px-5 py-3 text-sm font-bold text-[#10283f] disabled:opacity-60"
-          >
-            {checkingAttempts ? <LoaderCircle className="animate-spin" size={16} /> : null}
-            Start final test
-          </button>
+          <TestNavigationPortal>
+            <div className="w-full">
+              <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-700">Test navigation</p>
+              <h2 className="mt-3 text-xl font-bold text-slate-900">Ready to begin?</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Enter your information in the question area, then start the test here.
+              </p>
+              <dl className="mt-5 space-y-2 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+                <div className="flex justify-between gap-4"><dt className="text-slate-500">Questions</dt><dd className="font-semibold">{questions.length}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-slate-500">Passing score</dt><dd className="font-semibold">{finalTest.config.passingScore}%</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-slate-500">Time</dt><dd className="font-semibold">{finalTest.config.timeLimitMinutes ? `${finalTest.config.timeLimitMinutes} min` : "Untimed"}</dd></div>
+              </dl>
+              <button
+                type="button"
+                disabled={checkingAttempts}
+                onClick={() => void handleStart()}
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 px-5 py-3 text-sm font-bold text-[#10283f] disabled:opacity-60"
+              >
+                {checkingAttempts ? <LoaderCircle className="animate-spin" size={16} /> : null}
+                Start test
+              </button>
+            </div>
+          </TestNavigationPortal>
         </div>
       </div>
     );
@@ -432,7 +466,7 @@ export default function ClassroomFinalTestRunner({
     return (
       <div className="flex h-full w-full flex-col overflow-y-auto bg-slate-50 px-6 py-8">
         <div className="mx-auto w-full max-w-2xl flex-1">
-          <div className="flex items-center justify-between text-sm text-slate-500">
+          <div className="hidden">
             <span>
               Question {questionIndex + 1} of {questions.length}
               {attemptsRemaining !== null ? ` · ${attemptsRemaining} attempt${attemptsRemaining === 1 ? "" : "s"} remaining (including this one)` : ""}
@@ -444,7 +478,7 @@ export default function ClassroomFinalTestRunner({
               </span>
             ) : null}
           </div>
-          <p className="mt-4 text-xl font-semibold leading-8 text-slate-900">{question.prompt}</p>
+          <p className="text-xl font-semibold leading-8 text-slate-900">{question.prompt}</p>
           <div className="mt-6">
             <QuestionInput
               question={question}
@@ -454,20 +488,57 @@ export default function ClassroomFinalTestRunner({
             />
           </div>
           {submitError ? <p className="mt-4 text-sm font-semibold text-red-700">{submitError}</p> : null}
-          <div className="mt-8 flex justify-between">
-            <button
-              type="button"
-              disabled={questionIndex === 0}
-              onClick={() => setQuestionIndex((index) => Math.max(0, index - 1))}
-              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-40"
-            >
-              Back
-            </button>
-            {questionIndex < questions.length - 1 ? (
+          <TestNavigationPortal>
+            <div className="w-full">
+              <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-700">Test navigation</p>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <h2 className="text-xl font-bold text-slate-900">Question {questionIndex + 1}</h2>
+                {secondsLeft !== null ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-sm font-semibold text-slate-700 shadow-sm">
+                    <Clock size={14} />
+                    {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, "0")}
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-full rounded-full bg-amber-500" style={{ width: `${((questionIndex + 1) / questions.length) * 100}%` }} />
+              </div>
+              <p className="mt-2 text-sm text-slate-500">
+                {Object.keys(answers).length} of {questions.length} answered
+              </p>
+              <div className="mt-5 grid grid-cols-5 gap-2">
+                {questions.map((item, index) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setQuestionIndex(index)}
+                    aria-label={`Go to question ${index + 1}`}
+                    className={`aspect-square rounded-lg text-xs font-bold ${
+                      index === questionIndex
+                        ? "bg-[#10283f] text-white"
+                        : Object.prototype.hasOwnProperty.call(answers, item.id)
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "border border-slate-200 bg-white text-slate-600"
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-6 flex gap-2">
+                <button
+                  type="button"
+                  disabled={questionIndex === 0}
+                  onClick={() => setQuestionIndex((index) => Math.max(0, index - 1))}
+                  className="flex-1 rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-40"
+                >
+                  Previous
+                </button>
+                {questionIndex < questions.length - 1 ? (
               <button
                 type="button"
                 onClick={() => setQuestionIndex((index) => Math.min(questions.length - 1, index + 1))}
-                className="rounded-full bg-[#10283f] px-5 py-2 text-sm font-semibold text-white"
+                    className="flex-1 rounded-full bg-[#10283f] px-5 py-2 text-sm font-semibold text-white"
               >
                 Next
               </button>
@@ -476,15 +547,22 @@ export default function ClassroomFinalTestRunner({
                 type="button"
                 disabled={phase === "submitting"}
                 onClick={() => void handleSubmit()}
-                className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {phase === "submitting" ? <LoaderCircle className="animate-spin" size={16} /> : null}
-                Submit final test
+                    Submit test
               </button>
             )}
+              </div>
+              {attemptsRemaining !== null ? (
+                <p className="mt-4 text-xs leading-5 text-slate-500">
+                  {attemptsRemaining} attempt{attemptsRemaining === 1 ? "" : "s"} remaining, including this one.
+                </p>
+              ) : null}
+            </div>
+          </TestNavigationPortal>
           </div>
         </div>
-      </div>
     );
   }
 
@@ -527,13 +605,22 @@ export default function ClassroomFinalTestRunner({
             </div>
           ) : null}
 
-          <button
-            type="button"
-            onClick={onExit}
-            className="mt-8 rounded-full bg-[#10283f] px-6 py-3 text-sm font-semibold text-white"
-          >
-            Continue
-          </button>
+          <TestNavigationPortal>
+            <div className="w-full">
+              <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-700">Test complete</p>
+              <h2 className="mt-3 text-2xl font-bold text-slate-900">{result.passed ? "Passed" : "Review needed"}</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Your score and feedback are shown in the question area.
+              </p>
+              <button
+                type="button"
+                onClick={onExit}
+                className="mt-5 w-full rounded-full bg-[#10283f] px-6 py-3 text-sm font-semibold text-white"
+              >
+                Continue course
+              </button>
+            </div>
+          </TestNavigationPortal>
         </div>
       </div>
     );

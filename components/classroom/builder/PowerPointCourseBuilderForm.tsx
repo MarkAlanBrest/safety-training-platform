@@ -8,6 +8,7 @@ import {
   Eye,
   LoaderCircle,
   Plus,
+  Sparkles,
   Trash2,
   UploadCloud,
 } from "lucide-react";
@@ -30,6 +31,14 @@ import { classroomChapterDeckAssetPath } from "@/lib/classroom-chapters";
 import { preparePptxForUpload } from "@/lib/ppt-ingest-client";
 import type { ParsedClassroomSlide } from "@/lib/ppt-ingest-core";
 import { parseJsonResponse } from "@/lib/parse-response";
+import { QuestionEditorFields } from "@/components/classroom/builder/QuestionDraftReview";
+import {
+  QUESTION_TYPES,
+  QUESTION_TYPE_LABELS,
+  defaultFinalTestConfig,
+  type ClassroomQuestion,
+  type QuestionType,
+} from "@/lib/classroom-question-types";
 
 type SubmitMode = "draft" | "publish";
 
@@ -38,6 +47,12 @@ type ChapterDraft = {
   title: string;
   file: File;
   slides: ParsedClassroomSlide[];
+  testEnabled: boolean;
+  testQuestionCount: number;
+  testQuestionTypes: QuestionType[];
+  testQuestions: ClassroomQuestion[];
+  testGenerating: boolean;
+  testError: string;
 };
 
 type CourseResult = {
@@ -119,6 +134,12 @@ export default function PowerPointCourseBuilderForm() {
           title: titleFromFile(file) || `Chapter ${chapters.length + index + 1}`,
           file,
           slides,
+          testEnabled: false,
+          testQuestionCount: 5,
+          testQuestionTypes: ["multipleChoice", "trueFalse"],
+          testQuestions: [],
+          testGenerating: false,
+          testError: "",
         });
       }
       setChapters((current) => [...current, ...prepared]);
@@ -139,6 +160,77 @@ export default function PowerPointCourseBuilderForm() {
     setChapters((current) =>
       current.map((chapter) => (chapter.id === id ? { ...chapter, title } : chapter)),
     );
+  }
+
+  function updateChapter(id: string, update: (chapter: ChapterDraft) => ChapterDraft) {
+    setChapters((current) =>
+      current.map((chapter) => (chapter.id === id ? update(chapter) : chapter)),
+    );
+  }
+
+  function toggleChapterQuestionType(id: string, type: QuestionType, checked: boolean) {
+    updateChapter(id, (chapter) => ({
+      ...chapter,
+      testQuestionTypes: checked
+        ? [...new Set([...chapter.testQuestionTypes, type])]
+        : chapter.testQuestionTypes.filter((item) => item !== type),
+    }));
+  }
+
+  async function generateChapterQuestions(id: string) {
+    const chapter = chapters.find((item) => item.id === id);
+    if (!chapter) return;
+    if (!chapter.testQuestionTypes.length) {
+      updateChapter(id, (current) => ({ ...current, testError: "Select at least one question type." }));
+      return;
+    }
+
+    updateChapter(id, (current) => ({ ...current, testGenerating: true, testError: "" }));
+    try {
+      const form = new FormData();
+      form.set("file", chapter.file);
+      form.set("courseTitle", chapter.title.trim() || courseName.trim());
+      form.set("courseDescription", "");
+      form.set("includeTypes", JSON.stringify(chapter.testQuestionTypes));
+      form.set("finalTestQuestionCount", String(chapter.testQuestionCount));
+      const response = await fetch("/api/classroom/generate-questions", { method: "POST", body: form });
+      const data = await parseJsonResponse<{
+        error?: string;
+        finalTestQuestionBank?: ClassroomQuestion[];
+        warnings?: string[];
+      }>(response);
+      if (!response.ok) throw new Error(data.error || "Questions could not be generated.");
+      const questions = (data.finalTestQuestionBank || []).slice(0, chapter.testQuestionCount);
+      updateChapter(id, (current) => ({
+        ...current,
+        testEnabled: true,
+        testQuestions: questions,
+        testGenerating: false,
+        testError: questions.length
+          ? (data.warnings || []).join(" ")
+          : "No usable questions were generated. Try different question types.",
+      }));
+    } catch (generationError) {
+      updateChapter(id, (current) => ({
+        ...current,
+        testGenerating: false,
+        testError: generationError instanceof Error ? generationError.message : "Questions could not be generated.",
+      }));
+    }
+  }
+
+  function chapterFinalTest(chapter: ChapterDraft) {
+    if (!chapter.testEnabled || !chapter.testQuestions.length) return undefined;
+    return {
+      config: defaultFinalTestConfig({
+        enabled: true,
+        questionCount: Math.min(chapter.testQuestionCount, chapter.testQuestions.length),
+        includedTypes: chapter.testQuestionTypes,
+        attemptsAllowed: 0,
+        certificateOnPass: false,
+      }),
+      questionBank: chapter.testQuestions,
+    };
   }
 
   function moveChapter(index: number, direction: -1 | 1) {
@@ -189,6 +281,7 @@ export default function PowerPointCourseBuilderForm() {
             title: chapter.title.trim() || `Chapter ${index + 1}`,
             fileName: chapter.file.name,
             lineup: chapterLineup(chapter, index),
+            finalTest: chapterFinalTest(chapter),
           })),
           assessment: [],
         }),
@@ -331,6 +424,127 @@ export default function PowerPointCourseBuilderForm() {
                     <Trash2 size={15} />
                   </button>
                 </div>
+                <details className="rounded-xl border border-[#10283f]/10 bg-[#faf8f3] p-4 sm:col-span-3">
+                  <summary className="cursor-pointer text-sm font-bold text-[#10283f]">
+                    Chapter test {chapter.testEnabled ? `· ${chapter.testQuestions.length} question${chapter.testQuestions.length === 1 ? "" : "s"}` : "· Off"}
+                  </summary>
+                  <div className="mt-4 space-y-4">
+                    <label className="flex items-center gap-3 text-sm font-semibold text-[#10283f]">
+                      <input
+                        type="checkbox"
+                        checked={chapter.testEnabled}
+                        onChange={(event) =>
+                          updateChapter(chapter.id, (current) => ({
+                            ...current,
+                            testEnabled: event.target.checked,
+                          }))
+                        }
+                        className="accent-[#c68b1b]"
+                      />
+                      Add a test at the end of this chapter
+                    </label>
+
+                    {chapter.testEnabled ? (
+                      <>
+                        <div className="grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]">
+                          <BuilderField label="Questions to create">
+                            <BuilderInput
+                              type="number"
+                              min={1}
+                              max={60}
+                              value={chapter.testQuestionCount}
+                              onChange={(event) =>
+                                updateChapter(chapter.id, (current) => ({
+                                  ...current,
+                                  testQuestionCount: Math.min(60, Math.max(1, Number(event.target.value) || 1)),
+                                }))
+                              }
+                            />
+                          </BuilderField>
+                          <BuilderField label="Question types">
+                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                              {QUESTION_TYPES.map((type) => (
+                                <label key={type} className="flex items-center gap-2 rounded-lg border border-[#10283f]/10 bg-white px-3 py-2 text-xs font-semibold text-[#10283f]">
+                                  <input
+                                    type="checkbox"
+                                    checked={chapter.testQuestionTypes.includes(type)}
+                                    onChange={(event) => toggleChapterQuestionType(chapter.id, type, event.target.checked)}
+                                    className="accent-[#c68b1b]"
+                                  />
+                                  {QUESTION_TYPE_LABELS[type]}
+                                </label>
+                              ))}
+                            </div>
+                          </BuilderField>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3">
+                          <button
+                            type="button"
+                            disabled={chapter.testGenerating || !chapter.testQuestionTypes.length}
+                            onClick={() => void generateChapterQuestions(chapter.id)}
+                            className="inline-flex items-center gap-2 rounded-full bg-[#10283f] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+                          >
+                            {chapter.testGenerating ? <LoaderCircle className="animate-spin" size={15} /> : <Sparkles size={15} />}
+                            {chapter.testGenerating
+                              ? "Creating questions…"
+                              : chapter.testQuestions.length
+                                ? "Regenerate questions"
+                                : "Create questions with AI"}
+                          </button>
+                          {chapter.testQuestions.length ? (
+                            <span className="text-xs text-[#69757e]">
+                              Review and edit every question before publishing.
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {chapter.testError ? (
+                          <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                            {chapter.testError}
+                          </p>
+                        ) : null}
+
+                        {chapter.testQuestions.length ? (
+                          <div className="space-y-3">
+                            {chapter.testQuestions.map((question, questionIndex) => (
+                              <details key={question.id} className="rounded-xl border border-[#10283f]/10 bg-white p-4">
+                                <summary className="cursor-pointer text-sm font-semibold text-[#10283f]">
+                                  {questionIndex + 1}. {QUESTION_TYPE_LABELS[question.type]} — {question.prompt || "Untitled question"}
+                                </summary>
+                                <div className="mt-4 space-y-4">
+                                  <QuestionEditorFields
+                                    question={question}
+                                    onChange={(nextQuestion) =>
+                                      updateChapter(chapter.id, (current) => ({
+                                        ...current,
+                                        testQuestions: current.testQuestions.map((item, index) =>
+                                          index === questionIndex ? nextQuestion : item,
+                                        ),
+                                      }))
+                                    }
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      updateChapter(chapter.id, (current) => ({
+                                        ...current,
+                                        testQuestions: current.testQuestions.filter((_, index) => index !== questionIndex),
+                                      }))
+                                    }
+                                    className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
+                                  >
+                                    <Trash2 size={14} /> Delete question
+                                  </button>
+                                </div>
+                              </details>
+                            ))}
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
+                </details>
               </li>
             ))}
           </ol>

@@ -9,12 +9,16 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const courseSlug = (url.searchParams.get("courseSlug") || "").trim();
     const studentEmail = (url.searchParams.get("studentEmail") || "").trim().toLowerCase();
+    const rawChapterPosition = Number(url.searchParams.get("chapterPosition"));
+    const chapterPosition = Number.isInteger(rawChapterPosition) && rawChapterPosition > 0
+      ? rawChapterPosition
+      : undefined;
 
     if (!courseSlug || !studentEmail) {
       return Response.json({ error: "Missing course or student email." }, { status: 400 });
     }
 
-    const resolved = await resolveClassroomCourse(courseSlug);
+    const resolved = await resolveClassroomCourse(courseSlug, chapterPosition);
     if (!resolved) {
       return Response.json({ error: "Course not found." }, { status: 404 });
     }

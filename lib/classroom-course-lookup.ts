@@ -8,6 +8,7 @@ import { classroomPlanForSlug, isClassroomPlan, type ClassroomPlan } from "@/lib
  */
 export async function resolveClassroomCourse(
   slug: string,
+  chapterPosition?: number,
 ): Promise<{ courseId: number | null; plan: ClassroomPlan } | null> {
   const staticPlan = classroomPlanForSlug(slug);
   if (staticPlan) return { courseId: null, plan: staticPlan };
@@ -15,10 +16,13 @@ export async function resolveClassroomCourse(
   const course = await prisma.masonCourse.findUnique({
     where: { slug, courseType: "classroom" },
     include: {
-      sections: { orderBy: { position: "asc" }, take: 1, select: { lessonPlan: true } },
+      sections: { orderBy: { position: "asc" }, select: { position: true, lessonPlan: true } },
     },
   });
-  const plan = course?.sections[0]?.lessonPlan;
+  const section = chapterPosition
+    ? course?.sections.find((item: { position: number }) => item.position === chapterPosition)
+    : course?.sections[0];
+  const plan = section?.lessonPlan;
   if (!course || !isClassroomPlan(plan)) return null;
   return { courseId: course.id, plan };
 }

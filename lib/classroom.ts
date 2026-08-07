@@ -49,6 +49,8 @@ export type ClassroomChapter = {
   slideEnd: number;
   /** API URL to the original .pptx for live slide rendering */
   deckUrl?: string;
+  /** Optional assessment shown immediately after this chapter's final slide. */
+  finalTest?: ClassroomFinalTest;
 };
 
 export type ClassroomTopic = {

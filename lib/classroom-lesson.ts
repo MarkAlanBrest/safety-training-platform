@@ -57,7 +57,8 @@ export type ClassroomLessonBeat =
   | { kind: "slide"; slideIndex: number }
   | { kind: "checkpoint"; checkpointId: string }
   | { kind: "assessment" }
-  | { kind: "finalTest" };
+  | { kind: "finalTest" }
+  | { kind: "chapterTest"; chapterIndex: number };
 
 function checkpointInterval(frequency: AssessmentFrequency) {
   switch (frequency) {
@@ -328,6 +329,8 @@ export function navLabelForBeat(beat: ClassroomLessonBeat, plan: ClassroomPlan):
       return "Final assessment";
     case "finalTest":
       return "Final test";
+    case "chapterTest":
+      return `${plan.chapters?.[beat.chapterIndex]?.title || "Chapter"} test`;
     default:
       return "Lesson";
   }
@@ -350,6 +353,8 @@ export function navShortLabelForBeat(beat: ClassroomLessonBeat, plan: ClassroomP
       return "Test";
     case "finalTest":
       return "Final";
+    case "chapterTest":
+      return "Test";
     default:
       return "•";
   }
