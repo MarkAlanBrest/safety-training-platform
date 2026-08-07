@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, LoaderCircle } from "lucide-react";
 
 export default function MicrosoftPptxViewer({
   deckUrl,
   slideIndex,
   title,
-  fallback,
   slideCount,
   currentSlideNumber,
   onPreviousSlide,
@@ -16,7 +15,6 @@ export default function MicrosoftPptxViewer({
   deckUrl: string;
   slideIndex: number;
   title: string;
-  fallback?: ReactNode;
   slideCount: number;
   currentSlideNumber: number;
   onPreviousSlide?: () => void;
@@ -24,7 +22,6 @@ export default function MicrosoftPptxViewer({
 }) {
   const [viewerUrl, setViewerUrl] = useState("");
   const [loading, setLoading] = useState(true);
-  const [useFallback, setUseFallback] = useState(false);
 
   useEffect(() => {
     const deck = new URL(deckUrl, window.location.origin);
@@ -37,23 +34,6 @@ export default function MicrosoftPptxViewer({
     setViewerUrl(viewer.href);
     setLoading(true);
   }, [deckUrl, slideIndex]);
-
-  useEffect(() => setUseFallback(false), [deckUrl]);
-
-  if (useFallback && fallback) {
-    return (
-      <div className="relative h-full min-h-0 w-full bg-[#0b1524]">
-        {fallback}
-        <button
-          type="button"
-          onClick={() => setUseFallback(false)}
-          className="absolute bottom-3 right-3 z-30 rounded-lg bg-slate-950/80 px-3 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur"
-        >
-          Use Microsoft viewer
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="relative h-full min-h-0 w-full overflow-hidden bg-black" aria-label={title}>
@@ -74,15 +54,6 @@ export default function MicrosoftPptxViewer({
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#0b1524]">
           <LoaderCircle className="animate-spin text-amber-300" size={28} />
         </div>
-      ) : null}
-      {fallback ? (
-        <button
-          type="button"
-          onClick={() => setUseFallback(true)}
-          className="absolute bottom-3 right-3 z-30 rounded-lg bg-slate-950/80 px-3 py-2 text-xs font-semibold text-white shadow-lg backdrop-blur"
-        >
-          Use backup viewer
-        </button>
       ) : null}
       <div className="absolute inset-x-0 bottom-0 z-20 flex h-9 items-center justify-center gap-3 bg-slate-950 text-white">
         <button
