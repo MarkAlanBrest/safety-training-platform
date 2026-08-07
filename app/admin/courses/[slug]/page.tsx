@@ -549,7 +549,7 @@ export default function CourseEditorPage() {
           <p className="mt-4 text-xs text-[#69757e]">Preview mode does not alter learner progress or issue a certificate.</p>
         </section>
       ) : (
-        <div className="grid gap-7 xl:grid-cols-[1fr_380px]">
+        <div className="grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
           <section>
             <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
               <div>
@@ -591,7 +591,7 @@ export default function CourseEditorPage() {
                     key={section.id}
                     onDragOver={(event) => event.preventDefault()}
                     onDrop={() => void reorderSections(section.id)}
-                    className="grid gap-4 rounded-2xl border border-[#10283f]/10 bg-white p-5 shadow-sm sm:grid-cols-[56px_1fr_auto] sm:items-center"
+                    className="grid min-w-0 gap-4 rounded-2xl border border-[#10283f]/10 bg-white p-5 shadow-sm sm:grid-cols-[56px_minmax(0,1fr)_auto] sm:items-center"
                   >
                     <div
                       draggable
@@ -1054,7 +1054,7 @@ export default function CourseEditorPage() {
       ))}
 
       {tab === "codes" && (
-        <div className="grid gap-7 xl:grid-cols-[360px_1fr]">
+        <div className="grid min-w-0 gap-7 xl:grid-cols-[minmax(0,22.5rem)_minmax(0,1fr)]">
           <form onSubmit={generateCodes} className="space-y-5 rounded-3xl bg-[#10283f] p-6 text-white shadow-xl">
             <div>
               <KeyRound className="text-[#f2c568]" size={28} />
@@ -1116,8 +1116,8 @@ export default function CourseEditorPage() {
                 <Clipboard size={16} /> Copy available codes
               </button>
             </div>
-            <div className="mt-6 max-h-[620px] overflow-auto rounded-2xl border border-[#10283f]/10">
-              <table className="w-full min-w-[650px] text-left text-sm">
+            <div className="mt-6 max-h-[620px] max-w-full overflow-x-auto rounded-2xl border border-[#10283f]/10">
+              <table className="w-full min-w-[36rem] text-left text-sm">
                 <thead className="sticky top-0 bg-[#f0f3f4] text-xs uppercase tracking-wider text-[#65717a]">
                   <tr>
                     <th className="px-4 py-3">Code</th>
@@ -1163,8 +1163,8 @@ export default function CourseEditorPage() {
               {course.enrollments.length} enrolled learner{course.enrollments.length === 1 ? "" : "s"}
             </h2>
           </div>
-          <div className="mt-6 overflow-auto rounded-2xl border border-[#10283f]/10">
-            <table className="w-full min-w-[750px] text-left text-sm">
+          <div className="mt-6 max-w-full overflow-x-auto rounded-2xl border border-[#10283f]/10">
+            <table className="w-full min-w-[40rem] text-left text-sm">
               <thead className="bg-[#f0f3f4] text-xs uppercase tracking-wider text-[#65717a]">
                 <tr>
                   <th className="px-4 py-3">Learner</th>
