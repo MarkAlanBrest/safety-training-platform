@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { I18nextProvider } from "react-i18next";
 import { LoaderCircle } from "lucide-react";
 import {
   PowerPointViewer,
@@ -8,11 +9,14 @@ import {
   type ToolbarActionId,
 } from "pptx-react-viewer";
 import "pptx-react-viewer/styles";
+import i18n from "@/lib/pptx-viewer-i18n";
+import PptxSlideViewer from "@/components/classroom/PptxSlideViewer";
 
 type Props = {
   deckUrl: string;
   slideIndex: number;
   title: string;
+  fallbackImageUrl?: string;
 };
 
 const HIDDEN_ACTIONS: ToolbarActionId[] = [
@@ -39,38 +43,105 @@ const HIDDEN_ACTIONS: ToolbarActionId[] = [
   "navigation",
 ];
 
-export default function ClassroomPptxPlayer({ deckUrl, slideIndex, title }: Props) {
-  const [content, setContent] = useState<Uint8Array | null>(null);
-  const [loadError, setLoadError] = useState("");
-  const [fetching, setFetching] = useState(true);
-  const [viewerReady, setViewerReady] = useState(false);
+type ViewerState = {
+  content: Uint8Array | null;
+  loadError: string;
+  fetching: boolean;
+  viewerReady: boolean;
+  viewerFailed: boolean;
+};
+
+class PptxViewerErrorBoundary extends Component<
+  { fallback: ReactNode; children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    if (this.state.failed) return this.props.fallback;
+    return this.props.children;
+  }
+}
+
+export default function ClassroomPptxPlayer({
+  deckUrl,
+  slideIndex,
+  title,
+  fallbackImageUrl,
+}: Props) {
+  return (
+    <PptxViewerErrorBoundary
+      fallback={
+        <PptxSlideViewer
+          deckUrl={deckUrl}
+          slideIndex={slideIndex}
+          title={title}
+          fallbackImageUrl={fallbackImageUrl}
+        />
+      }
+    >
+      <ClassroomPptxPlayerInner
+        deckUrl={deckUrl}
+        slideIndex={slideIndex}
+        title={title}
+        fallbackImageUrl={fallbackImageUrl}
+      />
+    </PptxViewerErrorBoundary>
+  );
+}
+
+function ClassroomPptxPlayerInner({
+  deckUrl,
+  slideIndex,
+  title,
+  fallbackImageUrl,
+}: Props) {
+  const [state, setState] = useState<ViewerState>({
+    content: null,
+    loadError: "",
+    fetching: true,
+    viewerReady: false,
+    viewerFailed: false,
+  });
   const viewerRef = useRef<PowerPointViewerHandle>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastSlideRef = useRef(slideIndex);
 
   useEffect(() => {
     let cancelled = false;
-    setFetching(true);
-    setLoadError("");
-    setViewerReady(false);
+    setState((current) => ({
+      ...current,
+      fetching: true,
+      loadError: "",
+      viewerReady: false,
+      viewerFailed: false,
+    }));
 
     fetch(deckUrl)
       .then(async (response) => {
         if (!response.ok) throw new Error("Could not load the presentation file.");
         const buffer = await response.arrayBuffer();
         if (!cancelled) {
-          setContent(new Uint8Array(buffer));
+          setState((current) => ({
+            ...current,
+            content: new Uint8Array(buffer),
+            fetching: false,
+          }));
         }
       })
       .catch((error) => {
         if (!cancelled) {
-          setLoadError(
-            error instanceof Error ? error.message : "Could not load the presentation file.",
-          );
+          setState((current) => ({
+            ...current,
+            loadError:
+              error instanceof Error ? error.message : "Could not load the presentation file.",
+            fetching: false,
+          }));
         }
-      })
-      .finally(() => {
-        if (!cancelled) setFetching(false);
       });
 
     return () => {
@@ -82,49 +153,60 @@ export default function ClassroomPptxPlayer({ deckUrl, slideIndex, title }: Prop
     const viewer = viewerRef.current;
     if (!viewer) return;
 
-    viewer.setMode("preview");
-    // zoomReset maps to zoom-to-fit inside pptx-react-viewer.
-    viewer.zoomReset();
-
-    if (viewer.getActiveSlideIndex() !== slideIndex) {
-      viewer.goTo(slideIndex);
+    try {
+      viewer.setMode("preview");
+      viewer.zoomReset();
+      if (viewer.getActiveSlideIndex() !== slideIndex) {
+        viewer.goTo(slideIndex);
+      }
+      lastSlideRef.current = slideIndex;
+    } catch {
+      setState((current) => ({ ...current, viewerFailed: true }));
     }
-    lastSlideRef.current = slideIndex;
   }, [slideIndex]);
 
   useEffect(() => {
-    if (!viewerReady || fetching || !content) return;
+    if (!state.viewerReady || state.fetching || !state.content) return;
     syncViewer();
-  }, [viewerReady, fetching, content, syncViewer]);
+  }, [state.viewerReady, state.fetching, state.content, syncViewer]);
 
   useEffect(() => {
-    if (!viewerReady) return;
+    if (!state.viewerReady) return;
     if (lastSlideRef.current === slideIndex) return;
     syncViewer();
-  }, [slideIndex, viewerReady, syncViewer]);
+  }, [slideIndex, state.viewerReady, syncViewer]);
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !viewerReady) return;
+    if (!container || !state.viewerReady) return;
 
     const observer = new ResizeObserver(() => {
       window.requestAnimationFrame(() => syncViewer());
     });
     observer.observe(container);
     return () => observer.disconnect();
-  }, [viewerReady, syncViewer]);
+  }, [state.viewerReady, syncViewer]);
 
-  const message = loadError;
+  if (state.viewerFailed) {
+    return (
+      <PptxSlideViewer
+        deckUrl={deckUrl}
+        slideIndex={slideIndex}
+        title={title}
+        fallbackImageUrl={fallbackImageUrl}
+      />
+    );
+  }
 
-  if (message) {
+  if (state.loadError) {
     return (
       <div className="flex h-full w-full items-center justify-center px-10 text-center text-slate-500">
-        <p>{message}</p>
+        <p>{state.loadError}</p>
       </div>
     );
   }
 
-  if (fetching || !content) {
+  if (state.fetching || !state.content) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-[#0b1524]">
         <LoaderCircle className="animate-spin text-amber-300" size={28} />
@@ -138,21 +220,23 @@ export default function ClassroomPptxPlayer({ deckUrl, slideIndex, title }: Prop
       className="classroom-pptx-player relative h-full min-h-0 w-full bg-[#0b1524]"
       aria-label={title}
     >
-      <PowerPointViewer
-        ref={viewerRef}
-        content={content}
-        canEdit={false}
-        hiddenActions={HIDDEN_ACTIONS}
-        className="h-full w-full"
-        onActiveSlideChange={() => {
-          setViewerReady(true);
-          window.requestAnimationFrame(() => syncViewer());
-        }}
-        onSlideCountChange={() => {
-          setViewerReady(true);
-          window.requestAnimationFrame(() => syncViewer());
-        }}
-      />
+      <I18nextProvider i18n={i18n}>
+        <PowerPointViewer
+          ref={viewerRef}
+          content={state.content}
+          canEdit={false}
+          hiddenActions={HIDDEN_ACTIONS}
+          className="h-full w-full"
+          onActiveSlideChange={() => {
+            setState((current) => ({ ...current, viewerReady: true }));
+            window.requestAnimationFrame(() => syncViewer());
+          }}
+          onSlideCountChange={() => {
+            setState((current) => ({ ...current, viewerReady: true }));
+            window.requestAnimationFrame(() => syncViewer());
+          }}
+        />
+      </I18nextProvider>
     </div>
   );
 }
