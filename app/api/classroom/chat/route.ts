@@ -358,7 +358,7 @@ export async function POST(request: Request) {
           (item.role === "user" || item.role === "assistant") &&
           typeof item.content === "string",
       )
-      .slice(-12) as ChatMessage[];
+      .slice(-8) as ChatMessage[];
 
     if (!courseSlug || !messages.length) {
       return Response.json({ error: "A message is required." }, { status: 400 });
@@ -401,7 +401,9 @@ export async function POST(request: Request) {
     const teachingScript = slide.speakerNotes?.trim()
       ? slide.speakerNotes
       : "No teaching notes on this slide. Teach from the slide image conversationally.";
-    const nextSlide = plan.slides[slide.index + 1];
+    // In lineup mode the browser owns navigation and has already selected the beat.
+    // Do not send the following slide's script to the model on every turn.
+    const nextSlide = lineupMode ? undefined : plan.slides[slide.index + 1];
     const nextSlideScript = nextSlide
       ? nextSlide.speakerNotes?.trim() ||
         "No teaching notes on the next slide. Teach from its image conversationally."
@@ -522,6 +524,21 @@ export async function POST(request: Request) {
       "Return JSON only.",
     ].join(" ");
 
+    // Classroom turns are deliberately compact and deterministic. The client has
+    // already moved to the correct beat before this request, so the model teaches
+    // what is on screen; it does not need to plan or reason about navigation.
+    const fastLineupInstructions = [
+      "You are a warm, direct classroom instructor teaching the current PowerPoint beat.",
+      "Teach only the current slide and keep its current slideIndex; never advance slides because the application controls navigation.",
+      "Use the current slide's instructor script as the source of truth. Follow private AI: or [AI] author cues without reading those directions aloud.",
+      "Do not invent facts, topics, activities, or questions outside the supplied slide and lesson context.",
+      "For ordinary teaching, keep presentation.type slide, set checkQuestion null, expectsResponse false, and reply in no more than two short sentences.",
+      "Ask a question only when the current authored beat or an author cue requests it. Put graded multiple-choice, true/false, or short-answer questions in checkQuestion, keep the slide visible, and set expectsResponse true.",
+      "When grading the learner's latest answer, use the supplied answer key, give one brief helpful explanation, set lastAnswerCorrect accurately, and do not repeat the question.",
+      "For an authored flashcard or drag-order activity, preserve the matching activity presentation and wait for completion.",
+      "Return an empty quickReplies array. Return only JSON matching the required schema.",
+    ].join(" ");
+
     const legacyInstructions = [
       "You are the classroom instructor. YOU control the screen and pacing — the student does not click through slides.",
       "Teach conversationally in your own words. Do not read on-screen bullet points verbatim unless the author explicitly requests it in an AI: cue.",
@@ -561,9 +578,14 @@ export async function POST(request: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-5.6-sol",
-        instructions: lineupMode ? lineupInstructions : legacyInstructions,
+        model:
+          process.env.OPENAI_CLASSROOM_MODEL ||
+          "gpt-5.6-luna",
+        reasoning: { effort: "none" },
+        max_output_tokens: 700,
+        instructions: lineupMode ? fastLineupInstructions : legacyInstructions,
         text: {
+          verbosity: "low",
           format: {
             type: "json_schema",
             name: "classroom_teacher_turn",

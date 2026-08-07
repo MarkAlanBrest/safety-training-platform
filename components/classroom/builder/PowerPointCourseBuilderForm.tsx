@@ -29,7 +29,10 @@ import {
 } from "@/lib/classroom-asset-upload-client";
 import { classroomChapterDeckAssetPath } from "@/lib/classroom-chapters";
 import { preparePptxForUpload } from "@/lib/ppt-ingest-client";
-import type { ParsedClassroomSlide } from "@/lib/ppt-ingest-core";
+import {
+  teachingContentFromParsedSlide,
+  type ParsedClassroomSlide,
+} from "@/lib/ppt-ingest-core";
 import { parseJsonResponse } from "@/lib/parse-response";
 import { QuestionEditorFields } from "@/components/classroom/builder/QuestionDraftReview";
 import {
@@ -72,7 +75,9 @@ function chapterLineup(chapter: ChapterDraft, chapterIndex: number) {
     kind: "content" as const,
     id: `chapter-${chapterIndex + 1}-slide-${slideIndex + 1}`,
     title: slide.title || `Slide ${slideIndex + 1}`,
-    teachingContent: slide.speakerNotes?.trim() || "",
+    // Parsed slide text is already available locally. Saving it as the fallback
+    // teaching script avoids a much slower vision request on every note-free slide.
+    teachingContent: teachingContentFromParsedSlide(slide),
   }));
 }
 
@@ -267,6 +272,7 @@ export default function PowerPointCourseBuilderForm() {
           ...defaults.teaching,
           voiceProvider,
           voice,
+          voiceSpeed: 1.05,
         },
       };
       const response = await fetch("/api/classroom/content-upload", {
