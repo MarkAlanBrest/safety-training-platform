@@ -68,6 +68,7 @@ export default function PresentationArea({
   const slide = plan.slides[displaySlideIndex] || plan.slides[0];
   const slideImage = slide?.imageUrl || slide?.imageDataUrl || "";
   const deckContext = slideDeckContext(plan, displaySlideIndex);
+  const nextDeckContext = slideDeckContext(plan, displaySlideIndex + 1);
   const isCheckpoint =
     safeView.type === "question" ||
     safeView.type === "exercise" ||
@@ -165,6 +166,11 @@ export default function PresentationArea({
               title={slide?.title || plan.title}
               slideCount={plan.slides.length}
               currentSlideNumber={displaySlideIndex + 1}
+              preloadNextSlide={
+                Boolean(nextDeckContext) &&
+                nextDeckContext?.deckUrl === deckContext.deckUrl &&
+                nextDeckContext.localSlideIndex === deckContext.localSlideIndex + 1
+              }
               onPreviousSlide={
                 displaySlideIndex > 0 && onSelectSlide
                   ? () => onSelectSlide(displaySlideIndex - 1)

@@ -40,6 +40,18 @@ type ChatApiResponse = {
 
 type AnswerStreak = { correctInRow: number; incorrectInRow: number };
 
+type TeacherRequestOptions = {
+  presentation?: PresentationView;
+  slideIndex?: number;
+  beatIndex?: number;
+  includeImage?: boolean;
+};
+
+type PrefetchedTeacherTurn = {
+  messages: TeacherMessage[];
+  promise: Promise<ChatApiResponse>;
+};
+
 /**
  * Speaker notes normally replace the need for vision. Author cues that depend on
  * what is visibly present are the exception: the instructor must see the slide to
@@ -136,6 +148,7 @@ export default function ClassroomShell({
   const turnRequestIdRef = useRef(0);
   const autoAdvanceCountRef = useRef(0);
   const speechGenerationRef = useRef(0);
+  const prefetchedTurnRef = useRef<Map<number, PrefetchedTeacherTurn>>(new Map());
 
   function markSlideTaught(slideIndex: number) {
     setTaughtSlideIndices((current) =>
@@ -458,7 +471,7 @@ export default function ClassroomShell({
 
   async function sendToTeacher(
     nextMessages: TeacherMessage[],
-    options?: {
+    options?: TeacherRequestOptions & {
       presentation?: PresentationView;
       slideIndex?: number;
       beatIndex?: number;
@@ -471,6 +484,7 @@ export default function ClassroomShell({
        */
       includeImage?: boolean;
     },
+    prefetchedResponse?: Promise<ChatApiResponse>,
   ) {
     chatAbortRef.current?.abort();
     const controller = new AbortController();
@@ -479,7 +493,7 @@ export default function ClassroomShell({
 
     setThinking(true);
     try {
-      const response = await fetch("/api/classroom/chat", {
+      const responsePromise = prefetchedResponse || fetch("/api/classroom/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -496,17 +510,44 @@ export default function ClassroomShell({
         }),
         signal: controller.signal,
       });
+      if (prefetchedResponse) {
+        const data = await prefetchedResponse;
+        if (controller.signal.aborted || requestId !== turnRequestIdRef.current) return;
+        await applyTeacherTurn(data, nextMessages, options);
+        return;
+      }
+      const response = await responsePromise as Response;
       if (controller.signal.aborted || requestId !== turnRequestIdRef.current) {
         return;
       }
 
       const data = (await response.json()) as ChatApiResponse;
+      await applyTeacherTurn(data, nextMessages, options);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      const message =
+        error instanceof Error ? error.message : "The instructor could not respond.";
+      if (requestId !== turnRequestIdRef.current) return;
+      setMessages([
+        ...nextMessages,
+        { role: "assistant", content: message },
+      ]);
+    } finally {
+      if (chatAbortRef.current === controller) {
+        setThinking(false);
+      }
+    }
+  }
+
+  async function applyTeacherTurn(
+    data: ChatApiResponse,
+    nextMessages: TeacherMessage[],
+    options?: TeacherRequestOptions,
+  ) {
       const reply =
         data.reply ||
         data.error ||
         "Let's keep going. Tell me what you're thinking so far.";
-
-      if (requestId !== turnRequestIdRef.current) return;
 
       setThinking(false);
       setMessages([...nextMessages, { role: "assistant", content: reply }]);
@@ -529,20 +570,61 @@ export default function ClassroomShell({
           data.presentation?.type === "assessment");
       setExpectsResponse(Boolean(needsResponse));
       speakNatural(speechTextForTurn(reply, nextCheckQuestion));
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      const message =
-        error instanceof Error ? error.message : "The instructor could not respond.";
-      if (requestId !== turnRequestIdRef.current) return;
-      setMessages([
-        ...nextMessages,
-        { role: "assistant", content: message },
-      ]);
-    } finally {
-      if (chatAbortRef.current === controller) {
-        setThinking(false);
+      if (!needsResponse && !nextCheckQuestion) {
+        prefetchNextSlideTurn(options?.beatIndex ?? beatIndex, [
+          ...nextMessages,
+          { role: "assistant", content: reply },
+        ]);
       }
+  }
+
+  function prefetchNextSlideTurn(
+    currentBeatIndex: number,
+    messagesAfterReply: TeacherMessage[],
+  ) {
+    const nextBeatIndex = currentBeatIndex + 1;
+    const nextBeat = lessonBeats[nextBeatIndex];
+    if (!nextBeat || nextBeat.kind !== "slide" || prefetchedTurnRef.current.has(nextBeatIndex)) {
+      return;
     }
+
+    const nextView = presentationForBeat(plan, nextBeat, assessmentQuestionIndex);
+    const label = navLabelForBeat(nextBeat, plan);
+    const nextMessages: TeacherMessage[] = [
+      ...messagesAfterReply,
+      {
+        role: "user",
+        hidden: true,
+        content: `Let's go to "${label}" — continue teaching from there.`,
+      },
+    ];
+    const notes = plan.slides[nextBeat.slideIndex]?.speakerNotes;
+    const promise = fetch("/api/classroom/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        courseSlug: course.slug,
+        slideIndex: nextBeat.slideIndex,
+        beatIndex: nextBeatIndex,
+        assessmentQuestionIndex,
+        presentation: nextView,
+        messages: nextMessages,
+        includeImage: !notes?.trim() || speakerNotesRequestVisualInspection(notes),
+        studentName: "",
+        taughtSlideIndices,
+        streak,
+      }),
+    })
+      .then(async (response) => {
+        const data = (await response.json()) as ChatApiResponse;
+        if (!response.ok && !data.error) data.error = "The instructor could not respond.";
+        return data;
+      })
+      .catch((error) => ({
+        error: error instanceof Error ? error.message : "The instructor could not respond.",
+      }));
+
+    prefetchedTurnRef.current.set(nextBeatIndex, { messages: nextMessages, promise });
   }
 
   async function beginClass() {
@@ -595,6 +677,7 @@ export default function ClassroomShell({
 
   async function handleSend(message: string) {
     unlockAudio();
+    prefetchedTurnRef.current.clear();
     const next: TeacherMessage[] = [...messages, { role: "user", content: message }];
     setMessages(next);
     await sendToTeacher(next, { includeImage: false });
@@ -602,6 +685,7 @@ export default function ClassroomShell({
 
   async function handleActivityComplete() {
     unlockAudio();
+    prefetchedTurnRef.current.clear();
     const next: TeacherMessage[] = [
       ...messages,
       { role: "user", hidden: true, content: "I finished the practice activity." },
@@ -639,8 +723,10 @@ export default function ClassroomShell({
     // asking the instructor to continue to the next lesson beat.
     if (view.type === "video") return;
 
+    const prefetched = prefetchedTurnRef.current.get(nextBeatIndex);
+    prefetchedTurnRef.current.clear();
     const label = navLabelForBeat(beat, plan);
-    const next: TeacherMessage[] = [
+    const next: TeacherMessage[] = prefetched?.messages || [
       ...messages,
       {
         role: "user",
@@ -662,7 +748,7 @@ export default function ClassroomShell({
           speakerNotesRequestVisualInspection(
             plan.slides[beat.slideIndex]?.speakerNotes,
           )),
-    });
+    }, prefetched?.promise);
   }
 
   const awaitingInput =
