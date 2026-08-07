@@ -1,10 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { classroomChapterDeckAssetPath } from "@/lib/classroom-chapters";
 
-export function classroomEmbedDeckUrl(deckUrl: string) {
-  return deckUrl.replace(/\/deck$/, "/embed/deck");
-}
-
 type ServeDeckOptions = {
   slug: string;
   chapterPosition?: number;

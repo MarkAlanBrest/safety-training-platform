@@ -431,6 +431,10 @@ export function classroomDeckUrl(slug: string, chapterPosition = 1) {
     : `/api/classroom/${slug}/chapters/${chapterPosition}/deck`;
 }
 
+export function classroomEmbedDeckUrl(deckUrl: string) {
+  return deckUrl.replace(/\/deck$/, "/embed/deck");
+}
+
 export function slideDeckContext(plan: ClassroomPlan, globalSlideIndex: number) {
   const chapters =
     plan.chapters?.length && plan.chapters.length > 0
