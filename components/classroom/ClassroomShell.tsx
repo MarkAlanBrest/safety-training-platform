@@ -713,6 +713,7 @@ export default function ClassroomShell({
           onToggleBreak={toggleBreak}
           paused={paused}
           courseSlug={course.slug}
+          coursePublished={course.published}
           finalTest={plan.finalTest}
           finalTestActive={finalTestActive}
           onFinalTestComplete={() => {

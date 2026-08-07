@@ -10,6 +10,7 @@ import ClassroomVideoSlide from "@/components/classroom/ClassroomVideoSlide";
 import type { ClassroomFinalTest } from "@/lib/classroom-question-types";
 import ClassroomFinalTestRunner from "@/components/classroom/ClassroomFinalTestRunner";
 import ClassroomPptxPlayer from "@/components/classroom/ClassroomPptxPlayerLazy";
+import MicrosoftPptxViewer from "@/components/classroom/MicrosoftPptxViewer";
 import SlideImageStage from "@/components/classroom/SlideImageStage";
 import SlideStageTransition from "@/components/classroom/SlideStageTransition";
 
@@ -21,6 +22,7 @@ export default function PresentationArea({
   paused = false,
   onActivityComplete,
   courseSlug,
+  coursePublished = false,
   finalTest,
   finalTestActive = false,
   onFinalTestComplete,
@@ -32,6 +34,7 @@ export default function PresentationArea({
   paused?: boolean;
   onActivityComplete?: () => void;
   courseSlug?: string;
+  coursePublished?: boolean;
   finalTest?: ClassroomFinalTest;
   finalTestActive?: boolean;
   onFinalTestComplete?: () => void;
@@ -149,24 +152,30 @@ export default function PresentationArea({
               embedded
               onExit={() => onFinalTestComplete?.()}
             />
-          ) : safeView.type === "slide" && slideImage ? (
-            <SlideImageStage
-              imageUrl={slideImage}
+          ) : safeView.type === "slide" && deckContext && coursePublished ? (
+            <MicrosoftPptxViewer
+              deckUrl={deckContext.deckUrl}
+              slideIndex={deckContext.localSlideIndex}
               title={slide?.title || plan.title}
               fallback={
-                deckContext ? (
-                  <ClassroomPptxPlayer
-                    deckUrl={deckContext.deckUrl}
-                    slideIndex={deckContext.localSlideIndex}
-                    title={slide?.title || plan.title}
-                  />
-                ) : undefined
+                <ClassroomPptxPlayer
+                  deckUrl={deckContext.deckUrl}
+                  slideIndex={deckContext.localSlideIndex}
+                  title={slide?.title || plan.title}
+                  fallbackImageUrl={slideImage || undefined}
+                />
               }
             />
           ) : safeView.type === "slide" && deckContext ? (
             <ClassroomPptxPlayer
               deckUrl={deckContext.deckUrl}
               slideIndex={deckContext.localSlideIndex}
+              title={slide?.title || plan.title}
+              fallbackImageUrl={slideImage || undefined}
+            />
+          ) : safeView.type === "slide" && slideImage ? (
+            <SlideImageStage
+              imageUrl={slideImage}
               title={slide?.title || plan.title}
             />
           ) : safeView.type === "slide" ? (
