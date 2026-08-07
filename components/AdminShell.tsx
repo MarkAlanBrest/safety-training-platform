@@ -42,8 +42,7 @@ export default function AdminShell({
   }
 
   return (
-    <div className="admin-viewport">
-      <div className="admin-scale min-h-screen bg-[#edf1f2] text-[#17202b]">
+    <div className="min-h-screen bg-[#edf1f2] text-[#17202b]">
       <div className="flex min-h-screen">
         <aside className="hidden w-64 shrink-0 flex-col bg-[#10283f] text-white lg:flex">
           <div className="border-b border-white/10 px-6 py-7">
@@ -117,7 +116,6 @@ export default function AdminShell({
             {children}
           </main>
         </div>
-      </div>
       </div>
     </div>
   );
