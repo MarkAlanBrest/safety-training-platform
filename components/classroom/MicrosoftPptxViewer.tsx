@@ -63,7 +63,7 @@ export default function MicrosoftPptxViewer({
             key={viewerUrl}
             src={viewerUrl}
             title={`${title} — Microsoft PowerPoint viewer`}
-            className="h-[calc(100%+44px)] w-full border-0"
+            className="h-[calc(100%+36px)] w-full border-0"
             allow="fullscreen; autoplay; clipboard-read; clipboard-write"
             allowFullScreen
             onLoad={() => setLoading(false)}
