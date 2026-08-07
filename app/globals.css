@@ -22,6 +22,19 @@ body {
   font-family: var(--font-roboto-condensed), "Roboto Condensed", Arial, sans-serif;
 }
 
+/* Keep the admin workspace inside the viewport without clipping or horizontal scroll. */
+.admin-shell {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+@media (min-width: 1024px) {
+  .admin-shell-inner {
+    font-size: 87.5%;
+  }
+}
+
 h1,
 h2,
 h3,

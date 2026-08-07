@@ -864,7 +864,7 @@ export default function SectionContentEditorPage() {
         </div>
       )}
 
-      <div className="grid gap-7 xl:grid-cols-[1fr_310px]">
+      <div className="grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1fr)_minmax(0,19rem)]">
         <div className="space-y-6">
           <section className="space-y-5 rounded-3xl border border-[#10283f]/10 bg-white p-6 sm:p-7">
             <div>
