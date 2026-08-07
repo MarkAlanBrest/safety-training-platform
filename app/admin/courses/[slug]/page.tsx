@@ -95,7 +95,7 @@ type Course = {
   companyName: string | null;
   logoData: string | null;
   accentColor: string | null;
-  displayMode: "webpage" | "slideshow";
+  displayMode: "webpage" | "slideshow" | "classroom";
   courseType: "pdf" | "scorm" | "classroom";
   scormVersion: string | null;
   scormEntryPoint: string | null;

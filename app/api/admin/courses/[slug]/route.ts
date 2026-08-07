@@ -106,7 +106,7 @@ export async function PATCH(
         { status: 400 },
       );
     }
-    if (!["webpage", "slideshow"].includes(displayMode)) {
+    if (!["webpage", "slideshow", "classroom"].includes(displayMode)) {
       return Response.json(
         { error: "Choose a valid course format." },
         { status: 400 },
