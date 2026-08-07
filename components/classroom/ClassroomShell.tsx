@@ -588,27 +588,6 @@ export default function ClassroomShell({
     });
   }
 
-  /**
-   * Jumps back to the previous content slide. Skips over checkpoint/activity/finalTest
-   * beats — comprehension checks live in chat now, not as their own screen to revisit.
-   */
-  function previousSlideBeatIndex(fromBeatIndex: number): number {
-    for (let index = fromBeatIndex - 1; index >= 0; index -= 1) {
-      if (lessonBeats[index]?.kind === "slide" || lessonBeats[index]?.kind === "welcome") {
-        return index;
-      }
-    }
-    return -1;
-  }
-
-  const canGoBack = previousSlideBeatIndex(beatIndex) >= 0;
-
-  async function handleGoBack() {
-    const target = previousSlideBeatIndex(beatIndex);
-    if (target < 0) return;
-    await handleSelectBeat(target);
-  }
-
   const awaitingInput =
     !paused &&
     !thinking &&
@@ -759,9 +738,6 @@ export default function ClassroomShell({
             onSend={handleSend}
             onSpeak={speak}
             onInteract={unlockAudio}
-            onForward={() => void handleContinue()}
-            onBack={() => void handleGoBack()}
-            canGoBack={canGoBack}
           />
         )}
       </div>

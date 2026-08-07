@@ -2,8 +2,6 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft,
-  ArrowRight,
   MessageCircleQuestion,
   Mic,
   MicOff,
@@ -66,9 +64,6 @@ export default function TeacherChat({
   onSend,
   onSpeak,
   onInteract,
-  onForward,
-  onBack,
-  canGoBack = false,
 }: {
   messages: TeacherMessage[];
   thinking: boolean;
@@ -82,9 +77,6 @@ export default function TeacherChat({
   onSend: (message: string) => Promise<void>;
   onSpeak: (text: string) => Promise<void>;
   onInteract?: () => void;
-  onForward?: () => void;
-  onBack?: () => void;
-  canGoBack?: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const [listening, setListening] = useState(false);
@@ -296,44 +288,18 @@ export default function TeacherChat({
             ) : null}
           </form>
         ) : (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                onInteract?.();
-                onBack?.();
-              }}
-              disabled={thinking || !canGoBack}
-              aria-label="Previous slide"
-              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-slate-300 bg-white text-slate-700 transition hover:border-amber-300 hover:bg-amber-50 disabled:opacity-40"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                onInteract?.();
-                setAsking(true);
-              }}
-              disabled={thinking}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3.5 text-sm font-bold text-slate-700 transition hover:border-amber-300 hover:bg-amber-50 disabled:opacity-50"
-            >
-              <MessageCircleQuestion size={16} />
-              Ask a question
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                onInteract?.();
-                onForward?.();
-              }}
-              disabled={thinking || !onForward}
-              aria-label="Skip ahead"
-              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#0f2b46] text-white transition hover:bg-[#163a5d] disabled:opacity-50"
-            >
-              <ArrowRight size={18} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              onInteract?.();
+              setAsking(true);
+            }}
+            disabled={thinking}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3.5 text-sm font-bold text-slate-700 transition hover:border-amber-300 hover:bg-amber-50 disabled:opacity-50"
+          >
+            <MessageCircleQuestion size={16} />
+            Ask a question
+          </button>
         )}
       </div>
     </aside>
