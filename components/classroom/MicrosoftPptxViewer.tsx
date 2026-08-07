@@ -58,7 +58,7 @@ export default function MicrosoftPptxViewer({
   return (
     <div className="relative h-full min-h-0 w-full overflow-hidden bg-black" aria-label={title}>
       {viewerUrl ? (
-        <div className="absolute inset-x-0 bottom-9 top-0 overflow-hidden">
+        <div className="absolute inset-x-0 bottom-9 top-1 overflow-hidden">
           <iframe
             key={viewerUrl}
             src={viewerUrl}
