@@ -42,15 +42,15 @@ export default function AdminShell({
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#edf1f2] text-[#17202b]">
+    <div className="admin-shell min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#edf1f2] text-[#17202b]">
       <div className="flex min-h-screen">
-        <aside className="hidden w-56 shrink-0 flex-col bg-[#10283f] text-white lg:flex xl:w-64">
-          <div className="border-b border-white/10 px-6 py-7">
+        <aside className="hidden w-20 shrink-0 flex-col bg-[#10283f] text-white lg:flex 2xl:w-64">
+          <div className="border-b border-white/10 px-4 py-7 2xl:px-6">
             <div className="flex items-center gap-3">
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f2b744] text-[#10283f]">
                 <ShieldCheck size={23} />
               </span>
-              <div className="min-w-0">
+              <div className="hidden min-w-0 2xl:block">
                 <p className="font-serif text-xl font-semibold">Training Studio</p>
                 <p className="text-xs text-slate-400">Administration</p>
               </div>
@@ -68,6 +68,7 @@ export default function AdminShell({
                 <Link
                   key={item.href}
                   href={item.href}
+                  title={item.label}
                   className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${
                     active
                       ? "bg-white text-[#10283f]"
@@ -75,7 +76,7 @@ export default function AdminShell({
                   }`}
                 >
                   <Icon size={18} />
-                  {item.label}
+                  <span className="hidden 2xl:inline">{item.label}</span>
                 </Link>
               );
             })}
@@ -84,15 +85,17 @@ export default function AdminShell({
           <div className="space-y-2 border-t border-white/10 p-4">
             <Link
               href="/"
+              title="View learner site"
               className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white"
             >
-              <ExternalLink size={17} /> View learner site
+              <ExternalLink size={17} /> <span className="hidden 2xl:inline">View learner site</span>
             </Link>
             <button
               onClick={logout}
+              title="Sign out"
               className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white"
             >
-              <LogOut size={17} /> Sign out
+              <LogOut size={17} /> <span className="hidden 2xl:inline">Sign out</span>
             </button>
           </div>
         </aside>
