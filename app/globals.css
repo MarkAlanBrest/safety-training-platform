@@ -227,3 +227,31 @@ h4 {
 .course-shell [data-ncst-visual="11"] {
   display: block !important;
 }
+
+/* Embedded classroom PowerPoint player: hide editor chrome, keep slide canvas only */
+.classroom-pptx-player [data-pptx-viewer] {
+  height: 100%;
+  min-height: 0;
+  background: #0b1524 !important;
+}
+
+.classroom-pptx-player [data-pptx-viewer] > div {
+  height: 100%;
+  min-height: 0;
+}
+
+.classroom-pptx-player [role="toolbar"],
+.classroom-pptx-player [data-pptx-presenter-toolbar] {
+  display: none !important;
+}
+
+.classroom-pptx-player [data-pptx-viewport] {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: auto !important;
+}
+
+.classroom-pptx-player [data-pptx-viewport] > div {
+  margin: 0 auto;
+}

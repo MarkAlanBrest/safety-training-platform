@@ -815,8 +815,8 @@ export default function ContentSlideBuilderForm() {
             to pictures on the server and pull speaker notes for the AI instructor.
           </p>
           <p className="mt-2">
-            <strong>Or do it yourself:</strong> export slide pictures as a ZIP and attach the
-            PowerPoint for notes — best when you want pixel-perfect control over each image.
+            <strong>Upload your PowerPoint.</strong> Slides play with transitions, animations, and
+            embedded video. Speaker notes become the AI teaching script.
           </p>
         </div>
 

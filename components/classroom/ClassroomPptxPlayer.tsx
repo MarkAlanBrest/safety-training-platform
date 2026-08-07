@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import {
-  SlideCanvas,
-  useViewerBuildingBlocks,
+  PowerPointViewer,
   type PowerPointViewerHandle,
+  type ToolbarActionId,
 } from "pptx-react-viewer";
 import "pptx-react-viewer/styles";
 
@@ -15,17 +15,44 @@ type Props = {
   title: string;
 };
 
+const HIDDEN_ACTIONS: ToolbarActionId[] = [
+  "file",
+  "home",
+  "insert",
+  "draw",
+  "design",
+  "transitions",
+  "animations",
+  "slideShow",
+  "record",
+  "review",
+  "view",
+  "help",
+  "share",
+  "broadcast",
+  "export",
+  "undo",
+  "redo",
+  "notes",
+  "fullscreen",
+  "zoom",
+  "navigation",
+];
+
 export default function ClassroomPptxPlayer({ deckUrl, slideIndex, title }: Props) {
   const [content, setContent] = useState<Uint8Array | null>(null);
   const [loadError, setLoadError] = useState("");
   const [fetching, setFetching] = useState(true);
+  const [viewerReady, setViewerReady] = useState(false);
   const viewerRef = useRef<PowerPointViewerHandle>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const lastSlideRef = useRef(slideIndex);
 
   useEffect(() => {
     let cancelled = false;
     setFetching(true);
     setLoadError("");
+    setViewerReady(false);
 
     fetch(deckUrl)
       .then(async (response) => {
@@ -51,31 +78,43 @@ export default function ClassroomPptxPlayer({ deckUrl, slideIndex, title }: Prop
     };
   }, [deckUrl]);
 
-  const { canvasProps, loading, error } = useViewerBuildingBlocks({
-    content,
-    canEdit: false,
-    handle: viewerRef,
-    autosaveEnabled: false,
-  });
-
-  useEffect(() => {
+  const syncViewer = useCallback(() => {
     const viewer = viewerRef.current;
-    if (!viewer || loading || fetching) return;
-    if (lastSlideRef.current === slideIndex) return;
-    lastSlideRef.current = slideIndex;
-    viewer.goTo(slideIndex);
-  }, [slideIndex, loading, fetching]);
+    if (!viewer) return;
 
-  useEffect(() => {
-    const viewer = viewerRef.current;
-    if (!viewer || loading || fetching) return;
+    viewer.setMode("preview");
+    // zoomReset maps to zoom-to-fit inside pptx-react-viewer.
+    viewer.zoomReset();
+
     if (viewer.getActiveSlideIndex() !== slideIndex) {
       viewer.goTo(slideIndex);
-      lastSlideRef.current = slideIndex;
     }
-  }, [slideIndex, loading, fetching, content]);
+    lastSlideRef.current = slideIndex;
+  }, [slideIndex]);
 
-  const message = loadError || error;
+  useEffect(() => {
+    if (!viewerReady || fetching || !content) return;
+    syncViewer();
+  }, [viewerReady, fetching, content, syncViewer]);
+
+  useEffect(() => {
+    if (!viewerReady) return;
+    if (lastSlideRef.current === slideIndex) return;
+    syncViewer();
+  }, [slideIndex, viewerReady, syncViewer]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !viewerReady) return;
+
+    const observer = new ResizeObserver(() => {
+      window.requestAnimationFrame(() => syncViewer());
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [viewerReady, syncViewer]);
+
+  const message = loadError;
 
   if (message) {
     return (
@@ -85,7 +124,7 @@ export default function ClassroomPptxPlayer({ deckUrl, slideIndex, title }: Prop
     );
   }
 
-  if (fetching || loading || !content) {
+  if (fetching || !content) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-[#0b1524]">
         <LoaderCircle className="animate-spin text-amber-300" size={28} />
@@ -95,12 +134,25 @@ export default function ClassroomPptxPlayer({ deckUrl, slideIndex, title }: Prop
 
   return (
     <div
-      className="relative flex h-full min-h-0 w-full items-center justify-center overflow-hidden bg-[#0b1524]"
+      ref={containerRef}
+      className="classroom-pptx-player relative h-full min-h-0 w-full bg-[#0b1524]"
       aria-label={title}
     >
-      <div className="h-full w-full [&_.pptx-slide-canvas]:mx-auto [&_.pptx-slide-canvas]:max-h-full [&_.pptx-slide-canvas]:max-w-full">
-        <SlideCanvas {...canvasProps} />
-      </div>
+      <PowerPointViewer
+        ref={viewerRef}
+        content={content}
+        canEdit={false}
+        hiddenActions={HIDDEN_ACTIONS}
+        className="h-full w-full"
+        onActiveSlideChange={() => {
+          setViewerReady(true);
+          window.requestAnimationFrame(() => syncViewer());
+        }}
+        onSlideCountChange={() => {
+          setViewerReady(true);
+          window.requestAnimationFrame(() => syncViewer());
+        }}
+      />
     </div>
   );
 }
