@@ -15,8 +15,9 @@ const robotoCondensed = Roboto_Condensed({
 });
 
 export const metadata: Metadata = {
-  title: "NCST Online Training",
-  description: "Access your assigned online training courses at New Castle School of Trades.",
+  title: "AI Classroom",
+  description:
+    "Upload a PowerPoint and teach with an AI instructor that talks, listens, and guides learners through your slides.",
 };
 
 export default function RootLayout({
