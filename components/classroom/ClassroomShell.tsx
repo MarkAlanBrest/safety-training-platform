@@ -17,7 +17,7 @@ import { isLineupPlan } from "@/lib/classroom-lineup";
 import {
   filterPrivateSpeechDirections,
   speechChunks,
-} from "@/lib/classroom-teacher";
+} from "@/lib/classroom-speech";
 import ClassroomTopBar from "@/components/classroom/ClassroomTopBar";
 import PresentationArea from "@/components/classroom/PresentationArea";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
