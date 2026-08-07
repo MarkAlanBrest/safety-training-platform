@@ -14,7 +14,10 @@ import {
   presentationForBeat,
 } from "@/lib/classroom-lesson";
 import { isLineupPlan } from "@/lib/classroom-lineup";
-import { speechChunks } from "@/lib/classroom-teacher";
+import {
+  filterPrivateSpeechDirections,
+  speechChunks,
+} from "@/lib/classroom-teacher";
 import ClassroomTopBar from "@/components/classroom/ClassroomTopBar";
 import PresentationArea from "@/components/classroom/PresentationArea";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
@@ -133,23 +136,6 @@ export default function ClassroomShell({
   const turnRequestIdRef = useRef(0);
   const autoAdvanceCountRef = useRef(0);
   const speechGenerationRef = useRef(0);
-  const spokeScriptForTurnRef = useRef(false);
-
-  function teachingScriptForSlide(slideIndex: number) {
-    const notes = plan.slides[slideIndex]?.speakerNotes?.trim();
-    return notes || null;
-  }
-
-  function prefetchSpeech(text: string) {
-    if (!voiceSettings.enabled || voiceSettings.provider === "browser" || !text.trim()) return;
-    if (text.length > MAX_STREAMABLE_SPEECH_LENGTH) return;
-    const url = `/api/mason/speech?${new URLSearchParams({
-      text,
-      voice: voiceSettings.voice,
-      speed: String(voiceSettings.speed),
-    }).toString()}`;
-    void fetch(url).catch(() => undefined);
-  }
 
   function markSlideTaught(slideIndex: number) {
     setTaughtSlideIndices((current) =>
@@ -355,7 +341,8 @@ export default function ClassroomShell({
   }
 
   async function speak(text: string) {
-    if (!voiceSettings.enabled || !text.trim()) return;
+    const narration = filterPrivateSpeechDirections(text);
+    if (!voiceSettings.enabled || !narration.trim()) return;
 
     // Cancel whatever is currently playing (or still queued) IMMEDIATELY, not once
     // this call reaches the front of the queue — otherwise stale audio from a
@@ -387,10 +374,10 @@ export default function ClassroomShell({
 
       try {
         if (voiceSettings.provider === "browser") {
-          await Promise.race([speakWithBrowserVoice(text, controller), safetyTimeout]);
-        } else if (text.length <= MAX_STREAMABLE_SPEECH_LENGTH) {
+          await Promise.race([speakWithBrowserVoice(narration, controller), safetyTimeout]);
+        } else if (narration.length <= MAX_STREAMABLE_SPEECH_LENGTH) {
           const url = `/api/mason/speech?${new URLSearchParams({
-            text,
+            text: narration,
             voice: voiceSettings.voice,
             speed: String(voiceSettings.speed),
           }).toString()}`;
@@ -400,7 +387,7 @@ export default function ClassroomShell({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              text,
+              text: narration,
               voice: voiceSettings.voice,
               speed: voiceSettings.speed,
             }),
@@ -422,9 +409,11 @@ export default function ClassroomShell({
   }
 
   function speakNatural(text: string) {
-    const chunks = speechChunks(text);
+    const narration = filterPrivateSpeechDirections(text);
+    if (!narration) return;
+    const chunks = speechChunks(narration);
     if (chunks.length <= 1) {
-      void speak(text);
+      void speak(narration);
       return;
     }
 
@@ -539,19 +528,7 @@ export default function ClassroomShell({
           data.presentation?.type === "exercise" ||
           data.presentation?.type === "assessment");
       setExpectsResponse(Boolean(needsResponse));
-
-      const speechText = speechTextForTurn(reply, nextCheckQuestion);
-      const shouldSpeakResponse =
-        Boolean(nextCheckQuestion) ||
-        typeof data.lastAnswerCorrect === "boolean" ||
-        Boolean(needsResponse) ||
-        !spokeScriptForTurnRef.current;
-      spokeScriptForTurnRef.current = false;
-      if (shouldSpeakResponse) {
-        speakNatural(speechText);
-      } else {
-        prefetchSpeech(speechText);
-      }
+      speakNatural(speechTextForTurn(reply, nextCheckQuestion));
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       const message =
@@ -595,12 +572,6 @@ export default function ClassroomShell({
       },
     ];
     setMessages(next);
-    const script = teachingScriptForSlide(firstSlideIndex);
-    spokeScriptForTurnRef.current = lineupMode && Boolean(script);
-    if (lineupMode && script) {
-      prefetchSpeech(script);
-      speakNatural(script);
-    }
     await sendToTeacher(next, {
       presentation: firstView,
       slideIndex: firstSlideIndex,
@@ -678,13 +649,6 @@ export default function ClassroomShell({
       },
     ];
     setMessages(next);
-    const script =
-      beat.kind === "slide" ? teachingScriptForSlide(beat.slideIndex) : null;
-    spokeScriptForTurnRef.current = lineupMode && Boolean(script);
-    if (lineupMode && script) {
-      prefetchSpeech(script);
-      speakNatural(script);
-    }
     await sendToTeacher(next, {
       presentation: view,
       slideIndex: nextSlideIndex,
