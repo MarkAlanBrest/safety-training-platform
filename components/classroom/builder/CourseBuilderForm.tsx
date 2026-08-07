@@ -419,7 +419,7 @@ export default function CourseBuilderForm() {
       <BuilderSection number={1} title="Knowledge Package">
         <BuilderField
           label="Upload PowerPoint (.pptx)"
-          hint="Up to 25 MB per deck. Your original PowerPoint is stored and displayed live. The AI instructor teaches from your speaker notes."
+          hint="Up to 25 MB per deck. Your original PowerPoint is stored and displayed live. Speaker notes teach the AI; begin a private direction with AI:, such as AI: Ask a multiple-choice question here."
         >
           <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-[#faf8f3] px-5 py-8 text-center">
             <UploadCloud className="mx-auto text-[#a06e16]" size={28} />

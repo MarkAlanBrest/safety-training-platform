@@ -1016,7 +1016,7 @@ export default function ContentSlideBuilderForm() {
                   </div>
                   <BuilderField
                     label="What should the AI teach on this slide?"
-                    hint="This is your instructor script. The AI reads the slide image and teaches from your notes — not from on-screen text."
+                    hint="This is your instructor script. Add private directions with AI:, such as AI: Ask a follow-up here, or AI: If the graphic shows a missing guard, ask what is wrong."
                   >
                     <BuilderTextarea
                       rows={8}

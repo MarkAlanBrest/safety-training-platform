@@ -435,6 +435,16 @@ export async function POST(request: Request) {
     sourceParts.push(
       `Current presentation mode on screen: ${presentation?.type || "welcome"}`,
       `Instructor preferences:\n${classroomInstructorPrompt(builderConfig)}`,
+      [
+        "AUTHOR CUES IN SPEAKER NOTES:",
+        "Treat a line beginning with AI: or [AI] as a private direction from the course author, never as words to read aloud.",
+        "Follow natural-language cues too when their intent is clear, such as 'ask a follow-up on this slide' or 'ask a multiple-choice question here.'",
+        "For an ungraded follow-up, ask the requested question in reply, keep the current slide visible, set expectsResponse true, and leave checkQuestion null.",
+        "For a multiple-choice, true/false, or short-answer knowledge check, use checkQuestion, keep the current slide visible, set expectsResponse true, and do not reveal the answer before the learner responds.",
+        "If the author supplies exact wording, options, or an answer, preserve them. If wording or options are omitted, create them only from this slide's teaching content.",
+        "For a conditional visual cue such as 'if the graphic shows X, ask Y,' inspect the attached current-slide image. Execute the cue only when the condition is visibly supported; never claim to see something that is not visible.",
+        "Complete an author cue on this slide before advancing. After the learner answers, respond naturally and then continue instead of asking the same cue again.",
+      ].join(" "),
       lessonBeatSummary(plan),
     );
 

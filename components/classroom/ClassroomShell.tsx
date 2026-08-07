@@ -35,6 +35,23 @@ type ChatApiResponse = {
 
 type AnswerStreak = { correctInRow: number; incorrectInRow: number };
 
+/**
+ * Speaker notes normally replace the need for vision. Author cues that depend on
+ * what is visibly present are the exception: the instructor must see the slide to
+ * decide whether the condition is true.
+ */
+function speakerNotesRequestVisualInspection(notes?: string) {
+  if (!notes?.trim()) return false;
+  return (
+    /\b(?:if|when)\b[\s\S]{0,140}\b(?:graphic|image|picture|photo|diagram|chart|visual|screen|slide)\b[\s\S]{0,180}\bask\b/i.test(
+      notes,
+    ) ||
+    /\bask\b[\s\S]{0,180}\b(?:if|when)\b[\s\S]{0,140}\b(?:graphic|image|picture|photo|diagram|chart|visual|screen|slide)\b/i.test(
+      notes,
+    )
+  );
+}
+
 function speechTextForTurn(reply: string, checkQuestion: ClassroomCheckQuestion | null) {
   if (!checkQuestion) return reply;
   const options =
@@ -579,12 +596,15 @@ export default function ClassroomShell({
       presentation: view,
       slideIndex: nextSlideIndex,
       beatIndex: nextBeatIndex,
-      // Speaker notes already provide the grounded teaching script for normal slides.
-      // Sending a large image through vision adds noticeable latency, so only do it
-      // when a slide has no notes and the instructor genuinely needs to inspect it.
+      // Notes normally provide the grounded script without a slower vision request.
+      // Visual author cues are the exception because the AI must inspect the slide
+      // before deciding whether to ask the conditional question.
       includeImage:
         beat.kind === "slide" &&
-        !plan.slides[beat.slideIndex]?.speakerNotes?.trim(),
+        (!plan.slides[beat.slideIndex]?.speakerNotes?.trim() ||
+          speakerNotesRequestVisualInspection(
+            plan.slides[beat.slideIndex]?.speakerNotes,
+          )),
     });
   }
 
