@@ -9,7 +9,7 @@ import {
   defaultClassroomBuilderConfig,
   estimateClassroomCourse,
 } from "@/lib/classroom-builder";
-import { classroomChapterDeckAssetPath, classroomChapterSlideAssetPath } from "@/lib/classroom-chapters";
+import { classroomChapterDeckAssetPath } from "@/lib/classroom-chapters";
 import {
   attachSlideIndicesToLineup,
   buildClassroomPlanFromLineup,
@@ -25,7 +25,6 @@ import {
   type QuestionType,
 } from "@/lib/classroom-question-types";
 import { slugify } from "@/lib/mason";
-import { renderPptxSlides } from "@/lib/pptx-render-server";
 
 function parseLineup(raw: unknown): LessonLineupItem[] {
   if (!Array.isArray(raw)) return [];
@@ -123,8 +122,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const images = await renderPptxSlides(buffer, { preset: "hd", format: "png" });
-
     let slug = slugify(title);
     const existing = await prisma.masonCourse.findUnique({ where: { slug } });
     if (existing) slug = `${slug}-${Date.now().toString(36)}`;
@@ -194,19 +191,14 @@ export async function POST(request: Request) {
         select: { id: true, title: true, slug: true, published: true },
       });
 
-      const assets = images.map((image, index) => ({
-        courseId: created.id,
-        path: classroomChapterSlideAssetPath(1, index),
-        mimeType: image.mimeType,
-        content: Buffer.from(image.bytes),
-      }));
-
-      assets.push({
-        courseId: created.id,
-        path: classroomChapterDeckAssetPath(1),
-        mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        content: Buffer.from(buffer),
-      });
+      const assets = [
+        {
+          courseId: created.id,
+          path: classroomChapterDeckAssetPath(1),
+          mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          content: Buffer.from(buffer),
+        },
+      ];
 
       await tx.scormAsset.createMany({ data: assets });
       return created;

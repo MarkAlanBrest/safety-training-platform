@@ -34,7 +34,7 @@ import {
 import { parseJsonResponse } from "@/lib/parse-response";
 import {
   parsePptxTeachingNotes,
-  prepareContentSlidesFromPptx,
+  prepareContentSlidesFromPptxNotesOnly,
   prepareContentSlidesFromZipAndPptx,
 } from "@/lib/ppt-ingest-client";
 import {
@@ -143,14 +143,14 @@ export default function ContentSlideBuilderForm() {
     if (!config.knowledge.courseName.trim()) return false;
     if (!contentSlideCount) return false;
     return lineup.every((item) => {
-      if (isContentSlide(item)) return Boolean(item.imageFile);
+      if (isContentSlide(item)) return Boolean(item.imageFile) || Boolean(sourcePptx);
       if (isVideo(item)) return Boolean(item.videoFile);
       if (item.kind === "formative" && item.type === "hotspot") {
         return Boolean(item.hotspotImageFile && item.hotspot && item.hotspotTargetSet);
       }
       return true;
     });
-  }, [config.knowledge.courseName, contentSlideCount, lineup]);
+  }, [config.knowledge.courseName, contentSlideCount, lineup, sourcePptx]);
 
   function updateLineup(updater: (current: LineupDraftItem[]) => LineupDraftItem[]) {
     setLineup((current) => updater(current));
@@ -394,14 +394,12 @@ export default function ContentSlideBuilderForm() {
     setImportProgress("Reading PowerPoint…");
     setError("");
     try {
-      const imported = await prepareContentSlidesFromPptx(file, setImportProgress);
+      const imported = await prepareContentSlidesFromPptxNotesOnly(file, setImportProgress);
       const contentSlides: ContentSlideDraft[] = imported.map((slide) => ({
         kind: "content",
         id: createLineupId("content"),
         title: slide.title,
         teachingContent: slide.teachingContent,
-        imageFile: slide.imageFile,
-        previewUrl: slide.previewUrl,
       }));
 
       applyImportedContentSlides(contentSlides, file, false);
@@ -817,14 +815,14 @@ export default function ContentSlideBuilderForm() {
             to pictures on the server and pull speaker notes for the AI instructor.
           </p>
           <p className="mt-2">
-            <strong>Or do it yourself:</strong> export slide pictures as a ZIP and attach the
-            PowerPoint for notes — best when you want pixel-perfect control over each image.
+            <strong>Upload your PowerPoint.</strong> Slides play with transitions, animations, and
+            embedded video. Speaker notes become the AI teaching script.
           </p>
         </div>
 
         <BuilderField
           label="Upload PowerPoint (.pptx)"
-          hint="Recommended. We render slide pictures on the server and import speaker notes automatically."
+          hint="Upload your deck once. Slides play with transitions, animations, and embedded video. Speaker notes become the AI teaching script."
         >
           <div className="rounded-2xl border border-dashed border-[#10283f]/20 bg-white px-5 py-5 text-center">
             <UploadCloud className="mx-auto text-[#a06e16]" size={24} />

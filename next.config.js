@@ -10,6 +10,7 @@ const nextConfig = {
   turbopack: {
     root: __dirname,
   },
+  transpilePackages: ["pptx-react-viewer"],
   async headers() {
     return [
       {

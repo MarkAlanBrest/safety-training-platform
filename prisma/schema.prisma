@@ -7,27 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-model CourseRecords {
-  id         Int       @id @default(autoincrement())
-  FirstName  String
-  LastName   String
-  Email      String
-  CourseName String
-  Code       String    @unique
-  StartDate  DateTime
-  EndDate    DateTime?
-  Test1      Int
-  Test2      Int
-  Test3      Int
-  Test4      Int
-  Test5      Int
-  Test6      Int
-  Test7      Int
-  Test8      Int
-  Progress   Int
-  SlidesPath String?
-}
-
 model MasonCourse {
   id               Int                @id @default(autoincrement())
   title            String

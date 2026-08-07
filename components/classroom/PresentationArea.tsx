@@ -7,7 +7,9 @@ import ClassroomDragOrder from "@/components/classroom/ClassroomDragOrder";
 import ClassroomFlashcards from "@/components/classroom/ClassroomFlashcards";
 import ClassroomHotspotQuestion from "@/components/classroom/ClassroomHotspotQuestion";
 import ClassroomVideoSlide from "@/components/classroom/ClassroomVideoSlide";
-import PptxSlideViewer from "@/components/classroom/PptxSlideViewer";
+import type { ClassroomFinalTest } from "@/lib/classroom-question-types";
+import ClassroomFinalTestRunner from "@/components/classroom/ClassroomFinalTestRunner";
+import ClassroomPptxPlayer from "@/components/classroom/ClassroomPptxPlayerLazy";
 import SlideImageStage from "@/components/classroom/SlideImageStage";
 import SlideStageTransition from "@/components/classroom/SlideStageTransition";
 
@@ -18,6 +20,10 @@ export default function PresentationArea({
   onToggleBreak,
   paused = false,
   onActivityComplete,
+  courseSlug,
+  finalTest,
+  finalTestActive = false,
+  onFinalTestComplete,
 }: {
   plan: ClassroomPlan;
   view: PresentationView;
@@ -25,6 +31,10 @@ export default function PresentationArea({
   onToggleBreak: () => void;
   paused?: boolean;
   onActivityComplete?: () => void;
+  courseSlug?: string;
+  finalTest?: ClassroomFinalTest;
+  finalTestActive?: boolean;
+  onFinalTestComplete?: () => void;
 }) {
   const safeView: PresentationView =
     view?.type === "welcome"
@@ -132,15 +142,22 @@ export default function PresentationArea({
               </p>
               </div>
             </div>
+          ) : finalTestActive && finalTest && courseSlug ? (
+            <ClassroomFinalTestRunner
+              courseSlug={courseSlug}
+              finalTest={finalTest}
+              embedded
+              onExit={() => onFinalTestComplete?.()}
+            />
+          ) : safeView.type === "slide" && deckContext ? (
+            <ClassroomPptxPlayer
+              deckUrl={deckContext.deckUrl}
+              slideIndex={deckContext.localSlideIndex}
+              title={slide?.title || plan.title}
+            />
           ) : safeView.type === "slide" && slideImage ? (
             <SlideImageStage
               imageUrl={slideImage}
-              title={slide?.title || plan.title}
-            />
-          ) : safeView.type === "slide" && deckContext ? (
-            <PptxSlideViewer
-              deckUrl={deckContext.deckUrl}
-              slideIndex={deckContext.localSlideIndex}
               title={slide?.title || plan.title}
             />
           ) : safeView.type === "slide" ? (

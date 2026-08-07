@@ -14,7 +14,6 @@ import {
   presentationForBeat,
 } from "@/lib/classroom-lesson";
 import ClassroomTopBar from "@/components/classroom/ClassroomTopBar";
-import ClassroomFinalTestRunner from "@/components/classroom/ClassroomFinalTestRunner";
 import PresentationArea from "@/components/classroom/PresentationArea";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
 
@@ -627,6 +626,12 @@ export default function ClassroomShell({
       : undefined;
 
   const currentBeat = lessonBeats[beatIndex];
+  const finalTestActive =
+    currentBeat?.kind === "finalTest" && Boolean(plan.finalTest) && !finalTestCompleted;
+
+  useEffect(() => {
+    if (finalTestActive) cancelSpeech();
+  }, [finalTestActive]);
 
   // Auto-pace the class like a teacher advancing slides — no manual Continue
   // click required. Only pauses when the AI is waiting on a student answer,
@@ -690,25 +695,6 @@ export default function ClassroomShell({
     );
   }
 
-  if (currentBeat?.kind === "finalTest" && plan.finalTest && !finalTestCompleted) {
-    return (
-      <main className="flex h-screen flex-col overflow-hidden bg-white text-slate-900">
-        <ClassroomFinalTestRunner
-          courseSlug={course.slug}
-          finalTest={plan.finalTest}
-          onExit={() => {
-            setFinalTestCompleted(true);
-            setPresentation({
-              type: "welcome",
-              headline: "Course complete",
-              body: "Great work finishing the final test. You can review any slide from the navigation bar above.",
-            });
-          }}
-        />
-      </main>
-    );
-  }
-
   return (
     <main className="flex h-screen flex-col overflow-hidden bg-white text-slate-900">
       <ClassroomTopBar
@@ -726,6 +712,17 @@ export default function ClassroomShell({
           activeSlideIndex={currentSlideIndex}
           onToggleBreak={toggleBreak}
           paused={paused}
+          courseSlug={course.slug}
+          finalTest={plan.finalTest}
+          finalTestActive={finalTestActive}
+          onFinalTestComplete={() => {
+            setFinalTestCompleted(true);
+            setPresentation({
+              type: "welcome",
+              headline: "Course complete",
+              body: "Great work finishing the final test. You can review any slide from the navigation bar above.",
+            });
+          }}
           onActivityComplete={() =>
             void (presentation.type === "video"
               ? handleContinue()
@@ -733,22 +730,35 @@ export default function ClassroomShell({
           }
         />
 
-        <TeacherChat
-          messages={messages}
-          thinking={thinking}
-          checkQuestion={checkQuestion}
-          onSelectOption={(option) => void handleSend(option)}
-          needsAudioUnlock={needsAudioUnlock}
-          speechToTextEnabled={builderConfig?.settings.speechText ?? true}
-          awaitingInput={awaitingInput}
-          inputPrompt={inputPrompt}
-          onSend={handleSend}
-          onSpeak={speak}
-          onInteract={unlockAudio}
-          onForward={() => void handleContinue()}
-          onBack={() => void handleGoBack()}
-          canGoBack={canGoBack}
-        />
+        {finalTestActive ? (
+          <aside className="hidden border-l border-slate-200 bg-slate-50 px-6 py-8 lg:flex lg:flex-col lg:justify-center">
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-amber-700">
+              Final test
+            </p>
+            <h2 className="mt-3 text-2xl font-bold text-slate-900">Complete the test on the left</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Your instructor is paused while you finish the final assessment. Use the main
+              screen to answer each question.
+            </p>
+          </aside>
+        ) : (
+          <TeacherChat
+            messages={messages}
+            thinking={thinking}
+            checkQuestion={checkQuestion}
+            onSelectOption={(option) => void handleSend(option)}
+            needsAudioUnlock={needsAudioUnlock}
+            speechToTextEnabled={builderConfig?.settings.speechText ?? true}
+            awaitingInput={awaitingInput}
+            inputPrompt={inputPrompt}
+            onSend={handleSend}
+            onSpeak={speak}
+            onInteract={unlockAudio}
+            onForward={() => void handleContinue()}
+            onBack={() => void handleGoBack()}
+            canGoBack={canGoBack}
+          />
+        )}
       </div>
     </main>
   );
