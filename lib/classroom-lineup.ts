@@ -299,7 +299,7 @@ export function buildLessonBeatsFromLineup(
   lineup: LessonLineupItem[],
   options?: { hasAssessment?: boolean; hasFinalTest?: boolean },
 ): ClassroomLessonBeat[] {
-  const beats: ClassroomLessonBeat[] = [{ kind: "welcome" }];
+  const beats: ClassroomLessonBeat[] = [];
   let slideIndex = 0;
 
   for (const item of lineup) {

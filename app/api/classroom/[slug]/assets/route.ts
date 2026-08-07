@@ -22,7 +22,7 @@ export async function POST(
     where: { slug },
     select: {
       id: true,
-      sections: { select: { position: true, lessonPlan: true } },
+      sections: { select: { position: true } },
     },
   });
   if (!course) return Response.json({ error: "Course not found." }, { status: 404 });
@@ -34,14 +34,12 @@ export async function POST(
     }
 
     const requiredPaths = course.sections.flatMap((section) => {
-      const plan = section.lessonPlan as { slides?: unknown[] };
       const base = section.position <= 1
         ? "classroom"
         : `classroom/chapters/${section.position}`;
-      return [
-        `${base}/deck.pptx`,
-        ...Array.from({ length: plan.slides?.length || 0 }, (_, index) => `${base}/slides/${index}`),
-      ];
+      // The original deck is the source of truth. Slide images are optional caches
+      // generated on demand for AI vision and fallback rendering.
+      return [`${base}/deck.pptx`];
     });
     const storedAssets = await prisma.scormAsset.findMany({
       where: { courseId: course.id, path: { in: requiredPaths } },

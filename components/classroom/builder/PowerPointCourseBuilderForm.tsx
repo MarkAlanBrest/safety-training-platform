@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useState } from "react";
+import { useState } from "react";
 import { Eye, LoaderCircle, UploadCloud } from "lucide-react";
 import { BuilderField, BuilderInput, BuilderSection } from "@/components/classroom/builder/BuilderSection";
 import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
@@ -62,8 +62,7 @@ export default function PowerPointCourseBuilderForm() {
     }
   }
 
-  async function submit(event: FormEvent, mode: SubmitMode) {
-    event.preventDefault();
+  async function submit(mode: SubmitMode) {
     const title = courseName.trim();
     if (!title || !file || !slides.length) {
       setError("Enter a course name and choose a PowerPoint before continuing.");
@@ -198,7 +197,7 @@ export default function PowerPointCourseBuilderForm() {
         <button
           type="button"
           disabled={submitting || preparing || !courseName.trim() || !slides.length}
-          onClick={(event) => void submit(event, "draft")}
+          onClick={() => void submit("draft")}
           className="rounded-full border border-[#10283f]/15 px-5 py-3 text-sm font-semibold text-[#10283f] disabled:opacity-40"
         >
           Save draft
@@ -206,7 +205,7 @@ export default function PowerPointCourseBuilderForm() {
         <button
           type="button"
           disabled={submitting || preparing || !courseName.trim() || !slides.length}
-          onClick={(event) => void submit(event, "publish")}
+          onClick={() => void submit("publish")}
           className="rounded-full bg-[#10283f] px-6 py-3 text-sm font-semibold text-white disabled:opacity-40"
         >
           {submitting ? "Creating course…" : "Create and publish"}

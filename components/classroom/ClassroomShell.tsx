@@ -96,7 +96,9 @@ export default function ClassroomShell({
   }, [builderConfig]);
 
   const lessonBeats = useMemo(
-    () => plan.lessonBeats || buildLessonBeats(plan),
+    // Ignore the generated welcome beat in older saved plans. The PowerPoint now
+    // supplies the complete course, including any opening slide the author wants.
+    () => (plan.lessonBeats || buildLessonBeats(plan)).filter((beat) => beat.kind !== "welcome"),
     [plan],
   );
 
@@ -112,14 +114,10 @@ export default function ClassroomShell({
   const [expectsResponse, setExpectsResponse] = useState(false);
   const [checkQuestion, setCheckQuestion] = useState<ClassroomCheckQuestion | null>(null);
   const [finalTestCompleted, setFinalTestCompleted] = useState(false);
-  const [classStarted, setClassStarted] = useState(false);
-  const [nameDraft, setNameDraft] = useState("");
-  const [studentName, setStudentName] = useState("");
   const [streak, setStreak] = useState<AnswerStreak>({ correctInRow: 0, incorrectInRow: 0 });
   const [presentation, setPresentation] = useState<PresentationView>({
-    type: "welcome",
-    headline: plan.title,
-    body: plan.opening,
+    type: "slide",
+    slideIndex: 0,
   });
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
@@ -154,15 +152,6 @@ export default function ClassroomShell({
     }
   }, []);
 
-  function handleStartClass() {
-    if (startedRef.current) return;
-    startedRef.current = true;
-    setStudentName(nameDraft.trim());
-    setClassStarted(true);
-    unlockAudio();
-    void beginClass();
-  }
-
   useEffect(() => {
     return () => {
       chatAbortRef.current?.abort();
@@ -173,6 +162,14 @@ export default function ClassroomShell({
       }
       window.speechSynthesis.cancel();
     };
+  }, []);
+
+  useEffect(() => {
+    if (startedRef.current || !lessonBeats.length) return;
+    startedRef.current = true;
+    void beginClass();
+    // Begin once when the course opens; slide navigation handles later turns.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function cancelSpeech() {
@@ -462,7 +459,7 @@ export default function ClassroomShell({
           presentation: options?.presentation ?? presentation,
           messages: nextMessages,
           includeImage: options?.includeImage ?? true,
-          studentName,
+          studentName: "",
           taughtSlideIndices,
           streak,
         }),
@@ -518,18 +515,41 @@ export default function ClassroomShell({
   }
 
   async function beginClass() {
-    const welcomeView: PresentationView = {
-      type: "welcome",
-      headline: plan.title,
-      body: plan.opening,
-    };
-    setPresentation(welcomeView);
-    setExpectsResponse(false);
+    const firstBeat = lessonBeats[0];
+    if (!firstBeat) return;
 
-    // Read exactly what is presented on the welcome screen — no AI improvisation.
-    const welcomeText = plan.opening;
-    setMessages([{ role: "assistant", content: welcomeText }]);
-    speakNatural(welcomeText);
+    const firstView = presentationForBeat(plan, firstBeat, assessmentQuestionIndex);
+    const firstSlideIndex =
+      firstBeat.kind === "slide"
+        ? firstBeat.slideIndex
+        : firstView.type === "slide"
+          ? firstView.slideIndex
+          : 0;
+
+    setBeatIndex(0);
+    setPresentation(firstView);
+    setCurrentSlideIndex(firstSlideIndex);
+    setExpectsResponse(false);
+    setCheckQuestion(null);
+    if (firstBeat.kind === "slide") markSlideTaught(firstBeat.slideIndex);
+
+    const next: TeacherMessage[] = [
+      {
+        role: "user",
+        hidden: true,
+        content: "Begin with the first PowerPoint slide and follow its speaker notes.",
+      },
+    ];
+    setMessages(next);
+    await sendToTeacher(next, {
+      presentation: firstView,
+      slideIndex: firstSlideIndex,
+      beatIndex: 0,
+      includeImage:
+        firstBeat.kind === "slide" &&
+        (!plan.slides[firstBeat.slideIndex]?.speakerNotes?.trim() ||
+          speakerNotesRequestVisualInspection(plan.slides[firstBeat.slideIndex]?.speakerNotes)),
+    });
   }
 
   async function handleContinue() {
@@ -665,40 +685,6 @@ export default function ClassroomShell({
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paused, thinking, speaking, expectsResponse, checkQuestion, beatIndex, messages.length, currentBeat]);
-
-  if (!classStarted) {
-    return (
-      <main className="flex h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-[#0f2b46] to-[#163a5d] px-6 text-white">
-        <div className="w-full max-w-md rounded-3xl bg-white/10 p-8 backdrop-blur">
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-amber-200">
-            {plan.title}
-          </p>
-          <h2 className="mt-3 text-2xl font-bold">Before we begin — what&apos;s your name?</h2>
-          <p className="mt-2 text-sm text-slate-200">
-            So your instructor can address you directly during class. Optional — you can
-            leave this blank.
-          </p>
-          <input
-            value={nameDraft}
-            onChange={(event) => setNameDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") handleStartClass();
-            }}
-            placeholder="Your first name"
-            className="mt-6 w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white placeholder:text-slate-300 outline-none"
-            autoFocus
-          />
-          <button
-            type="button"
-            onClick={handleStartClass}
-            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 px-5 py-3 text-sm font-bold text-[#10283f]"
-          >
-            Start class
-          </button>
-        </div>
-      </main>
-    );
-  }
 
   return (
     <main className="flex h-screen flex-col overflow-hidden bg-white text-slate-900">

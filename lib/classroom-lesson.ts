@@ -274,7 +274,7 @@ export function buildLessonBeats(plan: ClassroomPlan): ClassroomLessonBeat[] {
     checkpoints.map((checkpoint) => [checkpoint.slideIndex, checkpoint]),
   );
 
-  const beats: ClassroomLessonBeat[] = [{ kind: "welcome" }];
+  const beats: ClassroomLessonBeat[] = [];
   plan.slides.forEach((slide, index) => {
     beats.push({ kind: "slide", slideIndex: index });
     const shouldCheckpoint =
