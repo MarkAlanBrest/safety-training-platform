@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import {
   isCourseIntensity,
   isCourseTheme,
@@ -90,6 +91,8 @@ export async function PATCH(
     const accentColor = String(body.accentColor || "").trim();
     const logoData = String(body.logoData || "").trim();
     const displayMode = String(body.displayMode || "webpage");
+    const classroomVoiceProvider = String(body.classroomVoiceProvider || "");
+    const classroomVoice = String(body.classroomVoice || "").trim();
 
     if (!title || !isCourseTheme(theme) || !isCourseIntensity(intensity)) {
       return Response.json(
@@ -139,6 +142,49 @@ export async function PATCH(
         published: Boolean(body.published),
       },
     });
+
+    if (
+      course.courseType === "classroom" &&
+      ["browser", "premium"].includes(classroomVoiceProvider) &&
+      /^[a-z0-9_-]{1,40}$/i.test(classroomVoice)
+    ) {
+      const sections = await prisma.masonSection.findMany({
+        where: { courseId: course.id },
+        select: { id: true, lessonPlan: true },
+      });
+      await prisma.$transaction(
+        sections.flatMap((section) => {
+          if (!section.lessonPlan || typeof section.lessonPlan !== "object" || Array.isArray(section.lessonPlan)) {
+            return [];
+          }
+          const plan = section.lessonPlan as Record<string, unknown>;
+          const config = plan.config && typeof plan.config === "object" && !Array.isArray(plan.config)
+            ? (plan.config as Record<string, unknown>)
+            : {};
+          const teaching = config.teaching && typeof config.teaching === "object" && !Array.isArray(config.teaching)
+            ? (config.teaching as Record<string, unknown>)
+            : {};
+          return [
+            prisma.masonSection.update({
+              where: { id: section.id },
+              data: {
+                lessonPlan: {
+                  ...plan,
+                  config: {
+                    ...config,
+                    teaching: {
+                      ...teaching,
+                      voiceProvider: classroomVoiceProvider,
+                      voice: classroomVoice,
+                    },
+                  },
+                } as Prisma.InputJsonValue,
+              },
+            }),
+          ];
+        }),
+      );
+    }
 
     return Response.json(course);
   } catch (error) {

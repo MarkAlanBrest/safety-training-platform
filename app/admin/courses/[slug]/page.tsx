@@ -15,6 +15,7 @@ import {
   LoaderCircle,
   ImagePlus,
   PackageCheck,
+  Presentation,
   Plus,
   RefreshCw,
   Save,
@@ -27,6 +28,10 @@ import AdminShell from "@/components/AdminShell";
 import { courseIntensities, courseThemes } from "@/lib/course-options";
 import { learnerCoursePath } from "@/lib/course-routes";
 import { parseJsonResponse } from "@/lib/parse-response";
+import {
+  VOICE_OPTIONS,
+  VOICE_PROVIDER_OPTIONS,
+} from "@/lib/classroom-builder";
 
 type Section = {
   id: number;
@@ -34,7 +39,18 @@ type Section = {
   position: number;
   estimatedMinutes: number;
   fileName: string;
-  lessonPlan: { objectives?: string[]; moments?: unknown[] };
+  lessonPlan: {
+    objectives?: string[];
+    moments?: unknown[];
+    slides?: unknown[];
+    finalTest?: {
+      config?: { enabled?: boolean; questionCount?: number };
+      questionBank?: unknown[];
+    };
+    config?: {
+      teaching?: { voiceProvider?: "browser" | "premium"; voice?: string; voiceSpeed?: number };
+    };
+  };
 };
 
 type EnrollmentCode = {
@@ -166,6 +182,8 @@ export default function CourseEditorPage() {
         displayMode: form.get("displayMode"),
         intensity: form.get("intensity"),
         published: form.get("published") === "on",
+        classroomVoiceProvider: form.get("classroomVoiceProvider"),
+        classroomVoice: form.get("classroomVoice"),
       }),
     });
     const data = await response.json();
@@ -435,7 +453,87 @@ export default function CourseEditorPage() {
         </div>
       )}
 
-      {tab === "content" && (course.courseType === "scorm" ? (
+      {tab === "content" && (course.courseType === "classroom" ? (
+        <section>
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">
+                PowerPoint course
+              </p>
+              <h2 className="mt-1 font-serif text-3xl font-semibold text-[#10283f]">
+                Chapters
+              </h2>
+              <p className="mt-2 text-sm text-[#69757e]">
+                Each chapter is one PowerPoint deck. Learners navigate its slides in the Microsoft viewer.
+              </p>
+            </div>
+            <a
+              href={`${learnerCoursePath(course.slug, course.courseType)}?preview=${encodeURIComponent(course.updatedAt)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl bg-[#10283f] px-4 py-2.5 text-sm font-bold text-white"
+            >
+              Preview course
+            </a>
+          </div>
+
+          <div className="space-y-4">
+            {course.sections.map((section, index) => {
+              const questionCount = section.lessonPlan.finalTest?.questionBank?.length || 0;
+              const testEnabled = Boolean(section.lessonPlan.finalTest?.config?.enabled && questionCount);
+              return (
+                <article
+                  key={section.id}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => void reorderSections(section.id)}
+                  className="grid gap-4 rounded-2xl border border-[#10283f]/10 bg-white p-5 shadow-sm sm:grid-cols-[56px_1fr_auto] sm:items-center"
+                >
+                  <div
+                    draggable
+                    onDragStart={(event: DragEvent<HTMLDivElement>) => {
+                      setDraggedSectionId(section.id);
+                      event.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragEnd={() => setDraggedSectionId(null)}
+                    className="grid h-12 w-12 cursor-grab place-items-center rounded-2xl bg-[#10283f] text-white active:cursor-grabbing"
+                    title="Drag to reorder chapter"
+                  >
+                    <GripVertical size={19} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[.14em] text-[#a06e16]">Chapter {index + 1}</p>
+                    <h3 className="mt-1 font-bold text-[#10283f]">{section.title}</h3>
+                    <p className="mt-1 text-xs text-[#7b858c]">{section.fileName}</p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+                        {section.lessonPlan.slides?.length || 0} slides
+                      </span>
+                      <span className={`rounded-full px-3 py-1 ${testEnabled ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
+                        {testEnabled ? `${questionCount} test questions` : "No chapter test"}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => deleteSection(section)}
+                    disabled={deletingSectionId !== null || course.sections.length === 1}
+                    className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 disabled:cursor-not-allowed disabled:opacity-35"
+                    title={course.sections.length === 1 ? "A course must keep at least one chapter" : "Delete chapter"}
+                  >
+                    {deletingSectionId === section.id ? <LoaderCircle className="animate-spin" size={14} /> : <Trash2 size={14} />}
+                    Delete chapter
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900">
+            <Presentation className="mb-2 text-amber-700" size={22} />
+            To replace a PowerPoint or add another chapter, use the PowerPoint source workflow. Course settings below control the AI voice and publishing.
+          </div>
+        </section>
+      ) : course.courseType === "scorm" ? (
         <section className="rounded-3xl border border-[#10283f]/10 bg-white p-10 text-center shadow-sm">
           <PackageCheck className="mx-auto text-[#c68b1b]" size={46} />
           <p className="mt-5 text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">Imported package</p>
@@ -617,7 +715,104 @@ export default function CourseEditorPage() {
         </div>
       ))}
 
-      {tab === "settings" && (
+      {tab === "settings" && (course.courseType === "classroom" ? (
+        <form onSubmit={saveSettings} className="grid gap-7 xl:grid-cols-[1fr_.8fr]">
+          <section className="space-y-6 rounded-3xl border border-[#10283f]/10 bg-white p-7">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">AI course settings</p>
+              <h2 className="mt-2 font-serif text-2xl font-semibold text-[#10283f]">Course and instructor</h2>
+              <p className="mt-2 text-sm leading-6 text-[#69757e]">
+                The PowerPoints supply all visual content. These settings control the course name and AI voice.
+              </p>
+            </div>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-bold">Course name</span>
+              <input name="title" required defaultValue={course.title} className="w-full rounded-xl border border-[#10283f]/15 px-4 py-3" />
+            </label>
+
+            <div>
+              <p className="mb-3 text-sm font-bold">Voice quality</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {VOICE_PROVIDER_OPTIONS.map((option) => (
+                  <label key={option.id} className="cursor-pointer">
+                    <input
+                      type="radio"
+                      name="classroomVoiceProvider"
+                      value={option.id}
+                      defaultChecked={(course.sections[0]?.lessonPlan.config?.teaching?.voiceProvider || "premium") === option.id}
+                      className="peer sr-only"
+                    />
+                    <span className="block h-full rounded-2xl border border-[#10283f]/10 p-4 peer-checked:border-[#c68b1b] peer-checked:bg-[#fff9eb] peer-checked:ring-2 peer-checked:ring-[#e8c273]/25">
+                      <span className="font-bold text-[#10283f]">{option.label}</span>
+                      <span className="mt-2 block text-xs leading-5 text-[#69757e]">{option.description}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-bold">AI voice</span>
+              <select
+                name="classroomVoice"
+                defaultValue={course.sections[0]?.lessonPlan.config?.teaching?.voice || "cedar"}
+                className="w-full rounded-xl border border-[#10283f]/15 bg-white px-4 py-3"
+              >
+                {VOICE_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>{option.label}</option>
+                ))}
+              </select>
+              <span className="mt-2 block text-xs leading-5 text-[#69757e]">
+                The browser chooses its own installed voice when free browser narration is selected.
+              </span>
+            </label>
+
+            <input type="hidden" name="description" value="" />
+            <input type="hidden" name="audience" value="" />
+            <input type="hidden" name="estimatedMinutes" value={course.estimatedMinutes} />
+            <input type="hidden" name="theme" value={course.theme} />
+            <input type="hidden" name="companyName" value={course.companyName || ""} />
+            <input type="hidden" name="logoData" value={course.logoData || ""} />
+            <input type="hidden" name="accentColor" value={course.accentColor || ""} />
+            <input type="hidden" name="displayMode" value={course.displayMode} />
+            <input type="hidden" name="intensity" value={course.intensity} />
+          </section>
+
+          <aside className="space-y-6">
+            <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6">
+              <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">Course summary</p>
+              <dl className="mt-4 space-y-3 text-sm">
+                <div className="flex justify-between gap-4"><dt className="text-[#69757e]">Chapters</dt><dd className="font-bold text-[#10283f]">{course.sections.length}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-[#69757e]">Slides</dt><dd className="font-bold text-[#10283f]">{course.sections.reduce((total, section) => total + (section.lessonPlan.slides?.length || 0), 0)}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-[#69757e]">Chapter tests</dt><dd className="font-bold text-[#10283f]">{course.sections.filter((section) => section.lessonPlan.finalTest?.config?.enabled).length}</dd></div>
+              </dl>
+            </section>
+
+            <label className="flex items-start gap-3 rounded-2xl border border-[#10283f]/10 bg-white p-5">
+              <input name="published" type="checkbox" defaultChecked={course.published} disabled={!course.sections.length} className="mt-1 h-4 w-4" />
+              <span>
+                <span className="block font-bold text-[#10283f]">Published and available for enrollment</span>
+                <span className="mt-1 block text-xs leading-5 text-[#6c7881]">Learners with valid enrollment codes can take this AI-led PowerPoint course.</span>
+              </span>
+            </label>
+
+            <button disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#10283f] px-5 py-4 font-bold text-white">
+              {busy ? <LoaderCircle className="animate-spin" size={18} /> : <Save size={18} />}
+              Save AI course settings
+            </button>
+
+            <section className="rounded-3xl border border-red-200 bg-red-50 p-6">
+              <p className="text-xs font-black uppercase tracking-[.17em] text-red-700">Danger zone</p>
+              <p className="mt-2 text-sm leading-6 text-red-900/75">Permanently remove this course, its PowerPoints, enrollment codes, and learner records.</p>
+              <button type="button" onClick={deleteCourse} disabled={busy} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-red-700 px-5 py-3 font-bold text-white disabled:opacity-60">
+                {busy ? <LoaderCircle className="animate-spin" size={18} /> : <Trash2 size={18} />}
+                Delete course
+              </button>
+            </section>
+          </aside>
+        </form>
+      ) : (
         <form onSubmit={saveSettings} className="grid gap-7 xl:grid-cols-[1fr_.8fr]">
           <section className="space-y-5 rounded-3xl border border-[#10283f]/10 bg-white p-7">
             <h2 className="font-serif text-2xl font-semibold text-[#10283f]">Program details</h2>
@@ -856,7 +1051,7 @@ export default function CourseEditorPage() {
             </section>
           </aside>
         </form>
-      )}
+      ))}
 
       {tab === "codes" && (
         <div className="grid gap-7 xl:grid-cols-[360px_1fr]">
