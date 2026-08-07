@@ -13,6 +13,8 @@ import {
   navLabelForBeat,
   presentationForBeat,
 } from "@/lib/classroom-lesson";
+import { isLineupPlan } from "@/lib/classroom-lineup";
+import { speechChunks } from "@/lib/classroom-teacher";
 import ClassroomTopBar from "@/components/classroom/ClassroomTopBar";
 import PresentationArea from "@/components/classroom/PresentationArea";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
@@ -101,6 +103,7 @@ export default function ClassroomShell({
     () => (plan.lessonBeats || buildLessonBeats(plan)).filter((beat) => beat.kind !== "welcome"),
     [plan],
   );
+  const lineupMode = useMemo(() => isLineupPlan(plan), [plan]);
 
   const [messages, setMessages] = useState<TeacherMessage[]>([]);
   const [thinking, setThinking] = useState(false);
@@ -130,6 +133,23 @@ export default function ClassroomShell({
   const turnRequestIdRef = useRef(0);
   const autoAdvanceCountRef = useRef(0);
   const speechGenerationRef = useRef(0);
+  const spokeScriptForTurnRef = useRef(false);
+
+  function teachingScriptForSlide(slideIndex: number) {
+    const notes = plan.slides[slideIndex]?.speakerNotes?.trim();
+    return notes || null;
+  }
+
+  function prefetchSpeech(text: string) {
+    if (!voiceSettings.enabled || voiceSettings.provider === "browser" || !text.trim()) return;
+    if (text.length > MAX_STREAMABLE_SPEECH_LENGTH) return;
+    const url = `/api/mason/speech?${new URLSearchParams({
+      text,
+      voice: voiceSettings.voice,
+      speed: String(voiceSettings.speed),
+    }).toString()}`;
+    void fetch(url).catch(() => undefined);
+  }
 
   function markSlideTaught(slideIndex: number) {
     setTaughtSlideIndices((current) =>
@@ -402,12 +422,34 @@ export default function ClassroomShell({
   }
 
   function speakNatural(text: string) {
-    // Speak the whole reply as one clip so nothing gets cut off — chunked
-    // playback dropped parts of the narration when autoplay was blocked.
-    void speak(text);
+    const chunks = speechChunks(text);
+    if (chunks.length <= 1) {
+      void speak(text);
+      return;
+    }
+
+    const generation = speechGenerationRef.current;
+    void (async () => {
+      for (const chunk of chunks) {
+        if (generation !== speechGenerationRef.current) return;
+        await speak(chunk);
+      }
+    })();
   }
 
   function applyTeacherPresentation(view: PresentationView) {
+    if (lineupMode && view.type === "slide") {
+      // The client already advanced to the correct beat/slide before the AI
+      // request finished. Re-applying the model's slide index can cause a second
+      // jump and desync narration from what is on screen.
+      setPresentation((current) =>
+        current.type === "slide"
+          ? { ...view, slideIndex: current.slideIndex }
+          : view,
+      );
+      return;
+    }
+
     setPresentation(view);
     if (view.type === "slide") {
       setCurrentSlideIndex(view.slideIndex);
@@ -497,7 +539,19 @@ export default function ClassroomShell({
           data.presentation?.type === "exercise" ||
           data.presentation?.type === "assessment");
       setExpectsResponse(Boolean(needsResponse));
-      speakNatural(speechTextForTurn(reply, nextCheckQuestion));
+
+      const speechText = speechTextForTurn(reply, nextCheckQuestion);
+      const shouldSpeakResponse =
+        Boolean(nextCheckQuestion) ||
+        typeof data.lastAnswerCorrect === "boolean" ||
+        Boolean(needsResponse) ||
+        !spokeScriptForTurnRef.current;
+      spokeScriptForTurnRef.current = false;
+      if (shouldSpeakResponse) {
+        speakNatural(speechText);
+      } else {
+        prefetchSpeech(speechText);
+      }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       const message =
@@ -541,6 +595,12 @@ export default function ClassroomShell({
       },
     ];
     setMessages(next);
+    const script = teachingScriptForSlide(firstSlideIndex);
+    spokeScriptForTurnRef.current = lineupMode && Boolean(script);
+    if (lineupMode && script) {
+      prefetchSpeech(script);
+      speakNatural(script);
+    }
     await sendToTeacher(next, {
       presentation: firstView,
       slideIndex: firstSlideIndex,
@@ -618,6 +678,13 @@ export default function ClassroomShell({
       },
     ];
     setMessages(next);
+    const script =
+      beat.kind === "slide" ? teachingScriptForSlide(beat.slideIndex) : null;
+    spokeScriptForTurnRef.current = lineupMode && Boolean(script);
+    if (lineupMode && script) {
+      prefetchSpeech(script);
+      speakNatural(script);
+    }
     await sendToTeacher(next, {
       presentation: view,
       slideIndex: nextSlideIndex,
@@ -693,7 +760,7 @@ export default function ClassroomShell({
     const timer = setTimeout(() => {
       autoAdvanceCountRef.current += 1;
       void handleContinue();
-    }, 250);
+    }, 100);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paused, thinking, speaking, expectsResponse, checkQuestion, beatIndex, messages.length, currentBeat]);

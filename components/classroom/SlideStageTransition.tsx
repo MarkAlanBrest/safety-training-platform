@@ -36,7 +36,7 @@ export default function SlideStageTransition({
   return (
     <div
       className={`h-full w-full ${
-        instant ? "" : "transition-all duration-500 ease-out"
+        instant ? "" : "transition-all duration-200 ease-out"
       } ${visible ? VISIBLE_CLASSES : HIDDEN_CLASSES[transition] || HIDDEN_CLASSES.fade}`}
     >
       {children}

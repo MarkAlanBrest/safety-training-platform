@@ -283,12 +283,26 @@ const classroomTeacherTurnSchema = {
   },
 } as const;
 
+const planCache = new Map<string, { plan: ClassroomPlan; expiresAt: number }>();
+const PLAN_CACHE_TTL_MS = 60_000;
+
 async function resolvePlan(
   courseSlug: string,
   sectionId?: number,
 ): Promise<ClassroomPlan | null> {
+  const cacheKey = `${courseSlug}:${sectionId ?? "all"}`;
+  const cached = planCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.plan;
+  }
+
   const staticPlan = classroomPlanForSlug(courseSlug);
-  if (staticPlan) return staticPlan;
+  if (staticPlan) {
+    planCache.set(cacheKey, { plan: staticPlan, expiresAt: Date.now() + PLAN_CACHE_TTL_MS });
+    return staticPlan;
+  }
+
+  let resolved: ClassroomPlan | null = null;
 
   if (!Number.isInteger(sectionId)) {
     const course = await prisma.masonCourse.findUnique({
@@ -316,14 +330,19 @@ async function resolvePlan(
       globalIndexOffset += plan.slides.length;
       return [{ ...section, plan }];
     });
-    return sections.length ? classroomPlanFromSections(course.title, sections) : null;
+    resolved = sections.length ? classroomPlanFromSections(course.title, sections) : null;
+  } else {
+    const section = await prisma.masonSection.findUnique({
+      where: { id: sectionId },
+      select: { lessonPlan: true },
+    });
+    resolved = isClassroomPlan(section?.lessonPlan) ? section.lessonPlan : null;
   }
 
-  const section = await prisma.masonSection.findUnique({
-    where: { id: sectionId },
-    select: { lessonPlan: true },
-  });
-  return isClassroomPlan(section?.lessonPlan) ? section.lessonPlan : null;
+  if (resolved) {
+    planCache.set(cacheKey, { plan: resolved, expiresAt: Date.now() + PLAN_CACHE_TTL_MS });
+  }
+  return resolved;
 }
 
 function filterQuickReplies(_replies: string[] | undefined) {
