@@ -1,3 +1,5 @@
+import "server-only";
+
 import { prisma } from "@/lib/prisma";
 import { classroomChapterDeckAssetPath } from "@/lib/classroom-chapters";
 
