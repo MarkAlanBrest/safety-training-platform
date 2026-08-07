@@ -44,7 +44,7 @@ export default function AdminShell({
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#edf1f2] text-[#17202b]">
       <div className="flex min-h-screen">
-        <aside className="hidden w-64 shrink-0 flex-col bg-[#10283f] text-white lg:flex">
+        <aside className="hidden w-56 shrink-0 flex-col bg-[#10283f] text-white lg:flex xl:w-64">
           <div className="border-b border-white/10 px-6 py-7">
             <div className="flex items-center gap-3">
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f2b744] text-[#10283f]">
@@ -98,8 +98,8 @@ export default function AdminShell({
         </aside>
 
         <div className="min-w-0 flex-1">
-          <header className="border-b border-[#10283f]/10 bg-white">
-            <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-4 px-5 py-6 sm:px-8">
+          <header className="min-w-0 overflow-hidden border-b border-[#10283f]/10 bg-white">
+            <div className="mx-auto flex w-full min-w-0 max-w-[1500px] flex-wrap items-center justify-between gap-4 px-5 py-6 sm:px-8">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[.18em] text-[#a06e16]">
                   {eyebrow}
@@ -108,11 +108,11 @@ export default function AdminShell({
                   {title}
                 </h1>
               </div>
-              {actions && <div className="flex items-center gap-3">{actions}</div>}
+              {actions && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-3">{actions}</div>}
             </div>
           </header>
 
-          <main className="mx-auto min-w-0 max-w-[1500px] overflow-x-hidden px-5 py-8 sm:px-8">
+          <main className="mx-auto w-full min-w-0 max-w-[1500px] overflow-x-hidden px-5 py-8 sm:px-8 [&>*]:min-w-0 [&>*]:max-w-full">
             {children}
           </main>
         </div>

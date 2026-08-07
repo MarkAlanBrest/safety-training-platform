@@ -129,7 +129,7 @@ export default function CoursesPage() {
           </Link>
         </div>
       ) : (
-        <div className="grid gap-5 xl:grid-cols-2">
+        <div className="grid min-w-0 gap-5 2xl:grid-cols-2">
           {courses.map((course) => (
             <article
               key={course.id}

@@ -64,7 +64,7 @@ export default function AdminDashboardPage() {
         </div>
       ) : (
         <>
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="grid min-w-0 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
             {[
               [BookOpen, totals.programs, "Training programs", `${totals.published} published`],
               [KeyRound, totals.codes, "Codes available", "Ready to sell or assign"],
