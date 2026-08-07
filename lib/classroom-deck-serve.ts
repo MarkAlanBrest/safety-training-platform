@@ -55,7 +55,10 @@ export async function serveClassroomDeck({
   const headers = new Headers({
     "Content-Type": mimeType,
     "Content-Disposition": 'inline; filename="presentation.pptx"',
-    "Cache-Control": publicEmbed ? "public, max-age=3600" : "private, max-age=86400",
+    // Do not let a CDN cache one byte range and replay it for another. Office
+    // performs its own document caching and needs every Range response intact.
+    "Cache-Control": publicEmbed ? "no-store" : "private, max-age=86400",
+    "CDN-Cache-Control": publicEmbed ? "no-store" : "private, max-age=86400",
     "Access-Control-Allow-Origin": "*",
     "Accept-Ranges": "bytes",
     "X-Content-Type-Options": "nosniff",
@@ -63,8 +66,14 @@ export async function serveClassroomDeck({
 
   const range = rangeHeader?.match(/^bytes=(\d*)-(\d*)$/i);
   if (range) {
-    const requestedStart = range[1] ? Number(range[1]) : 0;
-    const requestedEnd = range[2] ? Number(range[2]) : content.byteLength - 1;
+    const suffixLength = !range[1] && range[2] ? Number(range[2]) : null;
+    const requestedStart = range[1]
+      ? Number(range[1])
+      : suffixLength !== null
+        ? Math.max(0, content.byteLength - suffixLength)
+        : 0;
+    const requestedEnd =
+      range[1] && range[2] ? Number(range[2]) : content.byteLength - 1;
     const start = Math.max(0, requestedStart);
     const end = Math.min(content.byteLength - 1, requestedEnd);
     if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start > end) {
