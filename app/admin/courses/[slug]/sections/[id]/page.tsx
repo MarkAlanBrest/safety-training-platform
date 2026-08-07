@@ -864,7 +864,7 @@ export default function SectionContentEditorPage() {
         </div>
       )}
 
-      <div className="grid min-w-0 gap-7 2xl:grid-cols-[minmax(0,1fr)_310px]">
+      <div className="grid gap-7 xl:grid-cols-[1fr_310px]">
         <div className="space-y-6">
           <section className="space-y-5 rounded-3xl border border-[#10283f]/10 bg-white p-6 sm:p-7">
             <div>
@@ -932,7 +932,7 @@ export default function SectionContentEditorPage() {
                 Teaching moments and activities
               </h2>
             </div>
-            <div className="mt-5 grid min-w-0 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {[
                 { kind: "text" as const, label: "Text page", detail: "Heading and rich teaching text", icon: FileText },
                 { kind: "tiles" as const, label: "Three tiles", detail: "Three ideas shown side by side", icon: LayoutGrid },

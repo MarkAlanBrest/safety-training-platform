@@ -408,7 +408,7 @@ export default function CourseEditorPage() {
         </a>
       }
     >
-      <div className="mb-7 flex max-w-full flex-wrap gap-2 overflow-hidden rounded-2xl bg-white p-2 shadow-sm ring-1 ring-[#10283f]/10">
+      <div className="mb-7 flex flex-wrap gap-2 rounded-2xl bg-white p-2 shadow-sm ring-1 ring-[#10283f]/10">
         {tabs.map((item) => {
           const Icon = item.icon;
           return (
@@ -454,7 +454,7 @@ export default function CourseEditorPage() {
       )}
 
       {tab === "content" && (course.courseType === "classroom" ? (
-        <section className="min-w-0">
+        <section>
           <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">
@@ -486,7 +486,7 @@ export default function CourseEditorPage() {
                   key={section.id}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={() => void reorderSections(section.id)}
-                  className="grid min-w-0 max-w-full gap-4 overflow-hidden rounded-2xl border border-[#10283f]/10 bg-white p-5 shadow-sm xl:grid-cols-[56px_minmax(0,1fr)_auto] xl:items-center"
+                  className="grid gap-4 rounded-2xl border border-[#10283f]/10 bg-white p-5 shadow-sm sm:grid-cols-[56px_1fr_auto] sm:items-center"
                 >
                   <div
                     draggable
@@ -500,10 +500,10 @@ export default function CourseEditorPage() {
                   >
                     <GripVertical size={19} />
                   </div>
-                  <div className="min-w-0">
+                  <div>
                     <p className="text-xs font-bold uppercase tracking-[.14em] text-[#a06e16]">Chapter {index + 1}</p>
                     <h3 className="mt-1 font-bold text-[#10283f]">{section.title}</h3>
-                    <p className="mt-1 truncate text-xs text-[#7b858c]" title={section.fileName}>{section.fileName}</p>
+                    <p className="mt-1 text-xs text-[#7b858c]">{section.fileName}</p>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
                         {section.lessonPlan.slides?.length || 0} slides
@@ -517,7 +517,7 @@ export default function CourseEditorPage() {
                     type="button"
                     onClick={() => deleteSection(section)}
                     disabled={deletingSectionId !== null || course.sections.length === 1}
-                    className="inline-flex max-w-full items-center justify-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 disabled:cursor-not-allowed disabled:opacity-35"
+                    className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 disabled:cursor-not-allowed disabled:opacity-35"
                     title={course.sections.length === 1 ? "A course must keep at least one chapter" : "Delete chapter"}
                   >
                     {deletingSectionId === section.id ? <LoaderCircle className="animate-spin" size={14} /> : <Trash2 size={14} />}
@@ -549,7 +549,7 @@ export default function CourseEditorPage() {
           <p className="mt-4 text-xs text-[#69757e]">Preview mode does not alter learner progress or issue a certificate.</p>
         </section>
       ) : (
-        <div className="grid min-w-0 gap-7 2xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="grid gap-7 xl:grid-cols-[1fr_380px]">
           <section>
             <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
               <div>
@@ -716,8 +716,8 @@ export default function CourseEditorPage() {
       ))}
 
       {tab === "settings" && (course.courseType === "classroom" ? (
-        <form onSubmit={saveSettings} className="grid min-w-0 max-w-full gap-7 2xl:grid-cols-[minmax(0,1fr)_minmax(320px,.8fr)]">
-          <section className="min-w-0 space-y-6 rounded-3xl border border-[#10283f]/10 bg-white p-7">
+        <form onSubmit={saveSettings} className="grid gap-7 xl:grid-cols-[1fr_.8fr]">
+          <section className="space-y-6 rounded-3xl border border-[#10283f]/10 bg-white p-7">
             <div>
               <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">AI course settings</p>
               <h2 className="mt-2 font-serif text-2xl font-semibold text-[#10283f]">Course and instructor</h2>
@@ -757,7 +757,7 @@ export default function CourseEditorPage() {
               <select
                 name="classroomVoice"
                 defaultValue={course.sections[0]?.lessonPlan.config?.teaching?.voice || "cedar"}
-                className="w-full min-w-0 max-w-full rounded-xl border border-[#10283f]/15 bg-white px-4 py-3"
+                className="w-full rounded-xl border border-[#10283f]/15 bg-white px-4 py-3"
               >
                 {VOICE_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>{option.label}</option>
@@ -779,7 +779,7 @@ export default function CourseEditorPage() {
             <input type="hidden" name="intensity" value={course.intensity} />
           </section>
 
-          <aside className="min-w-0 space-y-6">
+          <aside className="space-y-6">
             <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6">
               <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">Course summary</p>
               <dl className="mt-4 space-y-3 text-sm">
@@ -813,7 +813,7 @@ export default function CourseEditorPage() {
           </aside>
         </form>
       ) : (
-        <form onSubmit={saveSettings} className="grid min-w-0 max-w-full gap-7 2xl:grid-cols-[minmax(0,1fr)_minmax(0,.8fr)]">
+        <form onSubmit={saveSettings} className="grid gap-7 xl:grid-cols-[1fr_.8fr]">
           <section className="space-y-5 rounded-3xl border border-[#10283f]/10 bg-white p-7">
             <h2 className="font-serif text-2xl font-semibold text-[#10283f]">Program details</h2>
             <label className="block">
@@ -1054,7 +1054,7 @@ export default function CourseEditorPage() {
       ))}
 
       {tab === "codes" && (
-        <div className="grid min-w-0 max-w-full gap-7 2xl:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="grid gap-7 xl:grid-cols-[360px_1fr]">
           <form onSubmit={generateCodes} className="space-y-5 rounded-3xl bg-[#10283f] p-6 text-white shadow-xl">
             <div>
               <KeyRound className="text-[#f2c568]" size={28} />

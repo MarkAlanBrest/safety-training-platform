@@ -42,15 +42,15 @@ export default function AdminShell({
   }
 
   return (
-    <div className="admin-shell min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#edf1f2] text-[#17202b]">
+    <div className="min-h-screen bg-[#edf1f2] text-[#17202b]">
       <div className="flex min-h-screen">
-        <aside className="hidden w-20 shrink-0 flex-col bg-[#10283f] text-white lg:flex 2xl:w-64">
-          <div className="border-b border-white/10 px-4 py-7 2xl:px-6">
+        <aside className="hidden w-64 shrink-0 flex-col bg-[#10283f] text-white lg:flex">
+          <div className="border-b border-white/10 px-6 py-7">
             <div className="flex items-center gap-3">
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#f2b744] text-[#10283f]">
                 <ShieldCheck size={23} />
               </span>
-              <div className="hidden min-w-0 2xl:block">
+              <div>
                 <p className="font-serif text-xl font-semibold">Training Studio</p>
                 <p className="text-xs text-slate-400">Administration</p>
               </div>
@@ -68,7 +68,6 @@ export default function AdminShell({
                 <Link
                   key={item.href}
                   href={item.href}
-                  title={item.label}
                   className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${
                     active
                       ? "bg-white text-[#10283f]"
@@ -76,7 +75,7 @@ export default function AdminShell({
                   }`}
                 >
                   <Icon size={18} />
-                  <span className="hidden 2xl:inline">{item.label}</span>
+                  {item.label}
                 </Link>
               );
             })}
@@ -85,37 +84,35 @@ export default function AdminShell({
           <div className="space-y-2 border-t border-white/10 p-4">
             <Link
               href="/"
-              title="View learner site"
               className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white"
             >
-              <ExternalLink size={17} /> <span className="hidden 2xl:inline">View learner site</span>
+              <ExternalLink size={17} /> View learner site
             </Link>
             <button
               onClick={logout}
-              title="Sign out"
               className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white"
             >
-              <LogOut size={17} /> <span className="hidden 2xl:inline">Sign out</span>
+              <LogOut size={17} /> Sign out
             </button>
           </div>
         </aside>
 
         <div className="min-w-0 flex-1">
-          <header className="min-w-0 overflow-hidden border-b border-[#10283f]/10 bg-white">
-            <div className="mx-auto flex w-full min-w-0 max-w-[1500px] flex-wrap items-center justify-between gap-4 px-5 py-6 sm:px-8">
+          <header className="border-b border-[#10283f]/10 bg-white">
+            <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-4 px-5 py-6 sm:px-8">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[.18em] text-[#a06e16]">
                   {eyebrow}
                 </p>
-                <h1 className="mt-1 break-words font-serif text-3xl font-semibold text-[#10283f]">
+                <h1 className="mt-1 font-serif text-3xl font-semibold text-[#10283f]">
                   {title}
                 </h1>
               </div>
-              {actions && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-3">{actions}</div>}
+              {actions && <div className="flex items-center gap-3">{actions}</div>}
             </div>
           </header>
 
-          <main className="mx-auto w-full min-w-0 max-w-[1500px] overflow-x-hidden px-5 py-8 sm:px-8 [&>*]:min-w-0 [&>*]:max-w-full">
+          <main className="mx-auto max-w-[1500px] px-5 py-8 sm:px-8">
             {children}
           </main>
         </div>
