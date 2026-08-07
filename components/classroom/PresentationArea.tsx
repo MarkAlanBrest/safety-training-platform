@@ -149,16 +149,24 @@ export default function PresentationArea({
               embedded
               onExit={() => onFinalTestComplete?.()}
             />
+          ) : safeView.type === "slide" && slideImage ? (
+            <SlideImageStage
+              imageUrl={slideImage}
+              title={slide?.title || plan.title}
+              fallback={
+                deckContext ? (
+                  <ClassroomPptxPlayer
+                    deckUrl={deckContext.deckUrl}
+                    slideIndex={deckContext.localSlideIndex}
+                    title={slide?.title || plan.title}
+                  />
+                ) : undefined
+              }
+            />
           ) : safeView.type === "slide" && deckContext ? (
             <ClassroomPptxPlayer
               deckUrl={deckContext.deckUrl}
               slideIndex={deckContext.localSlideIndex}
-              title={slide?.title || plan.title}
-              fallbackImageUrl={slideImage || undefined}
-            />
-          ) : safeView.type === "slide" && slideImage ? (
-            <SlideImageStage
-              imageUrl={slideImage}
               title={slide?.title || plan.title}
             />
           ) : safeView.type === "slide" ? (
