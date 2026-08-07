@@ -50,15 +50,17 @@ export default function MicrosoftPptxViewer({
   return (
     <div className="relative h-full min-h-0 w-full overflow-hidden bg-black" aria-label={title}>
       {viewerUrl ? (
-        <iframe
-          key={viewerUrl}
-          src={viewerUrl}
-          title={`${title} — Microsoft PowerPoint viewer`}
-          className="h-full w-full border-0"
-          allow="fullscreen; autoplay; clipboard-read; clipboard-write"
-          allowFullScreen
-          onLoad={() => setLoading(false)}
-        />
+        <div className="absolute inset-0 overflow-hidden">
+          <iframe
+            key={viewerUrl}
+            src={viewerUrl}
+            title={`${title} — Microsoft PowerPoint viewer`}
+            className="h-[calc(100%+44px)] w-full border-0"
+            allow="fullscreen; autoplay; clipboard-read; clipboard-write"
+            allowFullScreen
+            onLoad={() => setLoading(false)}
+          />
+        </div>
       ) : null}
       {loading ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#0b1524]">
