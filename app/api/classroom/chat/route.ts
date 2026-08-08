@@ -5,7 +5,7 @@ import {
   classroomPlanForSlug,
   hydrateClassroomPlan,
   isClassroomPlan,
-  type ClassroomCheckQuestion,
+  ClassroomCheckQuestion,
   type ClassroomPlan,
   type PresentationView,
 } from "@/lib/classroom";
@@ -350,6 +350,22 @@ function filterQuickReplies(_replies: string[] | undefined) {
   return [];
 }
 
+function dedupeReplyWithCheckQuestion(
+  reply: string,
+  checkQuestion: ClassroomCheckQuestion | null,
+): string {
+  const cleaned = reply.trim();
+  if (!checkQuestion?.prompt.trim()) return cleaned;
+  const prompt = checkQuestion.prompt.trim();
+  if (!cleaned) return "Let's check your understanding.";
+  if (!cleaned.toLowerCase().includes(prompt.toLowerCase())) return cleaned;
+  const withoutPrompt = cleaned
+    .replace(new RegExp(prompt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return withoutPrompt || "Let's check your understanding.";
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -371,6 +387,12 @@ export async function POST(request: Request) {
       correctInRow: Number.isInteger(body.streak?.correctInRow) ? body.streak.correctInRow : 0,
       incorrectInRow: Number.isInteger(body.streak?.incorrectInRow) ? body.streak.incorrectInRow : 0,
     };
+    const answeredCheckPrompts: string[] = Array.isArray(body.answeredCheckPrompts)
+      ? body.answeredCheckPrompts
+          .filter((item: unknown): item is string => typeof item === "string")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : [];
     const messages = (Array.isArray(body.messages) ? body.messages : [])
       .filter(
         (item: ChatMessage) =>
@@ -498,6 +520,12 @@ export async function POST(request: Request) {
     );
     if (coveredTopics) sourceParts.push(coveredTopics);
 
+    if (answeredCheckPrompts.length) {
+      sourceParts.push(
+        `Comprehension checks the student has already answered in this class (do NOT ask these again): ${answeredCheckPrompts.map((prompt) => `"${prompt}"`).join(", ")}.`,
+      );
+    }
+
     if (streak.correctInRow >= 2) {
       sourceParts.push(
         `Performance signal: the student has answered the last ${streak.correctInRow} comprehension checks correctly in a row. This is a good moment to apply the "if the student excels" guidance above — e.g. pick up the pace, ask something a bit deeper, or simply acknowledge they're doing great. Don't overdo the praise.`,
@@ -530,6 +558,7 @@ export async function POST(request: Request) {
       "Do NOT change presentation.type or set presentation.choices for a comprehension check — keep presentation.type slide and presentation.slideIndex on the current slide; the question lives in checkQuestion, not in the slide.",
       "THE STUDENT MUST ANSWER BEFORE YOU CONTINUE: when you set checkQuestion, also set expectsResponse true and stop there — do not teach further content or advance the slide in the same turn. Only continue once they've answered.",
       "GIVE REAL FEEDBACK, not a one-word verdict — like a teacher would: if they're right, briefly affirm it and reinforce why it's right in one sentence, then move on. If they're wrong, correct them warmly, state the right answer, and explain in a sentence or two why — do not just say 'not quite,' actually reteach the point briefly so it sticks. Then move on; do not re-ask the same question. Feedback goes in reply as normal narration, not in checkQuestion.",
+      "Never ask a comprehension-check question the student has already answered in this session.",
       "GRADING FLAG: on the turn where you give that feedback, set lastAnswerCorrect to true or false to match your verdict. On every other turn (teaching, asking a new check, answering their own question), leave lastAnswerCorrect null.",
       "PRACTICE ACTIVITIES (formative checks of type flashcard or dragdrop, and click-the-spot hotspot checks): these use a dedicated on-screen activity instead of chat — use presentation.type flashcard or dragdrop as appropriate when you reach one of these in the lineup.",
       "When you are only teaching or transitioning, set expectsResponse to false so the class keeps moving.",
@@ -553,7 +582,8 @@ export async function POST(request: Request) {
       "Do not invent facts, topics, activities, or questions outside the supplied slide and lesson context.",
       "For ordinary teaching, keep presentation.type slide, set checkQuestion null, expectsResponse false, and reply in no more than two short sentences.",
       "Ask a question only when the current authored beat or an author cue requests it. Put graded multiple-choice, true/false, or short-answer questions in checkQuestion, keep the slide visible, and set expectsResponse true.",
-      "When grading the learner's latest answer, use the supplied answer key, give one brief helpful explanation, set lastAnswerCorrect accurately, and do not repeat the question.",
+      "When grading the learner's latest answer, use the supplied answer key, give one brief helpful explanation, set lastAnswerCorrect accurately, clear checkQuestion, and do not repeat the question.",
+      "Never ask a comprehension-check question the student has already answered in this session.",
       "For an authored flashcard or drag-order activity, preserve the matching activity presentation and wait for completion.",
       "Return an empty quickReplies array. Return only JSON matching the required schema.",
     ].join(" ");
@@ -659,9 +689,11 @@ export async function POST(request: Request) {
       lastAnswerCorrect?: boolean | null;
     };
 
-    const reply =
+    const reply = dedupeReplyWithCheckQuestion(
       parsed.reply?.trim() ||
-      "Let's keep going — tell me what you're thinking so far.";
+        "Let's keep going — tell me what you're thinking so far.",
+      normalizeCheckQuestion(parsed.checkQuestion),
+    );
     const presentationView = sanitizeTeacherSlidePresentation(
       normalizePresentation(
         parsed.presentation,
