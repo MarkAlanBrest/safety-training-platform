@@ -61,6 +61,8 @@ export default function TeacherChat({
   speechToTextEnabled = false,
   awaitingInput = false,
   inputPrompt,
+  liveNarration,
+  narrationHistory = [],
   onSend,
   onSpeak,
   onInteract,
@@ -74,6 +76,10 @@ export default function TeacherChat({
   speechToTextEnabled?: boolean;
   awaitingInput?: boolean;
   inputPrompt?: string;
+  /** Timed script line synced to video playback. */
+  liveNarration?: string;
+  /** Earlier timed script lines from the video. */
+  narrationHistory?: string[];
   onSend: (message: string) => Promise<void>;
   onSpeak: (text: string) => Promise<void>;
   onInteract?: () => void;
@@ -88,6 +94,8 @@ export default function TeacherChat({
   const showInput = awaitingInput || asking;
   const visibleMessages = messages.filter((message) => !message.hidden);
   const lastMessage = visibleMessages[visibleMessages.length - 1];
+  const hasVideoReader = Boolean(liveNarration?.trim() || narrationHistory.length);
+  const transcriptEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     return () => {
@@ -100,6 +108,11 @@ export default function TeacherChat({
       inputRef.current?.focus();
     }
   }, [showInput, thinking, inputPrompt]);
+
+  useEffect(() => {
+    if (!hasVideoReader) return;
+    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [hasVideoReader, liveNarration, narrationHistory.length]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -148,7 +161,11 @@ export default function TeacherChat({
 
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white">
-      <div className="flex min-h-0 flex-1 flex-col justify-center gap-3 overflow-y-auto px-5 py-6">
+      <div
+        className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-6 ${
+          hasVideoReader ? "justify-start" : "justify-center"
+        }`}
+      >
         {needsAudioUnlock ? (
           <button
             type="button"
@@ -166,6 +183,39 @@ export default function TeacherChat({
             onSelectOption={awaitingInput ? onSelectOption : undefined}
             disabled={thinking}
           />
+        ) : hasVideoReader ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            {lastMessage?.role === "user" ? (
+              <div className="ml-auto max-w-[85%] rounded-2xl bg-[#0f2b46] px-4 py-3 text-sm leading-7 text-white">
+                {lastMessage.content}
+              </div>
+            ) : null}
+            {thinking ? (
+              <div className="rounded-2xl bg-[#f1f5f9] px-4 py-3 text-sm leading-7 text-slate-500">
+                Instructor is thinking…
+              </div>
+            ) : null}
+            {lastMessage?.role === "assistant" && lastMessage.content ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-7 text-slate-800">
+                {lastMessage.content}
+              </div>
+            ) : null}
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl bg-slate-50 px-4 py-4">
+              {narrationHistory.map((line, index) => (
+                <p key={`${index}-${line.slice(0, 24)}`} className="text-sm leading-7 text-slate-500">
+                  {line}
+                </p>
+              ))}
+              {liveNarration?.trim() ? (
+                <p className="text-base font-medium leading-7 text-slate-800">{liveNarration}</p>
+              ) : narrationHistory.length ? null : (
+                <p className="text-sm leading-7 text-slate-500">
+                  The lesson script will appear here as the video plays.
+                </p>
+              )}
+              <div ref={transcriptEndRef} />
+            </div>
+          </div>
         ) : !visibleMessages.length ? (
           <div className="rounded-2xl bg-slate-50 px-4 py-4 text-center text-sm leading-7 text-slate-600">
             Your instructor leads this session and paces the class for you. Ask a question

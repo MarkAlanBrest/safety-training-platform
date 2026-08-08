@@ -10,8 +10,9 @@ export default function NewClassroomPage() {
             Video course builder
           </p>
           <p className="mt-2 max-w-3xl text-sm leading-7 text-white/80">
-            Upload one full-screen video, add chapter breaks and AI stop points on the timeline,
-            and let the instructor chat appear on demand while learners watch.
+            Upload one full-screen video. The platform reads the audio and builds a timed
+            transcript for the instructor chat automatically. Add AI stop points on the timeline
+            when you want questions or extra instructor moments.
           </p>
         </div>
         <VideoCourseBuilderForm />

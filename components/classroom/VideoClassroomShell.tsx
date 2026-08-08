@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ClassroomCheckQuestion, PublicClassroomCourse } from "@/lib/classroom";
 import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
 import { filterPrivateSpeechDirections } from "@/lib/classroom-speech";
 import { markerToCheckQuestion } from "@/lib/classroom-video";
 import type { VideoTimelineMarker } from "@/lib/classroom-video";
+import { narrationStateAtTime, parseWebVtt, type VideoCaptionCue } from "@/lib/video-captions";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
 import VideoClassroomPlayer, {
   type VideoClassroomPlayerHandle,
@@ -65,6 +66,66 @@ export default function VideoClassroomShell({
   const [paused, setPaused] = useState(false);
   const [playback, setPlayback] = useState({ currentTime: 0, duration: 0 });
   const [playbackError, setPlaybackError] = useState("");
+  const [captionCues, setCaptionCues] = useState<VideoCaptionCue[]>([]);
+  const [liveNarration, setLiveNarration] = useState("");
+  const [narrationHistory, setNarrationHistory] = useState<string[]>([]);
+  const lastPlaybackTimeRef = useRef(0);
+  const activeCueIndexRef = useRef(-1);
+
+  const hasCaptionReader = Boolean(videoCourse?.captionsUrl && captionCues.length);
+
+  useEffect(() => {
+    const captionsUrl = videoCourse?.captionsUrl;
+    if (!captionsUrl) {
+      setCaptionCues([]);
+      return;
+    }
+
+    let cancelled = false;
+    void fetch(captionsUrl)
+      .then((response) => {
+        if (!response.ok) throw new Error("Captions could not be loaded.");
+        return response.text();
+      })
+      .then((source) => {
+        if (cancelled) return;
+        setCaptionCues(parseWebVtt(source));
+      })
+      .catch(() => {
+        if (!cancelled) setCaptionCues([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [videoCourse?.captionsUrl]);
+
+  const syncNarrationToPlayback = useCallback(
+    (currentTime: number, options?: { force?: boolean }) => {
+      if (!captionCues.length) return;
+
+      const jumped = options?.force || Math.abs(currentTime - lastPlaybackTimeRef.current) > 1.5;
+      lastPlaybackTimeRef.current = currentTime;
+
+      const next = narrationStateAtTime(captionCues, currentTime);
+      if (!jumped && next.activeIndex === activeCueIndexRef.current) return;
+
+      activeCueIndexRef.current = next.activeIndex;
+      setNarrationHistory(next.history);
+      setLiveNarration(next.liveNarration);
+    },
+    [captionCues],
+  );
+
+  const handlePlaybackUpdate = useCallback(
+    (state: { currentTime: number; duration: number }) => {
+      setPlayback(state);
+      if (started && !awaitingMarkerResume) {
+        syncNarrationToPlayback(state.currentTime);
+      }
+    },
+    [awaitingMarkerResume, started, syncNarrationToPlayback],
+  );
 
   const unlockAudio = useCallback(() => {
     audioUnlockedRef.current = true;
@@ -464,11 +525,18 @@ export default function VideoClassroomShell({
     startedRef.current = true;
     setStarted(true);
     setPlaybackError("");
+    activeCueIndexRef.current = -1;
+    lastPlaybackTimeRef.current = 0;
+    setLiveNarration("");
+    setNarrationHistory([]);
     playerRef.current?.resetMarkers();
     unlockAudio();
-    sendWelcome();
+    if (!hasCaptionReader) {
+      sendWelcome();
+    }
     await playerRef.current?.play();
-  }, [sendWelcome, unlockAudio]);
+    syncNarrationToPlayback(0, { force: true });
+  }, [hasCaptionReader, sendWelcome, syncNarrationToPlayback, unlockAudio]);
 
   const awaitingInput =
     !thinking && !speaking && (expectsResponse || Boolean(checkQuestion));
@@ -512,7 +580,7 @@ export default function VideoClassroomShell({
             markers={videoCourse.markers}
             markersActive={started}
             onMarkerReached={(marker) => void handleMarkerReached(marker)}
-            onPlaybackUpdate={setPlayback}
+            onPlaybackUpdate={handlePlaybackUpdate}
             onPlaybackError={setPlaybackError}
             pausedExternally={paused || awaitingMarkerResume}
           />
@@ -560,6 +628,8 @@ export default function VideoClassroomShell({
             speechToTextEnabled={builderConfig.settings.speechText}
             needsAudioUnlock={needsAudioUnlock}
             awaitingInput={awaitingInput}
+            liveNarration={hasCaptionReader ? liveNarration : undefined}
+            narrationHistory={hasCaptionReader ? narrationHistory : undefined}
             onSend={handleSend}
             onSpeak={speak}
             onInteract={unlockAudio}
