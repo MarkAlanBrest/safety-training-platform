@@ -1,5 +1,6 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-session";
@@ -78,37 +79,64 @@ export async function GET(
   }
 
   if (CHUNKED_VIDEO_PATH.test(assetPath)) {
-    const meta = await listChunkedVideoMeta(course.id, assetPath);
-    if (!meta.length) return new Response("Asset not found.", { status: 404 });
+    try {
+      const meta = await listChunkedVideoMeta(course.id, assetPath);
+      if (!meta.length) return new Response("Asset not found.", { status: 404 });
 
-    const totalBytes = meta.reduce((sum, part) => sum + part.byteLength, 0);
-    const range = request.headers.get("range")?.match(/^bytes=(\d*)-(\d*)$/);
-    const requestedStart = range ? (range[1] ? Number(range[1]) : 0) : 0;
-    const requestedEnd = range
-      ? range[2]
-        ? Number(range[2])
-        : totalBytes - 1
-      : Math.min(totalBytes - 1, 1024 * 1024 - 1);
+      const totalBytes = meta.reduce((sum, part) => sum + part.byteLength, 0);
+      if (!totalBytes) return new Response("Asset not found.", { status: 404 });
 
-    const slice = await loadChunkedVideoSlice(
-      course.id,
-      assetPath,
-      requestedStart,
-      requestedEnd,
-    );
-    if (!slice) return new Response("Asset not found.", { status: 404 });
+      const range = request.headers.get("range")?.match(/^bytes=(\d*)-(\d*)$/);
+      const hasRange = Boolean(range);
+      const requestedStart = hasRange ? (range![1] ? Number(range![1]) : 0) : 0;
+      const requestedEnd = hasRange
+        ? range![2]
+          ? Number(range![2])
+          : totalBytes - 1
+        : totalBytes - 1;
 
-    return new Response(new Uint8Array(slice.body), {
-      status: 206,
-      headers: {
-        "Content-Type": slice.mimeType,
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "private, max-age=86400",
-        "X-Content-Type-Options": "nosniff",
-        "Content-Length": String(slice.body.length),
-        "Content-Range": `bytes ${slice.start}-${slice.end}/${slice.totalBytes}`,
-      },
-    });
+      const slice = await loadChunkedVideoSlice(
+        course.id,
+        assetPath,
+        requestedStart,
+        requestedEnd,
+      );
+      if (!slice || !slice.body.length) {
+        return new Response("Asset not found.", { status: 404 });
+      }
+
+      const mimeType = slice.mimeType.startsWith("video/")
+        ? slice.mimeType
+        : "video/mp4";
+
+      if (hasRange) {
+        return new Response(new Uint8Array(slice.body), {
+          status: 206,
+          headers: {
+            "Content-Type": mimeType,
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "private, max-age=86400",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Length": String(slice.body.length),
+            "Content-Range": `bytes ${slice.start}-${slice.end}/${slice.totalBytes}`,
+          },
+        });
+      }
+
+      return new Response(new Uint8Array(slice.body), {
+        status: 200,
+        headers: {
+          "Content-Type": mimeType,
+          "Accept-Ranges": "bytes",
+          "Cache-Control": "private, max-age=86400",
+          "X-Content-Type-Options": "nosniff",
+          "Content-Length": String(slice.totalBytes),
+        },
+      });
+    } catch (error) {
+      console.error("Chunked classroom video asset failed:", error);
+      return new Response("Video asset could not be loaded.", { status: 500 });
+    }
   }
 
   return new Response("Asset not found.", { status: 404 });
