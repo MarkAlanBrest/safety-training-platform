@@ -160,7 +160,7 @@ function ClassroomPptxPlayerInner({
     if (!viewer) return;
 
     try {
-      viewer.setMode("preview");
+      viewer.setMode("present");
       viewer.zoomReset();
       if (viewer.getActiveSlideIndex() !== slideIndex) {
         viewer.goTo(slideIndex);
