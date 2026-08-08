@@ -144,7 +144,7 @@ export async function PATCH(
     });
 
     if (
-      course.courseType === "classroom" &&
+      (course.courseType === "classroom" || course.courseType === "scorm") &&
       ["browser", "premium"].includes(classroomVoiceProvider) &&
       /^[a-z0-9_-]{1,40}$/i.test(classroomVoice)
     ) {

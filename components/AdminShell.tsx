@@ -21,7 +21,7 @@ type Props = {
 
 const navItems = [
   { href: "/admin/courses", label: "Training programs", icon: BookOpen },
-  { href: "/admin/classroom/new", label: "New video course", icon: Plus },
+  { href: "/admin/courses/new", label: "Upload SCORM", icon: Plus },
   { href: "/admin/slide-narration", label: "Slide narration", icon: Mic },
 ];
 

@@ -22,11 +22,9 @@ import {
   sanitizeTeacherSlidePresentation,
 } from "@/lib/classroom-teacher";
 import { extractResponseOutputText } from "@/lib/parse-response";
-import {
-  dedupeReplyWithCheckQuestion,
+import { dedupeReplyWithCheckQuestion,
   speakerNotesHaveEmbeddedNarration,
 } from "@/lib/classroom-speech";
-import { chapterAtTime, formatTimestamp } from "@/lib/classroom-video";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -411,7 +409,7 @@ export async function POST(request: Request) {
     if (!apiKey) {
       return Response.json({
         reply:
-          "I'm ready to teach once the OpenAI API key is connected. You can still watch the video while we set that up.",
+          "I'm ready to teach once the OpenAI API key is connected.",
         presentation: {
           type: "welcome",
           headline: plan.title,
@@ -419,94 +417,6 @@ export async function POST(request: Request) {
         },
         quickReplies: [],
         expectsResponse: false,
-      });
-    }
-
-    if (plan.videoCourse) {
-      const videoTimeSeconds = Number(body.videoTimeSeconds) || 0;
-      const activeChapter = chapterAtTime(plan.videoCourse.chapters, videoTimeSeconds);
-      const activeMarker = plan.videoCourse.markers.find(
-        (marker) => marker.id === body.activeMarkerId,
-      );
-      const videoContext = [
-        `Course: ${plan.title}`,
-        `Playback position: ${formatTimestamp(videoTimeSeconds)}`,
-        activeChapter ? `Chapter: ${activeChapter.title}` : "Chapter: (not in a marked chapter)",
-        activeMarker
-          ? `Active stop point: ${activeMarker.label || activeMarker.kind} at ${formatTimestamp(activeMarker.atSeconds)}.`
-          : "The learner opened Ask AI during video playback.",
-        `Instructor preferences:\n${classroomInstructorPrompt(builderConfig)}`,
-      ].join("\n\n");
-
-      const videoInstructions = [
-        "You are a warm, concise AI instructor for a full-screen video course.",
-        "The learner is watching a video and may pause to ask you a question.",
-        "Keep replies to 2-3 sentences unless they ask for more detail.",
-        "Do not invent visuals — you cannot see the video frame.",
-        "If they seem ready to continue, encourage them to resume watching.",
-        "Return JSON only.",
-      ].join(" ");
-
-      const response = await fetch("https://api.openai.com/v1/responses", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model:
-            process.env.OPENAI_CLASSROOM_MODEL ||
-            process.env.OPENAI_MODEL ||
-            "gpt-4.1-mini",
-          input: [
-            {
-              role: "system",
-              content: [{ type: "input_text", text: `${videoInstructions}\n\n${videoContext}` }],
-            },
-            ...messages.map((message) => ({
-              role: message.role,
-              content: [{ type: "input_text", text: message.content }],
-            })),
-          ],
-          text: {
-            format: {
-              type: "json_schema",
-              name: "classroom_turn",
-              schema: classroomTeacherTurnSchema,
-              strict: true,
-            },
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "OpenAI request failed.");
-      }
-
-      const payload = await response.json();
-      const outputText = extractResponseOutputText(payload);
-      if (!outputText) throw new Error("The instructor returned an empty response.");
-
-      const parsed = JSON.parse(outputText) as {
-        reply?: string;
-        expectsResponse?: boolean;
-        checkQuestion?: RawCheckQuestion;
-        lastAnswerCorrect?: boolean | null;
-      };
-
-      return Response.json({
-        reply: parsed.reply?.trim() || "I'm here if you have questions about this part.",
-        presentation: {
-          type: "welcome",
-          headline: plan.title,
-          body: plan.opening,
-        },
-        quickReplies: [],
-        expectsResponse: Boolean(parsed.expectsResponse),
-        checkQuestion: normalizeCheckQuestion(parsed.checkQuestion),
-        lastAnswerCorrect:
-          typeof parsed.lastAnswerCorrect === "boolean" ? parsed.lastAnswerCorrect : null,
       });
     }
 

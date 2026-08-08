@@ -1,7 +1,5 @@
 import { notFound } from "next/navigation";
 import ClassroomShell from "@/components/classroom/ClassroomShell";
-import VideoClassroomShell from "@/components/classroom/VideoClassroomShell";
-import { isVideoClassroomPlan } from "@/lib/classroom-video";
 import { prisma } from "@/lib/prisma";
 import {
   classroomCourseForSlug,
@@ -78,10 +76,6 @@ export default async function ClassroomPage({
     published: record.published,
     plan,
   };
-
-  if (isVideoClassroomPlan(plan)) {
-    return <VideoClassroomShell course={course} />;
-  }
 
   return <ClassroomShell course={course} />;
 }

@@ -2,10 +2,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { requireAdmin } from "@/lib/admin-session";
+import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
 import { isCourseTheme } from "@/lib/course-options";
 import { slugify } from "@/lib/mason";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { parseScormPackage } from "@/lib/scorm";
+import { buildDefaultScormLessonPlan } from "@/lib/scorm-instructor";
 
 const MAX_ZIP_BYTES = 4 * 1024 * 1024;
 
@@ -20,6 +23,8 @@ export async function POST(request: Request) {
     const audience = String(form.get("audience") || "").trim();
     const theme = String(form.get("theme") || "heritage");
     const estimatedMinutes = Math.max(10, Math.min(100000, Number(form.get("estimatedMinutes")) || 60));
+    const voiceProvider = String(form.get("voiceProvider") || "browser");
+    const voice = String(form.get("voice") || "onyx").trim();
     const file = form.get("scorm");
 
     if (!title || !(file instanceof File)) {
@@ -41,6 +46,16 @@ export async function POST(request: Request) {
     let suffix = 2;
     while (await prisma.masonCourse.findUnique({ where: { slug } })) slug = `${baseSlug}-${suffix++}`;
 
+    const defaults = defaultClassroomBuilderConfig();
+    const config = defaultClassroomBuilderConfig({
+      teaching: {
+        ...defaults.teaching,
+        voiceProvider: voiceProvider === "premium" ? "premium" : "browser",
+        voice: /^[a-z0-9_-]{1,40}$/i.test(voice) ? voice : "onyx",
+      },
+    });
+    const lessonPlan = buildDefaultScormLessonPlan({ title, description, config });
+
     const course = await prisma.$transaction(async (transaction) => {
       const created = await transaction.masonCourse.create({
         data: {
@@ -55,6 +70,17 @@ export async function POST(request: Request) {
           scormVersion: parsed.version,
           scormEntryPoint: parsed.entryPoint,
           published: false,
+          sections: {
+            create: [
+              {
+                title: "SCORM package",
+                position: 1,
+                estimatedMinutes,
+                fileName: file.name,
+                lessonPlan: lessonPlan as Prisma.InputJsonValue,
+              },
+            ],
+          },
         },
       });
       await transaction.scormAsset.createMany({
