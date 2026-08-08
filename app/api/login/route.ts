@@ -23,18 +23,16 @@ export async function POST(request: Request) {
     const token = randomBytes(32).toString("base64url");
     const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
 
-    await prisma.$transaction([
-      prisma.adminSession.deleteMany({
-        where: { expiresAt: { lte: new Date() } },
-      }),
-      prisma.adminSession.create({
-        data: {
-          tokenHash: hashSessionToken(token),
-          adminId: admin.id,
-          expiresAt,
-        },
-      }),
-    ]);
+    await prisma.adminSession.deleteMany({
+      where: { expiresAt: { lte: new Date() } },
+    });
+    await prisma.adminSession.create({
+      data: {
+        tokenHash: hashSessionToken(token),
+        adminId: admin.id,
+        expiresAt,
+      },
+    });
 
     const response = NextResponse.json({ ok: true });
     response.cookies.set(ADMIN_COOKIE, token, {

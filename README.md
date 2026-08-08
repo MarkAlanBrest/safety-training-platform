@@ -7,13 +7,15 @@ interactive assessments, learner progress tracking, and completion certificates.
 
 ```bash
 npm install
-npm run db:init
+npm run db:setup
 npm run dev
 ```
 
-Copy `.env.example` to `.env`, replace its placeholder with the Neon PostgreSQL
-connection string, and then open `http://localhost:3000`. Running
-`npm run db:init` synchronizes the training schema to the configured database.
+Copy `.env.example` to `.env`, replace its placeholders with the Neon PostgreSQL
+connection string, and set `ADMIN_EMAIL` / `ADMIN_PASSWORD` for the first admin
+account. Use Neon's **pooled** connection string as `DATABASE_URL` on Vercel.
+Then open `http://localhost:3000`. `npm run db:setup` synchronizes the schema,
+creates the admin user, and installs demo courses.
 
 ## AI-generated lessons
 
