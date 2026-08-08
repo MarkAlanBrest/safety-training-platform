@@ -16,10 +16,13 @@ import {
 } from "@/lib/classroom-lesson";
 import { isLineupPlan } from "@/lib/classroom-lineup";
 import {
+  dedupeReplyWithCheckQuestion,
+  embeddedNarrationWaitMs,
   filterPrivateSpeechDirections,
+  shouldSpeakInstructorTurn,
+  speakerNotesHaveEmbeddedNarration,
   speechChunks,
   speechTextForTurn,
-  dedupeReplyWithCheckQuestion,
 } from "@/lib/classroom-speech";
 import ClassroomTopBar from "@/components/classroom/ClassroomTopBar";
 import PresentationArea from "@/components/classroom/PresentationArea";
@@ -143,6 +146,7 @@ export default function ClassroomShell({
   const navigationDepthRef = useRef(0);
   const beatSettledAtRef = useRef(Date.now());
   const prefetchedTurnRef = useRef<Map<number, PrefetchedTeacherTurn>>(new Map());
+  const embeddedAudioHoldUntilRef = useRef(0);
 
   function markSlideTaught(slideIndex: number) {
     setTaughtSlideIndices((current) =>
@@ -601,7 +605,32 @@ export default function ClassroomShell({
             data.presentation?.type === "exercise" ||
             data.presentation?.type === "assessment");
       setExpectsResponse(Boolean(needsResponse));
-      speakNatural(speechTextForTurn(displayReply, nextCheckQuestion));
+
+      const slideIndex = options?.slideIndex ?? currentSlideIndex;
+      const speakerNotes = plan.slides[slideIndex]?.speakerNotes;
+      const embeddedNarration =
+        speakerNotesHaveEmbeddedNarration(speakerNotes) && !grading && !nextCheckQuestion;
+
+      if (embeddedNarration) {
+        embeddedAudioHoldUntilRef.current =
+          Date.now() + embeddedNarrationWaitMs(speakerNotes);
+        cancelSpeech();
+      } else if (!needsResponse) {
+        embeddedAudioHoldUntilRef.current = 0;
+      }
+
+      if (
+        shouldSpeakInstructorTurn(speakerNotes, {
+          checkQuestion: nextCheckQuestion,
+          grading,
+          reply: displayReply,
+        })
+      ) {
+        speakNatural(speechTextForTurn(displayReply, nextCheckQuestion));
+      } else {
+        cancelSpeech();
+      }
+
       if (!needsResponse && !nextCheckQuestion) {
         prefetchNextSlideTurn(activeBeatIndex, [
           ...nextMessages,
@@ -888,7 +917,11 @@ export default function ClassroomShell({
 
     const elapsedOnBeat = Date.now() - beatSettledAtRef.current;
     const dwellRemaining = Math.max(0, MIN_BEAT_DWELL_MS - elapsedOnBeat);
-    const delay = AUTO_ADVANCE_DELAY_MS + dwellRemaining;
+    const embeddedHoldRemaining = Math.max(
+      0,
+      embeddedAudioHoldUntilRef.current - Date.now(),
+    );
+    const delay = AUTO_ADVANCE_DELAY_MS + dwellRemaining + embeddedHoldRemaining;
 
     const timer = setTimeout(() => {
       if (
