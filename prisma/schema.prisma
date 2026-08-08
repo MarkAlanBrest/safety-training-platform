@@ -33,6 +33,12 @@ model MasonCourse {
   classroomAttempts ClassroomAttempt[]
 }
 
+/** Slugs an admin deleted — deploy-time seed install must not recreate them. */
+model SeedCourseSuppression {
+  slug         String   @id
+  suppressedAt DateTime @default(now())
+}
+
 model ClassroomAttempt {
   id               Int       @id @default(autoincrement())
   courseId         Int

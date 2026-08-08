@@ -215,10 +215,17 @@ export async function DELETE(
     }
 
     await prisma.$transaction([
+      prisma.classroomAttempt.deleteMany({ where: { courseId: course.id } }),
+      prisma.scormAsset.deleteMany({ where: { courseId: course.id } }),
       prisma.courseEnrollment.deleteMany({ where: { courseId: course.id } }),
       prisma.enrollmentCode.deleteMany({ where: { courseId: course.id } }),
       prisma.masonSection.deleteMany({ where: { courseId: course.id } }),
       prisma.masonCourse.delete({ where: { id: course.id } }),
+      prisma.seedCourseSuppression.upsert({
+        where: { slug },
+        create: { slug },
+        update: { suppressedAt: new Date() },
+      }),
     ]);
 
     return Response.json({ success: true });
