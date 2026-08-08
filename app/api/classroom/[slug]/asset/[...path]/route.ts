@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-session";
 
-const SAFE_ASSET_PATH = /^classroom\/(?:media|activities)\/[a-z0-9-]+$/;
+const SAFE_ASSET_PATH = /^classroom\/(?:media|activities)\/[a-z0-9-]+(?:\.vtt)?$/;
 
 export async function GET(
   request: Request,
