@@ -387,12 +387,15 @@ export async function POST(request: Request) {
       correctInRow: Number.isInteger(body.streak?.correctInRow) ? body.streak.correctInRow : 0,
       incorrectInRow: Number.isInteger(body.streak?.incorrectInRow) ? body.streak.incorrectInRow : 0,
     };
-    const answeredCheckPrompts: string[] = Array.isArray(body.answeredCheckPrompts)
-      ? body.answeredCheckPrompts
-          .filter((item: unknown): item is string => typeof item === "string")
-          .map((item) => item.trim())
-          .filter(Boolean)
-      : [];
+    const answeredCheckPrompts: string[] = (
+      Array.isArray(body.answeredCheckPrompts)
+        ? body.answeredCheckPrompts.filter(
+            (item: unknown): item is string => typeof item === "string",
+          )
+        : []
+    )
+      .map((item: string) => item.trim())
+      .filter((item: string) => item.length > 0);
     const messages = (Array.isArray(body.messages) ? body.messages : [])
       .filter(
         (item: ChatMessage) =>
