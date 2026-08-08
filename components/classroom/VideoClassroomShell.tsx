@@ -10,7 +10,6 @@ import TeacherChat, { type TeacherMessage } from "@/components/classroom/Teacher
 import VideoClassroomPlayer, {
   type VideoClassroomPlayerHandle,
 } from "@/components/classroom/VideoClassroomPlayer";
-import QuickCheckCard from "@/components/classroom/QuickCheckCard";
 
 const MAX_STREAMABLE_SPEECH_LENGTH = 1500;
 
@@ -51,7 +50,6 @@ export default function VideoClassroomShell({
   const speechGenerationRef = useRef(0);
   const speechAbortRef = useRef<AbortController | null>(null);
 
-  const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState<TeacherMessage[]>([]);
   const [thinking, setThinking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -346,7 +344,6 @@ export default function VideoClassroomShell({
         setExpectsResponse(Boolean(data.expectsResponse));
         setCheckQuestion(data.checkQuestion || null);
         if (options?.speakReply !== false && reply.trim()) {
-          playerRef.current?.pause();
           await speak(reply);
         }
       } catch (error) {
@@ -377,6 +374,7 @@ export default function VideoClassroomShell({
         const script = marker.aiScript?.trim() || marker.label?.trim() || "";
         if (script) {
           setOverlayPrompt(script);
+          setMessages((current) => [...current, { role: "assistant", content: script }]);
           await speak(script);
         }
         resumePlayback();
@@ -423,7 +421,6 @@ export default function VideoClassroomShell({
           ? "That's right — let's keep going."
           : `Not quite. The key point is: ${activeMarker.correctAnswer}. Let's continue.`;
         setMessages([...next, { role: "assistant", content: feedback }]);
-        playerRef.current?.pause();
         await speak(feedback);
         resumePlayback();
         return;
@@ -442,47 +439,33 @@ export default function VideoClassroomShell({
     ],
   );
 
+  const sendWelcome = useCallback(() => {
+    if (welcomedRef.current) return;
+    welcomedRef.current = true;
+    void sendToTeacher(
+      [
+        {
+          role: "user",
+          hidden: true,
+          content:
+            "The student just started this video course. Give a one-sentence welcome and tell them they can ask questions in the instructor panel anytime.",
+        },
+      ],
+      { speakReply: false },
+    );
+  }, [sendToTeacher]);
+
   const beginClass = useCallback(() => {
     if (startedRef.current) return;
     startedRef.current = true;
     setStarted(true);
     unlockAudio();
+    sendWelcome();
     playerRef.current?.play();
-  }, [unlockAudio]);
+  }, [sendWelcome, unlockAudio]);
 
-  const openChat = useCallback(() => {
-    unlockAudio();
-    setChatOpen(true);
-    playerRef.current?.pause();
-
-    if (!startedRef.current) {
-      startedRef.current = true;
-      setStarted(true);
-    }
-
-    if (!welcomedRef.current) {
-      welcomedRef.current = true;
-      void sendToTeacher(
-        [
-          {
-            role: "user",
-            hidden: true,
-            content:
-              "The student opened Ask AI during this video course. Give a one-sentence welcome and invite questions about the current topic.",
-          },
-        ],
-        { speakReply: true },
-      );
-    }
-  }, [sendToTeacher, unlockAudio]);
-
-  const closeChat = useCallback(() => {
-    setChatOpen(false);
-    setChatError("");
-    if (!awaitingMarkerResume && !speaking) {
-      playerRef.current?.play();
-    }
-  }, [awaitingMarkerResume, speaking]);
+  const awaitingInput =
+    !thinking && !speaking && (expectsResponse || Boolean(checkQuestion));
 
   if (!videoCourse?.videoUrl) {
     return (
@@ -493,87 +476,68 @@ export default function VideoClassroomShell({
   }
 
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden bg-black">
-      <VideoClassroomPlayer
-        ref={playerRef}
-        title={course.title}
-        videoUrl={videoCourse.videoUrl}
-        captionsUrl={videoCourse.captionsUrl}
-        chapters={videoCourse.chapters}
-        markers={videoCourse.markers}
-        onMarkerReached={(marker) => void handleMarkerReached(marker)}
-        onAskAi={openChat}
-        pausedExternally={chatOpen || awaitingMarkerResume}
-      />
-
-      {overlayPrompt && !chatOpen ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-24 z-20 flex justify-center px-4">
-          <div className="max-w-2xl rounded-2xl bg-slate-950/85 px-5 py-4 text-center text-sm leading-6 text-white backdrop-blur">
-            {overlayPrompt}
-          </div>
+    <main className="flex h-screen flex-col overflow-hidden bg-white text-slate-900">
+      <header className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-[#0f2b46] px-4 py-3 text-white">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold">{course.title}</p>
+          <p className="truncate text-xs text-white/70">Video course with AI instructor</p>
         </div>
-      ) : null}
+      </header>
 
-      {checkQuestion && awaitingMarkerResume && !chatOpen ? (
-        <div className="absolute inset-x-0 bottom-24 z-20 flex justify-center px-4">
-          <div className="w-full max-w-xl rounded-2xl border border-amber-300/30 bg-slate-950/90 p-4 backdrop-blur">
-            <QuickCheckCard
-              question={checkQuestion}
-              disabled={thinking || speaking}
-              onSelectOption={(option) => void handleSend(option)}
-            />
-          </div>
-        </div>
-      ) : null}
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="relative min-h-0 bg-black">
+          <VideoClassroomPlayer
+            ref={playerRef}
+            title={course.title}
+            videoUrl={videoCourse.videoUrl}
+            captionsUrl={videoCourse.captionsUrl}
+            chapters={videoCourse.chapters}
+            markers={videoCourse.markers}
+            onMarkerReached={(marker) => void handleMarkerReached(marker)}
+            pausedExternally={awaitingMarkerResume}
+          />
 
-      {chatOpen ? (
-        <div className="absolute inset-0 z-30 flex items-end justify-center bg-black/50 p-3 sm:items-center sm:p-6">
-          <div className="flex h-[min(720px,92dvh)] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <div>
-                <p className="text-sm font-bold text-slate-900">AI Instructor</p>
-                <p className="text-xs text-slate-500">Video is paused while you chat.</p>
+          {overlayPrompt ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-24 z-20 flex justify-center px-4">
+              <div className="max-w-2xl rounded-2xl bg-slate-950/85 px-5 py-4 text-center text-sm leading-6 text-white backdrop-blur">
+                {overlayPrompt}
               </div>
+            </div>
+          ) : null}
+
+          {!started ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/55">
               <button
                 type="button"
-                onClick={closeChat}
-                className="rounded-lg px-3 py-1.5 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                onClick={beginClass}
+                className="rounded-full bg-amber-400 px-8 py-4 text-lg font-bold text-slate-950 shadow-xl"
               >
-                Close
+                Start course
               </button>
             </div>
-            <div className="min-h-0 flex-1">
-              {chatError ? (
-                <p className="px-5 pt-4 text-sm font-semibold text-red-600">{chatError}</p>
-              ) : null}
-              <TeacherChat
-                messages={messages}
-                thinking={thinking || speaking}
-                checkQuestion={checkQuestion}
-                onSelectOption={(option) => void handleSend(option)}
-                speechToTextEnabled={builderConfig.settings.speechText}
-                needsAudioUnlock={needsAudioUnlock}
-                awaitingInput={chatOpen || expectsResponse || Boolean(checkQuestion)}
-                onSend={handleSend}
-                onSpeak={speak}
-                onInteract={unlockAudio}
-              />
-            </div>
-          </div>
+          ) : null}
         </div>
-      ) : null}
 
-      {!started ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/55">
-          <button
-            type="button"
-            onClick={beginClass}
-            className="rounded-full bg-amber-400 px-8 py-4 text-lg font-bold text-slate-950 shadow-xl"
-          >
-            Start course
-          </button>
+        <div className="flex min-h-0 flex-col border-t border-slate-200 lg:border-l lg:border-t-0">
+          {chatError ? (
+            <p className="shrink-0 border-b border-red-100 bg-red-50 px-5 py-3 text-sm font-semibold text-red-600">
+              {chatError}
+            </p>
+          ) : null}
+          <TeacherChat
+            messages={messages}
+            thinking={thinking || speaking}
+            checkQuestion={checkQuestion}
+            onSelectOption={(option) => void handleSend(option)}
+            speechToTextEnabled={builderConfig.settings.speechText}
+            needsAudioUnlock={needsAudioUnlock}
+            awaitingInput={awaitingInput}
+            onSend={handleSend}
+            onSpeak={speak}
+            onInteract={unlockAudio}
+          />
         </div>
-      ) : null}
-    </div>
+      </div>
+    </main>
   );
 }

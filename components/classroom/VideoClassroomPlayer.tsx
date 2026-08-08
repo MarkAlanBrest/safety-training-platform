@@ -28,7 +28,7 @@ type Props = {
   chapters: VideoChapter[];
   markers: VideoTimelineMarker[];
   onMarkerReached: (marker: VideoTimelineMarker) => void;
-  onAskAi: () => void;
+  onAskAi?: () => void;
   pausedExternally?: boolean;
 };
 
@@ -213,13 +213,15 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
                   <Captions size={18} />
                 </button>
               ) : null}
-              <button
-                type="button"
-                onClick={onAskAi}
-                className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950"
-              >
-                <MessageCircle size={16} /> Ask AI
-              </button>
+              {onAskAi ? (
+                <button
+                  type="button"
+                  onClick={onAskAi}
+                  className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950"
+                >
+                  <MessageCircle size={16} /> Ask AI
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
