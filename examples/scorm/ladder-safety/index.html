@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ladder Safety (Example SCORM)</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      line-height: 1.5;
+    }
+    body {
+      margin: 0;
+      background: #f4f7f9;
+      color: #10283f;
+    }
+    .shell {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #d7e0e6;
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 8px 24px rgba(16, 40, 63, 0.06);
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.6rem;
+    }
+    .meta {
+      font-size: 0.85rem;
+      color: #69757e;
+      margin-bottom: 20px;
+    }
+    .slide { display: none; }
+    .slide.active { display: block; }
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #10283f;
+      color: #fff;
+    }
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    ul { padding-left: 1.2rem; }
+    code {
+      background: #eef3f6;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="card">
+      <h1>Ladder Safety</h1>
+      <p class="meta">Example SCORM 1.2 package · location updates on each page</p>
+
+      <section class="slide active" data-location="intro">
+        <h2>Welcome</h2>
+        <p>
+          This is a minimal example SCORM package for testing the AI instructor workflow.
+          Each page sets <code>cmi.core.lesson_location</code> so you can map narration cues
+          in the script editor.
+        </p>
+      </section>
+
+      <section class="slide" data-location="inspection">
+        <h2>Inspection</h2>
+        <p>Before climbing, inspect the ladder:</p>
+        <ul>
+          <li>Check feet, rungs, and spreaders for damage</li>
+          <li>Look for cracks, bends, or missing parts</li>
+          <li>Confirm locks and labels are legible</li>
+        </ul>
+      </section>
+
+      <section class="slide" data-location="setup">
+        <h2>Setup</h2>
+        <p>Set the ladder at the correct angle — about one foot out for every four feet up.
+        Secure the top and base before climbing.</p>
+      </section>
+
+      <section class="slide" data-location="climbing">
+        <h2>Safe climbing</h2>
+        <p>Maintain three points of contact. Face the ladder, avoid overreaching, and never
+        stand on the top cap or top three rungs unless designed for it.</p>
+      </section>
+
+      <div class="nav">
+        <button type="button" id="prev" disabled>Previous</button>
+        <button type="button" id="next">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const slides = Array.from(document.querySelectorAll(".slide"));
+    const prevBtn = document.getElementById("prev");
+    const nextBtn = document.getElementById("next");
+    let index = 0;
+
+    function findApi() {
+      let win = window;
+      for (let depth = 0; depth < 10; depth += 1) {
+        if (win.API) return win.API;
+        if (!win.parent || win.parent === win) break;
+        win = win.parent;
+      }
+      return null;
+    }
+
+    const api = findApi();
+    if (api && api.LMSInitialize) {
+      api.LMSInitialize("");
+      api.LMSSetValue("cmi.core.lesson_status", "incomplete");
+    }
+
+    function setLocation(location) {
+      if (!api || !api.LMSSetValue) return;
+      api.LMSSetValue("cmi.core.lesson_location", location);
+      api.LMSCommit("");
+    }
+
+    function showSlide(nextIndex) {
+      index = Math.max(0, Math.min(slides.length - 1, nextIndex));
+      slides.forEach((slide, slideIndex) => {
+        slide.classList.toggle("active", slideIndex === index);
+      });
+      const location = slides[index].dataset.location || String(index + 1);
+      setLocation(location);
+      prevBtn.disabled = index === 0;
+      nextBtn.disabled = index === slides.length - 1;
+      if (index === slides.length - 1 && api && api.LMSSetValue) {
+        api.LMSSetValue("cmi.core.lesson_status", "completed");
+        api.LMSCommit("");
+      }
+    }
+
+    prevBtn.addEventListener("click", () => showSlide(index - 1));
+    nextBtn.addEventListener("click", () => showSlide(index + 1));
+    showSlide(0);
+
+    window.addEventListener("beforeunload", () => {
+      if (api && api.LMSFinish) api.LMSFinish("");
+    });
+  </script>
+</body>
+</html>
