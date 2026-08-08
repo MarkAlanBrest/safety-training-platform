@@ -209,8 +209,8 @@ export default function VideoCourseBuilderForm() {
         <h2 className="text-xl font-bold text-[#10283f]">Video</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           Export your presentation from PowerPoint as MP4. After you upload the video, click
-          Generate transcript to build the timed script for the instructor chat, or upload your
-          own .vtt file.
+          Generate transcript to build the timed script for the instructor chat. Large videos
+          are processed on the server — it may take a few minutes.
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="block text-sm font-semibold text-[#10283f]">
