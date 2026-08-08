@@ -3,6 +3,7 @@
 import { parseJsonResponse } from "@/lib/parse-response";
 
 const CHUNK_BYTES = 2.75 * 1024 * 1024;
+const MAX_CHUNK_COUNT = 400;
 
 export async function uploadClassroomAsset(
   slug: string,
@@ -12,6 +13,11 @@ export async function uploadClassroomAsset(
 ) {
   const uploadId = crypto.randomUUID();
   const chunkCount = Math.max(1, Math.ceil(source.size / CHUNK_BYTES));
+  if (chunkCount > MAX_CHUNK_COUNT) {
+    throw new Error(
+      `This file is too large (${(source.size / (1024 * 1024)).toFixed(0)} MB). Compress the video or split it into shorter chapters.`,
+    );
+  }
 
   for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex += 1) {
     const start = chunkIndex * CHUNK_BYTES;

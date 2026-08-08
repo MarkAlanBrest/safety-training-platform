@@ -20,7 +20,7 @@ export async function parseJsonResponse<T>(response: Response): Promise<T> {
     throw new Error(
       response.ok
         ? "The server returned an empty response."
-        : `Request failed (${response.status}). The database may need to be updated — run npm run db:init.`,
+        : `Request failed (${response.status}). The server returned no details — try a smaller video file or try again in a moment.`,
     );
   }
 
