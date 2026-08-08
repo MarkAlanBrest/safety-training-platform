@@ -17,6 +17,8 @@ export type VideoClassroomPlayerHandle = {
   seekTo: (seconds: number) => void;
   play: () => void;
   pause: () => void;
+  setMuted: (muted: boolean) => void;
+  isMuted: () => boolean;
 };
 
 type Props = {
@@ -68,6 +70,10 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
       pause: () => {
         videoRef.current?.pause();
       },
+      setMuted: (muted: boolean) => {
+        if (videoRef.current) videoRef.current.muted = muted;
+      },
+      isMuted: () => videoRef.current?.muted ?? false,
     }));
 
     const resetFiredMarkers = useCallback(
