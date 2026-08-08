@@ -10,9 +10,9 @@ export default function NewClassroomPage() {
             Video course builder
           </p>
           <p className="mt-2 max-w-3xl text-sm leading-7 text-white/80">
-            Upload one full-screen video. Click Generate transcript to build the timed script
-            for the instructor chat, or upload your own .vtt file. Add AI stop points when you
-            want questions or extra instructor moments.
+            Upload one full-screen video. Click Publish course to build the chat script and
+            publish in one step. Add AI stop points when you want questions or extra instructor
+            moments.
           </p>
         </div>
         <VideoCourseBuilderForm />
