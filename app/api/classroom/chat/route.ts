@@ -350,23 +350,7 @@ function filterQuickReplies(_replies: string[] | undefined) {
   return [];
 }
 
-function dedupeReplyWithCheckQuestion(
-  reply: string,
-  checkQuestion: ClassroomCheckQuestion | null,
-): string {
-  const cleaned = reply.trim();
-  if (!checkQuestion?.prompt.trim()) return cleaned;
-  const prompt = checkQuestion.prompt.trim();
-  if (!cleaned) return "Let's check your understanding.";
-  if (!cleaned.toLowerCase().includes(prompt.toLowerCase())) return cleaned;
-  const withoutPrompt = cleaned
-    .replace(new RegExp(prompt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return withoutPrompt || "Let's check your understanding.";
-}
-
-export async function POST(request: Request) {
+import { dedupeReplyWithCheckQuestion } from "@/lib/classroom-speech";
   try {
     const body = await request.json();
     const courseSlug =
@@ -583,7 +567,7 @@ export async function POST(request: Request) {
       "Teach only the current slide and keep its current slideIndex; never advance slides because the application controls navigation.",
       "Use the current slide's instructor script as the source of truth. Follow private AI: or [AI] author cues without reading those directions aloud.",
       "Do not invent facts, topics, activities, or questions outside the supplied slide and lesson context.",
-      "For ordinary teaching, keep presentation.type slide, set checkQuestion null, expectsResponse false, and reply in no more than two short sentences.",
+      "For ordinary teaching, teach the current slide's instructor script faithfully in your own words — include the author's opening and key points, not a two-sentence summary. Keep presentation.type slide, set checkQuestion null, and expectsResponse false.",
       "Ask a question only when the current authored beat or an author cue requests it. Put graded multiple-choice, true/false, or short-answer questions in checkQuestion, keep the slide visible, and set expectsResponse true.",
       "When grading the learner's latest answer, use the supplied answer key, give one brief helpful explanation, set lastAnswerCorrect accurately, clear checkQuestion, and do not repeat the question.",
       "Never ask a comprehension-check question the student has already answered in this session.",

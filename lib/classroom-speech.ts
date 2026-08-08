@@ -1,5 +1,7 @@
 /** Client-safe speech helpers for classroom narration (no server/Node imports). */
 
+import type { ClassroomCheckQuestion } from "@/lib/classroom";
+
 /** Remove private author directions before text is sent to TTS. */
 export function spokenTextFromSpeakerNotes(notes: string): string {
   if (!notes?.trim()) return "";
@@ -46,4 +48,32 @@ export function speechChunks(text: string): string[] {
 
   const remainder = trimmed.slice(first.length).trim();
   return remainder ? [first, remainder] : [first];
+}
+
+/** Strip a comprehension prompt from reply text when the UI shows it separately. */
+export function dedupeReplyWithCheckQuestion(
+  reply: string,
+  checkQuestion: ClassroomCheckQuestion | null,
+): string {
+  const cleaned = reply.trim();
+  if (!checkQuestion?.prompt.trim()) return cleaned;
+  const prompt = checkQuestion.prompt.trim();
+  if (!cleaned) return "Let's check your understanding.";
+  if (!cleaned.toLowerCase().includes(prompt.toLowerCase())) return cleaned;
+  const withoutPrompt = cleaned
+    .replace(new RegExp(prompt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return withoutPrompt || "Let's check your understanding.";
+}
+
+/** Speech for a turn — lead-in only when a Quick Check card is showing the question. */
+export function speechTextForTurn(
+  reply: string,
+  checkQuestion: ClassroomCheckQuestion | null,
+) {
+  const cleanedReply = filterPrivateSpeechDirections(reply).trim();
+  if (!checkQuestion) return cleanedReply || reply;
+  const leadIn = dedupeReplyWithCheckQuestion(cleanedReply || reply, checkQuestion);
+  return leadIn || "Here's a quick check for you.";
 }
