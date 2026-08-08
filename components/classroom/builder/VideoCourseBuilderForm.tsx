@@ -6,6 +6,7 @@ import {
   completeClassroomAssetUpload,
   uploadClassroomAsset,
 } from "@/lib/classroom-asset-upload-client";
+import { transcribeVideoFile, vttToFile } from "@/lib/client-transcribe-video";
 import {
   createVideoId,
   formatTimestamp,
@@ -41,10 +42,54 @@ export default function VideoCourseBuilderForm() {
   const [markerTime, setMarkerTime] = useState("0:00");
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
+  const [transcriptStatus, setTranscriptStatus] = useState("");
+  const [transcribing, setTranscribing] = useState(false);
+  const [manualCaptions, setManualCaptions] = useState(false);
   const [error, setError] = useState("");
   const [successUrl, setSuccessUrl] = useState("");
 
   const videoId = useMemo(() => createVideoId("video"), []);
+  const transcribeTokenRef = useRef(0);
+
+  async function handleVideoSelect(file: File | null) {
+    setVideoFile(file);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(file ? URL.createObjectURL(file) : "");
+
+    if (!file) {
+      setCaptionsFile(null);
+      setManualCaptions(false);
+      setTranscriptStatus("");
+      return;
+    }
+
+    if (manualCaptions) return;
+
+    const token = ++transcribeTokenRef.current;
+    setTranscribing(true);
+    setTranscriptStatus("Reading video audio…");
+    setCaptionsFile(null);
+    setError("");
+
+    try {
+      const vtt = await transcribeVideoFile(file, (message) => {
+        if (token === transcribeTokenRef.current) setTranscriptStatus(message);
+      });
+      if (token !== transcribeTokenRef.current) return;
+      setCaptionsFile(vttToFile(vtt, videoId));
+      setTranscriptStatus("Transcript ready — it will appear in the chat during playback.");
+    } catch (reason) {
+      if (token !== transcribeTokenRef.current) return;
+      const message =
+        reason instanceof Error ? reason.message : "The video could not be transcribed.";
+      setTranscriptStatus("");
+      setError(
+        `${message} You can still publish the course and upload a .vtt script file instead.`,
+      );
+    } finally {
+      if (token === transcribeTokenRef.current) setTranscribing(false);
+    }
+  }
 
   function capturePreviewTime() {
     const seconds = previewRef.current?.currentTime ?? 0;
@@ -70,6 +115,10 @@ export default function VideoCourseBuilderForm() {
   async function handleSubmit(published: boolean) {
     if (!title.trim() || !videoFile) {
       setError("Add a course title and video file.");
+      return;
+    }
+    if (transcribing) {
+      setError("Wait for the transcript to finish generating.");
       return;
     }
 
@@ -159,9 +208,8 @@ export default function VideoCourseBuilderForm() {
       <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold text-[#10283f]">Video</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Export your presentation from PowerPoint as MP4. Upload a .vtt captions file to
-          drive the timed script in the instructor chat — one cue per slide or sentence works
-          best. Learners can also toggle those captions on the video.
+          Export your presentation from PowerPoint as MP4. When you upload the video, the platform
+          reads the audio and builds a timed transcript for the instructor chat automatically.
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="block text-sm font-semibold text-[#10283f]">
@@ -170,24 +218,41 @@ export default function VideoCourseBuilderForm() {
               type="file"
               accept="video/mp4,video/webm"
               className="mt-2 block w-full text-sm"
+              disabled={transcribing}
               onChange={(event) => {
-                const file = event.target.files?.[0] || null;
-                setVideoFile(file);
-                if (previewUrl) URL.revokeObjectURL(previewUrl);
-                setPreviewUrl(file ? URL.createObjectURL(file) : "");
+                void handleVideoSelect(event.target.files?.[0] || null);
               }}
             />
           </label>
           <label className="block text-sm font-semibold text-[#10283f]">
-            Timed script (.vtt) — recommended
+            Timed script (.vtt) — optional override
             <input
               type="file"
               accept=".vtt,text/vtt"
               className="mt-2 block w-full text-sm"
-              onChange={(event) => setCaptionsFile(event.target.files?.[0] || null)}
+              disabled={transcribing}
+              onChange={(event) => {
+                const file = event.target.files?.[0] || null;
+                setManualCaptions(Boolean(file));
+                setCaptionsFile(file);
+                if (file) {
+                  transcribeTokenRef.current += 1;
+                  setTranscribing(false);
+                  setTranscriptStatus("Using your uploaded script file.");
+                } else {
+                  setTranscriptStatus("");
+                  if (videoFile) void handleVideoSelect(videoFile);
+                }
+              }}
             />
           </label>
         </div>
+        {transcribing || transcriptStatus ? (
+          <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-slate-600">
+            {transcribing ? <LoaderCircle className="animate-spin" size={16} /> : null}
+            {transcriptStatus}
+          </p>
+        ) : null}
         {previewUrl ? (
           <video
             ref={previewRef}
@@ -344,7 +409,7 @@ export default function VideoCourseBuilderForm() {
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
-          disabled={saving}
+          disabled={saving || transcribing}
           onClick={() => void handleSubmit(false)}
           className="rounded-xl border border-[#10283f]/15 px-5 py-3 text-sm font-bold text-[#10283f] disabled:opacity-50"
         >
@@ -352,7 +417,7 @@ export default function VideoCourseBuilderForm() {
         </button>
         <button
           type="button"
-          disabled={saving}
+          disabled={saving || transcribing}
           onClick={() => void handleSubmit(true)}
           className="inline-flex items-center gap-2 rounded-xl bg-[#c68b1b] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
         >

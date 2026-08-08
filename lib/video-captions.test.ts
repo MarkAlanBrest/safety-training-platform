@@ -3,7 +3,7 @@ import {
   findCueIndexAtTime,
   narrationStateAtTime,
   parseWebVtt,
-} from "./video-captions.ts";
+} from "./video-captions";
 
 const sample = `WEBVTT
 
