@@ -10,6 +10,8 @@ import TeacherChat, { type TeacherMessage } from "@/components/classroom/Teacher
 import VideoClassroomPlayer, {
   type VideoClassroomPlayerHandle,
 } from "@/components/classroom/VideoClassroomPlayer";
+import VideoClassroomTopBar from "@/components/classroom/VideoClassroomTopBar";
+import type { VideoChapter } from "@/lib/classroom-video";
 
 const MAX_STREAMABLE_SPEECH_LENGTH = 1500;
 
@@ -61,6 +63,8 @@ export default function VideoClassroomShell({
   const [awaitingMarkerResume, setAwaitingMarkerResume] = useState(false);
   const [chatError, setChatError] = useState("");
   const [started, setStarted] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [playback, setPlayback] = useState({ currentTime: 0, duration: 0 });
 
   const unlockAudio = useCallback(() => {
     audioUnlockedRef.current = true;
@@ -467,6 +471,23 @@ export default function VideoClassroomShell({
   const awaitingInput =
     !thinking && !speaking && (expectsResponse || Boolean(checkQuestion));
 
+  const toggleBreak = useCallback(() => {
+    setPaused((current) => {
+      if (!current) {
+        cancelSpeech();
+        playerRef.current?.pause();
+      } else {
+        playerRef.current?.play();
+      }
+      return !current;
+    });
+  }, [cancelSpeech]);
+
+  const handleSelectChapter = useCallback((chapter: VideoChapter) => {
+    playerRef.current?.seekTo(chapter.startSeconds);
+    if (!paused) playerRef.current?.play();
+  }, [paused]);
+
   if (!videoCourse?.videoUrl) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950 px-8 text-center text-white">
@@ -477,24 +498,26 @@ export default function VideoClassroomShell({
 
   return (
     <main className="flex h-screen flex-col overflow-hidden bg-white text-slate-900">
-      <header className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-[#0f2b46] px-4 py-3 text-white">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-bold">{course.title}</p>
-          <p className="truncate text-xs text-white/70">Video course with AI instructor</p>
-        </div>
-      </header>
+      <VideoClassroomTopBar
+        title={course.title}
+        chapters={videoCourse.chapters}
+        currentTime={playback.currentTime}
+        duration={playback.duration}
+        paused={paused}
+        onSelectChapter={handleSelectChapter}
+        onToggleBreak={toggleBreak}
+      />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="relative min-h-0 bg-black">
           <VideoClassroomPlayer
             ref={playerRef}
-            title={course.title}
             videoUrl={videoCourse.videoUrl}
             captionsUrl={videoCourse.captionsUrl}
-            chapters={videoCourse.chapters}
             markers={videoCourse.markers}
             onMarkerReached={(marker) => void handleMarkerReached(marker)}
-            pausedExternally={awaitingMarkerResume}
+            onPlaybackUpdate={setPlayback}
+            pausedExternally={paused || awaitingMarkerResume}
           />
 
           {overlayPrompt ? (

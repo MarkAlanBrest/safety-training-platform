@@ -8,9 +8,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { Captions, MessageCircle, Pause, Play } from "lucide-react";
+import { Captions, Pause, Play } from "lucide-react";
 import type { VideoChapter, VideoTimelineMarker } from "@/lib/classroom-video";
-import { chapterAtTime, formatTimestamp } from "@/lib/classroom-video";
+import { formatTimestamp } from "@/lib/classroom-video";
 
 export type VideoClassroomPlayerHandle = {
   getCurrentTime: () => number;
@@ -22,26 +22,22 @@ export type VideoClassroomPlayerHandle = {
 };
 
 type Props = {
-  title: string;
   videoUrl: string;
   captionsUrl?: string;
-  chapters: VideoChapter[];
   markers: VideoTimelineMarker[];
   onMarkerReached: (marker: VideoTimelineMarker) => void;
-  onAskAi?: () => void;
+  onPlaybackUpdate?: (state: { currentTime: number; duration: number }) => void;
   pausedExternally?: boolean;
 };
 
 const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
   function VideoClassroomPlayer(
     {
-      title,
       videoUrl,
       captionsUrl,
-      chapters,
       markers,
       onMarkerReached,
-      onAskAi,
+      onPlaybackUpdate,
       pausedExternally = false,
     },
     ref,
@@ -52,29 +48,6 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
     const [captionsOn, setCaptionsOn] = useState(true);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
-    const [chapterMenuOpen, setChapterMenuOpen] = useState(false);
-
-    const activeChapter = chapterAtTime(chapters, currentTime);
-
-    useImperativeHandle(ref, () => ({
-      getCurrentTime: () => videoRef.current?.currentTime ?? 0,
-      seekTo: (seconds: number) => {
-        const video = videoRef.current;
-        if (!video) return;
-        video.currentTime = seconds;
-        resetFiredMarkers(seconds);
-      },
-      play: () => {
-        void videoRef.current?.play();
-      },
-      pause: () => {
-        videoRef.current?.pause();
-      },
-      setMuted: (muted: boolean) => {
-        if (videoRef.current) videoRef.current.muted = muted;
-      },
-      isMuted: () => videoRef.current?.muted ?? false,
-    }));
 
     const resetFiredMarkers = useCallback(
       (time: number) => {
@@ -87,6 +60,27 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
       },
       [markers],
     );
+
+    useImperativeHandle(ref, () => ({
+      getCurrentTime: () => videoRef.current?.currentTime ?? 0,
+      seekTo: (seconds: number) => {
+        const video = videoRef.current;
+        if (!video) return;
+        video.currentTime = seconds;
+        resetFiredMarkers(seconds);
+        setCurrentTime(seconds);
+      },
+      play: () => {
+        void videoRef.current?.play();
+      },
+      pause: () => {
+        videoRef.current?.pause();
+      },
+      setMuted: (muted: boolean) => {
+        if (videoRef.current) videoRef.current.muted = muted;
+      },
+      isMuted: () => videoRef.current?.muted ?? false,
+    }));
 
     useEffect(() => {
       const video = videoRef.current;
@@ -105,6 +99,7 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
       if (!video) return;
       const time = video.currentTime;
       setCurrentTime(time);
+      onPlaybackUpdate?.({ currentTime: time, duration: video.duration || duration });
 
       for (const marker of markers) {
         if (time + 0.15 < marker.atSeconds) continue;
@@ -129,16 +124,6 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
       }
     }
 
-    function seekToChapter(chapter: VideoChapter) {
-      const video = videoRef.current;
-      if (!video) return;
-      video.currentTime = chapter.startSeconds;
-      resetFiredMarkers(chapter.startSeconds);
-      setChapterMenuOpen(false);
-      void video.play();
-      setPlaying(true);
-    }
-
     return (
       <div className="relative flex h-full min-h-0 w-full flex-col bg-black">
         <video
@@ -147,7 +132,14 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
           className="min-h-0 w-full flex-1 object-contain"
           playsInline
           preload="metadata"
-          onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
+          onLoadedMetadata={(event) => {
+            const nextDuration = event.currentTarget.duration || 0;
+            setDuration(nextDuration);
+            onPlaybackUpdate?.({
+              currentTime: event.currentTarget.currentTime,
+              duration: nextDuration,
+            });
+          }}
           onTimeUpdate={handleTimeUpdate}
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
@@ -164,67 +156,22 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
           ) : null}
         </video>
 
-        <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent px-4 pb-10 pt-4">
-          <div className="pointer-events-auto flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-white">{title}</p>
-              {activeChapter ? (
-                <p className="truncate text-xs text-white/70">{activeChapter.title}</p>
-              ) : null}
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {chapters.length > 0 ? (
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setChapterMenuOpen((open) => !open)}
-                    className="rounded-lg bg-white/15 px-3 py-1.5 text-xs font-bold text-white backdrop-blur hover:bg-white/25"
-                  >
-                    Chapters
-                  </button>
-                  {chapterMenuOpen ? (
-                    <div className="absolute right-0 top-full z-20 mt-2 max-h-64 w-56 overflow-y-auto rounded-xl border border-white/10 bg-slate-950/95 p-2 shadow-2xl">
-                      {chapters.map((chapter) => (
-                        <button
-                          key={chapter.id}
-                          type="button"
-                          onClick={() => seekToChapter(chapter)}
-                          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-white hover:bg-white/10"
-                        >
-                          <span className="truncate">{chapter.title}</span>
-                          <span className="ml-2 shrink-0 text-xs text-white/50">
-                            {formatTimestamp(chapter.startSeconds)}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-              {captionsUrl ? (
-                <button
-                  type="button"
-                  onClick={() => setCaptionsOn((on) => !on)}
-                  className={`grid h-9 w-9 place-items-center rounded-lg backdrop-blur ${
-                    captionsOn ? "bg-amber-400 text-slate-950" : "bg-white/15 text-white"
-                  }`}
-                  aria-label={captionsOn ? "Hide captions" : "Show captions"}
-                >
-                  <Captions size={18} />
-                </button>
-              ) : null}
-              {onAskAi ? (
-                <button
-                  type="button"
-                  onClick={onAskAi}
-                  className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950"
-                >
-                  <MessageCircle size={16} /> Ask AI
-                </button>
-              ) : null}
+        {captionsUrl ? (
+          <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/50 to-transparent px-4 pb-8 pt-4">
+            <div className="pointer-events-auto flex justify-end">
+              <button
+                type="button"
+                onClick={() => setCaptionsOn((on) => !on)}
+                className={`grid h-9 w-9 place-items-center rounded-lg backdrop-blur ${
+                  captionsOn ? "bg-amber-400 text-slate-950" : "bg-white/15 text-white"
+                }`}
+                aria-label={captionsOn ? "Hide captions" : "Show captions"}
+              >
+                <Captions size={18} />
+              </button>
             </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-4 pb-4 pt-10">
           <div className="flex items-center gap-3">
@@ -250,6 +197,7 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
                   video.currentTime = next;
                   resetFiredMarkers(next);
                   setCurrentTime(next);
+                  onPlaybackUpdate?.({ currentTime: next, duration: video.duration || duration });
                 }}
                 className="w-full accent-amber-400"
                 aria-label="Seek"
