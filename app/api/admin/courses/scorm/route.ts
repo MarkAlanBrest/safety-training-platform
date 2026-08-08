@@ -2,15 +2,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { requireAdmin } from "@/lib/admin-session";
-import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
-import { isCourseTheme } from "@/lib/course-options";
-import { slugify } from "@/lib/mason";
-import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
-import { parseScormPackage } from "@/lib/scorm";
-import { buildDefaultScormLessonPlan } from "@/lib/scorm-instructor";
-
-const MAX_ZIP_BYTES = 4 * 1024 * 1024;
+import {
+  createScormCourseShell,
+  importScormZipIntoCourse,
+  MAX_SCORM_ZIP_BYTES,
+} from "@/lib/scorm-course-create";
 
 export async function POST(request: Request) {
   const unauthorized = await requireAdmin(request);
@@ -19,80 +15,33 @@ export async function POST(request: Request) {
   try {
     const form = await request.formData();
     const title = String(form.get("title") || "").trim();
-    const description = String(form.get("description") || "").trim();
-    const audience = String(form.get("audience") || "").trim();
-    const theme = String(form.get("theme") || "heritage");
-    const estimatedMinutes = Math.max(10, Math.min(100000, Number(form.get("estimatedMinutes")) || 60));
-    const voiceProvider = String(form.get("voiceProvider") || "browser");
-    const voice = String(form.get("voice") || "onyx").trim();
     const file = form.get("scorm");
 
     if (!title || !(file instanceof File)) {
       return Response.json({ error: "A course title and SCORM ZIP package are required." }, { status: 400 });
     }
-    if (!isCourseTheme(theme)) {
-      return Response.json({ error: "Select a valid course theme." }, { status: 400 });
-    }
     if (!file.name.toLowerCase().endsWith(".zip")) {
       return Response.json({ error: "SCORM packages must be uploaded as ZIP files." }, { status: 400 });
     }
-    if (file.size > MAX_ZIP_BYTES) {
-      return Response.json({ error: "SCORM ZIP uploads are currently limited to 4 MB." }, { status: 400 });
+    if (file.size > MAX_SCORM_ZIP_BYTES) {
+      return Response.json({ error: "SCORM ZIP uploads are limited to 25 MB." }, { status: 400 });
     }
 
-    const parsed = parseScormPackage(new Uint8Array(await file.arrayBuffer()));
-    const baseSlug = slugify(title) || "scorm-course";
-    let slug = baseSlug;
-    let suffix = 2;
-    while (await prisma.masonCourse.findUnique({ where: { slug } })) slug = `${baseSlug}-${suffix++}`;
-
-    const defaults = defaultClassroomBuilderConfig();
-    const config = defaultClassroomBuilderConfig({
-      teaching: {
-        ...defaults.teaching,
-        voiceProvider: voiceProvider === "premium" ? "premium" : "browser",
-        voice: /^[a-z0-9_-]{1,40}$/i.test(voice) ? voice : "onyx",
-      },
+    const course = await createScormCourseShell({
+      title,
+      description: String(form.get("description") || ""),
+      audience: String(form.get("audience") || ""),
+      theme: String(form.get("theme") || "heritage"),
+      estimatedMinutes: Number(form.get("estimatedMinutes")) || 60,
+      voiceProvider: String(form.get("voiceProvider") || "browser"),
+      voice: String(form.get("voice") || "onyx"),
+      fileName: file.name,
     });
-    const lessonPlan = buildDefaultScormLessonPlan({ title, description, config });
 
-    const course = await prisma.$transaction(async (transaction) => {
-      const created = await transaction.masonCourse.create({
-        data: {
-          title,
-          slug,
-          description: description || null,
-          audience: audience || null,
-          theme,
-          intensity: "standard",
-          estimatedMinutes,
-          courseType: "scorm",
-          scormVersion: parsed.version,
-          scormEntryPoint: parsed.entryPoint,
-          published: false,
-          sections: {
-            create: [
-              {
-                title: "SCORM package",
-                position: 1,
-                estimatedMinutes,
-                fileName: file.name,
-                lessonPlan: lessonPlan as Prisma.InputJsonValue,
-              },
-            ],
-          },
-        },
-      });
-      await transaction.scormAsset.createMany({
-        data: parsed.assets.map((asset) => ({
-          courseId: created.id,
-          path: asset.path,
-          mimeType: asset.mimeType,
-          content: Buffer.from(asset.content),
-        })),
-      });
-      return created;
-    }, { timeout: 30000 });
+    const parsed = await importScormZipIntoCourse(
+      course.id,
+      new Uint8Array(await file.arrayBuffer()),
+    );
 
     return Response.json({ course, assetCount: parsed.assets.length }, { status: 201 });
   } catch (error) {
