@@ -1,5 +1,5 @@
 import AdminShell from "@/components/AdminShell";
-import PowerPointCourseBuilderForm from "@/components/classroom/builder/PowerPointCourseBuilderForm";
+import VideoCourseBuilderForm from "@/components/classroom/builder/VideoCourseBuilderForm";
 
 export default function NewClassroomPage() {
   return (
@@ -7,14 +7,14 @@ export default function NewClassroomPage() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 rounded-3xl border border-[#10283f]/10 bg-[#10283f] px-6 py-5 text-white">
           <p className="text-xs font-bold uppercase tracking-[.2em] text-[#e8c273]">
-            PowerPoint course builder
+            Video course builder
           </p>
           <p className="mt-2 max-w-3xl text-sm leading-7 text-white/80">
-            Upload one or more PowerPoints as ordered chapters. The decks supply the course visuals,
-            and their speaker notes direct the AI instructor on each slide.
+            Upload one full-screen video, add chapter breaks and AI stop points on the timeline,
+            and let the instructor chat appear on demand while learners watch.
           </p>
         </div>
-        <PowerPointCourseBuilderForm />
+        <VideoCourseBuilderForm />
       </div>
     </AdminShell>
   );
