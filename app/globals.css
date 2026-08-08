@@ -241,6 +241,15 @@ h4 {
   display: block !important;
 }
 
+/* Microsoft Office Online embed: crop bottom chrome so slides fill the stage */
+.classroom-office-viewer-stage {
+  background: #000;
+}
+
+.classroom-office-viewer-frame {
+  max-width: none;
+}
+
 /* Embedded classroom PowerPoint player: hide editor chrome, keep slide canvas only */
 .classroom-pptx-player [data-pptx-viewer] {
   height: 100%;
