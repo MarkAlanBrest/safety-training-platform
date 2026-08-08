@@ -60,6 +60,10 @@ export async function serveClassroomDeck({
     "Cache-Control": publicEmbed ? "no-store" : "private, max-age=86400",
     "CDN-Cache-Control": publicEmbed ? "no-store" : "private, max-age=86400",
     "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "Access-Control-Allow-Headers": "Range, Content-Type, Authorization",
+    "Access-Control-Expose-Headers":
+      "Accept-Ranges, Content-Length, Content-Range, Content-Type, Content-Disposition",
     "Accept-Ranges": "bytes",
     "X-Content-Type-Options": "nosniff",
   });

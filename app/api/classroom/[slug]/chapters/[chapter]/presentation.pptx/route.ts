@@ -28,3 +28,15 @@ export async function HEAD(
   const response = await GET(request, context);
   return new Response(null, { status: response.status, headers: response.headers });
 }
+
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+      "Access-Control-Allow-Headers": "Range, Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
+}

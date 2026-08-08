@@ -437,6 +437,20 @@ export function classroomEmbedDeckUrl(deckUrl: string) {
   return deckUrl.replace(/\/deck$/, "/presentation.pptx");
 }
 
+/** Stable public origin Office Online uses to fetch published decks. */
+export function classroomPublicOrigin() {
+  return (
+    process.env.NEXT_PUBLIC_APP_ORIGIN ||
+    "https://safety-training-platform-eight.vercel.app"
+  );
+}
+
+/** Absolute HTTPS deck URL that Microsoft's servers can fetch without cookies. */
+export function classroomOfficeEmbedSrc(deckUrl: string) {
+  const embedPath = classroomEmbedDeckUrl(deckUrl);
+  return new URL(embedPath, classroomPublicOrigin()).href;
+}
+
 export function slideDeckContext(plan: ClassroomPlan, globalSlideIndex: number) {
   const chapters =
     plan.chapters?.length && plan.chapters.length > 0

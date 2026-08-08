@@ -4,11 +4,15 @@ export const dynamic = "force-dynamic";
 import { serveClassroomDeck } from "@/lib/classroom-deck-serve";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  return serveClassroomDeck({ slug, publicEmbed: true });
+  return serveClassroomDeck({
+    slug,
+    publicEmbed: true,
+    rangeHeader: request.headers.get("range"),
+  });
 }
 
 export async function HEAD(
