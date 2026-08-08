@@ -2,27 +2,19 @@ export const runtime = "nodejs";
 
 import crypto from "crypto";
 import { after } from "next/server";
+import {
+  MAX_SPEECH_INPUT_LENGTH,
+  parseSpeed,
+  parseVoice,
+  TTS_INSTRUCTIONS,
+} from "@/lib/instructor-speech";
 import { prisma } from "@/lib/prisma";
-
-const TTS_INSTRUCTIONS =
-  "Speak as a warm, clear instructor guiding someone through a training picture. Sound natural and conversational—not like a radio announcer. Pause briefly between ideas, emphasize key safety terms, and vary your pace so each sentence is easy to follow. When describing what to look at on a diagram, use inviting language like 'notice here' or 'look at this part'.";
-
-function parseVoice(raw: string | null | undefined) {
-  return raw && raw.trim() ? raw.trim() : process.env.MASON_VOICE || "cedar";
-}
-
-function parseSpeed(raw: string | number | null | undefined) {
-  return Math.min(1.25, Math.max(0.75, Number(raw) || 0.96));
-}
 
 async function synthesizeSpeech(input: string, voice: string, speed: number): Promise<Response> {
   if (!input) {
     return Response.json({ error: "Speech text is required." }, { status: 400 });
   }
 
-  // Cache key is the exact spoken text + voice + speed — identical narration (the
-  // welcome message every student hears, a replayed line, repeated feedback) is
-  // served from cache instead of paying to re-synthesize it every time.
   const hash = crypto.createHash("sha256").update(`${voice}|${speed}|${input}`).digest("hex");
 
   try {
@@ -76,10 +68,6 @@ async function synthesizeSpeech(input: string, voice: string, speed: number): Pr
   }
 
   const mimeType = "audio/mpeg";
-  // Split the stream: one branch goes straight to the client — as a real HTTP response
-  // (not buffered into a blob first), so an <audio src> element can start playing as
-  // bytes arrive instead of waiting for the whole clip. The other branch is collected
-  // after the response is sent and saved to the cache for next time.
   const [clientStream, cacheStream] = response.body.tee();
 
   after(async () => {
@@ -118,7 +106,7 @@ async function synthesizeSpeech(input: string, voice: string, speed: number): Pr
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
-    const input = (url.searchParams.get("text") || "").trim().slice(0, 4096);
+    const input = (url.searchParams.get("text") || "").trim().slice(0, MAX_SPEECH_INPUT_LENGTH);
     const voice = parseVoice(url.searchParams.get("voice"));
     const speed = parseSpeed(url.searchParams.get("speed"));
     return await synthesizeSpeech(input, voice, speed);
@@ -135,7 +123,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const input = String(body.text || "").trim().slice(0, 4096);
+    const input = String(body.text || "").trim().slice(0, MAX_SPEECH_INPUT_LENGTH);
     const voice = parseVoice(body.voice);
     const speed = parseSpeed(body.speed);
     return await synthesizeSpeech(input, voice, speed);
