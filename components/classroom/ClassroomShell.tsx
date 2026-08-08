@@ -28,6 +28,10 @@ import TeacherChat, { type TeacherMessage } from "@/components/classroom/Teacher
  * download (rare — replies are kept short by instruction) since it's safer than risking
  * an oversized URL. */
 const MAX_STREAMABLE_SPEECH_LENGTH = 1500;
+/** Pause after narration ends before the class auto-advances to the next beat. */
+const AUTO_ADVANCE_DELAY_MS = 2_500;
+/** Minimum time to stay on a beat before auto-advance can fire (avoids rushed jumps). */
+const MIN_BEAT_DWELL_MS = 1_500;
 
 type ChatApiResponse = {
   reply?: string;
@@ -131,6 +135,7 @@ export default function ClassroomShell({
   const [messages, setMessages] = useState<TeacherMessage[]>([]);
   const [thinking, setThinking] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [narrating, setNarrating] = useState(false);
   const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
   const [paused, setPaused] = useState(false);
   const [taughtSlideIndices, setTaughtSlideIndices] = useState<number[]>([]);
@@ -157,6 +162,10 @@ export default function ClassroomShell({
   const turnRequestIdRef = useRef(0);
   const autoAdvanceCountRef = useRef(0);
   const speechGenerationRef = useRef(0);
+  const narratingRef = useRef(false);
+  const narratingSessionRef = useRef(0);
+  const navigationDepthRef = useRef(0);
+  const beatSettledAtRef = useRef(Date.now());
   const prefetchedTurnRef = useRef<Map<number, PrefetchedTeacherTurn>>(new Map());
 
   function markSlideTaught(slideIndex: number) {
@@ -211,6 +220,9 @@ export default function ClassroomShell({
       URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
     }
+    narratingSessionRef.current += 1;
+    narratingRef.current = false;
+    setNarrating(false);
     setSpeaking(false);
   }
 
@@ -434,16 +446,30 @@ export default function ClassroomShell({
     const narration = filterPrivateSpeechDirections(text);
     if (!narration) return;
     const chunks = speechChunks(narration);
+    const session = ++narratingSessionRef.current;
+
+    narratingRef.current = true;
+    setNarrating(true);
+
+    const finishNarration = () => {
+      if (session !== narratingSessionRef.current) return;
+      narratingRef.current = false;
+      setNarrating(false);
+    };
+
     if (chunks.length <= 1) {
-      void speak(narration);
+      void speak(narration).finally(finishNarration);
       return;
     }
 
-    const generation = speechGenerationRef.current;
     void (async () => {
-      for (const chunk of chunks) {
-        if (generation !== speechGenerationRef.current) return;
-        await speak(chunk);
+      try {
+        for (const chunk of chunks) {
+          if (session !== narratingSessionRef.current) return;
+          await speak(chunk);
+        }
+      } finally {
+        finishNarration();
       }
     })();
   }
@@ -695,6 +721,15 @@ export default function ClassroomShell({
   }
 
   async function handleContinue() {
+    if (
+      navigationDepthRef.current > 0 ||
+      narratingRef.current ||
+      speaking ||
+      thinking
+    ) {
+      return;
+    }
+
     const nextBeatIndex = beatIndex + 1;
     if (nextBeatIndex >= lessonBeats.length) return;
 
@@ -735,70 +770,79 @@ export default function ClassroomShell({
       return;
     }
 
-    unlockAudio();
-    cancelSpeech();
+    navigationDepthRef.current += 1;
+    try {
+      unlockAudio();
+      cancelSpeech();
 
-    const view = presentationForBeat(plan, beat, assessmentQuestionIndex);
-    const nextSlideIndex =
-      beat.kind === "slide"
-        ? beat.slideIndex
-        : view.type === "slide"
-          ? view.slideIndex
-          : currentSlideIndex;
+      const view = presentationForBeat(plan, beat, assessmentQuestionIndex);
+      const nextSlideIndex =
+        beat.kind === "slide"
+          ? beat.slideIndex
+          : view.type === "slide"
+            ? view.slideIndex
+            : currentSlideIndex;
 
-    setBeatIndex(nextBeatIndex);
-    setPresentation(view);
-    setCheckQuestion(authoredCheck);
-    setExpectsResponse(Boolean(authoredCheck));
-    if (beat.kind === "slide" || view.type === "slide") {
-      setCurrentSlideIndex(nextSlideIndex);
-      markSlideTaught(nextSlideIndex);
+      setBeatIndex(nextBeatIndex);
+      setPresentation(view);
+      setCheckQuestion(authoredCheck);
+      setExpectsResponse(Boolean(authoredCheck));
+      if (beat.kind === "slide" || view.type === "slide") {
+        setCurrentSlideIndex(nextSlideIndex);
+        markSlideTaught(nextSlideIndex);
+      }
+
+      // The Final Test is a standalone exam mode, not part of the AI chat loop.
+      if (beat.kind === "finalTest" || beat.kind === "chapterTest") return;
+      // Video moments are learner-controlled. Wait until playback finishes before
+      // asking the instructor to continue to the next lesson beat.
+      if (view.type === "video") return;
+
+      const prefetched = prefetchedTurnRef.current.get(nextBeatIndex);
+      prefetchedTurnRef.current.clear();
+      const label = navLabelForBeat(beat, plan);
+      const checkpoint =
+        beat.kind === "checkpoint"
+          ? plan.checkpoints?.find((item) => item.id === beat.checkpointId)
+          : undefined;
+      const next: TeacherMessage[] = prefetched?.messages || [
+        ...messages,
+        {
+          role: "user",
+          hidden: true,
+          content: authoredCheck
+            ? `We've reached the formative check "${checkpoint?.headline || label}". Give a one-sentence lead-in in reply only — the exact question is already shown in the Quick Check card. Do not repeat the question text or list its answer options in reply. Wait for the student's answer.`
+            : `Let's go to "${label}" — continue teaching from there.`,
+        },
+      ];
+      setMessages(next);
+      await sendToTeacher(next, {
+        presentation: view,
+        slideIndex: nextSlideIndex,
+        beatIndex: nextBeatIndex,
+        // Notes normally provide the grounded script without a slower vision request.
+        // Visual author cues are the exception because the AI must inspect the slide
+        // before deciding whether to ask the conditional question.
+        includeImage:
+          beat.kind === "slide" &&
+          (!plan.slides[beat.slideIndex]?.speakerNotes?.trim() ||
+            speakerNotesRequestVisualInspection(
+              plan.slides[beat.slideIndex]?.speakerNotes,
+            )),
+      }, prefetched?.promise);
+    } finally {
+      navigationDepthRef.current = Math.max(0, navigationDepthRef.current - 1);
+      if (navigationDepthRef.current === 0) {
+        beatSettledAtRef.current = Date.now();
+      }
     }
-
-    // The Final Test is a standalone exam mode, not part of the AI chat loop.
-    if (beat.kind === "finalTest" || beat.kind === "chapterTest") return;
-    // Video moments are learner-controlled. Wait until playback finishes before
-    // asking the instructor to continue to the next lesson beat.
-    if (view.type === "video") return;
-
-    const prefetched = prefetchedTurnRef.current.get(nextBeatIndex);
-    prefetchedTurnRef.current.clear();
-    const label = navLabelForBeat(beat, plan);
-    const checkpoint =
-      beat.kind === "checkpoint"
-        ? plan.checkpoints?.find((item) => item.id === beat.checkpointId)
-        : undefined;
-    const next: TeacherMessage[] = prefetched?.messages || [
-      ...messages,
-      {
-        role: "user",
-        hidden: true,
-        content: authoredCheck
-          ? `We've reached the formative check "${checkpoint?.headline || label}". Give a one-sentence lead-in in reply only — the exact question is already shown in the Quick Check card. Do not repeat the question text or list its answer options in reply. Wait for the student's answer.`
-          : `Let's go to "${label}" — continue teaching from there.`,
-      },
-    ];
-    setMessages(next);
-    await sendToTeacher(next, {
-      presentation: view,
-      slideIndex: nextSlideIndex,
-      beatIndex: nextBeatIndex,
-      // Notes normally provide the grounded script without a slower vision request.
-      // Visual author cues are the exception because the AI must inspect the slide
-      // before deciding whether to ask the conditional question.
-      includeImage:
-        beat.kind === "slide" &&
-        (!plan.slides[beat.slideIndex]?.speakerNotes?.trim() ||
-          speakerNotesRequestVisualInspection(
-            plan.slides[beat.slideIndex]?.speakerNotes,
-          )),
-    }, prefetched?.promise);
   }
 
   const awaitingInput =
     !paused &&
     !thinking &&
     !speaking &&
+    !narrating &&
     (expectsResponse ||
       Boolean(checkQuestion) ||
       presentation.type === "question" ||
@@ -841,7 +885,18 @@ export default function ClassroomShell({
     // comprehension check always blocks auto-advance even if the AI forgets to set
     // expectsResponse on that turn — the structural signal is more reliable than
     // trusting the model got every flag right.
-    if (paused || thinking || speaking || expectsResponse || checkQuestion) return;
+    if (
+      paused ||
+      thinking ||
+      speaking ||
+      narrating ||
+      narratingRef.current ||
+      expectsResponse ||
+      checkQuestion
+    ) {
+      return;
+    }
+    if (navigationDepthRef.current > 0) return;
     if (!messages.length) return;
     if (currentBeat?.kind === "finalTest" || currentBeat?.kind === "chapterTest") return;
     if (
@@ -853,13 +908,38 @@ export default function ClassroomShell({
     if (beatIndex >= lessonBeats.length - 1) return;
     if (autoAdvanceCountRef.current > 300) return;
 
+    const elapsedOnBeat = Date.now() - beatSettledAtRef.current;
+    const dwellRemaining = Math.max(0, MIN_BEAT_DWELL_MS - elapsedOnBeat);
+    const delay = AUTO_ADVANCE_DELAY_MS + dwellRemaining;
+
     const timer = setTimeout(() => {
+      if (
+        paused ||
+        thinking ||
+        speaking ||
+        narratingRef.current ||
+        navigationDepthRef.current > 0 ||
+        expectsResponse ||
+        checkQuestion
+      ) {
+        return;
+      }
       autoAdvanceCountRef.current += 1;
       void handleContinue();
-    }, 100);
+    }, delay);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paused, thinking, speaking, expectsResponse, checkQuestion, beatIndex, messages.length, currentBeat]);
+  }, [
+    paused,
+    thinking,
+    speaking,
+    narrating,
+    expectsResponse,
+    checkQuestion,
+    beatIndex,
+    messages.length,
+    currentBeat,
+  ]);
 
   return (
     <main className="flex h-screen flex-col overflow-hidden bg-white text-slate-900">
