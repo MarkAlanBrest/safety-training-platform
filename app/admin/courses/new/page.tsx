@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 import AdminShell from "@/components/AdminShell";
 import { VOICE_OPTIONS, VOICE_PROVIDER_OPTIONS } from "@/lib/classroom-builder";
+import { parseJsonResponse } from "@/lib/parse-response";
+
+const MAX_SCORM_ZIP_BYTES = 4 * 1024 * 1024;
 
 export default function NewScormCoursePage() {
   const router = useRouter();
@@ -18,14 +21,19 @@ export default function NewScormCoursePage() {
 
     try {
       const form = new FormData(event.currentTarget);
+      const file = form.get("scorm");
+      if (file instanceof File && file.size > MAX_SCORM_ZIP_BYTES) {
+        throw new Error("SCORM ZIP files must be 4 MB or smaller.");
+      }
+
       const response = await fetch("/api/admin/courses/scorm", {
         method: "POST",
         body: form,
       });
-      const payload = await response.json();
+      const payload = await parseJsonResponse<{ course?: { slug: string }; error?: string }>(response);
       if (!response.ok) throw new Error(payload.error || "The SCORM package could not be uploaded.");
 
-      router.push(`/admin/courses/${payload.course.slug}`);
+      router.push(`/admin/courses/${payload.course?.slug}`);
       router.refresh();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "The SCORM package could not be uploaded.");
@@ -75,6 +83,7 @@ export default function NewScormCoursePage() {
               required
               className="mt-2 block w-full text-sm"
             />
+            <p className="mt-1 text-xs text-[#69757e]">Maximum upload size: 4 MB.</p>
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">

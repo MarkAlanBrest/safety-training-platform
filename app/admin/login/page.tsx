@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { parseJsonResponse } from "@/lib/parse-response";
 
 export default function Page() {
   const [email, setEmail] = useState("");
@@ -9,19 +10,23 @@ export default function Page() {
 
   const login = async () => {
     setError("");
-    const res = await fetch("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await parseJsonResponse<{ ok?: boolean; error?: string }>(res);
 
-    if (!res.ok) {
-      setError(data.error || "Login failed.");
-      return;
+      if (!res.ok) {
+        setError(data.error || "Login failed.");
+        return;
+      }
+
+      window.location.href = "/admin/courses";
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Login failed.");
     }
-
-    window.location.href = "/admin/courses"; // force redirect
   };
 
   return (
