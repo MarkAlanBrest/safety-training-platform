@@ -18,6 +18,8 @@ import { isLineupPlan } from "@/lib/classroom-lineup";
 import {
   filterPrivateSpeechDirections,
   speechChunks,
+  speechTextForTurn,
+  dedupeReplyWithCheckQuestion,
 } from "@/lib/classroom-speech";
 import ClassroomTopBar from "@/components/classroom/ClassroomTopBar";
 import PresentationArea from "@/components/classroom/PresentationArea";
@@ -78,32 +80,6 @@ function speakerNotesRequestVisualInspection(notes?: string) {
       notes,
     )
   );
-}
-
-function speechTextForTurn(reply: string, checkQuestion: ClassroomCheckQuestion | null) {
-  if (!checkQuestion) return reply;
-  const prompt = checkQuestion.prompt.trim();
-  const cleanedReply = filterPrivateSpeechDirections(reply).trim();
-  const options =
-    checkQuestion.options?.length
-      ? checkQuestion.options
-      : checkQuestion.type === "trueFalse"
-        ? ["True", "False"]
-        : undefined;
-  const optionsText = options?.length
-    ? " " +
-      options
-        .map((option, index) => `Option ${String.fromCharCode(65 + index)}: ${option}.`)
-        .join(" ")
-    : "";
-  const questionSpeech = `${prompt}${optionsText}`.trim();
-  if (!cleanedReply) return questionSpeech;
-  const replyLower = cleanedReply.toLowerCase();
-  const promptLower = prompt.toLowerCase();
-  if (replyLower.includes(promptLower) || promptLower.includes(replyLower)) {
-    return questionSpeech;
-  }
-  return `${cleanedReply} ${questionSpeech}`.trim();
 }
 
 export default function ClassroomShell({
@@ -602,8 +578,10 @@ export default function ClassroomShell({
         nextCheckQuestion = authoredCheck;
       }
 
+      const displayReply = dedupeReplyWithCheckQuestion(reply, nextCheckQuestion);
+
       setThinking(false);
-      setMessages([...nextMessages, { role: "assistant", content: reply }]);
+      setMessages([...nextMessages, { role: "assistant", content: displayReply }]);
       if (data.presentation) {
         applyTeacherPresentation(data.presentation);
       }
@@ -623,11 +601,11 @@ export default function ClassroomShell({
             data.presentation?.type === "exercise" ||
             data.presentation?.type === "assessment");
       setExpectsResponse(Boolean(needsResponse));
-      speakNatural(speechTextForTurn(reply, nextCheckQuestion));
+      speakNatural(speechTextForTurn(displayReply, nextCheckQuestion));
       if (!needsResponse && !nextCheckQuestion) {
         prefetchNextSlideTurn(activeBeatIndex, [
           ...nextMessages,
-          { role: "assistant", content: reply },
+          { role: "assistant", content: displayReply },
         ]);
       }
   }
