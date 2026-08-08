@@ -576,7 +576,6 @@ export default function VideoClassroomShell({
           <VideoClassroomPlayer
             ref={playerRef}
             videoUrl={videoCourse.videoUrl}
-            captionsUrl={videoCourse.captionsUrl}
             markers={videoCourse.markers}
             markersActive={started}
             onMarkerReached={(marker) => void handleMarkerReached(marker)}
