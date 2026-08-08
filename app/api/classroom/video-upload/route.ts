@@ -11,9 +11,7 @@ import {
 import {
   buildVideoClassroomPlan,
   sortVideoChapters,
-  sortVideoMarkers,
   type VideoChapter,
-  type VideoTimelineMarker,
 } from "@/lib/classroom-video";
 import { slugify } from "@/lib/mason";
 
@@ -26,7 +24,6 @@ type VideoUploadBody = {
   captionsAssetPath?: string;
   durationSeconds?: number;
   chapters?: VideoChapter[];
-  markers?: VideoTimelineMarker[];
 };
 
 function parseChapters(raw: unknown): VideoChapter[] {
@@ -48,29 +45,6 @@ function parseChapters(raw: unknown): VideoChapter[] {
     }));
 }
 
-function parseMarkers(raw: unknown): VideoTimelineMarker[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .filter((item): item is VideoTimelineMarker => {
-      if (!item || typeof item !== "object") return false;
-      const marker = item as VideoTimelineMarker;
-      return (
-        typeof marker.id === "string" &&
-        typeof marker.atSeconds === "number" &&
-        typeof marker.kind === "string"
-      );
-    })
-    .map((marker) => ({
-      ...marker,
-      atSeconds: Math.max(0, marker.atSeconds),
-      label: marker.label?.trim() || undefined,
-      aiScript: marker.aiScript?.trim() || undefined,
-      questionPrompt: marker.questionPrompt?.trim() || undefined,
-      correctAnswer: marker.correctAnswer?.trim() || undefined,
-      options: marker.options?.map((option) => option.trim()).filter(Boolean),
-    }));
-}
-
 export async function POST(request: Request) {
   try {
     const unauthorized = await requireAdmin(request);
@@ -83,7 +57,6 @@ export async function POST(request: Request) {
     const videoAssetPath = String(body.videoAssetPath || "").trim();
     const captionsAssetPath = String(body.captionsAssetPath || "").trim() || undefined;
     const chapters = sortVideoChapters(parseChapters(body.chapters));
-    const markers = sortVideoMarkers(parseMarkers(body.markers));
     const config = defaultClassroomBuilderConfig(body.config);
 
     if (!title) {
@@ -111,7 +84,9 @@ export async function POST(request: Request) {
         captionsAssetPath,
         durationSeconds: body.durationSeconds,
         chapters,
-        markers,
+        markers: [],
+        publishedMarkers: [],
+        activitiesPublished: false,
       },
     });
 

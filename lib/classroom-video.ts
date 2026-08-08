@@ -32,7 +32,12 @@ export type VideoCourseConfig = {
   captionsAssetPath?: string;
   durationSeconds?: number;
   chapters: VideoChapter[];
+  /** Draft stop points — edited in the activities builder. */
   markers: VideoTimelineMarker[];
+  /** Snapshot shown to learners after activities are published. */
+  publishedMarkers?: VideoTimelineMarker[];
+  /** When true, learners see `publishedMarkers` during playback. */
+  activitiesPublished?: boolean;
   /** Resolved at serve time */
   videoUrl?: string;
   captionsUrl?: string;
@@ -80,6 +85,23 @@ export function sortVideoMarkers(markers: VideoTimelineMarker[]) {
   return [...markers].sort((a, b) => a.atSeconds - b.atSeconds);
 }
 
+/** Markers used during playback — draft for admin preview, published for learners. */
+export function resolveVideoCourseMarkers(
+  videoCourse: VideoCourseConfig,
+  options?: { previewDraft?: boolean },
+): VideoTimelineMarker[] {
+  if (options?.previewDraft) {
+    return sortVideoMarkers(videoCourse.markers || []);
+  }
+  if (!videoCourse.activitiesPublished) {
+    return [];
+  }
+  const published = videoCourse.publishedMarkers?.length
+    ? videoCourse.publishedMarkers
+    : videoCourse.markers;
+  return sortVideoMarkers(published || []);
+}
+
 export function sortVideoChapters(chapters: VideoChapter[]) {
   return [...chapters].sort((a, b) => a.startSeconds - b.startSeconds);
 }
@@ -113,7 +135,11 @@ export function hydrateVideoCourse(
       ? classroomVideoAssetUrl(slug, videoCourse.captionsAssetPath)
       : undefined,
     chapters: sortVideoChapters(videoCourse.chapters),
-    markers: sortVideoMarkers(videoCourse.markers),
+    markers: sortVideoMarkers(videoCourse.markers || []),
+    publishedMarkers: videoCourse.publishedMarkers
+      ? sortVideoMarkers(videoCourse.publishedMarkers)
+      : undefined,
+    activitiesPublished: Boolean(videoCourse.activitiesPublished),
   };
 }
 
@@ -135,6 +161,10 @@ export function buildVideoClassroomPlan(input: {
       ...input.videoCourse,
       chapters: sortVideoChapters(input.videoCourse.chapters),
       markers: sortVideoMarkers(input.videoCourse.markers),
+      publishedMarkers: input.videoCourse.publishedMarkers
+        ? sortVideoMarkers(input.videoCourse.publishedMarkers)
+        : undefined,
+      activitiesPublished: Boolean(input.videoCourse.activitiesPublished),
     },
     config,
   };

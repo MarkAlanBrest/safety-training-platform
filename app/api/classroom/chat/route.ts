@@ -26,7 +26,8 @@ import {
   dedupeReplyWithCheckQuestion,
   speakerNotesHaveEmbeddedNarration,
 } from "@/lib/classroom-speech";
-import { chapterAtTime, formatTimestamp } from "@/lib/classroom-video";
+import { chapterAtTime, formatTimestamp, resolveVideoCourseMarkers } from "@/lib/classroom-video";
+import { getAdminSession } from "@/lib/admin-session";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -425,7 +426,11 @@ export async function POST(request: Request) {
     if (plan.videoCourse) {
       const videoTimeSeconds = Number(body.videoTimeSeconds) || 0;
       const activeChapter = chapterAtTime(plan.videoCourse.chapters, videoTimeSeconds);
-      const activeMarker = plan.videoCourse.markers.find(
+      const adminSession = await getAdminSession(request);
+      const playbackMarkers = resolveVideoCourseMarkers(plan.videoCourse, {
+        previewDraft: Boolean(adminSession),
+      });
+      const activeMarker = playbackMarkers.find(
         (marker) => marker.id === body.activeMarkerId,
       );
       const videoContext = [

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ClassroomCheckQuestion, PublicClassroomCourse } from "@/lib/classroom";
 import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
 import { filterPrivateSpeechDirections } from "@/lib/classroom-speech";
-import { markerToCheckQuestion } from "@/lib/classroom-video";
+import { markerToCheckQuestion, resolveVideoCourseMarkers } from "@/lib/classroom-video";
 import type { VideoTimelineMarker } from "@/lib/classroom-video";
 import { narrationStateAtTime, parseWebVtt, type VideoCaptionCue } from "@/lib/video-captions";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
@@ -25,8 +25,10 @@ type ChatApiResponse = {
 
 export default function VideoClassroomShell({
   course,
+  previewDraftActivities = false,
 }: {
   course: PublicClassroomCourse;
+  previewDraftActivities?: boolean;
 }) {
   const videoCourse = course.plan.videoCourse;
   const builderConfig = course.plan.config || defaultClassroomBuilderConfig();
@@ -73,6 +75,13 @@ export default function VideoClassroomShell({
   const activeCueIndexRef = useRef(-1);
 
   const hasCaptionReader = Boolean(videoCourse?.captionsUrl && captionCues.length);
+  const playbackMarkers = useMemo(
+    () =>
+      videoCourse
+        ? resolveVideoCourseMarkers(videoCourse, { previewDraft: previewDraftActivities })
+        : [],
+    [previewDraftActivities, videoCourse],
+  );
 
   useEffect(() => {
     const captionsUrl = videoCourse?.captionsUrl;
@@ -576,7 +585,7 @@ export default function VideoClassroomShell({
           <VideoClassroomPlayer
             ref={playerRef}
             videoUrl={videoCourse.videoUrl}
-            markers={videoCourse.markers}
+            markers={playbackMarkers}
             markersActive={started}
             onMarkerReached={(marker) => void handleMarkerReached(marker)}
             onPlaybackUpdate={handlePlaybackUpdate}

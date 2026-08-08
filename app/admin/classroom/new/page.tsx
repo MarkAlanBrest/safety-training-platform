@@ -10,9 +10,8 @@ export default function NewClassroomPage() {
             Video course builder
           </p>
           <p className="mt-2 max-w-3xl text-sm leading-7 text-white/80">
-            Upload one full-screen video and click Publish course. The platform builds the timed
-            chat script, adds AI stop points about every minute, and publishes in one step.
-            Upload your own .vtt file or edit stop points first if you prefer.
+            Step 1: upload and publish the video. Step 2: add AI stop points on the activities
+            screen. Enrollment is controlled separately in course settings.
           </p>
         </div>
         <VideoCourseBuilderForm />

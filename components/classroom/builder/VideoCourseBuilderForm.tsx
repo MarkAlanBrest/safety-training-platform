@@ -1,36 +1,13 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { LoaderCircle, Plus, Trash2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import {
   completeClassroomAssetUpload,
   uploadClassroomAsset,
 } from "@/lib/classroom-asset-upload-client";
 import { transcribeVideoFile, vttToFile } from "@/lib/client-transcribe-video";
-import { parseJsonResponse } from "@/lib/parse-response";
-import {
-  createVideoId,
-  formatTimestamp,
-  parseTimestampInput,
-  type VideoMarkerKind,
-  type VideoTimelineMarker,
-} from "@/lib/classroom-video";
-
-const MARKER_KINDS: Array<{ id: VideoMarkerKind; label: string }> = [
-  { id: "continue", label: "Auto-continue" },
-  { id: "ai_say", label: "AI says something" },
-  { id: "ask_question", label: "Ask a question (open)" },
-  { id: "quick_check", label: "Quick check (graded)" },
-];
-
-function emptyMarker(): VideoTimelineMarker {
-  return {
-    id: createVideoId("marker"),
-    atSeconds: 0,
-    kind: "continue",
-    label: "",
-  };
-}
+import { createVideoId } from "@/lib/classroom-video";
 
 export default function VideoCourseBuilderForm() {
   const previewRef = useRef<HTMLVideoElement>(null);
@@ -39,14 +16,11 @@ export default function VideoCourseBuilderForm() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [captionsFile, setCaptionsFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
-  const [markers, setMarkers] = useState<VideoTimelineMarker[]>([]);
-  const [markerTime, setMarkerTime] = useState("0:00");
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
   const [transcriptStatus, setTranscriptStatus] = useState("");
   const [transcriptError, setTranscriptError] = useState("");
   const [transcribing, setTranscribing] = useState(false);
-  const [generatingMarkers, setGeneratingMarkers] = useState(false);
   const [manualCaptions, setManualCaptions] = useState(false);
   const [error, setError] = useState("");
   const [successUrl, setSuccessUrl] = useState("");
@@ -62,7 +36,6 @@ export default function VideoCourseBuilderForm() {
     setPreviewUrl(file ? URL.createObjectURL(file) : "");
     setCaptionsFile(null);
     setManualCaptions(false);
-    setMarkers([]);
     setTranscriptStatus("");
     setTranscriptError("");
   }
@@ -98,75 +71,12 @@ export default function VideoCourseBuilderForm() {
     }
   }
 
-  async function ensureStopPoints(scriptFile: File): Promise<VideoTimelineMarker[]> {
-    if (markers.length) return markers;
-
-    setGeneratingMarkers(true);
-    setTranscriptStatus("Adding AI stop points about every minute…");
-    try {
-      const vtt = await scriptFile.text();
-      const response = await fetch("/api/classroom/generate-video-markers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          courseTitle: title.trim(),
-          courseDescription: description.trim(),
-          vtt,
-          durationSeconds: previewRef.current?.duration,
-        }),
-      });
-
-      const result = await parseJsonResponse<{
-        markers?: VideoTimelineMarker[];
-        warnings?: string[];
-        error?: string;
-      }>(response);
-
-      if (!response.ok) {
-        throw new Error(result.error || "AI stop points could not be generated.");
-      }
-
-      const generated = result.markers || [];
-      if (generated.length) {
-        setMarkers(generated);
-        setTranscriptStatus(`Added ${generated.length} AI stop points.`);
-      } else {
-        setTranscriptStatus("Transcript ready.");
-      }
-
-      return generated;
-    } finally {
-      setGeneratingMarkers(false);
-    }
-  }
-
-  function capturePreviewTime() {
-    const seconds = previewRef.current?.currentTime ?? 0;
-    setMarkerTime(formatTimestamp(seconds));
-  }
-
-  function addMarker() {
-    const atSeconds = parseTimestampInput(markerTime);
-    if (atSeconds === null) {
-      setError("Enter a valid marker time.");
-      return;
-    }
-    setMarkers((current) => [...current, { ...emptyMarker(), atSeconds }]);
-    setError("");
-  }
-
-  function updateMarker(id: string, patch: Partial<VideoTimelineMarker>) {
-    setMarkers((current) =>
-      current.map((marker) => (marker.id === id ? { ...marker, ...patch } : marker)),
-    );
-  }
-
   async function handleSubmit(published: boolean) {
     if (!title.trim() || !videoFile) {
       setError("Add a course title and video file.");
       return;
     }
-    if (transcribing || saving || generatingMarkers) {
+    if (transcribing || saving) {
       return;
     }
 
@@ -177,15 +87,8 @@ export default function VideoCourseBuilderForm() {
 
     try {
       let scriptFile = captionsFile;
-      let finalMarkers = markers;
-
-      if (published) {
-        if (!scriptFile && !manualCaptions) {
-          scriptFile = await ensureTranscript();
-        }
-        if (scriptFile && !finalMarkers.length) {
-          finalMarkers = await ensureStopPoints(scriptFile);
-        }
+      if (published && !scriptFile && !manualCaptions) {
+        scriptFile = await ensureTranscript();
       }
 
       const durationSeconds = previewRef.current?.duration || undefined;
@@ -202,7 +105,7 @@ export default function VideoCourseBuilderForm() {
             : undefined,
           durationSeconds,
           chapters: [],
-          markers: finalMarkers,
+          markers: [],
         }),
       });
       const created = await createResponse.json();
@@ -227,7 +130,7 @@ export default function VideoCourseBuilderForm() {
       setUploadProgress("Finishing…");
       await completeClassroomAssetUpload(created.course.slug, published);
       setUploadProgress("");
-      setSuccessUrl(created.previewUrl);
+      setSuccessUrl(`/admin/courses/${created.course.slug}/activities`);
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "Course could not be saved.";
       setError(
@@ -270,9 +173,9 @@ export default function VideoCourseBuilderForm() {
       <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold text-[#10283f]">Video</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Export your presentation from PowerPoint as MP4 and upload it here. When you publish,
-          the platform builds a timed chat script and adds AI stop points about every minute.
-          You can upload your own .vtt file instead if you prefer.
+          Export your presentation from PowerPoint as MP4 and upload it here. Publishing uploads
+          the video and builds the timed chat script. You&apos;ll add AI stop points on the next
+          screen.
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="block text-sm font-semibold text-[#10283f]">
@@ -334,146 +237,15 @@ export default function VideoCourseBuilderForm() {
         ) : null}
       </section>
 
-      <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-[#10283f]">AI stop points</h2>
-        <p className="mt-2 text-sm text-slate-600">
-          When you publish, the AI adds recap and quick-check stop points about every minute.
-          You can also add or edit stop points here before publishing.
-        </p>
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          <label className="text-sm font-semibold text-[#10283f]">
-            Time
-            <input
-              value={markerTime}
-              onChange={(event) => setMarkerTime(event.target.value)}
-              className="mt-2 block w-28 rounded-xl border border-[#10283f]/15 px-3 py-2"
-              placeholder="5:15"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={capturePreviewTime}
-            className="rounded-xl border border-[#10283f]/15 px-3 py-2 text-sm font-bold text-[#10283f]"
-          >
-            Use preview time
-          </button>
-          <button
-            type="button"
-            onClick={addMarker}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#10283f] px-4 py-2.5 text-sm font-bold text-white"
-          >
-            <Plus size={16} /> Add stop point
-          </button>
-        </div>
-
-        <div className="mt-4 space-y-4">
-          {markers.map((marker) => (
-            <div key={marker.id} className="rounded-2xl border border-slate-200 p-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="rounded-lg bg-slate-100 px-3 py-1 text-sm font-bold text-slate-700">
-                  {formatTimestamp(marker.atSeconds)}
-                </span>
-                <select
-                  value={marker.kind}
-                  onChange={(event) =>
-                    updateMarker(marker.id, { kind: event.target.value as VideoMarkerKind })
-                  }
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                >
-                  {MARKER_KINDS.map((kind) => (
-                    <option key={kind.id} value={kind.id}>
-                      {kind.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setMarkers((current) => current.filter((item) => item.id !== marker.id))
-                  }
-                  className="ml-auto text-slate-400 hover:text-red-600"
-                  aria-label="Remove stop point"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-
-              {marker.kind === "ai_say" ? (
-                <textarea
-                  value={marker.aiScript || ""}
-                  onChange={(event) => updateMarker(marker.id, { aiScript: event.target.value })}
-                  className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="What should the AI say before continuing?"
-                  rows={3}
-                />
-              ) : null}
-
-              {marker.kind === "ask_question" || marker.kind === "quick_check" ? (
-                <div className="mt-3 space-y-3">
-                  <input
-                    value={marker.aiScript || ""}
-                    onChange={(event) => updateMarker(marker.id, { aiScript: event.target.value })}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                    placeholder="Short AI lead-in (optional)"
-                  />
-                  <input
-                    value={marker.questionPrompt || ""}
-                    onChange={(event) =>
-                      updateMarker(marker.id, { questionPrompt: event.target.value })
-                    }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                    placeholder="Question"
-                  />
-                  <select
-                    value={marker.questionType || "shortAnswer"}
-                    onChange={(event) =>
-                      updateMarker(marker.id, {
-                        questionType: event.target.value as VideoTimelineMarker["questionType"],
-                      })
-                    }
-                    className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  >
-                    <option value="shortAnswer">Short answer</option>
-                    <option value="multipleChoice">Multiple choice</option>
-                    <option value="trueFalse">True / false</option>
-                  </select>
-                  {marker.questionType === "multipleChoice" ? (
-                    <textarea
-                      value={(marker.options || []).join("\n")}
-                      onChange={(event) =>
-                        updateMarker(marker.id, {
-                          options: event.target.value.split("\n").map((line) => line.trim()),
-                        })
-                      }
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                      placeholder="One answer option per line"
-                      rows={4}
-                    />
-                  ) : null}
-                  <input
-                    value={marker.correctAnswer || ""}
-                    onChange={(event) =>
-                      updateMarker(marker.id, { correctAnswer: event.target.value })
-                    }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                    placeholder="Answer key"
-                  />
-                </div>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </section>
-
       {error ? <p className="text-sm font-semibold text-red-600">{error}</p> : null}
       {uploadProgress ? (
         <p className="text-sm font-semibold text-slate-600">{uploadProgress}</p>
       ) : null}
       {successUrl ? (
         <p className="text-sm font-semibold text-emerald-700">
-          Course saved.{" "}
+          Video uploaded.{" "}
           <a href={successUrl} className="underline">
-            Open classroom preview
+            Continue to activities
           </a>
         </p>
       ) : null}
@@ -481,7 +253,7 @@ export default function VideoCourseBuilderForm() {
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
-          disabled={saving || transcribing || generatingMarkers}
+          disabled={saving || transcribing}
           onClick={() => void handleSubmit(false)}
           className="rounded-xl border border-[#10283f]/15 px-5 py-3 text-sm font-bold text-[#10283f] disabled:opacity-50"
         >
@@ -489,20 +261,12 @@ export default function VideoCourseBuilderForm() {
         </button>
         <button
           type="button"
-          disabled={saving || transcribing || generatingMarkers}
+          disabled={saving || transcribing}
           onClick={() => void handleSubmit(true)}
           className="inline-flex items-center gap-2 rounded-xl bg-[#c68b1b] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
         >
-          {saving || transcribing || generatingMarkers ? (
-            <LoaderCircle className="animate-spin" size={16} />
-          ) : null}
-          {transcribing
-            ? "Generating transcript…"
-            : generatingMarkers
-              ? "Adding AI stop points…"
-              : saving
-                ? "Publishing…"
-                : "Publish course"}
+          {saving || transcribing ? <LoaderCircle className="animate-spin" size={16} /> : null}
+          {transcribing ? "Generating transcript…" : saving ? "Publishing video…" : "Publish video"}
         </button>
       </div>
     </div>

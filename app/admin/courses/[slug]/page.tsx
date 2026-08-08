@@ -46,6 +46,8 @@ type Section = {
     videoCourse?: {
       chapters?: unknown[];
       markers?: unknown[];
+      publishedMarkers?: unknown[];
+      activitiesPublished?: boolean;
       durationSeconds?: number;
     };
     finalTest?: {
@@ -464,13 +466,29 @@ export default function CourseEditorPage() {
             <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm leading-6 text-amber-950">
               <p className="font-bold">This is a video course.</p>
               <p className="mt-1">
-                Learners see a full-screen video player with{" "}
-                {course.sections[0].lessonPlan.videoCourse.markers?.length || 0} AI stop points.
-                To change the video or timeline, create a new course at{" "}
-                <Link href="/admin/classroom/new" className="font-bold underline">
-                  New video course
+                Learners watch the uploaded video with a timed chat script. AI stop points are
+                managed separately from the video upload.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  href={`/admin/courses/${course.slug}/activities`}
+                  className="inline-flex rounded-xl bg-[#10283f] px-4 py-2.5 text-sm font-bold text-white"
+                >
+                  Manage activities
                 </Link>
-                .
+                <a
+                  href={`${learnerCoursePath(course.slug, course.courseType)}?preview=${encodeURIComponent(course.updatedAt)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex rounded-xl border border-amber-300 px-4 py-2.5 text-sm font-bold text-amber-950"
+                >
+                  Preview course
+                </a>
+              </div>
+              <p className="mt-3 text-xs text-amber-900/80">
+                {course.sections[0].lessonPlan.videoCourse.activitiesPublished
+                  ? `${course.sections[0].lessonPlan.videoCourse.publishedMarkers?.length || course.sections[0].lessonPlan.videoCourse.markers?.length || 0} activities published for learners.`
+                  : `${course.sections[0].lessonPlan.videoCourse.markers?.length || 0} draft activities — not published yet.`}
               </p>
             </div>
           ) : null}

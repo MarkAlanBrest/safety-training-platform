@@ -5,6 +5,7 @@ import {
   transcriptTextForWindow,
 } from "./video-marker-generator";
 import { parseWebVtt } from "./video-captions";
+import { resolveVideoCourseMarkers, type VideoCourseConfig } from "./classroom-video";
 
 const sample = `WEBVTT
 
@@ -37,5 +38,20 @@ assert.equal(segments.length, 2);
 assert.equal(segments[0]?.atSeconds, 60);
 assert.equal(segments[1]?.atSeconds, 120);
 assert.match(segments[1]?.text || "", /correct angle/);
+
+const videoCourse: VideoCourseConfig = {
+  videoAssetPath: "classroom/media/video-1",
+  chapters: [],
+  markers: [{ id: "draft", atSeconds: 60, kind: "ai_say", aiScript: "Draft only" }],
+  publishedMarkers: [{ id: "live", atSeconds: 60, kind: "ai_say", aiScript: "Live marker" }],
+  activitiesPublished: true,
+};
+assert.equal(resolveVideoCourseMarkers(videoCourse).length, 1);
+assert.equal(resolveVideoCourseMarkers(videoCourse)[0]?.id, "live");
+assert.equal(resolveVideoCourseMarkers(videoCourse, { previewDraft: true })[0]?.id, "draft");
+assert.equal(
+  resolveVideoCourseMarkers({ ...videoCourse, activitiesPublished: false }).length,
+  0,
+);
 
 console.log("video-marker-generator tests passed");
