@@ -490,11 +490,37 @@ const courses = [
 ];
 
 async function installCourse(definition) {
+  const suppressed = await prisma.seedCourseSuppression.findUnique({
+    where: { slug: definition.slug },
+  });
+  if (suppressed) {
+    return {
+      title: definition.title,
+      slug: definition.slug,
+      skipped: "admin-deleted",
+      sections: definition.sections.length,
+      sourcePptx: null,
+    };
+  }
+
+  const existing = await prisma.masonCourse.findUnique({
+    where: { slug: definition.slug },
+    select: { id: true },
+  });
+  if (existing) {
+    return {
+      title: definition.title,
+      slug: definition.slug,
+      skipped: "already-exists",
+      sections: definition.sections.length,
+      sourcePptx: null,
+    };
+  }
+
   const sourcePptx = await loadSourcePptx(definition);
 
-  const course = await prisma.masonCourse.upsert({
-    where: { slug: definition.slug },
-    create: {
+  const course = await prisma.masonCourse.create({
+    data: {
       title: definition.title,
       slug: definition.slug,
       description: definition.description,
@@ -505,17 +531,6 @@ async function installCourse(definition) {
       displayMode: definition.displayMode,
       published: definition.published,
     },
-    update: {
-      title: definition.title,
-      description: definition.description,
-      audience: definition.audience,
-      theme: definition.theme,
-      intensity: definition.intensity,
-      estimatedMinutes: definition.estimatedMinutes,
-      displayMode: definition.displayMode,
-      published: definition.published,
-      updatedAt: new Date(),
-    },
   });
 
   for (const [index, section] of definition.sections.entries()) {
@@ -524,27 +539,14 @@ async function installCourse(definition) {
       pptxBuffer: sourcePptx?.buffer || null,
     });
 
-    await prisma.masonSection.upsert({
-      where: {
-        courseId_position: {
-          courseId: course.id,
-          position: index + 1,
-        },
-      },
-      create: {
+    await prisma.masonSection.create({
+      data: {
         courseId: course.id,
         title: section.title,
         position: index + 1,
         estimatedMinutes: section.estimatedMinutes,
         fileName: "Editorial course content",
         lessonPlan,
-      },
-      update: {
-        title: section.title,
-        estimatedMinutes: section.estimatedMinutes,
-        fileName: "Editorial course content",
-        lessonPlan,
-        updatedAt: new Date(),
       },
     });
   }
