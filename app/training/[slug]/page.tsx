@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import GeneratedTrainingPage from "@/components/GeneratedTrainingPage";
-import ScormPlayer from "@/components/ScormPlayer";
+import ScormClassroomShell from "@/components/ScormClassroomShell";
 import { prisma } from "@/lib/prisma";
 import { learnerCoursePath } from "@/lib/course-routes";
 import {
@@ -10,6 +10,7 @@ import {
   type PublicMasonCourse,
 } from "@/lib/mason";
 import { workplaceHarassmentExampleCourse } from "@/lib/workplace-harassment-example";
+import { scormInstructorConfigFromLessonPlan } from "@/lib/scorm-instructor";
 
 export const dynamic = "force-dynamic";
 
@@ -53,11 +54,15 @@ export default async function TrainingCoursePage({
   if (record.courseType === "scorm") {
     if (!record.scormEntryPoint || !record.scormVersion) notFound();
     return (
-      <ScormPlayer
-        title={record.title}
-        slug={record.slug}
-        entryPoint={record.scormEntryPoint}
-        version={record.scormVersion}
+      <ScormClassroomShell
+        course={{
+          title: record.title,
+          slug: record.slug,
+          description: record.description,
+          scormVersion: record.scormVersion,
+          scormEntryPoint: record.scormEntryPoint,
+          instructor: scormInstructorConfigFromLessonPlan(record.sections[0]?.lessonPlan),
+        }}
       />
     );
   }

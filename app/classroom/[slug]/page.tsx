@@ -1,9 +1,5 @@
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
 import ClassroomShell from "@/components/classroom/ClassroomShell";
-import VideoClassroomShell from "@/components/classroom/VideoClassroomShell";
-import { isVideoClassroomPlan } from "@/lib/classroom-video";
-import { ADMIN_COOKIE, hashSessionToken } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
 import {
   classroomCourseForSlug,
@@ -80,25 +76,6 @@ export default async function ClassroomPage({
     published: record.published,
     plan,
   };
-
-  if (isVideoClassroomPlan(plan)) {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(ADMIN_COOKIE)?.value;
-    let previewDraftActivities = false;
-    if (token) {
-      const session = await prisma.adminSession.findUnique({
-        where: { tokenHash: hashSessionToken(token) },
-        include: { admin: { select: { active: true } } },
-      });
-      previewDraftActivities = Boolean(
-        session && session.admin.active && session.expiresAt.getTime() > Date.now(),
-      );
-    }
-
-    return (
-      <VideoClassroomShell course={course} previewDraftActivities={previewDraftActivities} />
-    );
-  }
 
   return <ClassroomShell course={course} />;
 }

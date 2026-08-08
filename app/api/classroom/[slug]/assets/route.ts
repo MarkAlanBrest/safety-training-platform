@@ -4,57 +4,26 @@ export const maxDuration = 300;
 
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-session";
-import { isClassroomPlan } from "@/lib/classroom";
 import { finalizeStagedAssetUpload, saveScormAssetBlob } from "@/lib/scorm-asset-store";
 
 const MAX_CHUNK_BYTES = 3 * 1024 * 1024;
 const MAX_CHUNK_COUNT = 700;
 const TARGET_PATH =
-  /^(?:classroom\/deck\.pptx|classroom\/slides\/\d+|classroom\/(?:media|activities)\/[a-z0-9-]+(?:\.vtt|\/chunks\/\d{3})?|classroom\/chapters\/[1-9]\d*\/(?:deck\.pptx|slides\/\d+))$/;
-const CHUNKED_VIDEO_PART = /\/chunks\/\d{3}$/;
+  /^(?:classroom\/deck\.pptx|classroom\/slides\/\d+|classroom\/(?:media|activities)\/[a-z0-9-]+(?:\.vtt)?|classroom\/chapters\/[1-9]\d*\/(?:deck\.pptx|slides\/\d+))$/;
 const UPLOAD_ID = /^[a-f0-9-]{20,50}$/i;
 const ALLOWED_MIME =
   /^(?:image\/(?:png|jpeg|webp)|video\/(?:mp4|webm)|text\/vtt|application\/vnd\.openxmlformats-officedocument\.presentationml\.presentation)$/;
 
-type RequiredAsset =
-  | { kind: "file"; path: string }
-  | { kind: "chunked-video"; path: string };
+type RequiredAsset = { kind: "file"; path: string };
 
 function requiredAssets(
   sections: Array<{ position: number; lessonPlan: unknown; fileName: string }>,
 ): RequiredAsset[] {
   return sections.flatMap((section) => {
-    if (isClassroomPlan(section.lessonPlan) && section.lessonPlan.videoCourse?.videoAssetPath) {
-      const assets: RequiredAsset[] = [
-        { kind: "chunked-video", path: section.lessonPlan.videoCourse.videoAssetPath },
-      ];
-      if (section.lessonPlan.videoCourse.captionsAssetPath) {
-        assets.push({ kind: "file", path: section.lessonPlan.videoCourse.captionsAssetPath });
-      }
-      return assets;
-    }
-
     const base =
       section.position <= 1 ? "classroom" : `classroom/chapters/${section.position}`;
     return [{ kind: "file", path: `${base}/deck.pptx` }];
   });
-}
-
-async function verifyChunkedVideo(courseId: number, videoAssetPath: string) {
-  const parts = await prisma.scormAsset.findMany({
-    where: {
-      courseId,
-      path: { startsWith: `${videoAssetPath}/chunks/` },
-    },
-    orderBy: { path: "asc" },
-    select: { path: true },
-  });
-  if (!parts.length) return false;
-  for (let index = 0; index < parts.length; index += 1) {
-    const expected = `${videoAssetPath}/chunks/${String(index).padStart(3, "0")}`;
-    if (parts[index].path !== expected) return false;
-  }
-  return true;
 }
 
 export async function POST(
@@ -82,28 +51,18 @@ export async function POST(
       }
 
       const required = requiredAssets(course.sections);
-      const filePaths = required
-        .filter((asset): asset is { kind: "file"; path: string } => asset.kind === "file")
-        .map((asset) => asset.path);
+      const filePaths = required.map((asset) => asset.path);
       const storedAssets = await prisma.scormAsset.findMany({
         where: { courseId: course.id, path: { in: filePaths } },
         select: { path: true },
       });
       const storedPaths = new Set(storedAssets.map((asset) => asset.path));
-      const missingFiles = filePaths.filter((path) => !storedPaths.has(path));
+      const missing = filePaths.filter((path) => !storedPaths.has(path));
 
-      const missingVideos: string[] = [];
-      for (const asset of required) {
-        if (asset.kind !== "chunked-video") continue;
-        const ready = await verifyChunkedVideo(course.id, asset.path);
-        if (!ready) missingVideos.push(asset.path);
-      }
-
-      const missing = [...missingFiles, ...missingVideos];
       if (missing.length) {
         return Response.json(
           {
-            error: `Missing: ${missing.join(", ")}. Finish uploading the course video before publishing.`,
+            error: `Missing: ${missing.join(", ")}. Finish uploading the course deck before publishing.`,
           },
           { status: 409 },
         );
@@ -147,16 +106,6 @@ export async function POST(
     }
 
     const chunkContent = Buffer.from(await chunk.arrayBuffer());
-
-    if (CHUNKED_VIDEO_PART.test(targetPath)) {
-      await saveScormAssetBlob({
-        courseId: course.id,
-        path: targetPath,
-        mimeType,
-        content: chunkContent,
-      });
-      return Response.json({ accepted: true, complete: true });
-    }
 
     const chunkPath = `classroom/uploads/${uploadId}/${String(chunkIndex).padStart(3, "0")}`;
     await saveScormAssetBlob({

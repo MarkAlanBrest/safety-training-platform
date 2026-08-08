@@ -43,13 +43,6 @@ type Section = {
     objectives?: string[];
     moments?: unknown[];
     slides?: unknown[];
-    videoCourse?: {
-      chapters?: unknown[];
-      markers?: unknown[];
-      publishedMarkers?: unknown[];
-      activitiesPublished?: boolean;
-      durationSeconds?: number;
-    };
     finalTest?: {
       config?: { enabled?: boolean; questionCount?: number };
       questionBank?: unknown[];
@@ -462,48 +455,16 @@ export default function CourseEditorPage() {
 
       {tab === "content" && (course.courseType === "classroom" ? (
         <section className="min-w-0">
-          {course.sections[0]?.lessonPlan?.videoCourse ? (
-            <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm leading-6 text-amber-950">
-              <p className="font-bold">This is a video course.</p>
-              <p className="mt-1">
-                Learners watch the uploaded video with a timed chat script. AI stop points are
-                managed separately from the video upload.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <Link
-                  href={`/admin/courses/${course.slug}/activities`}
-                  className="inline-flex rounded-xl bg-[#10283f] px-4 py-2.5 text-sm font-bold text-white"
-                >
-                  Manage activities
-                </Link>
-                <a
-                  href={`${learnerCoursePath(course.slug, course.courseType)}?preview=${encodeURIComponent(course.updatedAt)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex rounded-xl border border-amber-300 px-4 py-2.5 text-sm font-bold text-amber-950"
-                >
-                  Preview course
-                </a>
-              </div>
-              <p className="mt-3 text-xs text-amber-900/80">
-                {course.sections[0].lessonPlan.videoCourse.activitiesPublished
-                  ? `${course.sections[0].lessonPlan.videoCourse.publishedMarkers?.length || course.sections[0].lessonPlan.videoCourse.markers?.length || 0} activities published for learners.`
-                  : `${course.sections[0].lessonPlan.videoCourse.markers?.length || 0} draft activities — not published yet.`}
-              </p>
-            </div>
-          ) : null}
           <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">
-                {course.sections[0]?.lessonPlan?.videoCourse ? "Video course" : "PowerPoint course"}
+                PowerPoint course
               </p>
               <h2 className="mt-1 font-serif text-3xl font-semibold text-[#10283f]">
-                {course.sections[0]?.lessonPlan?.videoCourse ? "Timeline" : "Chapters"}
+                Chapters
               </h2>
               <p className="mt-2 text-sm text-[#69757e]">
-                {course.sections[0]?.lessonPlan?.videoCourse
-                  ? "Full-screen video with chapter jumps and AI interactions on the timeline."
-                  : "Each chapter is one PowerPoint deck. Learners navigate its slides in the Microsoft viewer."}
+                Each chapter is one PowerPoint deck. Learners navigate its slides in the Microsoft viewer.
               </p>
             </div>
             <a
@@ -578,11 +539,15 @@ export default function CourseEditorPage() {
           <p className="mt-5 text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">Imported package</p>
           <h2 className="mt-2 font-serif text-3xl font-semibold text-[#10283f]">SCORM {course.scormVersion} course</h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#69757e]">
-            This course uses the lessons and assessment inside the uploaded SCORM package. Enrollment codes, learner progress, completion, and certificates are managed here.
+            Learners work through the SCORM package with an AI instructor panel for narration and
+            questions. Choose browser or premium voice in Settings.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link href={`/admin/scorm-preview/${course.slug}`} target="_blank" className="inline-flex rounded-xl bg-[#10283f] px-5 py-3 font-bold text-white">
-              Preview SCORM course
+              Preview with instructor chat
+            </Link>
+            <Link href={`/training/${course.slug}`} target="_blank" className="inline-flex rounded-xl border border-[#10283f]/15 px-5 py-3 font-bold text-[#10283f]">
+              Open learner route
             </Link>
           </div>
           <p className="mt-4 text-xs text-[#69757e]">Preview mode does not alter learner progress or issue a certificate.</p>
@@ -754,14 +719,16 @@ export default function CourseEditorPage() {
         </div>
       ))}
 
-      {tab === "settings" && (course.courseType === "classroom" ? (
+      {tab === "settings" && (course.courseType === "classroom" || course.courseType === "scorm" ? (
         <form onSubmit={saveSettings} className="grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1fr)_minmax(0,.8fr)]">
           <section className="min-w-0 space-y-6 rounded-3xl border border-[#10283f]/10 bg-white p-7">
             <div>
               <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">AI course settings</p>
               <h2 className="mt-2 font-serif text-2xl font-semibold text-[#10283f]">Course and instructor</h2>
               <p className="mt-2 text-sm leading-6 text-[#69757e]">
-                The PowerPoints supply all visual content. These settings control the course name and AI voice.
+                {course.courseType === "scorm"
+                  ? "These settings control the course name and AI instructor voice for the SCORM chat panel."
+                  : "The PowerPoints supply all visual content. These settings control the course name and AI voice."}
               </p>
             </div>
 
@@ -829,10 +796,20 @@ export default function CourseEditorPage() {
             </section>
 
             <label className="flex items-start gap-3 rounded-2xl border border-[#10283f]/10 bg-white p-5">
-              <input name="published" type="checkbox" defaultChecked={course.published} disabled={!course.sections.length} className="mt-1 h-4 w-4" />
+              <input
+                name="published"
+                type="checkbox"
+                defaultChecked={course.published}
+                disabled={course.courseType !== "scorm" && !course.sections.length}
+                className="mt-1 h-4 w-4"
+              />
               <span>
                 <span className="block font-bold text-[#10283f]">Published and available for enrollment</span>
-                <span className="mt-1 block text-xs leading-5 text-[#6c7881]">Learners with valid enrollment codes can take this AI-led PowerPoint course.</span>
+                <span className="mt-1 block text-xs leading-5 text-[#6c7881]">
+                  {course.courseType === "scorm"
+                    ? `Learners with valid codes can open the SCORM lesson with the AI instructor panel.`
+                    : "Learners with valid enrollment codes can take this AI-led PowerPoint course."}
+                </span>
               </span>
             </label>
 
@@ -1051,17 +1028,15 @@ export default function CourseEditorPage() {
                 name="published"
                 type="checkbox"
                 defaultChecked={course.published}
-                disabled={course.courseType !== "scorm" && course.sections.length === 0}
+                disabled={course.sections.length === 0}
                 className="mt-1 h-4 w-4"
               />
               <span>
                 <span className="block font-bold text-[#10283f]">Published and available for enrollment</span>
                 <span className="mt-1 block text-xs leading-5 text-[#6c7881]">
-                  {course.courseType !== "scorm" && course.sections.length === 0
+                  {course.sections.length === 0
                     ? "Add at least one section before publishing."
-                    : course.courseType === "scorm"
-                      ? `The imported SCORM ${course.scormVersion || ""} package is ready for learners with valid codes.`
-                      : "Learners with valid codes can enter this program."}
+                    : "Learners with valid codes can enter this program."}
                 </span>
               </span>
             </label>

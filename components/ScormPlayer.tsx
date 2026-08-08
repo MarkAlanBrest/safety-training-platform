@@ -6,27 +6,44 @@ import { Award, LoaderCircle, Maximize2 } from "lucide-react";
 
 type RuntimeData = Record<string, string>;
 
+export type ScormRuntimeChange = {
+  key: string;
+  value: string;
+  snapshot: RuntimeData;
+};
+
 export default function ScormPlayer({
   title,
   slug,
   entryPoint,
   version,
   preview = false,
+  embedded = false,
+  className,
+  onRuntimeChange,
 }: {
   title: string;
   slug: string;
   entryPoint: string;
   version: string;
   preview?: boolean;
+  embedded?: boolean;
+  className?: string;
+  onRuntimeChange?: (change: ScormRuntimeChange) => void;
 }) {
   const searchParams = useSearchParams();
   const code = searchParams?.get("code") || "";
   const dataRef = useRef<RuntimeData>({});
+  const onRuntimeChangeRef = useRef(onRuntimeChange);
   const [ready, setReady] = useState(false);
   const [runtimeReady, setRuntimeReady] = useState(false);
   const [error, setError] = useState("");
   const [certificateUrl, setCertificateUrl] = useState("");
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    onRuntimeChangeRef.current = onRuntimeChange;
+  }, [onRuntimeChange]);
 
   useEffect(() => {
     if (preview) {
@@ -98,8 +115,14 @@ export default function ScormPlayer({
       return "";
     };
     const setValue = (key: string, value: unknown) => {
-      dataRef.current[key] = String(value ?? "");
+      const next = String(value ?? "");
+      dataRef.current[key] = next;
       lastError = "0";
+      onRuntimeChangeRef.current?.({
+        key,
+        value: next,
+        snapshot: { ...dataRef.current },
+      });
       return "true";
     };
     const initialize = () => { lastError = "0"; return "true"; };
@@ -149,6 +172,36 @@ export default function ScormPlayer({
 
   const launchUrl = `/api/scorm/${encodeURIComponent(slug)}/asset/${entryPoint.split("/").map(encodeURIComponent).join("/")}`;
 
+  const iframe = (
+    <iframe
+      ref={iframeRef}
+      title={title}
+      src={launchUrl}
+      className={embedded ? `h-full w-full border-0 bg-white ${className || ""}` : "h-[calc(100vh-77px)] w-full border-0 bg-white"}
+      allow="autoplay; fullscreen"
+      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals"
+    />
+  );
+
+  if (embedded) {
+    return (
+      <div className={`relative h-full min-h-0 bg-white ${className || ""}`}>
+        {error ? (
+          <p className="absolute inset-x-0 top-0 z-10 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+            {error}
+          </p>
+        ) : null}
+        {!ready || !runtimeReady ? (
+          <div className="grid h-full min-h-[320px] place-items-center">
+            <LoaderCircle className="animate-spin text-[#c68b1b]" size={34} />
+          </div>
+        ) : (
+          iframe
+        )}
+      </div>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-[#0b1f33] text-white">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
@@ -173,14 +226,7 @@ export default function ScormPlayer({
       {!ready || !runtimeReady ? (
         <div className="grid min-h-[75vh] place-items-center"><LoaderCircle className="animate-spin text-[#e8b84f]" size={34} /></div>
       ) : (
-        <iframe
-          ref={iframeRef}
-          title={title}
-          src={launchUrl}
-          className="h-[calc(100vh-77px)] w-full border-0 bg-white"
-          allow="autoplay; fullscreen"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals"
-        />
+        iframe
       )}
     </main>
   );

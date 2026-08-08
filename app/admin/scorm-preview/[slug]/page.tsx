@@ -1,8 +1,9 @@
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import ScormPlayer from "@/components/ScormPlayer";
+import ScormClassroomShell from "@/components/ScormClassroomShell";
 import { ADMIN_COOKIE, hashSessionToken } from "@/lib/admin-session";
 import { prisma } from "@/lib/prisma";
+import { scormInstructorConfigFromLessonPlan } from "@/lib/scorm-instructor";
 
 export const dynamic = "force-dynamic";
 
@@ -20,17 +21,29 @@ export default async function AdminScormPreviewPage({ params }: { params: Promis
   const { slug } = await params;
   const course = await prisma.masonCourse.findUnique({
     where: { slug },
-    select: { title: true, slug: true, courseType: true, scormVersion: true, scormEntryPoint: true },
+    include: {
+      sections: {
+        orderBy: { position: "asc" },
+        take: 1,
+        select: { lessonPlan: true },
+      },
+    },
   });
-  if (!course || course.courseType !== "scorm" || !course.scormVersion || !course.scormEntryPoint) notFound();
+  if (!course || course.courseType !== "scorm" || !course.scormVersion || !course.scormEntryPoint) {
+    notFound();
+  }
 
   return (
-    <ScormPlayer
-      title={course.title}
-      slug={course.slug}
-      version={course.scormVersion}
-      entryPoint={course.scormEntryPoint}
+    <ScormClassroomShell
       preview
+      course={{
+        title: course.title,
+        slug: course.slug,
+        description: course.description,
+        scormVersion: course.scormVersion,
+        scormEntryPoint: course.scormEntryPoint,
+        instructor: scormInstructorConfigFromLessonPlan(course.sections[0]?.lessonPlan),
+      }}
     />
   );
 }
