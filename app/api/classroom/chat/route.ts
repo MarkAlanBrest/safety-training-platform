@@ -22,6 +22,7 @@ import {
   sanitizeTeacherSlidePresentation,
 } from "@/lib/classroom-teacher";
 import { extractResponseOutputText } from "@/lib/parse-response";
+import { dedupeReplyWithCheckQuestion } from "@/lib/classroom-speech";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -350,7 +351,7 @@ function filterQuickReplies(_replies: string[] | undefined) {
   return [];
 }
 
-import { dedupeReplyWithCheckQuestion } from "@/lib/classroom-speech";
+export async function POST(request: Request) {
   try {
     const body = await request.json();
     const courseSlug =
