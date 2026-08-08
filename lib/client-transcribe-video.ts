@@ -4,25 +4,20 @@ import {
   parseWebVttToSegments,
   segmentsToWebVtt,
 } from "@/lib/video-transcription";
+import { parseJsonResponse } from "@/lib/parse-response";
 
 const WHISPER_MAX_BYTES = 24 * 1024 * 1024;
-const UPLOAD_CHUNK_BYTES = 10 * 1024 * 1024;
+const UPLOAD_CHUNK_BYTES = 768 * 1024;
 const CHUNK_SECONDS = 600;
 
 async function readTranscribeResponse(response: Response) {
-  const raw = await response.text();
-  let payload: { vtt?: string; error?: string } = {};
-  try {
-    payload = JSON.parse(raw) as { vtt?: string; error?: string };
-  } catch {
-    payload = { vtt: raw };
-  }
+  const payload = await parseJsonResponse<{ vtt?: string; error?: string }>(response);
 
   if (!response.ok) {
     throw new Error(payload.error || "The video audio could not be transcribed.");
   }
 
-  const vtt = normalizeWebVtt(payload.vtt || raw);
+  const vtt = normalizeWebVtt(payload.vtt || "");
   if (!parseWebVttToSegments(vtt).length) {
     throw new Error("No transcript was returned for this video.");
   }
@@ -61,7 +56,7 @@ async function uploadVideoForTranscription(
       method: "POST",
       body: form,
     });
-    const payload = (await response.json()) as { error?: string };
+    const payload = await parseJsonResponse<{ error?: string }>(response);
     if (!response.ok) {
       throw new Error(payload.error || "The video could not be uploaded for transcription.");
     }
@@ -86,29 +81,20 @@ export async function transcribeVideoFile(
 ): Promise<string> {
   onProgress?.("Preparing video…");
 
-  if (videoFile.size > WHISPER_MAX_BYTES || isVideoFile(videoFile)) {
-    if (videoFile.size > WHISPER_MAX_BYTES) {
-      return uploadVideoForTranscription(videoFile, onProgress);
-    }
-
-    onProgress?.("Transcribing on server…");
-    try {
-      return await transcribeBlob(videoFile, videoFile.name || "media.mp4");
-    } catch (error) {
-      if (!(error instanceof Error) || !error.message.includes("too large")) {
-        throw error;
-      }
-      return uploadVideoForTranscription(videoFile, onProgress);
-    }
+  if (isVideoFile(videoFile)) {
+    return uploadVideoForTranscription(videoFile, onProgress);
   }
 
-  onProgress?.("Transcribing audio…");
-  return transcribeBlob(videoFile, videoFile.name || "audio.mp3");
+  if (videoFile.size <= WHISPER_MAX_BYTES) {
+    onProgress?.("Transcribing audio…");
+    return transcribeBlob(videoFile, videoFile.name || "audio.mp3");
+  }
+
+  return uploadVideoForTranscription(videoFile, onProgress);
 }
 
 export function vttToFile(vtt: string, baseName: string) {
   return new File([vtt], `${baseName}.vtt`, { type: "text/vtt" });
 }
 
-// Kept for chunked VTT merge if needed elsewhere.
 export { CHUNK_SECONDS, mergeWebVttFiles, parseWebVttToSegments, segmentsToWebVtt };
