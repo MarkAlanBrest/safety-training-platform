@@ -5,7 +5,7 @@ export const maxDuration = 300;
 import { requireAdmin } from "@/lib/admin-session";
 import { saveTranscribeChunk } from "@/lib/transcribe-staging";
 
-const MAX_CHUNK_BYTES = 20 * 1024 * 1024;
+const MAX_CHUNK_BYTES = 1024 * 1024;
 
 export async function POST(request: Request) {
   const unauthorized = await requireAdmin(request);
