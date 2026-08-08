@@ -10,6 +10,7 @@ import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
 import {
   beatIndexForSlide,
   buildLessonBeats,
+  checkQuestionForBeat,
   navLabelForBeat,
   presentationForBeat,
 } from "@/lib/classroom-lesson";
@@ -77,6 +78,8 @@ function speakerNotesRequestVisualInspection(notes?: string) {
 
 function speechTextForTurn(reply: string, checkQuestion: ClassroomCheckQuestion | null) {
   if (!checkQuestion) return reply;
+  const prompt = checkQuestion.prompt.trim();
+  const cleanedReply = filterPrivateSpeechDirections(reply).trim();
   const options =
     checkQuestion.options?.length
       ? checkQuestion.options
@@ -89,9 +92,14 @@ function speechTextForTurn(reply: string, checkQuestion: ClassroomCheckQuestion 
         .map((option, index) => `Option ${String.fromCharCode(65 + index)}: ${option}.`)
         .join(" ")
     : "";
-  // The quick-check card replaces the assistant reply in the chat panel. Speech must
-  // mirror what the learner can see there instead of reading hidden slide narration.
-  return `${checkQuestion.prompt}${optionsText}`.trim();
+  const questionSpeech = `${prompt}${optionsText}`.trim();
+  if (!cleanedReply) return questionSpeech;
+  const replyLower = cleanedReply.toLowerCase();
+  const promptLower = prompt.toLowerCase();
+  if (replyLower.includes(promptLower) || promptLower.includes(replyLower)) {
+    return questionSpeech;
+  }
+  return `${cleanedReply} ${questionSpeech}`.trim();
 }
 
 export default function ClassroomShell({
@@ -131,6 +139,7 @@ export default function ClassroomShell({
   const [assessmentQuestionIndex, setAssessmentQuestionIndex] = useState(0);
   const [expectsResponse, setExpectsResponse] = useState(false);
   const [checkQuestion, setCheckQuestion] = useState<ClassroomCheckQuestion | null>(null);
+  const [answeredCheckPrompts, setAnsweredCheckPrompts] = useState<string[]>([]);
   const [completedTestKeys, setCompletedTestKeys] = useState<string[]>([]);
   const [streak, setStreak] = useState<AnswerStreak>({ correctInRow: 0, incorrectInRow: 0 });
   const [presentation, setPresentation] = useState<PresentationView>({
@@ -507,6 +516,7 @@ export default function ClassroomShell({
           studentName: "",
           taughtSlideIndices,
           streak,
+          answeredCheckPrompts,
         }),
         signal: controller.signal,
       });
@@ -542,36 +552,54 @@ export default function ClassroomShell({
   async function applyTeacherTurn(
     data: ChatApiResponse,
     nextMessages: TeacherMessage[],
-    options?: TeacherRequestOptions,
+    options?: TeacherRequestOptions & { beatIndex?: number },
   ) {
       const reply =
         data.reply ||
         data.error ||
         "Let's keep going. Tell me what you're thinking so far.";
 
+      const activeBeatIndex = options?.beatIndex ?? beatIndex;
+      const authoredCheck = checkQuestionForBeat(plan, lessonBeats[activeBeatIndex] || lessonBeats[0]);
+      const grading = typeof data.lastAnswerCorrect === "boolean";
+      let nextCheckQuestion = data.checkQuestion || null;
+
+      if (grading) {
+        nextCheckQuestion = null;
+        if (checkQuestion?.prompt) {
+          const answered = checkQuestion.prompt.trim();
+          setAnsweredCheckPrompts((current) =>
+            current.includes(answered) ? current : [...current, answered],
+          );
+        }
+      } else if (authoredCheck) {
+        nextCheckQuestion = authoredCheck;
+      }
+
       setThinking(false);
       setMessages([...nextMessages, { role: "assistant", content: reply }]);
       if (data.presentation) {
         applyTeacherPresentation(data.presentation);
       }
-      const nextCheckQuestion = data.checkQuestion || null;
       setCheckQuestion(nextCheckQuestion);
-      if (typeof data.lastAnswerCorrect === "boolean") {
+      if (grading) {
         setStreak((current) =>
           data.lastAnswerCorrect
             ? { correctInRow: current.correctInRow + 1, incorrectInRow: 0 }
             : { correctInRow: 0, incorrectInRow: current.incorrectInRow + 1 },
         );
       }
-      const needsResponse =
-        data.expectsResponse ??
-        (data.presentation?.type === "question" ||
-          data.presentation?.type === "exercise" ||
-          data.presentation?.type === "assessment");
+      const needsResponse = grading
+        ? false
+        : Boolean(nextCheckQuestion) ||
+          data.expectsResponse ||
+          (data.presentation?.type === "question" ||
+            data.presentation?.type === "exercise" ||
+            data.presentation?.type === "assessment");
       setExpectsResponse(Boolean(needsResponse));
       speakNatural(speechTextForTurn(reply, nextCheckQuestion));
       if (!needsResponse && !nextCheckQuestion) {
-        prefetchNextSlideTurn(options?.beatIndex ?? beatIndex, [
+        prefetchNextSlideTurn(activeBeatIndex, [
           ...nextMessages,
           { role: "assistant", content: reply },
         ]);
@@ -613,6 +641,7 @@ export default function ClassroomShell({
         studentName: "",
         taughtSlideIndices,
         streak,
+        answeredCheckPrompts,
       }),
     })
       .then(async (response) => {
@@ -698,6 +727,14 @@ export default function ClassroomShell({
     const beat = lessonBeats[nextBeatIndex];
     if (!beat || nextBeatIndex === beatIndex) return;
 
+    const authoredCheck = checkQuestionForBeat(plan, beat);
+    if (authoredCheck && answeredCheckPrompts.includes(authoredCheck.prompt.trim())) {
+      if (nextBeatIndex + 1 < lessonBeats.length) {
+        await handleSelectBeat(nextBeatIndex + 1);
+      }
+      return;
+    }
+
     unlockAudio();
     cancelSpeech();
 
@@ -711,10 +748,12 @@ export default function ClassroomShell({
 
     setBeatIndex(nextBeatIndex);
     setPresentation(view);
-    setCheckQuestion(null);
-    if (beat.kind === "slide") {
-      setCurrentSlideIndex(beat.slideIndex);
-      markSlideTaught(beat.slideIndex);
+    setCheckQuestion(authoredCheck);
+    setExpectsResponse(Boolean(authoredCheck));
+    if (beat.kind === "slide" || view.type === "slide") {
+      const slideIndex = beat.kind === "slide" ? beat.slideIndex : view.slideIndex;
+      setCurrentSlideIndex(slideIndex);
+      markSlideTaught(slideIndex);
     }
 
     // The Final Test is a standalone exam mode, not part of the AI chat loop.
@@ -726,12 +765,18 @@ export default function ClassroomShell({
     const prefetched = prefetchedTurnRef.current.get(nextBeatIndex);
     prefetchedTurnRef.current.clear();
     const label = navLabelForBeat(beat, plan);
+    const checkpoint =
+      beat.kind === "checkpoint"
+        ? plan.checkpoints?.find((item) => item.id === beat.checkpointId)
+        : undefined;
     const next: TeacherMessage[] = prefetched?.messages || [
       ...messages,
       {
         role: "user",
         hidden: true,
-        content: `Let's go to "${label}" — continue teaching from there.`,
+        content: authoredCheck
+          ? `We've reached the formative check "${checkpoint?.headline || label}". Give a one-sentence lead-in in reply only — the exact question is already shown in the Quick Check card. Do not repeat the question text or list its answer options in reply. Wait for the student's answer.`
+          : `Let's go to "${label}" — continue teaching from there.`,
       },
     ];
     setMessages(next);
@@ -761,11 +806,13 @@ export default function ClassroomShell({
       presentation.type === "exercise" ||
       presentation.type === "assessment");
   const inputPrompt =
-    presentation.type === "question" ||
-    presentation.type === "exercise" ||
-    presentation.type === "assessment"
-      ? presentation.prompt
-      : undefined;
+    checkQuestion
+      ? undefined
+      : presentation.type === "question" ||
+          presentation.type === "exercise" ||
+          presentation.type === "assessment"
+        ? presentation.prompt
+        : undefined;
 
   const currentBeat = lessonBeats[beatIndex];
   const activeFinalTest =

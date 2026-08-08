@@ -379,6 +379,61 @@ export function navBeatKind(
   return "checkpoint-question";
 }
 
+const CHAT_COMPREHENSION_CHECKPOINT_TYPES = new Set<ClassroomCheckpoint["type"]>([
+  "question",
+  "exercise",
+  "multipleChoice",
+  "trueFalse",
+  "shortAnswer",
+  "scenario",
+]);
+
+export function isChatComprehensionCheckpoint(checkpoint: ClassroomCheckpoint) {
+  return CHAT_COMPREHENSION_CHECKPOINT_TYPES.has(checkpoint.type);
+}
+
+export function checkQuestionForCheckpoint(
+  checkpoint: ClassroomCheckpoint | undefined,
+  plan: ClassroomPlan,
+): import("@/lib/classroom").ClassroomCheckQuestion | null {
+  if (!checkpoint || !isChatComprehensionCheckpoint(checkpoint)) return null;
+
+  const choices = checkpoint.choices?.map((choice) => choice.trim()).filter(Boolean);
+  switch (checkpoint.type) {
+    case "multipleChoice":
+    case "question":
+    case "exercise":
+      return {
+        prompt: checkpoint.prompt,
+        type: "multipleChoice",
+        options: choices?.length
+          ? choices
+          : activityChoices(plan.slides[checkpoint.slideIndex] || plan.slides[0], choices),
+      };
+    case "trueFalse":
+      return { prompt: checkpoint.prompt, type: "trueFalse" };
+    case "shortAnswer":
+      return { prompt: checkpoint.prompt, type: "shortAnswer" };
+    case "scenario":
+      return {
+        prompt: checkpoint.prompt,
+        type: choices?.length ? "multipleChoice" : "shortAnswer",
+        options: choices?.length ? choices : undefined,
+      };
+    default:
+      return null;
+  }
+}
+
+export function checkQuestionForBeat(
+  plan: ClassroomPlan,
+  beat: ClassroomLessonBeat,
+): import("@/lib/classroom").ClassroomCheckQuestion | null {
+  if (beat.kind !== "checkpoint") return null;
+  const checkpoint = plan.checkpoints?.find((item) => item.id === beat.checkpointId);
+  return checkQuestionForCheckpoint(checkpoint, plan);
+}
+
 export function presentationForBeat(
   plan: ClassroomPlan,
   beat: ClassroomLessonBeat,
@@ -437,6 +492,14 @@ export function presentationForBeat(
           targetX: checkpoint.hotspot.targetX,
           targetY: checkpoint.hotspot.targetY,
           toleranceRadius: checkpoint.hotspot.toleranceRadius,
+        };
+      }
+      if (isChatComprehensionCheckpoint(checkpoint)) {
+        const slide = plan.slides[checkpoint.slideIndex] || plan.slides[0];
+        return {
+          type: "slide",
+          slideIndex: checkpoint.slideIndex,
+          headline: slide?.title,
         };
       }
       return {
