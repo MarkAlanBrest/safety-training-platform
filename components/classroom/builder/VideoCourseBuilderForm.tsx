@@ -159,8 +159,9 @@ export default function VideoCourseBuilderForm() {
       <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold text-[#10283f]">Video</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Export your presentation from PowerPoint as MP4. Add a separate .vtt captions file if
-          you want learners to toggle closed captions.
+          Export your presentation from PowerPoint as MP4. Upload a .vtt captions file to
+          drive the timed script in the instructor chat — one cue per slide or sentence works
+          best. Learners can also toggle those captions on the video.
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="block text-sm font-semibold text-[#10283f]">
@@ -178,7 +179,7 @@ export default function VideoCourseBuilderForm() {
             />
           </label>
           <label className="block text-sm font-semibold text-[#10283f]">
-            Captions (.vtt) — optional
+            Timed script (.vtt) — recommended
             <input
               type="file"
               accept=".vtt,text/vtt"
