@@ -22,7 +22,10 @@ import {
   sanitizeTeacherSlidePresentation,
 } from "@/lib/classroom-teacher";
 import { extractResponseOutputText } from "@/lib/parse-response";
-import { dedupeReplyWithCheckQuestion } from "@/lib/classroom-speech";
+import {
+  dedupeReplyWithCheckQuestion,
+  speakerNotesHaveEmbeddedNarration,
+} from "@/lib/classroom-speech";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -430,6 +433,7 @@ export async function POST(request: Request) {
     const teachingScript = slide.speakerNotes?.trim()
       ? slide.speakerNotes
       : "No teaching notes on this slide. Teach from the slide image conversationally.";
+    const embeddedSlideNarration = speakerNotesHaveEmbeddedNarration(teachingScript);
     // In lineup mode the browser owns navigation and has already selected the beat.
     // Do not send the following slide's script to the model on every turn.
     const nextSlide = lineupMode ? undefined : plan.slides[slide.index + 1];
@@ -447,6 +451,12 @@ export async function POST(request: Request) {
         : "No final assessment configured.",
       `Current slide (${slide.index + 1}/${plan.slides.length}): ${slide.title}`,
     ];
+
+    if (embeddedSlideNarration) {
+      sourceParts.push(
+        "EMBEDDED SLIDE AUDIO: This slide plays its own narration from embedded PowerPoint audio. Return reply as an empty string unless you are asking a comprehension check (one short lead-in sentence only) or giving feedback on the student's latest answer. Do not narrate, paraphrase, or teach this slide aloud — the embedded audio handles narration.",
+      );
+    }
 
     if (lineupMode) {
       sourceParts.push(
