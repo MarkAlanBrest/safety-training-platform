@@ -86,6 +86,13 @@ function parseVttTimestamp(value: string): number {
   return hours * 3600 + minutes * 60 + seconds + ms / 1000;
 }
 
+export function normalizeWebVtt(source: string): string {
+  const trimmed = source.replace(/^\uFEFF/, "").trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("WEBVTT")) return `${trimmed}\n`;
+  return `WEBVTT\n\n${trimmed}\n`;
+}
+
 export function parseWhisperSegments(payload: unknown): TranscriptionSegment[] {
   if (!payload || typeof payload !== "object") return [];
   const segments = (payload as { segments?: unknown }).segments;

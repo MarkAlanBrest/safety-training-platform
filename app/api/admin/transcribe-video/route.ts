@@ -3,9 +3,18 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 import { requireAdmin } from "@/lib/admin-session";
-import { parseWhisperSegments, segmentsToWebVtt } from "@/lib/video-transcription";
+import { normalizeWebVtt, parseWebVttToSegments } from "@/lib/video-transcription";
 
 const MAX_UPLOAD_BYTES = 24 * 1024 * 1024;
+
+function openAiErrorMessage(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw) as { error?: { message?: string } };
+    return parsed.error?.message?.trim() || raw;
+  } catch {
+    return raw.trim();
+  }
+}
 
 export async function POST(request: Request) {
   const unauthorized = await requireAdmin(request);
@@ -46,10 +55,14 @@ export async function POST(request: Request) {
     }
 
     const body = new FormData();
-    body.append("file", file, file.name || "audio.mp3");
+    const extension = file.name?.split(".").pop()?.toLowerCase();
+    const fallbackName =
+      mimeType.startsWith("video/") || extension === "mp4" || extension === "webm"
+        ? "media.mp4"
+        : "audio.mp3";
+    body.append("file", file, file.name || fallbackName);
     body.append("model", process.env.OPENAI_TRANSCRIBE_MODEL || "whisper-1");
-    body.append("response_format", "verbose_json");
-    body.append("timestamp_granularities[]", "segment");
+    body.append("response_format", "vtt");
 
     const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
@@ -57,25 +70,29 @@ export async function POST(request: Request) {
       body,
     });
 
+    const responseText = await response.text();
     if (!response.ok) {
-      const error = await response.text();
-      console.error("Video transcription failed:", error);
+      const detail = openAiErrorMessage(responseText);
+      console.error("Video transcription failed:", detail);
       return Response.json(
-        { error: "The video audio could not be transcribed. Try again or upload a .vtt file." },
+        {
+          error: detail.includes("OPENAI")
+            ? detail
+            : `Transcription failed: ${detail}`,
+        },
         { status: response.status },
       );
     }
 
-    const payload = await response.json();
-    const segments = parseWhisperSegments(payload);
-    if (!segments.length) {
+    const vtt = normalizeWebVtt(responseText);
+    if (!parseWebVttToSegments(vtt).length) {
       return Response.json(
         { error: "No spoken audio was detected in this video." },
         { status: 422 },
       );
     }
 
-    return Response.json({ vtt: segmentsToWebVtt(segments) });
+    return Response.json({ vtt });
   } catch (error) {
     console.error("Transcribe video route failed:", error);
     return Response.json(
