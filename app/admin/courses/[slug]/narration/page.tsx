@@ -22,6 +22,7 @@ import {
   formatScormNarrationDocument,
   parseScormNarrationDocument,
 } from "@/lib/scorm-narration-document";
+import { parseJsonResponse } from "@/lib/parse-response";
 
 type NarrationPayload = {
   title: string;
@@ -59,7 +60,7 @@ export default function ScormNarrationEditorPage() {
     setError("");
     fetch(`/api/admin/courses/${encodeURIComponent(slug)}/scorm-narration`)
       .then(async (response) => {
-        const payload = (await response.json()) as NarrationPayload & { error?: string };
+        const payload = await parseJsonResponse<NarrationPayload & { error?: string }>(response);
         if (!response.ok) throw new Error(payload.error || "Could not load narration script.");
         if (!active) return;
         setCourse(payload);
@@ -129,11 +130,11 @@ export default function ScormNarrationEditorPage() {
           body: JSON.stringify({ opening, scormNarration: cues }),
         },
       );
-      const payload = (await response.json()) as {
+      const payload = await parseJsonResponse<{
         opening?: string;
         scormNarration?: ScormNarrationCue[];
         error?: string;
-      };
+      }>(response);
       if (!response.ok) throw new Error(payload.error || "Could not save narration script.");
       setOpening(payload.opening || opening);
       setCues(payload.scormNarration || cues);

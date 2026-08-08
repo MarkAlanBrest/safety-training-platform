@@ -27,11 +27,18 @@ export async function parseJsonResponse<T>(response: Response): Promise<T> {
   try {
     return JSON.parse(text) as T;
   } catch {
-    const preview = text.replace(/\s+/g, " ").slice(0, 180);
+    const normalized = text.replace(/\s+/g, " ").trim();
+    const lower = normalized.toLowerCase();
+    if (lower.includes("request entity too large")) {
+      throw new Error(
+        "Upload is too large for the server. SCORM ZIP files must be 4 MB or smaller.",
+      );
+    }
+    const preview = normalized.slice(0, 180);
     throw new Error(
       response.ok
         ? "The server returned an invalid response."
-        : `Upload failed (${response.status}): ${preview || "No details returned."}`,
+        : `Request failed (${response.status}): ${preview || "No details returned."}`,
     );
   }
 }
