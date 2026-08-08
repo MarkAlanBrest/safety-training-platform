@@ -281,9 +281,7 @@ export default function VideoCourseBuilderForm() {
           </p>
         ) : null}
         {transcriptError ? (
-          <p className="mt-3 text-sm font-semibold text-red-600">
-            {transcriptError} Try again, or upload a .vtt file instead.
-          </p>
+          <p className="mt-3 text-sm font-semibold text-red-600">{transcriptError}</p>
         ) : null}
         {previewUrl ? (
           <video

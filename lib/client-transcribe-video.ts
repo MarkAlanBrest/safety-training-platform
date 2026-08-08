@@ -1,5 +1,6 @@
 import {
   mergeWebVttFiles,
+  normalizeWebVtt,
   parseWebVttToSegments,
   segmentsToWebVtt,
 } from "@/lib/video-transcription";
@@ -29,13 +30,16 @@ async function getFfmpeg(onProgress?: (message: string) => void) {
       const { FFmpeg } = await import("@ffmpeg/ffmpeg");
       const { toBlobURL } = await import("@ffmpeg/util");
       const ffmpeg = new FFmpeg() as unknown as FFmpegInstance;
-      const baseURL = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${FFMPEG_CORE_VERSION}/dist/esm`;
+      const baseURL = `https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@${FFMPEG_CORE_VERSION}/dist/esm`;
       await ffmpeg.load({
         coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
         wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
       });
       return ffmpeg;
-    })();
+    })().catch((error) => {
+      ffmpegPromise = null;
+      throw error;
+    });
   }
   return ffmpegPromise;
 }
@@ -78,7 +82,7 @@ async function splitAudioMp3(audio: Blob, onProgress?: (message: string) => void
     "-f",
     "segment",
     "-segment_time",
-    "600",
+    String(CHUNK_SECONDS),
     "-c",
     "copy",
     "chunk%03d.mp3",
@@ -101,39 +105,69 @@ async function splitAudioMp3(audio: Blob, onProgress?: (message: string) => void
   return chunks;
 }
 
-async function transcribeBlob(audio: Blob) {
+async function readTranscribeResponse(response: Response) {
+  const raw = await response.text();
+  let payload: { vtt?: string; error?: string } = {};
+  try {
+    payload = JSON.parse(raw) as { vtt?: string; error?: string };
+  } catch {
+    payload = { vtt: raw };
+  }
+
+  if (!response.ok) {
+    throw new Error(payload.error || "The video audio could not be transcribed.");
+  }
+
+  const vtt = normalizeWebVtt(payload.vtt || raw);
+  if (!vtt) {
+    throw new Error("No transcript was returned for this video.");
+  }
+  return vtt;
+}
+
+async function transcribeBlob(audio: Blob, fileName: string) {
   const form = new FormData();
-  form.append("file", audio, "audio.mp3");
+  form.append("file", audio, fileName);
   const response = await fetch("/api/admin/transcribe-video", {
     method: "POST",
     body: form,
   });
-  const payload = (await response.json()) as { vtt?: string; error?: string };
-  if (!response.ok) {
-    throw new Error(payload.error || "The video audio could not be transcribed.");
-  }
-  if (!payload.vtt?.trim()) {
-    throw new Error("No transcript was returned for this video.");
-  }
-  return payload.vtt;
+  return readTranscribeResponse(response);
+}
+
+function isVideoFile(file: File) {
+  return file.type.startsWith("video/") || /\.(mp4|webm|mov)$/i.test(file.name);
 }
 
 export async function transcribeVideoFile(
   videoFile: File,
   onProgress?: (message: string) => void,
 ): Promise<string> {
-  onProgress?.("Reading video audio…");
+  onProgress?.("Preparing audio…");
 
   let audio: Blob;
+  let uploadName = "audio.mp3";
+
   if (videoFile.type.startsWith("audio/") || videoFile.name.match(/\.(mp3|m4a|wav)$/i)) {
     audio = videoFile;
+    uploadName = videoFile.name || "audio.mp3";
+  } else if (isVideoFile(videoFile) && videoFile.size <= WHISPER_MAX_BYTES) {
+    onProgress?.("Sending video for transcription…");
+    return transcribeBlob(videoFile, videoFile.name || "media.mp4");
   } else {
-    audio = await extractAudioMp3(videoFile, onProgress);
+    try {
+      audio = await extractAudioMp3(videoFile, onProgress);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Audio extraction failed.";
+      throw new Error(
+        `${message} If this keeps failing, upload a .vtt script file instead.`,
+      );
+    }
   }
 
   if (audio.size <= WHISPER_MAX_BYTES) {
     onProgress?.("Transcribing audio…");
-    return transcribeBlob(audio);
+    return transcribeBlob(audio, uploadName);
   }
 
   const chunks = await splitAudioMp3(audio, onProgress);
@@ -144,7 +178,7 @@ export async function transcribeVideoFile(
   const parts: string[] = [];
   for (let index = 0; index < chunks.length; index += 1) {
     onProgress?.(`Transcribing part ${index + 1} of ${chunks.length}…`);
-    const vtt = await transcribeBlob(chunks[index]);
+    const vtt = await transcribeBlob(chunks[index], `part-${index + 1}.mp3`);
     const offsetSeconds = index * CHUNK_SECONDS;
     const shifted = segmentsToWebVtt(
       parseWebVttToSegments(vtt).map((segment) => ({
