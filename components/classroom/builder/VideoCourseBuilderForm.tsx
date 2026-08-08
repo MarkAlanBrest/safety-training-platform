@@ -10,7 +10,6 @@ import {
   createVideoId,
   formatTimestamp,
   parseTimestampInput,
-  type VideoChapter,
   type VideoMarkerKind,
   type VideoTimelineMarker,
 } from "@/lib/classroom-video";
@@ -38,10 +37,7 @@ export default function VideoCourseBuilderForm() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [captionsFile, setCaptionsFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
-  const [chapters, setChapters] = useState<VideoChapter[]>([]);
   const [markers, setMarkers] = useState<VideoTimelineMarker[]>([]);
-  const [chapterTime, setChapterTime] = useState("0:00");
-  const [chapterTitle, setChapterTitle] = useState("");
   const [markerTime, setMarkerTime] = useState("0:00");
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
@@ -50,25 +46,9 @@ export default function VideoCourseBuilderForm() {
 
   const videoId = useMemo(() => createVideoId("video"), []);
 
-  function capturePreviewTime(target: "chapter" | "marker") {
+  function capturePreviewTime() {
     const seconds = previewRef.current?.currentTime ?? 0;
-    const formatted = formatTimestamp(seconds);
-    if (target === "chapter") setChapterTime(formatted);
-    else setMarkerTime(formatted);
-  }
-
-  function addChapter() {
-    const startSeconds = parseTimestampInput(chapterTime);
-    if (startSeconds === null || !chapterTitle.trim()) {
-      setError("Enter a chapter title and valid time.");
-      return;
-    }
-    setChapters((current) => [
-      ...current,
-      { id: createVideoId("chapter"), title: chapterTitle.trim(), startSeconds },
-    ]);
-    setChapterTitle("");
-    setError("");
+    setMarkerTime(formatTimestamp(seconds));
   }
 
   function addMarker() {
@@ -110,7 +90,7 @@ export default function VideoCourseBuilderForm() {
             ? `classroom/media/${videoId}.vtt`
             : undefined,
           durationSeconds,
-          chapters,
+          chapters: [],
           markers,
         }),
       });
@@ -218,58 +198,6 @@ export default function VideoCourseBuilderForm() {
       </section>
 
       <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-[#10283f]">Chapters</h2>
-        <p className="mt-2 text-sm text-slate-600">
-          Mark topic breaks on the timeline so learners can jump between sections.
-        </p>
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          <label className="text-sm font-semibold text-[#10283f]">
-            Time
-            <input
-              value={chapterTime}
-              onChange={(event) => setChapterTime(event.target.value)}
-              className="mt-2 block w-28 rounded-xl border border-[#10283f]/15 px-3 py-2"
-              placeholder="2:30"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={() => capturePreviewTime("chapter")}
-            className="rounded-xl border border-[#10283f]/15 px-3 py-2 text-sm font-bold text-[#10283f]"
-          >
-            Use preview time
-          </button>
-          <label className="min-w-[220px] flex-1 text-sm font-semibold text-[#10283f]">
-            Chapter title
-            <input
-              value={chapterTitle}
-              onChange={(event) => setChapterTitle(event.target.value)}
-              className="mt-2 block w-full rounded-xl border border-[#10283f]/15 px-3 py-2"
-              placeholder="Harness inspection"
-            />
-          </label>
-          <button
-            type="button"
-            onClick={addChapter}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#10283f] px-4 py-2.5 text-sm font-bold text-white"
-          >
-            <Plus size={16} /> Add chapter
-          </button>
-        </div>
-        <div className="mt-4 space-y-2">
-          {chapters.map((chapter) => (
-            <div
-              key={chapter.id}
-              className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 text-sm"
-            >
-              <span className="font-semibold text-slate-800">{chapter.title}</span>
-              <span className="text-slate-500">{formatTimestamp(chapter.startSeconds)}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold text-[#10283f]">AI stop points</h2>
         <p className="mt-2 text-sm text-slate-600">
           Pause the video and choose what the AI should do at each moment.
@@ -286,7 +214,7 @@ export default function VideoCourseBuilderForm() {
           </label>
           <button
             type="button"
-            onClick={() => capturePreviewTime("marker")}
+            onClick={capturePreviewTime}
             className="rounded-xl border border-[#10283f]/15 px-3 py-2 text-sm font-bold text-[#10283f]"
           >
             Use preview time

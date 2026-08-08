@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { Captions, Pause, Play } from "lucide-react";
-import type { VideoChapter, VideoTimelineMarker } from "@/lib/classroom-video";
+import type { VideoTimelineMarker } from "@/lib/classroom-video";
 import { formatTimestamp } from "@/lib/classroom-video";
 
 export type VideoClassroomPlayerHandle = {

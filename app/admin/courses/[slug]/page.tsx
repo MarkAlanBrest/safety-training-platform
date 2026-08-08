@@ -465,7 +465,6 @@ export default function CourseEditorPage() {
               <p className="font-bold">This is a video course.</p>
               <p className="mt-1">
                 Learners see a full-screen video player with{" "}
-                {course.sections[0].lessonPlan.videoCourse.chapters?.length || 0} chapters and{" "}
                 {course.sections[0].lessonPlan.videoCourse.markers?.length || 0} AI stop points.
                 To change the video or timeline, create a new course at{" "}
                 <Link href="/admin/classroom/new" className="font-bold underline">
