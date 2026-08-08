@@ -43,6 +43,11 @@ type Section = {
     objectives?: string[];
     moments?: unknown[];
     slides?: unknown[];
+    videoCourse?: {
+      chapters?: unknown[];
+      markers?: unknown[];
+      durationSeconds?: number;
+    };
     finalTest?: {
       config?: { enabled?: boolean; questionCount?: number };
       questionBank?: unknown[];
@@ -455,16 +460,33 @@ export default function CourseEditorPage() {
 
       {tab === "content" && (course.courseType === "classroom" ? (
         <section className="min-w-0">
+          {course.sections[0]?.lessonPlan?.videoCourse ? (
+            <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm leading-6 text-amber-950">
+              <p className="font-bold">This is a video course.</p>
+              <p className="mt-1">
+                Learners see a full-screen video player with{" "}
+                {course.sections[0].lessonPlan.videoCourse.chapters?.length || 0} chapters and{" "}
+                {course.sections[0].lessonPlan.videoCourse.markers?.length || 0} AI stop points.
+                To change the video or timeline, create a new course at{" "}
+                <Link href="/admin/classroom/new" className="font-bold underline">
+                  New video course
+                </Link>
+                .
+              </p>
+            </div>
+          ) : null}
           <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">
-                PowerPoint course
+                {course.sections[0]?.lessonPlan?.videoCourse ? "Video course" : "PowerPoint course"}
               </p>
               <h2 className="mt-1 font-serif text-3xl font-semibold text-[#10283f]">
-                Chapters
+                {course.sections[0]?.lessonPlan?.videoCourse ? "Timeline" : "Chapters"}
               </h2>
               <p className="mt-2 text-sm text-[#69757e]">
-                Each chapter is one PowerPoint deck. Learners navigate its slides in the Microsoft viewer.
+                {course.sections[0]?.lessonPlan?.videoCourse
+                  ? "Full-screen video with chapter jumps and AI interactions on the timeline."
+                  : "Each chapter is one PowerPoint deck. Learners navigate its slides in the Microsoft viewer."}
               </p>
             </div>
             <a
