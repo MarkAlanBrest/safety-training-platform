@@ -5,31 +5,56 @@ export const maxDuration = 300;
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-session";
 import { isClassroomPlan } from "@/lib/classroom";
+import { finalizeStagedAssetUpload, saveScormAssetBlob } from "@/lib/scorm-asset-store";
 
 const MAX_CHUNK_BYTES = 3 * 1024 * 1024;
-const MAX_CHUNK_COUNT = 400;
+const MAX_CHUNK_COUNT = 700;
 const TARGET_PATH =
-  /^(?:classroom\/deck\.pptx|classroom\/slides\/\d+|classroom\/(?:media|activities)\/[a-z0-9-]+(?:\.vtt)?|classroom\/chapters\/[1-9]\d*\/(?:deck\.pptx|slides\/\d+))$/;
+  /^(?:classroom\/deck\.pptx|classroom\/slides\/\d+|classroom\/(?:media|activities)\/[a-z0-9-]+(?:\.vtt|\/chunks\/\d{3})?|classroom\/chapters\/[1-9]\d*\/(?:deck\.pptx|slides\/\d+))$/;
+const CHUNKED_VIDEO_PART = /\/chunks\/\d{3}$/;
 const UPLOAD_ID = /^[a-f0-9-]{20,50}$/i;
 const ALLOWED_MIME =
   /^(?:image\/(?:png|jpeg|webp)|video\/(?:mp4|webm)|text\/vtt|application\/vnd\.openxmlformats-officedocument\.presentationml\.presentation)$/;
 
-function requiredAssetPaths(
+type RequiredAsset =
+  | { kind: "file"; path: string }
+  | { kind: "chunked-video"; path: string };
+
+function requiredAssets(
   sections: Array<{ position: number; lessonPlan: unknown; fileName: string }>,
-) {
+): RequiredAsset[] {
   return sections.flatMap((section) => {
     if (isClassroomPlan(section.lessonPlan) && section.lessonPlan.videoCourse?.videoAssetPath) {
-      const paths = [section.lessonPlan.videoCourse.videoAssetPath];
+      const assets: RequiredAsset[] = [
+        { kind: "chunked-video", path: section.lessonPlan.videoCourse.videoAssetPath },
+      ];
       if (section.lessonPlan.videoCourse.captionsAssetPath) {
-        paths.push(section.lessonPlan.videoCourse.captionsAssetPath);
+        assets.push({ kind: "file", path: section.lessonPlan.videoCourse.captionsAssetPath });
       }
-      return paths;
+      return assets;
     }
 
     const base =
       section.position <= 1 ? "classroom" : `classroom/chapters/${section.position}`;
-    return [`${base}/deck.pptx`];
+    return [{ kind: "file", path: `${base}/deck.pptx` }];
   });
+}
+
+async function verifyChunkedVideo(courseId: number, videoAssetPath: string) {
+  const parts = await prisma.scormAsset.findMany({
+    where: {
+      courseId,
+      path: { startsWith: `${videoAssetPath}/chunks/` },
+    },
+    orderBy: { path: "asc" },
+    select: { path: true },
+  });
+  if (!parts.length) return false;
+  for (let index = 0; index < parts.length; index += 1) {
+    const expected = `${videoAssetPath}/chunks/${String(index).padStart(3, "0")}`;
+    if (parts[index].path !== expected) return false;
+  }
+  return true;
 }
 
 export async function POST(
@@ -56,13 +81,25 @@ export async function POST(
         return Response.json({ error: "Invalid asset action." }, { status: 400 });
       }
 
-      const requiredPaths = requiredAssetPaths(course.sections);
+      const required = requiredAssets(course.sections);
+      const filePaths = required
+        .filter((asset): asset is { kind: "file"; path: string } => asset.kind === "file")
+        .map((asset) => asset.path);
       const storedAssets = await prisma.scormAsset.findMany({
-        where: { courseId: course.id, path: { in: requiredPaths } },
+        where: { courseId: course.id, path: { in: filePaths } },
         select: { path: true },
       });
       const storedPaths = new Set(storedAssets.map((asset) => asset.path));
-      const missing = requiredPaths.filter((path) => !storedPaths.has(path));
+      const missingFiles = filePaths.filter((path) => !storedPaths.has(path));
+
+      const missingVideos: string[] = [];
+      for (const asset of required) {
+        if (asset.kind !== "chunked-video") continue;
+        const ready = await verifyChunkedVideo(course.id, asset.path);
+        if (!ready) missingVideos.push(asset.path);
+      }
+
+      const missing = [...missingFiles, ...missingVideos];
       if (missing.length) {
         return Response.json(
           {
@@ -102,24 +139,31 @@ export async function POST(
         {
           error:
             chunkCount > MAX_CHUNK_COUNT
-              ? `Video is too large. Maximum upload is about ${Math.floor((MAX_CHUNK_COUNT * 2.75) / 1024)} GB — compress the file or split into chapters.`
+              ? `Video is too large. Maximum upload is about ${Math.floor((MAX_CHUNK_COUNT * 0.75) / 1024)} GB — compress the file or split into chapters.`
               : "Invalid course asset chunk.",
         },
         { status: 400 },
       );
     }
 
-    const chunkPath = `classroom/uploads/${uploadId}/${String(chunkIndex).padStart(3, "0")}`;
     const chunkContent = Buffer.from(await chunk.arrayBuffer());
-    await prisma.scormAsset.upsert({
-      where: { courseId_path: { courseId: course.id, path: chunkPath } },
-      create: {
+
+    if (CHUNKED_VIDEO_PART.test(targetPath)) {
+      await saveScormAssetBlob({
         courseId: course.id,
-        path: chunkPath,
-        mimeType: "application/octet-stream",
+        path: targetPath,
+        mimeType,
         content: chunkContent,
-      },
-      update: { content: chunkContent },
+      });
+      return Response.json({ accepted: true, complete: true });
+    }
+
+    const chunkPath = `classroom/uploads/${uploadId}/${String(chunkIndex).padStart(3, "0")}`;
+    await saveScormAssetBlob({
+      courseId: course.id,
+      path: chunkPath,
+      mimeType: "application/octet-stream",
+      content: chunkContent,
     });
 
     if (chunkIndex < chunkCount - 1) {
@@ -135,16 +179,13 @@ export async function POST(
     }
 
     const content = Buffer.concat(chunks.map((item) => Buffer.from(item.content)));
-    await prisma.$transaction([
-      prisma.scormAsset.upsert({
-        where: { courseId_path: { courseId: course.id, path: targetPath } },
-        create: { courseId: course.id, path: targetPath, mimeType, content },
-        update: { mimeType, content },
-      }),
-      prisma.scormAsset.deleteMany({
-        where: { courseId: course.id, path: { startsWith: `classroom/uploads/${uploadId}/` } },
-      }),
-    ]);
+    await finalizeStagedAssetUpload({
+      courseId: course.id,
+      targetPath,
+      mimeType,
+      content,
+      uploadId,
+    });
 
     return Response.json({ accepted: true, complete: true });
   } catch (error) {

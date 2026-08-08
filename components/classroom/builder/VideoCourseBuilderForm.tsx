@@ -44,6 +44,7 @@ export default function VideoCourseBuilderForm() {
   const [chapterTitle, setChapterTitle] = useState("");
   const [markerTime, setMarkerTime] = useState("0:00");
   const [saving, setSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
   const [error, setError] = useState("");
   const [successUrl, setSuccessUrl] = useState("");
 
@@ -94,6 +95,7 @@ export default function VideoCourseBuilderForm() {
 
     setSaving(true);
     setError("");
+    setUploadProgress("");
     try {
       const durationSeconds = previewRef.current?.duration || undefined;
       const createResponse = await fetch("/api/classroom/video-upload", {
@@ -120,8 +122,10 @@ export default function VideoCourseBuilderForm() {
         `classroom/media/${videoId}`,
         videoFile,
         videoFile.type || "video/mp4",
+        (uploaded, total) => setUploadProgress(`Uploading video… ${uploaded}/${total} parts`),
       );
       if (captionsFile) {
+        setUploadProgress("Uploading captions…");
         await uploadClassroomAsset(
           created.course.slug,
           `classroom/media/${videoId}.vtt`,
@@ -129,10 +133,18 @@ export default function VideoCourseBuilderForm() {
           "text/vtt",
         );
       }
+      setUploadProgress("Finishing…");
       await completeClassroomAssetUpload(created.course.slug, published);
+      setUploadProgress("");
       setSuccessUrl(created.previewUrl);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Course could not be saved.");
+      const message = reason instanceof Error ? reason.message : "Course could not be saved.";
+      setError(
+        message === "Failed to fetch"
+          ? "Upload interrupted — check your connection. Try a smaller video (under 200 MB) or compress to 1080p."
+          : message,
+      );
+      setUploadProgress("");
     } finally {
       setSaving(false);
     }
@@ -388,6 +400,9 @@ export default function VideoCourseBuilderForm() {
       </section>
 
       {error ? <p className="text-sm font-semibold text-red-600">{error}</p> : null}
+      {uploadProgress ? (
+        <p className="text-sm font-semibold text-slate-600">{uploadProgress}</p>
+      ) : null}
       {successUrl ? (
         <p className="text-sm font-semibold text-emerald-700">
           Course saved.{" "}
