@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { LoaderCircle, Mic, Plus, Trash2 } from "lucide-react";
+import { LoaderCircle, Plus, Trash2 } from "lucide-react";
 import {
   completeClassroomAssetUpload,
   uploadClassroomAsset,
 } from "@/lib/classroom-asset-upload-client";
 import { transcribeVideoFile, vttToFile } from "@/lib/client-transcribe-video";
+import { parseJsonResponse } from "@/lib/parse-response";
 import {
   createVideoId,
   formatTimestamp,
@@ -45,6 +46,7 @@ export default function VideoCourseBuilderForm() {
   const [transcriptStatus, setTranscriptStatus] = useState("");
   const [transcriptError, setTranscriptError] = useState("");
   const [transcribing, setTranscribing] = useState(false);
+  const [generatingMarkers, setGeneratingMarkers] = useState(false);
   const [manualCaptions, setManualCaptions] = useState(false);
   const [error, setError] = useState("");
   const [successUrl, setSuccessUrl] = useState("");
@@ -60,34 +62,81 @@ export default function VideoCourseBuilderForm() {
     setPreviewUrl(file ? URL.createObjectURL(file) : "");
     setCaptionsFile(null);
     setManualCaptions(false);
+    setMarkers([]);
     setTranscriptStatus("");
     setTranscriptError("");
   }
 
-  async function generateTranscript() {
-    if (!videoFile || manualCaptions) return;
+  async function ensureTranscript(): Promise<File | null> {
+    if (manualCaptions) return captionsFile;
+    if (captionsFile) return captionsFile;
+    if (!videoFile) return null;
 
     const token = ++transcribeTokenRef.current;
     setTranscribing(true);
-    setTranscriptStatus("Reading video audio…");
+    setTranscriptStatus("Generating transcript from video…");
     setTranscriptError("");
-    setCaptionsFile(null);
 
     try {
       const vtt = await transcribeVideoFile(videoFile, (message) => {
         if (token === transcribeTokenRef.current) setTranscriptStatus(message);
       });
-      if (token !== transcribeTokenRef.current) return;
-      setCaptionsFile(vttToFile(vtt, videoId));
-      setTranscriptStatus("Transcript ready — it will be included when you save the course.");
+      if (token !== transcribeTokenRef.current) return null;
+      const file = vttToFile(vtt, videoId);
+      setCaptionsFile(file);
+      setTranscriptStatus("Transcript ready.");
+      return file;
     } catch (reason) {
-      if (token !== transcribeTokenRef.current) return;
+      if (token !== transcribeTokenRef.current) return null;
       const message =
         reason instanceof Error ? reason.message : "The video could not be transcribed.";
       setTranscriptStatus("");
       setTranscriptError(message);
+      throw new Error(message);
     } finally {
       if (token === transcribeTokenRef.current) setTranscribing(false);
+    }
+  }
+
+  async function ensureStopPoints(scriptFile: File): Promise<VideoTimelineMarker[]> {
+    if (markers.length) return markers;
+
+    setGeneratingMarkers(true);
+    setTranscriptStatus("Adding AI stop points about every minute…");
+    try {
+      const vtt = await scriptFile.text();
+      const response = await fetch("/api/classroom/generate-video-markers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          courseTitle: title.trim(),
+          courseDescription: description.trim(),
+          vtt,
+          durationSeconds: previewRef.current?.duration,
+        }),
+      });
+
+      const result = await parseJsonResponse<{
+        markers?: VideoTimelineMarker[];
+        warnings?: string[];
+        error?: string;
+      }>(response);
+
+      if (!response.ok) {
+        throw new Error(result.error || "AI stop points could not be generated.");
+      }
+
+      const generated = result.markers || [];
+      if (generated.length) {
+        setMarkers(generated);
+        setTranscriptStatus(`Added ${generated.length} AI stop points.`);
+      } else {
+        setTranscriptStatus("Transcript ready.");
+      }
+
+      return generated;
+    } finally {
+      setGeneratingMarkers(false);
     }
   }
 
@@ -117,15 +166,28 @@ export default function VideoCourseBuilderForm() {
       setError("Add a course title and video file.");
       return;
     }
-    if (transcribing) {
-      setError("Wait for the transcript to finish generating.");
+    if (transcribing || saving || generatingMarkers) {
       return;
     }
 
     setSaving(true);
     setError("");
     setUploadProgress("");
+    setTranscriptError("");
+
     try {
+      let scriptFile = captionsFile;
+      let finalMarkers = markers;
+
+      if (published) {
+        if (!scriptFile && !manualCaptions) {
+          scriptFile = await ensureTranscript();
+        }
+        if (scriptFile && !finalMarkers.length) {
+          finalMarkers = await ensureStopPoints(scriptFile);
+        }
+      }
+
       const durationSeconds = previewRef.current?.duration || undefined;
       const createResponse = await fetch("/api/classroom/video-upload", {
         method: "POST",
@@ -135,12 +197,12 @@ export default function VideoCourseBuilderForm() {
           description: description.trim(),
           published,
           videoAssetPath: `classroom/media/${videoId}`,
-          captionsAssetPath: captionsFile
+          captionsAssetPath: scriptFile
             ? `classroom/media/${videoId}.vtt`
             : undefined,
           durationSeconds,
           chapters: [],
-          markers,
+          markers: finalMarkers,
         }),
       });
       const created = await createResponse.json();
@@ -153,12 +215,12 @@ export default function VideoCourseBuilderForm() {
         videoFile.type || "video/mp4",
         (uploaded, total) => setUploadProgress(`Uploading video… ${uploaded}/${total} parts`),
       );
-      if (captionsFile) {
-        setUploadProgress("Uploading captions…");
+      if (scriptFile) {
+        setUploadProgress("Uploading transcript…");
         await uploadClassroomAsset(
           created.course.slug,
           `classroom/media/${videoId}.vtt`,
-          captionsFile,
+          scriptFile,
           "text/vtt",
         );
       }
@@ -208,9 +270,9 @@ export default function VideoCourseBuilderForm() {
       <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold text-[#10283f]">Video</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Export your presentation from PowerPoint as MP4. After you upload the video, click
-          Generate transcript to build the timed script for the instructor chat. Large videos
-          are processed on the server — it may take a few minutes.
+          Export your presentation from PowerPoint as MP4 and upload it here. When you publish,
+          the platform builds a timed chat script and adds AI stop points about every minute.
+          You can upload your own .vtt file instead if you prefer.
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="block text-sm font-semibold text-[#10283f]">
@@ -248,35 +310,14 @@ export default function VideoCourseBuilderForm() {
             />
           </label>
         </div>
-        {videoFile ? (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              disabled={transcribing || manualCaptions}
-              onClick={() => void generateTranscript()}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#10283f] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
-            >
-              {transcribing ? (
-                <LoaderCircle className="animate-spin" size={16} />
-              ) : (
-                <Mic size={16} />
-              )}
-              {transcribing
-                ? "Generating transcript…"
-                : captionsFile && !manualCaptions
-                  ? "Regenerate transcript"
-                  : "Generate transcript"}
-            </button>
-            {captionsFile ? (
-              <span className="text-sm font-semibold text-emerald-700">
-                Script file ready ({captionsFile.name})
-              </span>
-            ) : null}
-          </div>
+        {captionsFile ? (
+          <p className="mt-3 text-sm font-semibold text-emerald-700">
+            Script file ready ({captionsFile.name})
+          </p>
         ) : null}
         {transcribing || transcriptStatus ? (
           <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-slate-600">
-            {transcribing ? <LoaderCircle className="animate-spin" size={16} /> : null}
+            {transcribing || saving ? <LoaderCircle className="animate-spin" size={16} /> : null}
             {transcriptStatus}
           </p>
         ) : null}
@@ -296,7 +337,8 @@ export default function VideoCourseBuilderForm() {
       <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold text-[#10283f]">AI stop points</h2>
         <p className="mt-2 text-sm text-slate-600">
-          Pause the video and choose what the AI should do at each moment.
+          When you publish, the AI adds recap and quick-check stop points about every minute.
+          You can also add or edit stop points here before publishing.
         </p>
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <label className="text-sm font-semibold text-[#10283f]">
@@ -439,7 +481,7 @@ export default function VideoCourseBuilderForm() {
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
-          disabled={saving || transcribing}
+          disabled={saving || transcribing || generatingMarkers}
           onClick={() => void handleSubmit(false)}
           className="rounded-xl border border-[#10283f]/15 px-5 py-3 text-sm font-bold text-[#10283f] disabled:opacity-50"
         >
@@ -447,12 +489,20 @@ export default function VideoCourseBuilderForm() {
         </button>
         <button
           type="button"
-          disabled={saving || transcribing}
+          disabled={saving || transcribing || generatingMarkers}
           onClick={() => void handleSubmit(true)}
           className="inline-flex items-center gap-2 rounded-xl bg-[#c68b1b] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
         >
-          {saving ? <LoaderCircle className="animate-spin" size={16} /> : null}
-          Publish course
+          {saving || transcribing || generatingMarkers ? (
+            <LoaderCircle className="animate-spin" size={16} />
+          ) : null}
+          {transcribing
+            ? "Generating transcript…"
+            : generatingMarkers
+              ? "Adding AI stop points…"
+              : saving
+                ? "Publishing…"
+                : "Publish course"}
         </button>
       </div>
     </div>
