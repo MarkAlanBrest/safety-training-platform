@@ -1,4 +1,6 @@
 import type { ClassroomBuilderConfig } from "@/lib/classroom-builder";
+import type { VideoCourseConfig } from "@/lib/classroom-video";
+import { hydrateVideoCourse } from "@/lib/classroom-video";
 import type { ClassroomSlideHotspot, ClassroomSlideFocus } from "@/lib/classroom-focus";
 import type { LessonLineupItem } from "@/lib/classroom-lineup";
 import type {
@@ -14,6 +16,12 @@ import {
 import type { ClassroomFinalTest } from "@/lib/classroom-question-types";
 
 export type { LessonLineupItem, LineupContentSlide, LineupFormative, LineupActivity, SlideTransition } from "@/lib/classroom-lineup";
+export type {
+  VideoChapter,
+  VideoCourseConfig,
+  VideoMarkerKind,
+  VideoTimelineMarker,
+} from "@/lib/classroom-video";
 
 export type ClassroomSlideVisual = {
   label: string;
@@ -76,6 +84,8 @@ export type ClassroomPlan = {
   finalTest?: ClassroomFinalTest;
   lessonBeats?: ClassroomLessonBeat[];
   config?: ClassroomBuilderConfig;
+  /** Full-screen video course with timeline markers and chapters. */
+  videoCourse?: VideoCourseConfig;
 };
 
 export type { ClassroomCheckpoint, ClassroomAssessmentQuestion, ClassroomLessonBeat };
@@ -541,7 +551,11 @@ export function hydrateClassroomPlan(
     };
   });
 
-  return { ...plan, slides };
+  return {
+    ...plan,
+    slides,
+    videoCourse: plan.videoCourse ? hydrateVideoCourse(plan.videoCourse, slug) : undefined,
+  };
 }
 
 export function isClassroomPlan(value: unknown): value is ClassroomPlan {
