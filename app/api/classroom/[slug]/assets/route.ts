@@ -5,7 +5,7 @@ export const maxDuration = 300;
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-session";
 import { isClassroomPlan } from "@/lib/classroom";
-import { loadChunkedVideoParts } from "@/lib/classroom-chunked-video";
+import { finalizeStagedAssetUpload, saveScormAssetBlob } from "@/lib/scorm-asset-store";
 
 const MAX_CHUNK_BYTES = 3 * 1024 * 1024;
 const MAX_CHUNK_COUNT = 700;
@@ -41,7 +41,14 @@ function requiredAssets(
 }
 
 async function verifyChunkedVideo(courseId: number, videoAssetPath: string) {
-  const parts = await loadChunkedVideoParts(courseId, videoAssetPath);
+  const parts = await prisma.scormAsset.findMany({
+    where: {
+      courseId,
+      path: { startsWith: `${videoAssetPath}/chunks/` },
+    },
+    orderBy: { path: "asc" },
+    select: { path: true },
+  });
   if (!parts.length) return false;
   for (let index = 0; index < parts.length; index += 1) {
     const expected = `${videoAssetPath}/chunks/${String(index).padStart(3, "0")}`;
@@ -132,7 +139,7 @@ export async function POST(
         {
           error:
             chunkCount > MAX_CHUNK_COUNT
-              ? `Video is too large. Maximum upload is about ${Math.floor((MAX_CHUNK_COUNT * 1.5) / 1024)} GB — compress the file or split into chapters.`
+              ? `Video is too large. Maximum upload is about ${Math.floor((MAX_CHUNK_COUNT * 0.75) / 1024)} GB — compress the file or split into chapters.`
               : "Invalid course asset chunk.",
         },
         { status: 400 },
@@ -142,29 +149,21 @@ export async function POST(
     const chunkContent = Buffer.from(await chunk.arrayBuffer());
 
     if (CHUNKED_VIDEO_PART.test(targetPath)) {
-      await prisma.scormAsset.upsert({
-        where: { courseId_path: { courseId: course.id, path: targetPath } },
-        create: {
-          courseId: course.id,
-          path: targetPath,
-          mimeType,
-          content: chunkContent,
-        },
-        update: { mimeType, content: chunkContent },
+      await saveScormAssetBlob({
+        courseId: course.id,
+        path: targetPath,
+        mimeType,
+        content: chunkContent,
       });
       return Response.json({ accepted: true, complete: true });
     }
 
     const chunkPath = `classroom/uploads/${uploadId}/${String(chunkIndex).padStart(3, "0")}`;
-    await prisma.scormAsset.upsert({
-      where: { courseId_path: { courseId: course.id, path: chunkPath } },
-      create: {
-        courseId: course.id,
-        path: chunkPath,
-        mimeType: "application/octet-stream",
-        content: chunkContent,
-      },
-      update: { content: chunkContent },
+    await saveScormAssetBlob({
+      courseId: course.id,
+      path: chunkPath,
+      mimeType: "application/octet-stream",
+      content: chunkContent,
     });
 
     if (chunkIndex < chunkCount - 1) {
@@ -180,16 +179,13 @@ export async function POST(
     }
 
     const content = Buffer.concat(chunks.map((item) => Buffer.from(item.content)));
-    await prisma.$transaction([
-      prisma.scormAsset.upsert({
-        where: { courseId_path: { courseId: course.id, path: targetPath } },
-        create: { courseId: course.id, path: targetPath, mimeType, content },
-        update: { mimeType, content },
-      }),
-      prisma.scormAsset.deleteMany({
-        where: { courseId: course.id, path: { startsWith: `classroom/uploads/${uploadId}/` } },
-      }),
-    ]);
+    await finalizeStagedAssetUpload({
+      courseId: course.id,
+      targetPath,
+      mimeType,
+      content,
+      uploadId,
+    });
 
     return Response.json({ accepted: true, complete: true });
   } catch (error) {

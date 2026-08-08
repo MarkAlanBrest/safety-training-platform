@@ -2,7 +2,7 @@
 
 import { parseJsonResponse } from "@/lib/parse-response";
 
-const CHUNK_BYTES = 1.5 * 1024 * 1024;
+const CHUNK_BYTES = 768 * 1024;
 const MAX_CHUNK_COUNT = 700;
 const MAX_RETRIES = 3;
 
