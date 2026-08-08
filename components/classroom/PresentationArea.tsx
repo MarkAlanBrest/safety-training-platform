@@ -10,6 +10,7 @@ import ClassroomVideoSlide from "@/components/classroom/ClassroomVideoSlide";
 import type { ClassroomFinalTest } from "@/lib/classroom-question-types";
 import ClassroomFinalTestRunner from "@/components/classroom/ClassroomFinalTestRunner";
 import ClassroomPptxPlayer from "@/components/classroom/ClassroomPptxPlayerLazy";
+import MicrosoftPptxViewer from "@/components/classroom/MicrosoftPptxViewer";
 import SlideImageStage from "@/components/classroom/SlideImageStage";
 import SlideStageTransition from "@/components/classroom/SlideStageTransition";
 
@@ -67,6 +68,7 @@ export default function PresentationArea({
   const slide = plan.slides[displaySlideIndex] || plan.slides[0];
   const slideImage = slide?.imageUrl || slide?.imageDataUrl || "";
   const deckContext = slideDeckContext(plan, displaySlideIndex);
+  const nextDeckContext = slideDeckContext(plan, displaySlideIndex + 1);
   const isCheckpoint =
     safeView.type === "question" ||
     safeView.type === "exercise" ||
@@ -156,12 +158,34 @@ export default function PresentationArea({
               embedded
               onExit={() => onFinalTestComplete?.()}
             />
+          ) : safeView.type === "slide" && deckContext && coursePublished ? (
+            <MicrosoftPptxViewer
+              deckUrl={deckContext.deckUrl}
+              slideIndex={deckContext.localSlideIndex}
+              title={slide?.title || plan.title}
+              slideCount={plan.slides.length}
+              currentSlideNumber={displaySlideIndex + 1}
+              preloadNextSlide={
+                Boolean(nextDeckContext) &&
+                nextDeckContext?.deckUrl === deckContext.deckUrl &&
+                nextDeckContext.localSlideIndex === deckContext.localSlideIndex + 1
+              }
+              onPreviousSlide={
+                displaySlideIndex > 0 && onSelectSlide
+                  ? () => onSelectSlide(displaySlideIndex - 1)
+                  : undefined
+              }
+              onNextSlide={
+                displaySlideIndex < plan.slides.length - 1 && onSelectSlide
+                  ? () => onSelectSlide(displaySlideIndex + 1)
+                  : undefined
+              }
+            />
           ) : safeView.type === "slide" && deckContext ? (
             <ClassroomPptxPlayer
               deckUrl={deckContext.deckUrl}
               slideIndex={deckContext.localSlideIndex}
               title={slide?.title || plan.title}
-              fallbackImageUrl={slideImage || undefined}
             />
           ) : safeView.type === "slide" && slideImage ? (
             <SlideImageStage
