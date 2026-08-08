@@ -11,7 +11,6 @@ import VideoClassroomPlayer, {
   type VideoClassroomPlayerHandle,
 } from "@/components/classroom/VideoClassroomPlayer";
 import VideoClassroomTopBar from "@/components/classroom/VideoClassroomTopBar";
-import type { VideoChapter } from "@/lib/classroom-video";
 
 const MAX_STREAMABLE_SPEECH_LENGTH = 1500;
 
@@ -486,15 +485,6 @@ export default function VideoClassroomShell({
     });
   }, [cancelSpeech]);
 
-  const handleSelectChapter = useCallback(
-    (chapter: VideoChapter) => {
-      setPlaybackError("");
-      playerRef.current?.seekTo(chapter.startSeconds);
-      if (!paused) void playerRef.current?.play();
-    },
-    [paused],
-  );
-
   if (!videoCourse?.videoUrl) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950 px-8 text-center text-white">
@@ -507,11 +497,9 @@ export default function VideoClassroomShell({
     <main className="flex h-screen flex-col overflow-hidden bg-white text-slate-900">
       <VideoClassroomTopBar
         title={course.title}
-        chapters={videoCourse.chapters}
         currentTime={playback.currentTime}
         duration={playback.duration}
         paused={paused}
-        onSelectChapter={handleSelectChapter}
         onToggleBreak={toggleBreak}
       />
 
