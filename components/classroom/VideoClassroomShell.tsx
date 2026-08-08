@@ -65,6 +65,7 @@ export default function VideoClassroomShell({
   const [started, setStarted] = useState(false);
   const [paused, setPaused] = useState(false);
   const [playback, setPlayback] = useState({ currentTime: 0, duration: 0 });
+  const [playbackError, setPlaybackError] = useState("");
 
   const unlockAudio = useCallback(() => {
     audioUnlockedRef.current = true;
@@ -302,14 +303,14 @@ export default function VideoClassroomShell({
     ],
   );
 
-  const resumePlayback = useCallback(() => {
+  const resumePlayback = useCallback(async () => {
     setCheckQuestion(null);
     setExpectsResponse(false);
     setOverlayPrompt(null);
     setActiveMarker(null);
     setAwaitingMarkerResume(false);
     restoreVideoMute();
-    playerRef.current?.play();
+    await playerRef.current?.play();
   }, [restoreVideoMute]);
 
   const sendToTeacher = useCallback(
@@ -459,13 +460,15 @@ export default function VideoClassroomShell({
     );
   }, [sendToTeacher]);
 
-  const beginClass = useCallback(() => {
+  const beginClass = useCallback(async () => {
     if (startedRef.current) return;
     startedRef.current = true;
     setStarted(true);
+    setPlaybackError("");
+    playerRef.current?.resetMarkers();
     unlockAudio();
     sendWelcome();
-    playerRef.current?.play();
+    await playerRef.current?.play();
   }, [sendWelcome, unlockAudio]);
 
   const awaitingInput =
@@ -477,16 +480,20 @@ export default function VideoClassroomShell({
         cancelSpeech();
         playerRef.current?.pause();
       } else {
-        playerRef.current?.play();
+        void playerRef.current?.play();
       }
       return !current;
     });
   }, [cancelSpeech]);
 
-  const handleSelectChapter = useCallback((chapter: VideoChapter) => {
-    playerRef.current?.seekTo(chapter.startSeconds);
-    if (!paused) playerRef.current?.play();
-  }, [paused]);
+  const handleSelectChapter = useCallback(
+    (chapter: VideoChapter) => {
+      setPlaybackError("");
+      playerRef.current?.seekTo(chapter.startSeconds);
+      if (!paused) void playerRef.current?.play();
+    },
+    [paused],
+  );
 
   if (!videoCourse?.videoUrl) {
     return (
@@ -515,10 +522,20 @@ export default function VideoClassroomShell({
             videoUrl={videoCourse.videoUrl}
             captionsUrl={videoCourse.captionsUrl}
             markers={videoCourse.markers}
+            markersActive={started}
             onMarkerReached={(marker) => void handleMarkerReached(marker)}
             onPlaybackUpdate={setPlayback}
+            onPlaybackError={setPlaybackError}
             pausedExternally={paused || awaitingMarkerResume}
           />
+
+          {playbackError ? (
+            <div className="absolute inset-x-0 top-4 z-20 flex justify-center px-4">
+              <p className="rounded-xl bg-red-600/90 px-4 py-2 text-sm font-semibold text-white">
+                {playbackError}
+              </p>
+            </div>
+          ) : null}
 
           {overlayPrompt ? (
             <div className="pointer-events-none absolute inset-x-0 bottom-24 z-20 flex justify-center px-4">
@@ -532,7 +549,7 @@ export default function VideoClassroomShell({
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/55">
               <button
                 type="button"
-                onClick={beginClass}
+                onClick={() => void beginClass()}
                 className="rounded-full bg-amber-400 px-8 py-4 text-lg font-bold text-slate-950 shadow-xl"
               >
                 Start course

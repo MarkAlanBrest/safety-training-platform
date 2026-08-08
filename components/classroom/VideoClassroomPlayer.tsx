@@ -15,10 +15,11 @@ import { formatTimestamp } from "@/lib/classroom-video";
 export type VideoClassroomPlayerHandle = {
   getCurrentTime: () => number;
   seekTo: (seconds: number) => void;
-  play: () => void;
+  play: () => Promise<void>;
   pause: () => void;
   setMuted: (muted: boolean) => void;
   isMuted: () => boolean;
+  resetMarkers: () => void;
 };
 
 type Props = {
@@ -27,6 +28,8 @@ type Props = {
   markers: VideoTimelineMarker[];
   onMarkerReached: (marker: VideoTimelineMarker) => void;
   onPlaybackUpdate?: (state: { currentTime: number; duration: number }) => void;
+  onPlaybackError?: (message: string) => void;
+  markersActive?: boolean;
   pausedExternally?: boolean;
 };
 
@@ -38,6 +41,8 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
       markers,
       onMarkerReached,
       onPlaybackUpdate,
+      onPlaybackError,
+      markersActive = false,
       pausedExternally = false,
     },
     ref,
@@ -61,26 +66,46 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
       [markers],
     );
 
-    useImperativeHandle(ref, () => ({
-      getCurrentTime: () => videoRef.current?.currentTime ?? 0,
-      seekTo: (seconds: number) => {
-        const video = videoRef.current;
-        if (!video) return;
-        video.currentTime = seconds;
-        resetFiredMarkers(seconds);
-        setCurrentTime(seconds);
-      },
-      play: () => {
-        void videoRef.current?.play();
-      },
-      pause: () => {
-        videoRef.current?.pause();
-      },
-      setMuted: (muted: boolean) => {
-        if (videoRef.current) videoRef.current.muted = muted;
-      },
-      isMuted: () => videoRef.current?.muted ?? false,
-    }));
+    const clearFiredMarkers = useCallback(() => {
+      firedMarkersRef.current = new Set();
+    }, []);
+
+    const playVideo = useCallback(async () => {
+      const video = videoRef.current;
+      if (!video) return;
+      try {
+        await video.play();
+        setPlaying(true);
+      } catch {
+        onPlaybackError?.("Tap play to start the video.");
+        setPlaying(false);
+      }
+    }, [onPlaybackError]);
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        getCurrentTime: () => videoRef.current?.currentTime ?? 0,
+        seekTo: (seconds: number) => {
+          const video = videoRef.current;
+          if (!video) return;
+          video.currentTime = seconds;
+          resetFiredMarkers(seconds);
+          setCurrentTime(seconds);
+        },
+        play: playVideo,
+        pause: () => {
+          videoRef.current?.pause();
+          setPlaying(false);
+        },
+        setMuted: (muted: boolean) => {
+          if (videoRef.current) videoRef.current.muted = muted;
+        },
+        isMuted: () => videoRef.current?.muted ?? false,
+        resetMarkers: clearFiredMarkers,
+      }),
+      [clearFiredMarkers, playVideo, resetFiredMarkers],
+    );
 
     useEffect(() => {
       const video = videoRef.current;
@@ -91,7 +116,10 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
     }, [captionsOn, captionsUrl]);
 
     useEffect(() => {
-      if (pausedExternally) videoRef.current?.pause();
+      if (pausedExternally) {
+        videoRef.current?.pause();
+        setPlaying(false);
+      }
     }, [pausedExternally]);
 
     function handleTimeUpdate() {
@@ -100,6 +128,8 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
       const time = video.currentTime;
       setCurrentTime(time);
       onPlaybackUpdate?.({ currentTime: time, duration: video.duration || duration });
+
+      if (!markersActive || video.paused) return;
 
       for (const marker of markers) {
         if (time + 0.15 < marker.atSeconds) continue;
@@ -112,12 +142,11 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
       }
     }
 
-    function togglePlay() {
+    async function togglePlay() {
       const video = videoRef.current;
       if (!video) return;
       if (video.paused) {
-        void video.play();
-        setPlaying(true);
+        await playVideo();
       } else {
         video.pause();
         setPlaying(false);
@@ -144,6 +173,11 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
           onEnded={() => setPlaying(false)}
+          onError={() =>
+            onPlaybackError?.(
+              "This video could not be loaded. Try republishing the course or uploading a smaller MP4.",
+            )
+          }
         >
           {captionsUrl ? (
             <track

@@ -4,9 +4,8 @@ export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-session";
 import {
-  loadChunkedVideoParts,
-  sliceChunkedParts,
-  totalChunkedBytes,
+  loadChunkedVideoSlice,
+  listChunkedVideoMeta,
 } from "@/lib/classroom-chunked-video";
 
 const SAFE_ASSET_PATH = /^classroom\/(?:media|activities)\/[a-z0-9-]+(?:\.vtt)?$/;
@@ -79,36 +78,37 @@ export async function GET(
   }
 
   if (CHUNKED_VIDEO_PATH.test(assetPath)) {
-    const parts = await loadChunkedVideoParts(course.id, assetPath);
-    if (!parts.length) return new Response("Asset not found.", { status: 404 });
+    const meta = await listChunkedVideoMeta(course.id, assetPath);
+    if (!meta.length) return new Response("Asset not found.", { status: 404 });
 
-    const buffers = parts.map((part) => Buffer.from(part.content));
-    const totalBytes = totalChunkedBytes(parts);
-    const mimeType = parts[0]?.mimeType || "video/mp4";
+    const totalBytes = meta.reduce((sum, part) => sum + part.byteLength, 0);
     const range = request.headers.get("range")?.match(/^bytes=(\d*)-(\d*)$/);
+    const requestedStart = range ? (range[1] ? Number(range[1]) : 0) : 0;
+    const requestedEnd = range
+      ? range[2]
+        ? Number(range[2])
+        : totalBytes - 1
+      : Math.min(totalBytes - 1, 1024 * 1024 - 1);
 
-    if (range && totalBytes) {
-      const requestedStart = range[1] ? Number(range[1]) : 0;
-      const requestedEnd = range[2] ? Number(range[2]) : totalBytes - 1;
-      const start = Math.max(0, Math.min(requestedStart, totalBytes - 1));
-      const end = Math.max(start, Math.min(requestedEnd, totalBytes - 1));
-      const chunk = sliceChunkedParts(parts, start, end);
+    const slice = await loadChunkedVideoSlice(
+      course.id,
+      assetPath,
+      requestedStart,
+      requestedEnd,
+    );
+    if (!slice) return new Response("Asset not found.", { status: 404 });
 
-      return new Response(new Uint8Array(chunk), {
-        status: 206,
-        headers: {
-          "Content-Type": mimeType,
-          "Accept-Ranges": "bytes",
-          "Cache-Control": "private, max-age=86400",
-          "X-Content-Type-Options": "nosniff",
-          "Content-Length": String(chunk.length),
-          "Content-Range": `bytes ${start}-${end}/${totalBytes}`,
-        },
-      });
-    }
-
-    const fullContent = Buffer.concat(buffers);
-    return respondWithBytes(fullContent, mimeType, null);
+    return new Response(new Uint8Array(slice.body), {
+      status: 206,
+      headers: {
+        "Content-Type": slice.mimeType,
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, max-age=86400",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Length": String(slice.body.length),
+        "Content-Range": `bytes ${slice.start}-${slice.end}/${slice.totalBytes}`,
+      },
+    });
   }
 
   return new Response("Asset not found.", { status: 404 });
