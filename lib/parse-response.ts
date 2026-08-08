@@ -31,7 +31,7 @@ export async function parseJsonResponse<T>(response: Response): Promise<T> {
     const lower = normalized.toLowerCase();
     if (lower.includes("request entity too large")) {
       throw new Error(
-        "Upload is too large for the server. SCORM ZIP files must be 4 MB or smaller.",
+        "Upload is too large for a single request. Try again — large SCORM packages upload in chunks automatically.",
       );
     }
     const preview = normalized.slice(0, 180);

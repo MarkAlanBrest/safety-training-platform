@@ -5,33 +5,44 @@ import { useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 import AdminShell from "@/components/AdminShell";
 import { VOICE_OPTIONS, VOICE_PROVIDER_OPTIONS } from "@/lib/classroom-builder";
-import { parseJsonResponse } from "@/lib/parse-response";
-
-const MAX_SCORM_ZIP_BYTES = 4 * 1024 * 1024;
+import {
+  createScormCourseFromZip,
+  MAX_SCORM_ZIP_BYTES,
+} from "@/lib/scorm-upload-client";
 
 export default function NewScormCoursePage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [progress, setProgress] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
     setError("");
+    setProgress("");
 
     try {
       const form = new FormData(event.currentTarget);
       const file = form.get("scorm");
-      if (file instanceof File && file.size > MAX_SCORM_ZIP_BYTES) {
-        throw new Error("SCORM ZIP files must be 4 MB or smaller.");
+      if (!(file instanceof File)) {
+        throw new Error("Choose a SCORM ZIP package to upload.");
       }
 
-      const response = await fetch("/api/admin/courses/scorm", {
-        method: "POST",
-        body: form,
-      });
-      const payload = await parseJsonResponse<{ course?: { slug: string }; error?: string }>(response);
-      if (!response.ok) throw new Error(payload.error || "The SCORM package could not be uploaded.");
+      const payload = await createScormCourseFromZip(
+        {
+          title: String(form.get("title") || ""),
+          description: String(form.get("description") || ""),
+          theme: String(form.get("theme") || "heritage"),
+          voiceProvider: String(form.get("voiceProvider") || "browser"),
+          voice: String(form.get("voice") || "onyx"),
+          fileName: file.name,
+        },
+        file,
+        (uploaded, total) => {
+          setProgress(`Uploading package… ${uploaded}/${total}`);
+        },
+      );
 
       router.push(`/admin/courses/${payload.course?.slug}`);
       router.refresh();
@@ -39,6 +50,7 @@ export default function NewScormCoursePage() {
       setError(reason instanceof Error ? reason.message : "The SCORM package could not be uploaded.");
     } finally {
       setSaving(false);
+      setProgress("");
     }
   }
 
@@ -83,7 +95,9 @@ export default function NewScormCoursePage() {
               required
               className="mt-2 block w-full text-sm"
             />
-            <p className="mt-1 text-xs text-[#69757e]">Maximum upload size: 4 MB.</p>
+            <p className="mt-1 text-xs text-[#69757e]">
+              Maximum upload size: {Math.floor(MAX_SCORM_ZIP_BYTES / (1024 * 1024))} MB. Large packages upload in chunks automatically.
+            </p>
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -109,6 +123,7 @@ export default function NewScormCoursePage() {
             </label>
           </div>
 
+          {progress ? <p className="text-sm font-semibold text-[#69757e]">{progress}</p> : null}
           {error ? <p className="text-sm font-semibold text-red-600">{error}</p> : null}
 
           <button
