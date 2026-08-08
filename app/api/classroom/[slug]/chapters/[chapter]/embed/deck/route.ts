@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 import { serveClassroomDeck } from "@/lib/classroom-deck-serve";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ slug: string; chapter: string }> },
 ) {
   const { slug, chapter } = await params;
@@ -13,7 +13,12 @@ export async function GET(
     return new Response("Invalid chapter.", { status: 400 });
   }
 
-  return serveClassroomDeck({ slug, chapterPosition, publicEmbed: true });
+  return serveClassroomDeck({
+    slug,
+    chapterPosition,
+    publicEmbed: true,
+    rangeHeader: request.headers.get("range"),
+  });
 }
 
 export async function HEAD(

@@ -437,6 +437,18 @@ export function classroomEmbedDeckUrl(deckUrl: string) {
   return deckUrl.replace(/\/deck$/, "/presentation.pptx");
 }
 
+/** Office Online can only fetch decks from public HTTPS origins (not localhost). */
+export function canUseMicrosoftOfficeEmbed(origin: string) {
+  try {
+    const url = new URL(origin);
+    if (url.protocol !== "https:") return false;
+    const host = url.hostname;
+    return host !== "localhost" && host !== "127.0.0.1" && !host.endsWith(".localhost");
+  } catch {
+    return false;
+  }
+}
+
 export function slideDeckContext(plan: ClassroomPlan, globalSlideIndex: number) {
   const chapters =
     plan.chapters?.length && plan.chapters.length > 0

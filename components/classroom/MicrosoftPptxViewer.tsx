@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, LoaderCircle, RefreshCw } from "lucide-react";
+import { canUseMicrosoftOfficeEmbed } from "@/lib/classroom";
 
 const OFFICE_LOAD_TIMEOUT_MS = 30_000;
 
@@ -15,6 +16,7 @@ export default function MicrosoftPptxViewer({
   preloadNextSlide = false,
   onPreviousSlide,
   onNextSlide,
+  fallback,
 }: {
   deckUrl: string;
   embedDeckUrl?: string;
@@ -25,9 +27,11 @@ export default function MicrosoftPptxViewer({
   preloadNextSlide?: boolean;
   onPreviousSlide?: () => void;
   onNextSlide?: () => void;
+  fallback?: ReactNode;
 }) {
   const publicDeckUrl = embedDeckUrl || deckUrl;
   const [loadError, setLoadError] = useState("");
+  const [useFallback, setUseFallback] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [loadedFrames, setLoadedFrames] = useState<Set<string>>(() => new Set());
 
@@ -44,8 +48,6 @@ export default function MicrosoftPptxViewer({
   const currentLoaded = loadedFrames.has(currentFrameKey);
   const frames = useMemo(() => {
     const indices = [slideIndex];
-    // Start warming the next Office frame only after the current frame has loaded,
-    // so first paint stays fast and forward navigation is then instantaneous.
     if (preloadNextSlide && currentLoaded) indices.push(slideIndex + 1);
     return indices.map((index) => ({
       index,
@@ -58,17 +60,39 @@ export default function MicrosoftPptxViewer({
 
   useEffect(() => {
     let cancelled = false;
+    setUseFallback(false);
     setLoadError("");
+
     async function verifyDeck() {
+      if (!canUseMicrosoftOfficeEmbed(window.location.origin)) {
+        if (!cancelled) setUseFallback(true);
+        return;
+      }
+
       try {
-        const response = await fetch(publicDeckUrl, { method: "HEAD", cache: "no-store" });
-        if (!response.ok && !cancelled) {
-          setLoadError("PowerPoint could not access this presentation. Republish or re-upload the deck.");
+        const headResponse = await fetch(publicDeckUrl, { method: "HEAD", cache: "no-store" });
+        if (!headResponse.ok) {
+          if (!cancelled) setUseFallback(true);
+          return;
+        }
+
+        const checkUrl = new URL("/api/classroom/office-embed-check", window.location.origin);
+        checkUrl.searchParams.set("deckPath", publicDeckUrl);
+        const checkResponse = await fetch(checkUrl.toString(), { cache: "no-store" });
+        if (!checkResponse.ok) {
+          if (!cancelled) setUseFallback(true);
+          return;
+        }
+
+        const result = (await checkResponse.json()) as { ok?: boolean };
+        if (!result.ok && !cancelled) {
+          setUseFallback(true);
         }
       } catch {
-        if (!cancelled) setLoadError("The presentation could not be reached. Try again.");
+        if (!cancelled) setUseFallback(true);
       }
     }
+
     void verifyDeck();
     return () => {
       cancelled = true;
@@ -76,17 +100,21 @@ export default function MicrosoftPptxViewer({
   }, [publicDeckUrl, reloadKey]);
 
   useEffect(() => {
-    if (currentLoaded || loadError) return;
+    if (useFallback || currentLoaded || loadError) return;
     const timer = window.setTimeout(
       () => setLoadError("Microsoft PowerPoint is taking too long to load this slide."),
       OFFICE_LOAD_TIMEOUT_MS,
     );
     return () => window.clearTimeout(timer);
-  }, [currentFrameKey, currentLoaded, loadError]);
+  }, [currentFrameKey, currentLoaded, loadError, useFallback]);
+
+  if (useFallback && fallback) {
+    return <div className="relative h-full min-h-0 w-full">{fallback}</div>;
+  }
 
   return (
     <div className="relative h-full min-h-0 w-full overflow-hidden bg-black" aria-label={title}>
-      {!loadError
+      {!loadError && !useFallback
         ? frames.map((frame) => (
             <iframe
               key={frame.key}
@@ -108,7 +136,7 @@ export default function MicrosoftPptxViewer({
             />
           ))
         : null}
-      {!currentLoaded && !loadError ? (
+      {!currentLoaded && !loadError && !useFallback ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#0b1524]">
           <LoaderCircle className="animate-spin text-amber-300" size={28} />
         </div>
