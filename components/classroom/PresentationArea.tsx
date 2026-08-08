@@ -1,7 +1,7 @@
 "use client";
 
 import type { ClassroomPlan, PresentationView } from "@/lib/classroom";
-import { classroomEmbedDeckUrl, slideDeckContext } from "@/lib/classroom";
+import { slideDeckContext } from "@/lib/classroom";
 import { Coffee, Headphones, MessageSquareText, MousePointerClick } from "lucide-react";
 import ClassroomDragOrder from "@/components/classroom/ClassroomDragOrder";
 import ClassroomFlashcards from "@/components/classroom/ClassroomFlashcards";
@@ -161,7 +161,6 @@ export default function PresentationArea({
           ) : safeView.type === "slide" && deckContext && coursePublished ? (
             <MicrosoftPptxViewer
               deckUrl={deckContext.deckUrl}
-              embedDeckUrl={classroomEmbedDeckUrl(deckContext.deckUrl)}
               slideIndex={deckContext.localSlideIndex}
               title={slide?.title || plan.title}
               slideCount={plan.slides.length}
@@ -180,14 +179,6 @@ export default function PresentationArea({
                 displaySlideIndex < plan.slides.length - 1 && onSelectSlide
                   ? () => onSelectSlide(displaySlideIndex + 1)
                   : undefined
-              }
-              fallback={
-                <ClassroomPptxPlayer
-                  deckUrl={deckContext.deckUrl}
-                  slideIndex={deckContext.localSlideIndex}
-                  title={slide?.title || plan.title}
-                  fallbackImageUrl={slideImage || undefined}
-                />
               }
             />
           ) : safeView.type === "slide" && deckContext ? (

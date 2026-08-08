@@ -437,16 +437,18 @@ export function classroomEmbedDeckUrl(deckUrl: string) {
   return deckUrl.replace(/\/deck$/, "/presentation.pptx");
 }
 
-/** Office Online can only fetch decks from public HTTPS origins (not localhost). */
-export function canUseMicrosoftOfficeEmbed(origin: string) {
-  try {
-    const url = new URL(origin);
-    if (url.protocol !== "https:") return false;
-    const host = url.hostname;
-    return host !== "localhost" && host !== "127.0.0.1" && !host.endsWith(".localhost");
-  } catch {
-    return false;
-  }
+/** Stable public origin Office Online uses to fetch published decks. */
+export function classroomPublicOrigin() {
+  return (
+    process.env.NEXT_PUBLIC_APP_ORIGIN ||
+    "https://safety-training-platform-eight.vercel.app"
+  );
+}
+
+/** Absolute HTTPS deck URL that Microsoft's servers can fetch without cookies. */
+export function classroomOfficeEmbedSrc(deckUrl: string) {
+  const embedPath = classroomEmbedDeckUrl(deckUrl);
+  return new URL(embedPath, classroomPublicOrigin()).href;
 }
 
 export function slideDeckContext(plan: ClassroomPlan, globalSlideIndex: number) {
