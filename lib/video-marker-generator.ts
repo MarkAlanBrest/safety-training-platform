@@ -161,32 +161,32 @@ function normalizeGeneratedMarker(
 }
 
 function fallbackMarkersFromSegments(segments: TranscriptMinuteSegment[]): VideoTimelineMarker[] {
-  return segments
-    .map((segment, index) => {
-      const recap = segment.text.trim();
-      if (!recap) return null;
+  return segments.flatMap((segment, index) => {
+    const recap = segment.text.trim();
+    if (!recap) return [];
 
-      if (index % 3 === 2) {
-        const snippet = recap.split(/(?<=[.!?])\s+/).find((part) => part.length > 20) || recap;
-        return {
-          id: createVideoId("marker"),
-          atSeconds: segment.atSeconds,
-          kind: "quick_check" as const,
-          aiScript: "Quick check before we move on.",
-          questionPrompt: `In your own words, what was the main point about "${snippet.slice(0, 80).trim()}"?`,
-          questionType: "shortAnswer" as const,
-          correctAnswer: snippet.slice(0, 200),
-        };
-      }
-
-      return {
+    if (index % 3 === 2) {
+      const snippet = recap.split(/(?<=[.!?])\s+/).find((part) => part.length > 20) || recap;
+      const marker: VideoTimelineMarker = {
         id: createVideoId("marker"),
         atSeconds: segment.atSeconds,
-        kind: "ai_say" as const,
-        aiScript: `Let's pause for a moment. ${recap.slice(0, 220)}${recap.length > 220 ? "…" : ""}`,
+        kind: "quick_check",
+        aiScript: "Quick check before we move on.",
+        questionPrompt: `In your own words, what was the main point about "${snippet.slice(0, 80).trim()}"?`,
+        questionType: "shortAnswer",
+        correctAnswer: snippet.slice(0, 200),
       };
-    })
-    .filter((marker): marker is VideoTimelineMarker => Boolean(marker));
+      return [marker];
+    }
+
+    const marker: VideoTimelineMarker = {
+      id: createVideoId("marker"),
+      atSeconds: segment.atSeconds,
+      kind: "ai_say",
+      aiScript: `Let's pause for a moment. ${recap.slice(0, 220)}${recap.length > 220 ? "…" : ""}`,
+    };
+    return [marker];
+  });
 }
 
 async function generateMarkersWithAi(
