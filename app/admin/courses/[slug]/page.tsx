@@ -543,6 +543,9 @@ export default function CourseEditorPage() {
             questions. Choose browser or premium voice in Settings.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Link href={`/admin/courses/${course.slug}/narration`} className="inline-flex rounded-xl bg-[#c68b1b] px-5 py-3 font-bold text-[#10283f]">
+              Edit narration script
+            </Link>
             <Link href={`/admin/scorm-preview/${course.slug}`} target="_blank" className="inline-flex rounded-xl bg-[#10283f] px-5 py-3 font-bold text-white">
               Preview with instructor chat
             </Link>
