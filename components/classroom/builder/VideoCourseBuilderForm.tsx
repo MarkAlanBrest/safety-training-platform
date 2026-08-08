@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { LoaderCircle, Mic, Plus, Trash2 } from "lucide-react";
+import { LoaderCircle, Plus, Trash2 } from "lucide-react";
 import {
   completeClassroomAssetUpload,
   uploadClassroomAsset,
@@ -64,28 +64,32 @@ export default function VideoCourseBuilderForm() {
     setTranscriptError("");
   }
 
-  async function generateTranscript() {
-    if (!videoFile || manualCaptions) return;
+  async function ensureTranscript(): Promise<File | null> {
+    if (manualCaptions) return captionsFile;
+    if (captionsFile) return captionsFile;
+    if (!videoFile) return null;
 
     const token = ++transcribeTokenRef.current;
     setTranscribing(true);
-    setTranscriptStatus("Reading video audio…");
+    setTranscriptStatus("Generating transcript from video…");
     setTranscriptError("");
-    setCaptionsFile(null);
 
     try {
       const vtt = await transcribeVideoFile(videoFile, (message) => {
         if (token === transcribeTokenRef.current) setTranscriptStatus(message);
       });
-      if (token !== transcribeTokenRef.current) return;
-      setCaptionsFile(vttToFile(vtt, videoId));
-      setTranscriptStatus("Transcript ready — it will be included when you save the course.");
+      if (token !== transcribeTokenRef.current) return null;
+      const file = vttToFile(vtt, videoId);
+      setCaptionsFile(file);
+      setTranscriptStatus("Transcript ready.");
+      return file;
     } catch (reason) {
-      if (token !== transcribeTokenRef.current) return;
+      if (token !== transcribeTokenRef.current) return null;
       const message =
         reason instanceof Error ? reason.message : "The video could not be transcribed.";
       setTranscriptStatus("");
       setTranscriptError(message);
+      throw new Error(message);
     } finally {
       if (token === transcribeTokenRef.current) setTranscribing(false);
     }
@@ -117,15 +121,21 @@ export default function VideoCourseBuilderForm() {
       setError("Add a course title and video file.");
       return;
     }
-    if (transcribing) {
-      setError("Wait for the transcript to finish generating.");
+    if (transcribing || saving) {
       return;
     }
 
     setSaving(true);
     setError("");
     setUploadProgress("");
+    setTranscriptError("");
+
     try {
+      let scriptFile = captionsFile;
+      if (published && !scriptFile && !manualCaptions) {
+        scriptFile = await ensureTranscript();
+      }
+
       const durationSeconds = previewRef.current?.duration || undefined;
       const createResponse = await fetch("/api/classroom/video-upload", {
         method: "POST",
@@ -135,7 +145,7 @@ export default function VideoCourseBuilderForm() {
           description: description.trim(),
           published,
           videoAssetPath: `classroom/media/${videoId}`,
-          captionsAssetPath: captionsFile
+          captionsAssetPath: scriptFile
             ? `classroom/media/${videoId}.vtt`
             : undefined,
           durationSeconds,
@@ -153,12 +163,12 @@ export default function VideoCourseBuilderForm() {
         videoFile.type || "video/mp4",
         (uploaded, total) => setUploadProgress(`Uploading video… ${uploaded}/${total} parts`),
       );
-      if (captionsFile) {
-        setUploadProgress("Uploading captions…");
+      if (scriptFile) {
+        setUploadProgress("Uploading transcript…");
         await uploadClassroomAsset(
           created.course.slug,
           `classroom/media/${videoId}.vtt`,
-          captionsFile,
+          scriptFile,
           "text/vtt",
         );
       }
@@ -208,9 +218,9 @@ export default function VideoCourseBuilderForm() {
       <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold text-[#10283f]">Video</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Export your presentation from PowerPoint as MP4. After you upload the video, click
-          Generate transcript to build the timed script for the instructor chat. Large videos
-          are processed on the server — it may take a few minutes.
+          Export your presentation from PowerPoint as MP4 and upload it here. When you publish,
+          the platform builds a timed chat script from the video automatically. You can upload your
+          own .vtt file instead if you prefer.
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="block text-sm font-semibold text-[#10283f]">
@@ -248,31 +258,10 @@ export default function VideoCourseBuilderForm() {
             />
           </label>
         </div>
-        {videoFile ? (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              disabled={transcribing || manualCaptions}
-              onClick={() => void generateTranscript()}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#10283f] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
-            >
-              {transcribing ? (
-                <LoaderCircle className="animate-spin" size={16} />
-              ) : (
-                <Mic size={16} />
-              )}
-              {transcribing
-                ? "Generating transcript…"
-                : captionsFile && !manualCaptions
-                  ? "Regenerate transcript"
-                  : "Generate transcript"}
-            </button>
-            {captionsFile ? (
-              <span className="text-sm font-semibold text-emerald-700">
-                Script file ready ({captionsFile.name})
-              </span>
-            ) : null}
-          </div>
+        {captionsFile ? (
+          <p className="mt-3 text-sm font-semibold text-emerald-700">
+            Script file ready ({captionsFile.name})
+          </p>
         ) : null}
         {transcribing || transcriptStatus ? (
           <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-slate-600">
@@ -451,8 +440,12 @@ export default function VideoCourseBuilderForm() {
           onClick={() => void handleSubmit(true)}
           className="inline-flex items-center gap-2 rounded-xl bg-[#c68b1b] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
         >
-          {saving ? <LoaderCircle className="animate-spin" size={16} /> : null}
-          Publish course
+          {saving || transcribing ? <LoaderCircle className="animate-spin" size={16} /> : null}
+          {transcribing
+            ? "Generating transcript…"
+            : saving
+              ? "Publishing…"
+              : "Publish course"}
         </button>
       </div>
     </div>
