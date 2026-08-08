@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { LoaderCircle, Plus, Trash2 } from "lucide-react";
+import { LoaderCircle, Mic, Plus, Trash2 } from "lucide-react";
 import {
   completeClassroomAssetUpload,
   uploadClassroomAsset,
@@ -43,6 +43,7 @@ export default function VideoCourseBuilderForm() {
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
   const [transcriptStatus, setTranscriptStatus] = useState("");
+  const [transcriptError, setTranscriptError] = useState("");
   const [transcribing, setTranscribing] = useState(false);
   const [manualCaptions, setManualCaptions] = useState(false);
   const [error, setError] = useState("");
@@ -51,41 +52,40 @@ export default function VideoCourseBuilderForm() {
   const videoId = useMemo(() => createVideoId("video"), []);
   const transcribeTokenRef = useRef(0);
 
-  async function handleVideoSelect(file: File | null) {
+  function handleVideoSelect(file: File | null) {
+    transcribeTokenRef.current += 1;
+    setTranscribing(false);
     setVideoFile(file);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(file ? URL.createObjectURL(file) : "");
+    setCaptionsFile(null);
+    setManualCaptions(false);
+    setTranscriptStatus("");
+    setTranscriptError("");
+  }
 
-    if (!file) {
-      setCaptionsFile(null);
-      setManualCaptions(false);
-      setTranscriptStatus("");
-      return;
-    }
-
-    if (manualCaptions) return;
+  async function generateTranscript() {
+    if (!videoFile || manualCaptions) return;
 
     const token = ++transcribeTokenRef.current;
     setTranscribing(true);
     setTranscriptStatus("Reading video audio…");
+    setTranscriptError("");
     setCaptionsFile(null);
-    setError("");
 
     try {
-      const vtt = await transcribeVideoFile(file, (message) => {
+      const vtt = await transcribeVideoFile(videoFile, (message) => {
         if (token === transcribeTokenRef.current) setTranscriptStatus(message);
       });
       if (token !== transcribeTokenRef.current) return;
       setCaptionsFile(vttToFile(vtt, videoId));
-      setTranscriptStatus("Transcript ready — it will appear in the chat during playback.");
+      setTranscriptStatus("Transcript ready — it will be included when you save the course.");
     } catch (reason) {
       if (token !== transcribeTokenRef.current) return;
       const message =
         reason instanceof Error ? reason.message : "The video could not be transcribed.";
       setTranscriptStatus("");
-      setError(
-        `${message} You can still publish the course and upload a .vtt script file instead.`,
-      );
+      setTranscriptError(message);
     } finally {
       if (token === transcribeTokenRef.current) setTranscribing(false);
     }
@@ -208,8 +208,9 @@ export default function VideoCourseBuilderForm() {
       <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold text-[#10283f]">Video</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Export your presentation from PowerPoint as MP4. When you upload the video, the platform
-          reads the audio and builds a timed transcript for the instructor chat automatically.
+          Export your presentation from PowerPoint as MP4. After you upload the video, click
+          Generate transcript to build the timed script for the instructor chat, or upload your
+          own .vtt file.
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="block text-sm font-semibold text-[#10283f]">
@@ -220,12 +221,12 @@ export default function VideoCourseBuilderForm() {
               className="mt-2 block w-full text-sm"
               disabled={transcribing}
               onChange={(event) => {
-                void handleVideoSelect(event.target.files?.[0] || null);
+                handleVideoSelect(event.target.files?.[0] || null);
               }}
             />
           </label>
           <label className="block text-sm font-semibold text-[#10283f]">
-            Timed script (.vtt) — optional override
+            Timed script (.vtt) — optional
             <input
               type="file"
               accept=".vtt,text/vtt"
@@ -233,24 +234,55 @@ export default function VideoCourseBuilderForm() {
               disabled={transcribing}
               onChange={(event) => {
                 const file = event.target.files?.[0] || null;
+                transcribeTokenRef.current += 1;
+                setTranscribing(false);
                 setManualCaptions(Boolean(file));
                 setCaptionsFile(file);
+                setTranscriptError("");
                 if (file) {
-                  transcribeTokenRef.current += 1;
-                  setTranscribing(false);
                   setTranscriptStatus("Using your uploaded script file.");
                 } else {
                   setTranscriptStatus("");
-                  if (videoFile) void handleVideoSelect(videoFile);
                 }
               }}
             />
           </label>
         </div>
+        {videoFile ? (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={transcribing || manualCaptions}
+              onClick={() => void generateTranscript()}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#10283f] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+            >
+              {transcribing ? (
+                <LoaderCircle className="animate-spin" size={16} />
+              ) : (
+                <Mic size={16} />
+              )}
+              {transcribing
+                ? "Generating transcript…"
+                : captionsFile && !manualCaptions
+                  ? "Regenerate transcript"
+                  : "Generate transcript"}
+            </button>
+            {captionsFile ? (
+              <span className="text-sm font-semibold text-emerald-700">
+                Script file ready ({captionsFile.name})
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         {transcribing || transcriptStatus ? (
           <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-slate-600">
             {transcribing ? <LoaderCircle className="animate-spin" size={16} /> : null}
             {transcriptStatus}
+          </p>
+        ) : null}
+        {transcriptError ? (
+          <p className="mt-3 text-sm font-semibold text-red-600">
+            {transcriptError} Try again, or upload a .vtt file instead.
           </p>
         ) : null}
         {previewUrl ? (
