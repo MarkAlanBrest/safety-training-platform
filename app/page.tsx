@@ -15,14 +15,14 @@ export default function HomePage() {
               <p className="text-sm font-bold uppercase tracking-[.18em] text-amber-300">
                 AI Classroom
               </p>
-              <h1 className="text-2xl font-bold">Live teaching from your slides</h1>
+              <h1 className="text-2xl font-bold">Live teaching from your video</h1>
             </div>
           </div>
           <Link
             href="/admin/classroom/new"
             className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/5"
           >
-            Upload a PowerPoint
+            Create a video course
           </Link>
         </header>
 
@@ -33,12 +33,11 @@ export default function HomePage() {
               Separate from scroll-based training
             </div>
             <h2 className="mt-6 text-4xl font-bold leading-tight sm:text-5xl">
-              An AI teacher that talks, listens, and teaches from your deck.
+              An AI teacher that talks, listens, and teaches from your video.
             </h2>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
-              Upload a PowerPoint, then enter a three-panel classroom: lesson
-              navigation on the left, a live presentation area in the center, and an
-              always-on instructor chat on the right.
+              Upload one full-screen video with chapter breaks and AI stop points.
+              Learners watch your presentation, then ask the instructor anytime.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
