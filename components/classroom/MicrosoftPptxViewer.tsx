@@ -83,8 +83,8 @@ export default function MicrosoftPptxViewer({
                 title={`${title} — Microsoft PowerPoint viewer`}
                 width={stageSize.width}
                 height={frameHeight}
-                className={`classroom-office-viewer-frame absolute left-0 top-0 border-0 ${
-                  frame.index === slideIndex ? "visible z-0" : "invisible pointer-events-none -z-10"
+                className={`classroom-office-viewer-frame pointer-events-none absolute left-0 top-0 border-0 ${
+                  frame.index === slideIndex ? "visible z-0" : "invisible -z-10"
                 }`}
                 style={{ width: stageSize.width, height: frameHeight }}
                 allow="fullscreen; autoplay; clipboard-read; clipboard-write"
@@ -93,6 +93,11 @@ export default function MicrosoftPptxViewer({
               />
             ))
           : null}
+        {/* Block Office's click-to-advance; the class is paced by the instructor. */}
+        <div
+          className="classroom-office-viewer-shield absolute inset-0 z-10 cursor-default"
+          aria-hidden="true"
+        />
       </div>
       <div className="absolute inset-x-0 bottom-0 z-20 flex h-10 items-center justify-center gap-3 border-t border-white/10 bg-slate-950 text-white">
         <button type="button" onClick={onPreviousSlide} disabled={!onPreviousSlide} className="grid h-7 w-9 place-items-center rounded-md transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-30" aria-label="Previous slide">
