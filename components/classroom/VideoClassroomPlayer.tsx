@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Captions, Pause, Play } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 import type { VideoTimelineMarker } from "@/lib/classroom-video";
 import { formatTimestamp } from "@/lib/classroom-video";
 
@@ -24,7 +24,6 @@ export type VideoClassroomPlayerHandle = {
 
 type Props = {
   videoUrl: string;
-  captionsUrl?: string;
   markers: VideoTimelineMarker[];
   onMarkerReached: (marker: VideoTimelineMarker) => void;
   onPlaybackUpdate?: (state: { currentTime: number; duration: number }) => void;
@@ -37,7 +36,6 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
   function VideoClassroomPlayer(
     {
       videoUrl,
-      captionsUrl,
       markers,
       onMarkerReached,
       onPlaybackUpdate,
@@ -50,7 +48,6 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
     const videoRef = useRef<HTMLVideoElement>(null);
     const firedMarkersRef = useRef<Set<string>>(new Set());
     const [playing, setPlaying] = useState(false);
-    const [captionsOn, setCaptionsOn] = useState(true);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
 
@@ -106,14 +103,6 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
       }),
       [clearFiredMarkers, playVideo, resetFiredMarkers],
     );
-
-    useEffect(() => {
-      const video = videoRef.current;
-      if (!video) return;
-      for (const track of video.textTracks) {
-        track.mode = captionsOn ? "showing" : "hidden";
-      }
-    }, [captionsOn, captionsUrl]);
 
     useEffect(() => {
       if (pausedExternally) {
@@ -178,34 +167,7 @@ const VideoClassroomPlayer = forwardRef<VideoClassroomPlayerHandle, Props>(
               "This video could not be loaded. Try republishing the course or uploading a smaller MP4.",
             )
           }
-        >
-          {captionsUrl ? (
-            <track
-              kind="captions"
-              src={captionsUrl}
-              srcLang="en"
-              label="English"
-              default
-            />
-          ) : null}
-        </video>
-
-        {captionsUrl ? (
-          <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/50 to-transparent px-4 pb-8 pt-4">
-            <div className="pointer-events-auto flex justify-end">
-              <button
-                type="button"
-                onClick={() => setCaptionsOn((on) => !on)}
-                className={`grid h-9 w-9 place-items-center rounded-lg backdrop-blur ${
-                  captionsOn ? "bg-amber-400 text-slate-950" : "bg-white/15 text-white"
-                }`}
-                aria-label={captionsOn ? "Hide captions" : "Show captions"}
-              >
-                <Captions size={18} />
-              </button>
-            </div>
-          </div>
-        ) : null}
+        />
 
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-4 pb-4 pt-10">
           <div className="flex items-center gap-3">
