@@ -751,9 +751,8 @@ export default function ClassroomShell({
     setCheckQuestion(authoredCheck);
     setExpectsResponse(Boolean(authoredCheck));
     if (beat.kind === "slide" || view.type === "slide") {
-      const slideIndex = beat.kind === "slide" ? beat.slideIndex : view.slideIndex;
-      setCurrentSlideIndex(slideIndex);
-      markSlideTaught(slideIndex);
+      setCurrentSlideIndex(nextSlideIndex);
+      markSlideTaught(nextSlideIndex);
     }
 
     // The Final Test is a standalone exam mode, not part of the AI chat loop.
