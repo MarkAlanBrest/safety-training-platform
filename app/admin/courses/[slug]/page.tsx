@@ -132,6 +132,7 @@ export default function CourseEditorPage() {
   const [error, setError] = useState("");
   const [logoData, setLogoData] = useState<string | null>(null);
   const [accentColor, setAccentColor] = useState<string | null>(null);
+  const [scormNarrationMode, setScormNarrationMode] = useState<"package" | "premium" | "browser">("package");
 
   async function load() {
     if (!slug) return;
@@ -141,6 +142,15 @@ export default function CourseEditorPage() {
     setCourse(data);
     setLogoData(data.logoData || null);
     setAccentColor(data.accentColor || null);
+    if (data.courseType === "scorm") {
+      setScormNarrationMode(
+        data.sections[0]?.lessonPlan.config?.settings?.speechVoice === false
+          ? "package"
+          : data.sections[0]?.lessonPlan.config?.teaching?.voiceProvider === "browser"
+            ? "browser"
+            : "premium",
+      );
+    }
   }
 
   useEffect(() => {
@@ -764,12 +774,13 @@ export default function CourseEditorPage() {
                       type="radio"
                       name={course.courseType === "scorm" ? "scormNarrationMode" : "classroomVoiceProvider"}
                       value={option.id}
-                      defaultChecked={
-                        (course.courseType === "scorm" &&
-                        course.sections[0]?.lessonPlan.config?.settings?.speechVoice === false
-                          ? "package"
-                          : course.sections[0]?.lessonPlan.config?.teaching?.voiceProvider || "premium") === option.id
-                      }
+                      checked={course.courseType === "scorm" ? scormNarrationMode === option.id : undefined}
+                      defaultChecked={course.courseType !== "scorm"
+                        ? (course.sections[0]?.lessonPlan.config?.teaching?.voiceProvider || "premium") === option.id
+                        : undefined}
+                      onChange={course.courseType === "scorm"
+                        ? () => setScormNarrationMode(option.id as "package" | "premium" | "browser")
+                        : undefined}
                       className="peer sr-only"
                     />
                     <span className="block h-full rounded-2xl border border-[#10283f]/10 p-4 peer-checked:border-[#c68b1b] peer-checked:bg-[#fff9eb] peer-checked:ring-2 peer-checked:ring-[#e8c273]/25">
@@ -785,15 +796,22 @@ export default function CourseEditorPage() {
               <span className="mb-2 block text-sm font-bold">AI voice</span>
               <select
                 name="classroomVoice"
-                defaultValue={course.sections[0]?.lessonPlan.config?.teaching?.voice || "cedar"}
-                className="w-full min-w-0 max-w-full rounded-xl border border-[#10283f]/15 bg-white px-4 py-3"
+                defaultValue={course.sections[0]?.lessonPlan.config?.teaching?.voice === "mark"
+                  ? "cedar"
+                  : course.sections[0]?.lessonPlan.config?.teaching?.voice || "cedar"}
+                disabled={course.courseType === "scorm" && scormNarrationMode !== "premium"}
+                className="w-full min-w-0 max-w-full rounded-xl border border-[#10283f]/15 bg-white px-4 py-3 disabled:bg-slate-100 disabled:text-slate-500"
               >
                 {VOICE_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>{option.label}</option>
                 ))}
               </select>
               <span className="mt-2 block text-xs leading-5 text-[#69757e]">
-                The browser chooses its own installed voice when free browser narration is selected.
+                {course.courseType === "scorm" && scormNarrationMode === "browser"
+                  ? "Free narration uses Mark when installed, or the learner's English system voice."
+                  : course.courseType === "scorm" && scormNarrationMode === "package"
+                    ? "The voice is supplied by the SCORM package."
+                    : "This selected premium voice will be used throughout the course."}
               </span>
             </label>
 

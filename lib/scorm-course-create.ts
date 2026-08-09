@@ -1,7 +1,7 @@
 import "server-only";
 
 import { Prisma } from "@prisma/client";
-import { defaultClassroomBuilderConfig } from "@/lib/classroom-builder";
+import { defaultClassroomBuilderConfig, VOICE_OPTIONS } from "@/lib/classroom-builder";
 import { isCourseTheme } from "@/lib/course-options";
 import { slugify } from "@/lib/mason";
 import { prisma } from "@/lib/prisma";
@@ -53,7 +53,12 @@ export async function createScormCourseShell(input: ScormCourseInitInput) {
     ? String(input.narrationMode)
     : String(input.voiceProvider || "package");
   const voiceProvider = narrationMode === "browser" ? "browser" : "premium";
-  const voice = String(input.voice || "cedar").trim();
+  const requestedVoice = String(input.voice || "cedar").trim().toLowerCase();
+  const voice = narrationMode === "browser"
+    ? "mark"
+    : VOICE_OPTIONS.some((option) => option.id === requestedVoice)
+      ? requestedVoice
+      : "cedar";
 
   const baseSlug = slugify(title) || "scorm-course";
   let slug = baseSlug;
@@ -65,7 +70,7 @@ export async function createScormCourseShell(input: ScormCourseInitInput) {
     teaching: {
       ...defaults.teaching,
       voiceProvider: voiceProvider === "browser" ? "browser" : "premium",
-      voice: /^[a-z0-9_-]{1,40}$/i.test(voice) ? voice : "cedar",
+      voice,
     },
     settings: {
       ...defaults.settings,

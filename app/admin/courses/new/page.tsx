@@ -16,6 +16,7 @@ export default function NewScormCoursePage() {
   const [error, setError] = useState("");
   const [progress, setProgress] = useState("");
   const [narrationMode, setNarrationMode] = useState<"package" | "premium" | "browser">("package");
+  const [selectedVoice, setSelectedVoice] = useState("cedar");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,7 +38,7 @@ export default function NewScormCoursePage() {
           theme: String(form.get("theme") || "heritage"),
           narrationMode,
           voiceProvider: narrationMode === "browser" ? "browser" : "premium",
-          voice: String(form.get("voice") || "cedar"),
+          voice: narrationMode === "browser" ? "mark" : selectedVoice,
           fileName: file.name,
         },
         file,
@@ -124,13 +125,27 @@ export default function NewScormCoursePage() {
             </label>
             <label className="block text-sm font-semibold text-[#10283f]">
               Voice style
-              <select name="voice" defaultValue="cedar" disabled={narrationMode === "package"} className="mt-2 w-full rounded-xl border border-[#10283f]/15 px-4 py-3 disabled:bg-slate-100 disabled:text-slate-400">
+              <select
+                name="voice"
+                value={narrationMode === "browser" ? "mark" : selectedVoice}
+                onChange={(event) => setSelectedVoice(event.target.value)}
+                disabled={narrationMode !== "premium"}
+                className="mt-2 w-full rounded-xl border border-[#10283f]/15 px-4 py-3 disabled:bg-slate-100 disabled:text-slate-500"
+              >
+                {narrationMode === "browser" ? <option value="mark">Mark (device voice)</option> : null}
                 {VOICE_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.label}
                   </option>
                 ))}
               </select>
+              <span className="mt-2 block text-xs leading-5 text-[#69757e]">
+                {narrationMode === "premium"
+                  ? `The course will use ${VOICE_OPTIONS.find((option) => option.id === selectedVoice)?.label || selectedVoice}.`
+                  : narrationMode === "browser"
+                    ? "Free narration uses Mark when installed, or the learner's English system voice. Premium voice names are not available in browser mode."
+                    : "The voice is supplied by the SCORM package."}
+              </span>
             </label>
           </div>
 

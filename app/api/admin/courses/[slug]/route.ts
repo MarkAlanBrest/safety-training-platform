@@ -9,6 +9,7 @@ import {
 } from "@/lib/course-options";
 import { requireAdmin } from "@/lib/admin-session";
 import { deleteScormAssetsForCourse } from "@/lib/scorm-asset-store";
+import { VOICE_OPTIONS } from "@/lib/classroom-builder";
 
 export async function GET(
   request: Request,
@@ -149,10 +150,15 @@ export async function PATCH(
       course.courseType === "scorm" && ["package", "premium", "browser"].includes(scormNarrationMode)
         ? scormNarrationMode === "browser" ? "browser" : "premium"
         : classroomVoiceProvider;
+    const savedVoice = savedVoiceProvider === "browser"
+      ? "mark"
+      : VOICE_OPTIONS.some((option) => option.id === classroomVoice.toLowerCase())
+        ? classroomVoice.toLowerCase()
+        : "cedar";
     if (
       (course.courseType === "classroom" || course.courseType === "scorm") &&
       ["browser", "premium"].includes(savedVoiceProvider) &&
-      /^[a-z0-9_-]{1,40}$/i.test(classroomVoice)
+      /^[a-z0-9_-]{1,40}$/i.test(savedVoice)
     ) {
       const sections = await prisma.masonSection.findMany({
         where: { courseId: course.id },
@@ -184,7 +190,7 @@ export async function PATCH(
                     teaching: {
                       ...teaching,
                       voiceProvider: savedVoiceProvider,
-                      voice: classroomVoice,
+                      voice: savedVoice,
                     },
                     settings: {
                       ...settings,
