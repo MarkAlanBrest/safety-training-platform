@@ -72,16 +72,16 @@
       <h1>Ladder Safety</h1>
       <p class="meta">Example SCORM 1.2 package · location updates on each page</p>
 
-      <section class="slide active" data-location="intro">
+      <section class="slide active" data-location="intro" data-ai-narration>
         <h2>Welcome</h2>
         <p>
-          This is a minimal example SCORM package for testing the AI instructor workflow.
-          Each page sets <code>cmi.core.lesson_location</code> so you can map narration cues
-          in the script editor.
+          This is a minimal example SCORM package. The <code>data-ai-narration</code>
+          attribute on this section tells the training app to read this text aloud
+          while the section is visible.
         </p>
       </section>
 
-      <section class="slide" data-location="inspection">
+      <section class="slide" data-location="inspection" data-ai-narration>
         <h2>Inspection</h2>
         <p>Before climbing, inspect the ladder:</p>
         <ul>
@@ -91,13 +91,13 @@
         </ul>
       </section>
 
-      <section class="slide" data-location="setup">
+      <section class="slide" data-location="setup" data-ai-narration>
         <h2>Setup</h2>
         <p>Set the ladder at the correct angle — about one foot out for every four feet up.
         Secure the top and base before climbing.</p>
       </section>
 
-      <section class="slide" data-location="climbing">
+      <section class="slide" data-location="climbing" data-ai-narration>
         <h2>Safe climbing</h2>
         <p>Maintain three points of contact. Face the ladder, avoid overreaching, and never
         stand on the top cap or top three rungs unless designed for it.</p>

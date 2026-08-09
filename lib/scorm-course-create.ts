@@ -106,11 +106,16 @@ export function narrationScriptFromPackage(
   const cues = parseScormNarrationDocument(source);
   if (!cues.length) return null;
   const normalized = source.replace(/\r\n/g, "\n");
+
+  // Bracketed scripts commonly lead with authoring notes (format legend,
+  // "don't feed this to the TTS engine" reminders) rather than learner-facing
+  // welcome text, so never speak that preamble as the course opening.
+  const usesBracketCues = /(?:^|\n)\s*\[[^\]\n]+\]\s*\n/.test(normalized);
   const firstCueHeader = normalized.search(
-    /(?:^|\n)\s*(?:===\s*.+?\s*===|(?:slide|page)\s+\d+\s*:?(?=\n|$)|(?:location|page|slide)\s*[:#-])/i,
+    /(?:^|\n)\s*(?:===\s*.+?\s*===|\[[^\]\n]+\]|(?:slide|page)\s+\d+\s*:?(?=\n|$)|(?:location|page|slide)\s*[:#-])/i,
   );
   const openingBlock = firstCueHeader > 0 ? normalized.slice(0, firstCueHeader).trim() : "";
-  const opening = openingBlock || undefined;
+  const opening = !usesBracketCues && openingBlock ? openingBlock : undefined;
   return { cues, opening };
 }
 

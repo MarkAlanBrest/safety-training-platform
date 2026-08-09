@@ -1,22 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useMemo, useState } from "react";
+import { VolumeX } from "lucide-react";
 import ScormPlayer, { type ScormRuntimeChange } from "@/components/ScormPlayer";
 import ScormClassroomTopBar from "@/components/ScormClassroomTopBar";
-import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
 import { useInstructorVoice } from "@/lib/instructor-voice";
-import {
-  narrationForLocation,
-  scormLocationFromRuntime,
-  type ScormInstructorConfig,
-} from "@/lib/scorm-instructor";
-
-type ChatApiResponse = {
-  reply?: string;
-  expectsResponse?: boolean;
-  error?: string;
-};
+import { scormLocationFromRuntime, type ScormInstructorConfig } from "@/lib/scorm-instructor";
 
 export type PublicScormCourse = {
   title: string;
@@ -26,12 +15,6 @@ export type PublicScormCourse = {
   scormEntryPoint: string;
   instructor: ScormInstructorConfig;
 };
-
-const LOCATION_KEYS = new Set([
-  "cmi.core.lesson_location",
-  "cmi.location",
-  "cmi.suspend_data",
-]);
 
 function progressFromRuntime(snapshot: Record<string, string>) {
   const measure = Number(
@@ -51,6 +34,14 @@ function progressFromRuntime(snapshot: Record<string, string>) {
   return 0;
 }
 
+/**
+ * Full-screen SCORM playback: the package itself is the entire experience
+ * (top toolbar + player only). Narration comes from whatever text the
+ * package marks with `id="ai-narration"` or `data-ai-narration` on the
+ * current screen — no separate chat panel or script file required. The
+ * first marked screen doubles as the welcome, so there's no separate
+ * app-level opening line to race against it.
+ */
 export default function ScormClassroomShell({
   course,
   preview = false,
@@ -58,12 +49,6 @@ export default function ScormClassroomShell({
   course: PublicScormCourse;
   preview?: boolean;
 }) {
-  const searchParams = useSearchParams();
-  const code = searchParams?.get("code") || "";
-  const welcomedRef = useRef(false);
-  const lastSpokenLocationRef = useRef("");
-  const locationRef = useRef("");
-
   const voiceSettings = useMemo(() => {
     const teaching = course.instructor.teaching;
     const settings = course.instructor.settings;
@@ -78,124 +63,27 @@ export default function ScormClassroomShell({
   const { speak, cancelSpeech, unlockAudio, needsAudioUnlock } =
     useInstructorVoice(voiceSettings);
 
-  const [messages, setMessages] = useState<TeacherMessage[]>([]);
-  const [thinking, setThinking] = useState(false);
-  const [chatError, setChatError] = useState("");
   const [progressPercent, setProgressPercent] = useState(0);
   const [locationLabel, setLocationLabel] = useState("");
-  const [liveNarration, setLiveNarration] = useState("");
-  const [narrationHistory, setNarrationHistory] = useState<string[]>([]);
 
-  const beginScormLine = useCallback((text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return "";
-    setLiveNarration((current) => {
-      if (current && current !== "…" && current !== trimmed) {
-        setNarrationHistory((history) => [...history, current]);
-      }
-      // Keep the transcript panel active without revealing the sentence before
-      // playback starts. The first spoken word replaces this immediately.
-      return "…";
-    });
-    return trimmed;
+  const handleRuntimeChange = useCallback((change: ScormRuntimeChange) => {
+    setProgressPercent(progressFromRuntime(change.snapshot));
+    const location = scormLocationFromRuntime(change.snapshot);
+    if (location) setLocationLabel(location);
   }, []);
 
-  const narrateScormLine = useCallback(
-    async (text: string) => {
-      const narration = beginScormLine(text);
-      if (!narration) return;
-      await speak(narration, {
-        onProgress: (spokenText) => setLiveNarration(spokenText),
-      });
-    },
-    [beginScormLine, speak],
-  );
-
-  const sendToInstructor = useCallback(
-    async (nextMessages: TeacherMessage[], options?: { speakReply?: boolean }) => {
-      setThinking(true);
-      setChatError("");
-      try {
-        const response = await fetch(`/api/scorm/${encodeURIComponent(course.slug)}/chat`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            code: preview ? undefined : code,
-            preview,
-            messages: nextMessages
-              .filter((message) => !message.hidden)
-              .map((message) => ({ role: message.role, content: message.content })),
-            scormLocation: locationRef.current,
-          }),
-        });
-        const payload = (await response.json()) as ChatApiResponse;
-        if (!response.ok) throw new Error(payload.error || "The instructor could not respond.");
-
-        const reply = payload.reply?.trim() || "";
-        if (reply) {
-          setMessages((current) => [...current, { role: "assistant", content: reply }]);
-          if (options?.speakReply === false) {
-            beginScormLine(reply);
-            setLiveNarration(reply);
-          } else {
-            await narrateScormLine(reply);
-          }
-        }
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "The instructor could not respond.";
-        setChatError(message);
-      } finally {
-        setThinking(false);
-      }
-    },
-    [beginScormLine, code, course.slug, narrateScormLine, preview],
-  );
-
-  const handleRuntimeChange = useCallback(
-    (change: ScormRuntimeChange) => {
-      setProgressPercent(progressFromRuntime(change.snapshot));
-      const location = scormLocationFromRuntime(change.snapshot);
-      if (location) {
-        locationRef.current = location;
-        setLocationLabel(location);
-      }
-      if (!LOCATION_KEYS.has(change.key) || !location) return;
-      if (location === lastSpokenLocationRef.current) return;
-
-      const cue = narrationForLocation(course.instructor.narration, location);
-      if (!cue) return;
-
-      lastSpokenLocationRef.current = location;
+  const handleNarrationText = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
       cancelSpeech();
-      void narrateScormLine(cue.text);
+      void speak(trimmed);
     },
-    [cancelSpeech, course.instructor.narration, narrateScormLine],
-  );
-
-  useEffect(() => {
-    if (welcomedRef.current) return;
-    welcomedRef.current = true;
-    const opening =
-      course.instructor.opening?.trim() ||
-      course.description?.trim() ||
-      `Welcome to ${course.title}.`;
-    void narrateScormLine(opening);
-  }, [course.description, course.instructor.opening, course.title, narrateScormLine]);
-
-  const handleSend = useCallback(
-    async (message: string) => {
-      unlockAudio();
-      cancelSpeech();
-      const next: TeacherMessage[] = [...messages, { role: "user", content: message }];
-      setMessages(next);
-      await sendToInstructor(next);
-    },
-    [cancelSpeech, messages, sendToInstructor, unlockAudio],
+    [cancelSpeech, speak],
   );
 
   return (
-    <main className="flex h-screen flex-col overflow-hidden bg-white text-slate-900">
+    <main className="flex h-screen flex-col overflow-hidden bg-[#0b1f33] text-white">
       <ScormClassroomTopBar
         title={course.title}
         scormVersion={course.scormVersion}
@@ -209,37 +97,28 @@ export default function ScormClassroomShell({
         locationLabel={locationLabel}
       />
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="min-h-0 bg-[#0b1f33]">
-          <ScormPlayer
-            title={course.title}
-            slug={course.slug}
-            entryPoint={course.scormEntryPoint}
-            version={course.scormVersion}
-            preview={preview}
-            embedded
-            onRuntimeChange={handleRuntimeChange}
-          />
-        </div>
+      <div className="relative min-h-0 flex-1">
+        <ScormPlayer
+          title={course.title}
+          slug={course.slug}
+          entryPoint={course.scormEntryPoint}
+          version={course.scormVersion}
+          preview={preview}
+          embedded
+          onRuntimeChange={handleRuntimeChange}
+          onVisibleTextChange={handleNarrationText}
+        />
 
-        <div className="flex min-h-0 flex-col border-t border-slate-200 lg:border-l lg:border-t-0">
-          {chatError ? (
-            <p className="shrink-0 border-b border-red-100 bg-red-50 px-5 py-3 text-sm font-semibold text-red-600">
-              {chatError}
-            </p>
-          ) : null}
-          <TeacherChat
-            messages={messages}
-            thinking={thinking}
-            speechToTextEnabled={course.instructor.settings.speechText}
-            needsAudioUnlock={needsAudioUnlock}
-            liveNarration={liveNarration}
-            narrationHistory={narrationHistory}
-            onSend={handleSend}
-            onSpeak={speak}
-            onInteract={unlockAudio}
-          />
-        </div>
+        {needsAudioUnlock ? (
+          <button
+            type="button"
+            onClick={() => unlockAudio()}
+            className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center gap-2 bg-amber-400 px-4 py-3 text-sm font-bold text-[#3a2a05]"
+          >
+            <VolumeX size={16} />
+            Tap to enable the instructor&apos;s voice
+          </button>
+        ) : null}
       </div>
     </main>
   );

@@ -50,6 +50,55 @@ function visibleTextFromFrame(frame: HTMLIFrameElement) {
     .sort((a, b) => b.depth - a.depth || b.text.length - a.text.length)[0]?.text || "";
 }
 
+/** Authors mark the text meant for narration with `id="ai-narration"` or a `data-ai-narration` attribute. */
+const NARRATION_MARKER_SELECTOR = "#ai-narration, [data-ai-narration]";
+
+function isVisibleElement(element: Element) {
+  if (!(element instanceof HTMLElement)) return false;
+  const withVisibilityCheck = element as HTMLElement & { checkVisibility?: () => boolean };
+  if (typeof withVisibilityCheck.checkVisibility === "function") {
+    try {
+      return withVisibilityCheck.checkVisibility();
+    } catch {
+      // Fall through to the geometry-based check below.
+    }
+  }
+  return Boolean(element.offsetParent) || element.getClientRects().length > 0;
+}
+
+/**
+ * Reads the current screen's narration text from an author-marked element,
+ * falling back to a best-effort scrape of the visible page when the package
+ * has no marker. Only the marker's own text is used — never the whole page —
+ * so navigation chrome and unrelated UI never gets read aloud.
+ */
+function narrationTextFromFrame(frame: HTMLIFrameElement) {
+  const candidates: Array<{ depth: number; text: string }> = [];
+  const visit = (doc: Document, depth: number) => {
+    for (const marker of Array.from(doc.querySelectorAll(NARRATION_MARKER_SELECTOR))) {
+      if (!isVisibleElement(marker)) continue;
+      const text = cleanVisibleScormText((marker as HTMLElement).innerText || marker.textContent || "");
+      if (text) candidates.push({ depth, text });
+    }
+    for (const child of Array.from(doc.querySelectorAll("iframe"))) {
+      try {
+        if (child.contentDocument) visit(child.contentDocument, depth + 1);
+      } catch {
+        // A third-party embedded frame cannot be inspected; continue with the SCORM document.
+      }
+    }
+  };
+  try {
+    if (frame.contentDocument) visit(frame.contentDocument, 0);
+  } catch {
+    return "";
+  }
+  if (candidates.length) {
+    return candidates.sort((a, b) => b.depth - a.depth || b.text.length - a.text.length)[0].text;
+  }
+  return visibleTextFromFrame(frame);
+}
+
 export type ScormRuntimeChange = {
   key: string;
   value: string;
@@ -75,7 +124,7 @@ export default function ScormPlayer({
   embedded?: boolean;
   className?: string;
   onRuntimeChange?: (change: ScormRuntimeChange) => void;
-  /** Visible slide text detected inside the same-origin SCORM frame. */
+  /** Narration text for the current screen, read from an `#ai-narration` / `[data-ai-narration]` marker inside the same-origin SCORM frame (falls back to scraping visible text if no marker is present). */
   onVisibleTextChange?: (text: string) => void;
 }) {
   const searchParams = useSearchParams();
@@ -106,7 +155,7 @@ export default function ScormPlayer({
     const inspect = () => {
       const frame = iframeRef.current;
       if (!frame) return;
-      const text = visibleTextFromFrame(frame);
+      const text = narrationTextFromFrame(frame);
       if (!text || text === lastDelivered) return;
       if (text !== lastCandidate) {
         lastCandidate = text;

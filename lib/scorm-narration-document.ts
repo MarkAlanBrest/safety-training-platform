@@ -16,6 +16,20 @@ export function parseScormNarrationDocument(source: string): ScormNarrationCue[]
     return cues;
   }
 
+  // Bracketed cue labels, e.g. `[INTRO]` or `[PART 1 OF 6 - BLADE GUARD]`,
+  // each on its own line followed by that screen's narration text. The
+  // labels are reference names, not real SCORM location ids.
+  const bracketBlocks = normalized.split(/(?:^|\n)\s*\[([^\]\n]+)\]\s*\n/);
+  if (bracketBlocks.length > 1) {
+    const cues: ScormNarrationCue[] = [];
+    for (let index = 1; index < bracketBlocks.length; index += 2) {
+      const location = bracketBlocks[index]?.trim();
+      const text = bracketBlocks[index + 1]?.trim();
+      if (location && text) cues.push({ location, text });
+    }
+    if (cues.length) return cues;
+  }
+
   // Accept the common authoring format used by narration documents:
   // `Slide 1`, `Slide 2:`, `Page 3`, etc. The location matcher tolerates a
   // runtime value such as `slide-1` because it contains the numeric cue id.
