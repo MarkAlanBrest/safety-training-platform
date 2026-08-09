@@ -7,9 +7,9 @@ import { prisma } from "@/lib/prisma";
 import {
   deleteStagedScormZip,
   importScormZipIntoCourse,
-  MAX_SCORM_ZIP_BYTES,
   readStagedScormZip,
 } from "@/lib/scorm-course-create";
+import { MAX_SCORM_ZIP_BYTES, maxScormZipMb } from "@/lib/scorm-limits";
 
 type CompleteBody = {
   slug?: string;
@@ -48,7 +48,10 @@ export async function POST(request: Request) {
     const zipBuffer = await readStagedScormZip(course.id, uploadId);
     if (zipBuffer.byteLength > MAX_SCORM_ZIP_BYTES) {
       await deleteStagedScormZip(course.id, uploadId);
-      return Response.json({ error: "SCORM ZIP uploads are limited to 25 MB." }, { status: 400 });
+      return Response.json(
+        { error: `SCORM ZIP uploads are limited to ${maxScormZipMb()} MB.` },
+        { status: 400 },
+      );
     }
 
     const parsed = await importScormZipIntoCourse(course.id, new Uint8Array(zipBuffer));

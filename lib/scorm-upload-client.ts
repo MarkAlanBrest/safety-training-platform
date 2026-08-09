@@ -1,11 +1,13 @@
 "use client";
 
 import { parseJsonResponse } from "@/lib/parse-response";
+import { MAX_SCORM_ZIP_BYTES, maxScormZipMb } from "@/lib/scorm-limits";
 
 const CHUNK_BYTES = 768 * 1024;
 const MAX_CHUNK_COUNT = 700;
 const MAX_RETRIES = 3;
-export const MAX_SCORM_ZIP_BYTES = 25 * 1024 * 1024;
+
+export { MAX_SCORM_ZIP_BYTES };
 
 function wait(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -88,9 +90,7 @@ export async function uploadScormZip(
     throw new Error("SCORM packages must be uploaded as ZIP files.");
   }
   if (file.size > MAX_SCORM_ZIP_BYTES) {
-    throw new Error(
-      `SCORM ZIP files must be ${Math.floor(MAX_SCORM_ZIP_BYTES / (1024 * 1024))} MB or smaller.`,
-    );
+    throw new Error(`SCORM ZIP files must be ${maxScormZipMb()} MB or smaller.`);
   }
 
   const chunkCount = Math.max(1, Math.ceil(file.size / CHUNK_BYTES));
