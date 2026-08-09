@@ -22,11 +22,17 @@ export async function GET() {
     return Response.json({ ok: true, database: "connected" });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Database connection failed.";
+    const quotaExceeded =
+      /53000|data transfer quota|exceeded the .* quota|Upgrade your plan to increase limits/i.test(
+        detail,
+      );
     return Response.json(
       {
         ok: false,
-        database: "error",
-        detail,
+        database: quotaExceeded ? "quota_exceeded" : "error",
+        detail: quotaExceeded
+          ? "Neon data transfer quota exceeded. Upgrade the Neon plan or wait for the quota to reset."
+          : detail,
       },
       { status: 503 },
     );

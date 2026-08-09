@@ -74,19 +74,26 @@ export async function POST(request: Request) {
       error && typeof error === "object" && "code" in error
         ? String((error as { code?: string }).code || "")
         : "";
+    const joined = `${code} ${detail}`;
+    const quotaExceeded =
+      /53000|data transfer quota|exceeded the .* quota|Upgrade your plan to increase limits/i.test(
+        joined,
+      );
     const connectionIssue =
       /DATABASE_URL is not configured|connect|connection|ECONNREFUSED|ENOTFOUND|timeout|P100[0-9]|P101[0-7]|Can't reach|password authentication failed|SSL|certificate|ECONNRESET|terminat/i.test(
-        `${code} ${detail}`,
+        joined,
       );
     const missingSchema =
-      /relation .* does not exist|P2021|table .* does not exist/i.test(`${code} ${detail}`);
+      /relation .* does not exist|P2021|table .* does not exist/i.test(joined);
     return NextResponse.json(
       {
-        error: connectionIssue
-          ? "Database connection failed. On Vercel, set DATABASE_URL to your Neon pooled connection string and redeploy."
-          : missingSchema
-            ? "Database schema is missing. Run npm run db:setup against your production database."
-            : "Admin login is temporarily unavailable.",
+        error: quotaExceeded
+          ? "Neon database quota exceeded. Upgrade the Neon plan or wait for the quota to reset, then try again."
+          : connectionIssue
+            ? "Database connection failed. On Vercel, set DATABASE_URL to your Neon pooled connection string and redeploy."
+            : missingSchema
+              ? "Database schema is missing. Run npm run db:setup against your production database."
+              : "Admin login is temporarily unavailable.",
       },
       { status: 500 },
     );

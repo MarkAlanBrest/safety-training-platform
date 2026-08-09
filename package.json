@@ -9,6 +9,7 @@
     "db:init": "prisma db push",
     "db:setup": "prisma db push && npm run admin:bootstrap && npm run courses:install",
     "admin:bootstrap": "node scripts/bootstrap-admin.mjs",
+    "db:cleanup-unused": "node scripts/cleanup-unused-db.mjs",
     "courses:install": "node --experimental-strip-types scripts/install-complete-courses.mjs",
     "start": "next start",
     "lint": "eslint",
