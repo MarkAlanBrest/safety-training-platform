@@ -6,7 +6,6 @@ import { ReactNode } from "react";
 import {
   BookOpen,
   ExternalLink,
-  Mic,
   Plus,
   ShieldCheck,
 } from "lucide-react";
@@ -21,7 +20,6 @@ type Props = {
 const navItems = [
   { href: "/admin/courses", label: "Training programs", icon: BookOpen },
   { href: "/admin/courses/new", label: "Create with AI", icon: Plus },
-  { href: "/admin/slide-narration", label: "Slide narration", icon: Mic },
 ];
 
 function NavLink({
