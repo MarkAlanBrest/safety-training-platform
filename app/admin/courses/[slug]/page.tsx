@@ -539,8 +539,9 @@ export default function CourseEditorPage() {
           <p className="mt-5 text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">Imported package</p>
           <h2 className="mt-2 font-serif text-3xl font-semibold text-[#10283f]">SCORM {course.scormVersion} course</h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#69757e]">
-            Learners work through the SCORM package with an AI instructor panel for narration and
-            questions. Choose browser or premium voice in Settings.
+            The side panel shows the lesson text as learners move through the SCORM package.
+            Put a <code className="rounded bg-slate-100 px-1">narration-script.txt</code> in the ZIP
+            (auto-imported), or edit the script below. Choose Premium · Cedar in Settings.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link href={`/admin/courses/${course.slug}/narration`} className="inline-flex rounded-xl bg-[#c68b1b] px-5 py-3 font-bold text-[#10283f]">

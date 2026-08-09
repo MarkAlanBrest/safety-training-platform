@@ -259,7 +259,7 @@ export default function TeacherChat({
                 <p className="text-base font-medium leading-7 text-slate-800">{liveNarration}</p>
               ) : narrationHistory.length ? null : (
                 <p className="text-sm leading-7 text-slate-500">
-                  The lesson script will appear here as the video plays.
+                  Lesson text appears here as the SCORM page changes.
                 </p>
               )}
               <div ref={transcriptEndRef} />
