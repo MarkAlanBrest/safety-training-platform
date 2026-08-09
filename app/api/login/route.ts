@@ -70,15 +70,23 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Admin login failed:", error);
     const detail = error instanceof Error ? error.message : "Unknown database error.";
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String((error as { code?: string }).code || "")
+        : "";
     const connectionIssue =
-      /DATABASE_URL is not configured|connect|ECONNREFUSED|ENOTFOUND|timeout|P1001|password authentication failed/i.test(
-        detail,
+      /DATABASE_URL is not configured|connect|connection|ECONNREFUSED|ENOTFOUND|timeout|P100[0-9]|P101[0-7]|Can't reach|password authentication failed|SSL|certificate|ECONNRESET|terminat/i.test(
+        `${code} ${detail}`,
       );
+    const missingSchema =
+      /relation .* does not exist|P2021|table .* does not exist/i.test(`${code} ${detail}`);
     return NextResponse.json(
       {
         error: connectionIssue
           ? "Database connection failed. On Vercel, set DATABASE_URL to your Neon pooled connection string and redeploy."
-          : "Admin login is temporarily unavailable.",
+          : missingSchema
+            ? "Database schema is missing. Run npm run db:setup against your production database."
+            : "Admin login is temporarily unavailable.",
       },
       { status: 500 },
     );
