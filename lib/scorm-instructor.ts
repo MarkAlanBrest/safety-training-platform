@@ -41,9 +41,17 @@ export function scormInstructorConfigFromLessonPlan(lessonPlan: unknown): ScormI
         .filter((cue) => cue.location && cue.text)
     : [];
 
+  const teaching = {
+    ...defaults.teaching,
+    ...(config.teaching || {}),
+    voiceProvider:
+      config.teaching?.voiceProvider === "browser" ? ("browser" as const) : ("premium" as const),
+    voice: config.teaching?.voice || defaults.teaching.voice || "cedar",
+  };
+
   return {
-    teaching: config.teaching,
-    settings: config.settings,
+    teaching,
+    settings: { ...defaults.settings, ...(config.settings || {}) },
     narration,
     opening: lessonPlan.opening,
   };

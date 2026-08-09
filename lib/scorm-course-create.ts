@@ -40,8 +40,8 @@ export async function createScormCourseShell(input: ScormCourseInitInput) {
     10,
     Math.min(100000, Number(input.estimatedMinutes) || 60),
   );
-  const voiceProvider = String(input.voiceProvider || "browser");
-  const voice = String(input.voice || "onyx").trim();
+  const voiceProvider = String(input.voiceProvider || "premium");
+  const voice = String(input.voice || "cedar").trim();
 
   const baseSlug = slugify(title) || "scorm-course";
   let slug = baseSlug;
@@ -52,8 +52,8 @@ export async function createScormCourseShell(input: ScormCourseInitInput) {
   const config = defaultClassroomBuilderConfig({
     teaching: {
       ...defaults.teaching,
-      voiceProvider: voiceProvider === "premium" ? "premium" : "browser",
-      voice: /^[a-z0-9_-]{1,40}$/i.test(voice) ? voice : "onyx",
+      voiceProvider: voiceProvider === "browser" ? "browser" : "premium",
+      voice: /^[a-z0-9_-]{1,40}$/i.test(voice) ? voice : "cedar",
     },
   });
   const lessonPlan = buildDefaultScormLessonPlan({ title, description, config });
