@@ -7,6 +7,7 @@ import { classroomSlideAssetPath } from "@/lib/classroom";
 import { classroomChapterDeckAssetPath } from "@/lib/classroom-chapters";
 import { getAdminSession } from "@/lib/admin-session";
 import { renderPptxSlides } from "@/lib/pptx-render-server";
+import { readScormAssetContent, saveScormAssetBlob } from "@/lib/scorm-asset-store";
 
 function imageResponse(content: Uint8Array, mimeType: string) {
   return new Response(Buffer.from(content), {
@@ -41,39 +42,43 @@ export async function GET(
     return new Response("Course not found.", { status: 404 });
   }
 
+  const slidePath = classroomSlideAssetPath(slideIndex);
   const asset = await prisma.scormAsset.findUnique({
     where: {
       courseId_path: {
         courseId: course.id,
-        path: classroomSlideAssetPath(slideIndex),
+        path: slidePath,
       },
     },
+    select: { mimeType: true },
   });
   if (!asset) {
+    const deckPath = classroomChapterDeckAssetPath(1);
     const deck = await prisma.scormAsset.findUnique({
       where: {
         courseId_path: {
           courseId: course.id,
-          path: classroomChapterDeckAssetPath(1),
+          path: deckPath,
         },
       },
+      select: { path: true },
     });
     if (!deck) return new Response("Slide image not found.", { status: 404 });
 
     try {
-      const images = await renderPptxSlides(new Uint8Array(deck.content), {
+      const deckBytes = await readScormAssetContent(course.id, deckPath);
+      const images = await renderPptxSlides(new Uint8Array(deckBytes), {
         preset: "hd",
         format: "png",
       });
-      await prisma.scormAsset.createMany({
-        data: images.map((image, imageIndex) => ({
+      for (const [imageIndex, image] of images.entries()) {
+        await saveScormAssetBlob({
           courseId: course.id,
           path: classroomSlideAssetPath(imageIndex),
           mimeType: image.mimeType,
           content: Buffer.from(image.bytes),
-        })),
-        skipDuplicates: true,
-      });
+        });
+      }
       const rendered = images[slideIndex];
       if (!rendered) return new Response("Slide image not found.", { status: 404 });
       return imageResponse(rendered.bytes, rendered.mimeType);
@@ -83,5 +88,10 @@ export async function GET(
     }
   }
 
-  return imageResponse(asset.content, asset.mimeType);
+  try {
+    const content = await readScormAssetContent(course.id, slidePath);
+    return imageResponse(content, asset.mimeType);
+  } catch {
+    return new Response("Slide image not found.", { status: 404 });
+  }
 }

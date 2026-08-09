@@ -23,6 +23,7 @@ import {
   extractSlideImagesFromZip,
   MAX_SLIDE_IMAGE_ZIP_BYTES,
 } from "@/lib/ppt-slide-images";
+import { saveScormAssetBlob } from "@/lib/scorm-asset-store";
 
 const MAX_LEGACY_UPLOAD_BYTES = 4 * 1024 * 1024;
 
@@ -216,37 +217,32 @@ export async function POST(request: Request) {
         select: { id: true, title: true, slug: true, published: true },
       });
 
-      const assets = [];
-      if (!stagedAssets) {
-        for (const section of sectionPlans) {
-          for (const slide of section.parsedSlides) {
-            const rendered = await renderSlideAsset(slide);
-            assets.push({
-              courseId: created.id,
-              path: classroomChapterSlideAssetPath(section.chapterPosition, slide.index),
-              mimeType: rendered.mimeType,
-              content: Buffer.from(rendered.bytes),
-            });
-          }
-        }
-      }
-
-      for (const deck of deckFiles) {
-        assets.push({
-          courseId: created.id,
-          path: classroomChapterDeckAssetPath(deck.chapterPosition),
-          mimeType:
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-          content: Buffer.from(deck.bytes),
-        });
-      }
-
-      if (assets.length) {
-        await tx.scormAsset.createMany({ data: assets });
-      }
-
       return created;
     });
+
+    if (!stagedAssets) {
+      for (const section of sectionPlans) {
+        for (const slide of section.parsedSlides) {
+          const rendered = await renderSlideAsset(slide);
+          await saveScormAssetBlob({
+            courseId: course.id,
+            path: classroomChapterSlideAssetPath(section.chapterPosition, slide.index),
+            mimeType: rendered.mimeType,
+            content: Buffer.from(rendered.bytes),
+          });
+        }
+      }
+    }
+
+    for (const deck of deckFiles) {
+      await saveScormAssetBlob({
+        courseId: course.id,
+        path: classroomChapterDeckAssetPath(deck.chapterPosition),
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        content: Buffer.from(deck.bytes),
+      });
+    }
 
     return Response.json({
       course,

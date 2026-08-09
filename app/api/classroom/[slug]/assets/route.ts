@@ -4,7 +4,11 @@ export const maxDuration = 300;
 
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-session";
-import { finalizeStagedAssetUpload, saveScormAssetBlob } from "@/lib/scorm-asset-store";
+import {
+  finalizeStagedAssetUpload,
+  readScormAssetsWithPrefix,
+  saveScormAssetBlob,
+} from "@/lib/scorm-asset-store";
 
 const MAX_CHUNK_BYTES = 3 * 1024 * 1024;
 const MAX_CHUNK_COUNT = 700;
@@ -119,15 +123,15 @@ export async function POST(
       return Response.json({ accepted: true, complete: false });
     }
 
-    const chunks = await prisma.scormAsset.findMany({
-      where: { courseId: course.id, path: { startsWith: `classroom/uploads/${uploadId}/` } },
-      orderBy: { path: "asc" },
-    });
+    const chunks = await readScormAssetsWithPrefix(
+      course.id,
+      `classroom/uploads/${uploadId}/`,
+    );
     if (chunks.length !== chunkCount) {
       return Response.json({ error: "One or more upload chunks are missing." }, { status: 409 });
     }
 
-    const content = Buffer.concat(chunks.map((item) => Buffer.from(item.content)));
+    const content = Buffer.concat(chunks.map((item) => item.content));
     await finalizeStagedAssetUpload({
       courseId: course.id,
       targetPath,

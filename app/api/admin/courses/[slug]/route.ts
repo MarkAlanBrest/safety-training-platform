@@ -8,6 +8,7 @@ import {
   isCourseTheme,
 } from "@/lib/course-options";
 import { requireAdmin } from "@/lib/admin-session";
+import { deleteScormAssetsForCourse } from "@/lib/scorm-asset-store";
 
 export async function GET(
   request: Request,
@@ -214,9 +215,9 @@ export async function DELETE(
       return Response.json({ error: "Course not found." }, { status: 404 });
     }
 
+    await deleteScormAssetsForCourse(course.id);
     await prisma.$transaction([
       prisma.classroomAttempt.deleteMany({ where: { courseId: course.id } }),
-      prisma.scormAsset.deleteMany({ where: { courseId: course.id } }),
       prisma.courseEnrollment.deleteMany({ where: { courseId: course.id } }),
       prisma.enrollmentCode.deleteMany({ where: { courseId: course.id } }),
       prisma.masonSection.deleteMany({ where: { courseId: course.id } }),
