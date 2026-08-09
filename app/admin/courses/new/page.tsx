@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BookOpenCheck,
@@ -22,6 +22,7 @@ const buildStages = [
   "Creating activities and assessments",
   "Polishing the editable draft",
 ];
+const BROWSER_GENERATION_TIMEOUT_MS = 135_000;
 
 function fileSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -34,6 +35,7 @@ export default function NewAiCoursePage() {
   const [building, setBuilding] = useState(false);
   const [stage, setStage] = useState(0);
   const [error, setError] = useState("");
+  const requestController = useRef<AbortController | null>(null);
 
   const totalBytes = useMemo(() => files.reduce((total, file) => total + file.size, 0), [files]);
 
@@ -46,12 +48,19 @@ export default function NewAiCoursePage() {
     const timer = window.setInterval(() => {
       setStage((current) => Math.min(buildStages.length - 1, current + 1));
     }, 9000);
+    const controller = new AbortController();
+    requestController.current = controller;
+    const requestTimeout = window.setTimeout(() => controller.abort(), BROWSER_GENERATION_TIMEOUT_MS);
 
     try {
       const form = new FormData(event.currentTarget);
       form.delete("sources");
       files.forEach((file) => form.append("sources", file, file.name));
-      const response = await fetch("/api/admin/courses/generate", { method: "POST", body: form });
+      const response = await fetch("/api/admin/courses/generate", {
+        method: "POST",
+        body: form,
+        signal: controller.signal,
+      });
       const payload = await parseJsonResponse<{ adminUrl?: string; error?: string }>(response);
       if (!response.ok || !payload.adminUrl) {
         throw new Error(payload.error || "The course draft could not be generated.");
@@ -59,10 +68,19 @@ export default function NewAiCoursePage() {
       router.push(payload.adminUrl);
       router.refresh();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "The course draft could not be generated.");
-      setBuilding(false);
+      const aborted = reason instanceof DOMException && reason.name === "AbortError";
+      setError(
+        aborted
+          ? "Generation was stopped after waiting too long. Try again with a shorter course or fewer source files."
+          : reason instanceof Error
+            ? reason.message
+            : "The course draft could not be generated.",
+      );
     } finally {
       window.clearInterval(timer);
+      window.clearTimeout(requestTimeout);
+      requestController.current = null;
+      setBuilding(false);
     }
   }
 
@@ -228,9 +246,17 @@ export default function NewAiCoursePage() {
                   <LoaderCircle className="animate-spin text-amber-300" size={24} />
                   <p className="mt-4 text-xs font-black uppercase tracking-[.14em] text-amber-200">Building your course</p>
                   <p className="mt-2 font-semibold leading-6">{buildStages[stage]}</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-300">Most drafts finish within two minutes.</p>
                   <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/15">
                     <div className="h-full rounded-full bg-amber-300 transition-[width] duration-700" style={{ width: `${((stage + 1) / buildStages.length) * 100}%` }} />
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => requestController.current?.abort()}
+                    className="mt-4 text-xs font-bold text-amber-200 underline decoration-amber-200/40 underline-offset-4 hover:text-white"
+                  >
+                    Stop generation
+                  </button>
                 </div>
               ) : null}
 

@@ -15,16 +15,35 @@ import { slugify } from "@/lib/mason";
 import { prisma } from "@/lib/prisma";
 
 const MAX_SOURCE_COUNT = 8;
+const DATABASE_TIMEOUT_MS = 12_000;
+
+async function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), milliseconds);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 function extension(name: string) {
   return name.split(".").pop()?.toLowerCase() || "";
 }
 
 export async function POST(request: Request) {
-  const unauthorized = await requireAdmin(request);
-  if (unauthorized) return unauthorized;
-
   try {
+    const unauthorized = await withTimeout(
+      requireAdmin(request),
+      DATABASE_TIMEOUT_MS,
+      "The administrator session check timed out.",
+    );
+    if (unauthorized) return unauthorized;
+
     const form = await request.formData();
     const brief = String(form.get("brief") || "").trim();
     const requestedTitle = String(form.get("title") || "").trim();
@@ -74,7 +93,11 @@ export async function POST(request: Request) {
     // This prevents a full course from being generated and then discarded when
     // the database provider is unavailable or over quota.
     try {
-      await prisma.masonCourse.findFirst({ select: { id: true } });
+      await withTimeout(
+        prisma.masonCourse.findFirst({ select: { id: true } }),
+        DATABASE_TIMEOUT_MS,
+        "The course database did not respond in time.",
+      );
     } catch {
       return Response.json(
         {
@@ -99,7 +122,7 @@ export async function POST(request: Request) {
     let suffix = 2;
     while (await prisma.masonCourse.findUnique({ where: { slug } })) slug = `${baseSlug}-${suffix++}`;
 
-    const course = await prisma.masonCourse.create({
+    const course = await withTimeout(prisma.masonCourse.create({
       data: {
         title: generated.title,
         slug,
@@ -128,7 +151,7 @@ export async function POST(request: Request) {
         published: true,
         _count: { select: { sections: true } },
       },
-    });
+    }), DATABASE_TIMEOUT_MS, "The generated course could not be saved because storage did not respond.");
 
     return Response.json(
       {
@@ -141,6 +164,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("AI course generation failed:", error);
     const message = error instanceof Error ? error.message : "The course could not be generated.";
-    return Response.json({ error: message }, { status: 500 });
+    const timedOut = /timed out|longer than two minutes|did not respond/i.test(message);
+    return Response.json({ error: message }, { status: timedOut ? 504 : 500 });
   }
 }
