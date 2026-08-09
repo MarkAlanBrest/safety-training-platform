@@ -13,6 +13,13 @@ import {
 } from "@/lib/scorm-asset-store";
 import { buildDefaultScormLessonPlan } from "@/lib/scorm-instructor";
 import { MAX_SCORM_ZIP_BYTES } from "@/lib/scorm-limits";
+import { parseScormNarrationDocument } from "@/lib/scorm-narration-document";
+
+const NARRATION_SCRIPT_NAMES = new Set([
+  "narration-script.txt",
+  "narration.txt",
+  "narration-script.example.txt",
+]);
 
 export { MAX_SCORM_ZIP_BYTES };
 
@@ -86,6 +93,25 @@ export async function createScormCourseShell(input: ScormCourseInitInput) {
   return course;
 }
 
+function narrationScriptFromPackage(
+  assets: Array<{ path: string; content: Uint8Array }>,
+) {
+  const script = assets.find((asset) => {
+    const base = asset.path.split("/").pop()?.toLowerCase() || "";
+    return NARRATION_SCRIPT_NAMES.has(base);
+  });
+  if (!script) return null;
+  const source = new TextDecoder().decode(script.content);
+  const cues = parseScormNarrationDocument(source);
+  if (!cues.length) return null;
+  const openingBlock = source.replace(/\r\n/g, "\n").split(/\n===/)[0]?.trim();
+  const opening =
+    openingBlock && !openingBlock.startsWith("===") && !/^location\s*:/i.test(openingBlock)
+      ? openingBlock
+      : undefined;
+  return { cues, opening };
+}
+
 export async function importScormZipIntoCourse(courseId: number, zip: Uint8Array) {
   const parsed = parseScormPackage(zip);
 
@@ -104,6 +130,31 @@ export async function importScormZipIntoCourse(courseId: number, zip: Uint8Array
       scormEntryPoint: parsed.entryPoint,
     },
   });
+
+  const script = narrationScriptFromPackage(parsed.assets);
+  if (script) {
+    const section = await prisma.masonSection.findFirst({
+      where: { courseId },
+      orderBy: { position: "asc" },
+      select: { id: true, lessonPlan: true },
+    });
+    if (section) {
+      const plan =
+        section.lessonPlan && typeof section.lessonPlan === "object"
+          ? (section.lessonPlan as Record<string, unknown>)
+          : {};
+      await prisma.masonSection.update({
+        where: { id: section.id },
+        data: {
+          lessonPlan: {
+            ...plan,
+            ...(script.opening ? { opening: script.opening } : {}),
+            scormNarration: script.cues,
+          } as Prisma.InputJsonValue,
+        },
+      });
+    }
+  }
 
   return parsed;
 }
