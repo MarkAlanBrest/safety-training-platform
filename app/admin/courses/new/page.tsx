@@ -34,8 +34,8 @@ export default function NewScormCoursePage() {
           title: String(form.get("title") || ""),
           description: String(form.get("description") || ""),
           theme: String(form.get("theme") || "heritage"),
-          voiceProvider: String(form.get("voiceProvider") || "browser"),
-          voice: String(form.get("voice") || "onyx"),
+          voiceProvider: String(form.get("voiceProvider") || "premium"),
+          voice: String(form.get("voice") || "cedar"),
           fileName: file.name,
         },
         file,
@@ -103,7 +103,7 @@ export default function NewScormCoursePage() {
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block text-sm font-semibold text-[#10283f]">
               Instructor voice
-              <select name="voiceProvider" defaultValue="browser" className="mt-2 w-full rounded-xl border border-[#10283f]/15 px-4 py-3">
+              <select name="voiceProvider" defaultValue="premium" className="mt-2 w-full rounded-xl border border-[#10283f]/15 px-4 py-3">
                 {VOICE_PROVIDER_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.label}
@@ -113,7 +113,7 @@ export default function NewScormCoursePage() {
             </label>
             <label className="block text-sm font-semibold text-[#10283f]">
               Voice style
-              <select name="voice" defaultValue="onyx" className="mt-2 w-full rounded-xl border border-[#10283f]/15 px-4 py-3">
+              <select name="voice" defaultValue="cedar" className="mt-2 w-full rounded-xl border border-[#10283f]/15 px-4 py-3">
                 {VOICE_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.label}

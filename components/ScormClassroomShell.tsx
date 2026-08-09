@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import ScormPlayer, { type ScormRuntimeChange } from "@/components/ScormPlayer";
+import ScormClassroomTopBar from "@/components/ScormClassroomTopBar";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
 import { useInstructorVoice } from "@/lib/instructor-voice";
 import {
@@ -32,6 +33,24 @@ const LOCATION_KEYS = new Set([
   "cmi.suspend_data",
 ]);
 
+function progressFromRuntime(snapshot: Record<string, string>) {
+  const measure = Number(
+    snapshot["cmi.progress_measure"] || snapshot["cmi.core.score.raw"] || "",
+  );
+  if (Number.isFinite(measure)) {
+    return measure <= 1 ? measure * 100 : Math.min(100, measure);
+  }
+  const status = (
+    snapshot["cmi.completion_status"] ||
+    snapshot["cmi.core.lesson_status"] ||
+    ""
+  ).toLowerCase();
+  if (status === "completed" || status === "passed") return 100;
+  if (status === "incomplete" || status === "failed") return 35;
+  if (status === "browsed") return 15;
+  return 0;
+}
+
 export default function ScormClassroomShell({
   course,
   preview = false,
@@ -45,15 +64,16 @@ export default function ScormClassroomShell({
   const spokenLocationsRef = useRef<Set<string>>(new Set());
   const locationRef = useRef("");
 
-  const voiceSettings = useMemo(
-    () => ({
-      enabled: course.instructor.settings.speechVoice,
-      provider: course.instructor.teaching.voiceProvider,
-      voice: course.instructor.teaching.voice,
-      speed: course.instructor.teaching.voiceSpeed,
-    }),
-    [course.instructor],
-  );
+  const voiceSettings = useMemo(() => {
+    const teaching = course.instructor.teaching;
+    const settings = course.instructor.settings;
+    return {
+      enabled: settings.speechVoice !== false,
+      provider: teaching.voiceProvider === "browser" ? ("browser" as const) : ("premium" as const),
+      voice: teaching.voice || "cedar",
+      speed: typeof teaching.voiceSpeed === "number" ? teaching.voiceSpeed : 0.96,
+    };
+  }, [course.instructor]);
 
   const { speak, cancelSpeech, unlockAudio, speaking, needsAudioUnlock } =
     useInstructorVoice(voiceSettings);
@@ -61,19 +81,8 @@ export default function ScormClassroomShell({
   const [messages, setMessages] = useState<TeacherMessage[]>([]);
   const [thinking, setThinking] = useState(false);
   const [chatError, setChatError] = useState("");
-  const [liveNarration, setLiveNarration] = useState("");
-  const [narrationHistory, setNarrationHistory] = useState<string[]>([]);
-
-  const appendNarration = useCallback((text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    setLiveNarration((current) => {
-      if (current && current !== trimmed) {
-        setNarrationHistory((history) => [...history, current]);
-      }
-      return trimmed;
-    });
-  }, []);
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [locationLabel, setLocationLabel] = useState("");
 
   const sendToInstructor = useCallback(
     async (nextMessages: TeacherMessage[], options?: { speakReply?: boolean }) => {
@@ -98,7 +107,6 @@ export default function ScormClassroomShell({
         const reply = payload.reply?.trim() || "";
         if (reply) {
           setMessages((current) => [...current, { role: "assistant", content: reply }]);
-          appendNarration(reply);
           if (options?.speakReply !== false) await speak(reply);
         }
       } catch (error) {
@@ -109,14 +117,18 @@ export default function ScormClassroomShell({
         setThinking(false);
       }
     },
-    [appendNarration, code, course.slug, preview, speak],
+    [code, course.slug, preview, speak],
   );
 
   const handleRuntimeChange = useCallback(
     (change: ScormRuntimeChange) => {
-      if (!LOCATION_KEYS.has(change.key)) return;
+      setProgressPercent(progressFromRuntime(change.snapshot));
       const location = scormLocationFromRuntime(change.snapshot);
-      locationRef.current = location;
+      if (location) {
+        locationRef.current = location;
+        setLocationLabel(location);
+      }
+      if (!LOCATION_KEYS.has(change.key)) return;
       if (!location || spokenLocationsRef.current.has(location)) return;
 
       const cue = narrationForLocation(course.instructor.narration, location);
@@ -124,10 +136,9 @@ export default function ScormClassroomShell({
 
       spokenLocationsRef.current.add(location);
       setMessages((current) => [...current, { role: "assistant", content: cue.text }]);
-      appendNarration(cue.text);
       void speak(cue.text);
     },
-    [appendNarration, course.instructor.narration, speak],
+    [course.instructor.narration, speak],
   );
 
   useEffect(() => {
@@ -138,9 +149,8 @@ export default function ScormClassroomShell({
       course.description?.trim() ||
       `Welcome to ${course.title}. Work through the lesson on the left, and ask me questions here anytime.`;
     setMessages([{ role: "assistant", content: opening }]);
-    appendNarration(opening);
     void speak(opening);
-  }, [appendNarration, course.description, course.instructor.opening, course.title, speak]);
+  }, [course.description, course.instructor.opening, course.title, speak]);
 
   const handleSend = useCallback(
     async (message: string) => {
@@ -155,18 +165,18 @@ export default function ScormClassroomShell({
 
   return (
     <main className="flex h-screen flex-col overflow-hidden bg-white text-slate-900">
-      <header className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-[#c68b1b]">
-            SCORM {course.scormVersion}
-            {preview ? " · Preview" : ""}
-          </p>
-          <h1 className="text-lg font-semibold text-[#10283f]">{course.title}</h1>
-        </div>
-        <p className="text-xs font-semibold text-slate-500">
-          Voice: {voiceSettings.provider === "premium" ? "Premium" : "Browser"}
-        </p>
-      </header>
+      <ScormClassroomTopBar
+        title={course.title}
+        scormVersion={course.scormVersion}
+        preview={preview}
+        voiceLabel={
+          voiceSettings.provider === "premium"
+            ? `Premium · ${voiceSettings.voice}`
+            : "Browser voice"
+        }
+        progressPercent={progressPercent}
+        locationLabel={locationLabel}
+      />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-h-0 bg-[#0b1f33]">
@@ -192,8 +202,7 @@ export default function ScormClassroomShell({
             thinking={thinking || speaking}
             speechToTextEnabled={course.instructor.settings.speechText}
             needsAudioUnlock={needsAudioUnlock}
-            liveNarration={liveNarration}
-            narrationHistory={narrationHistory}
+            showThread
             onSend={handleSend}
             onSpeak={speak}
             onInteract={unlockAudio}

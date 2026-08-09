@@ -63,6 +63,7 @@ export default function TeacherChat({
   inputPrompt,
   liveNarration,
   narrationHistory = [],
+  showThread = false,
   onSend,
   onSpeak,
   onInteract,
@@ -80,6 +81,8 @@ export default function TeacherChat({
   liveNarration?: string;
   /** Earlier timed script lines from the video. */
   narrationHistory?: string[];
+  /** Show full chat history (SCORM / Q&A). */
+  showThread?: boolean;
   onSend: (message: string) => Promise<void>;
   onSpeak: (text: string) => Promise<void>;
   onInteract?: () => void;
@@ -94,8 +97,10 @@ export default function TeacherChat({
   const showInput = awaitingInput || asking;
   const visibleMessages = messages.filter((message) => !message.hidden);
   const lastMessage = visibleMessages[visibleMessages.length - 1];
-  const hasVideoReader = Boolean(liveNarration?.trim() || narrationHistory.length);
+  const hasVideoReader =
+    !showThread && Boolean(liveNarration?.trim() || narrationHistory.length);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
+  const threadEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     return () => {
@@ -113,6 +118,11 @@ export default function TeacherChat({
     if (!hasVideoReader) return;
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [hasVideoReader, liveNarration, narrationHistory.length]);
+
+  useEffect(() => {
+    if (!showThread) return;
+    threadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [showThread, visibleMessages.length, thinking]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -163,7 +173,7 @@ export default function TeacherChat({
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-l border-slate-200 bg-white">
       <div
         className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-6 ${
-          hasVideoReader ? "justify-start" : "justify-center"
+          hasVideoReader || showThread ? "justify-start" : "justify-center"
         }`}
       >
         {needsAudioUnlock ? (
@@ -183,6 +193,45 @@ export default function TeacherChat({
             onSelectOption={awaitingInput ? onSelectOption : undefined}
             disabled={thinking}
           />
+        ) : showThread ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            {!visibleMessages.length && !thinking ? (
+              <div className="rounded-2xl bg-slate-50 px-4 py-4 text-center text-sm leading-7 text-slate-600">
+                Your instructor leads this session. Ask a question any time you want to jump in.
+              </div>
+            ) : null}
+            {visibleMessages.map((message, index) => (
+              <div
+                key={`${message.role}-${index}-${message.content.slice(0, 24)}`}
+                className={
+                  message.role === "user"
+                    ? "ml-auto max-w-[85%] rounded-2xl bg-[#0f2b46] px-4 py-3 text-sm leading-7 text-white"
+                    : "rounded-2xl bg-[#f1f5f9] px-4 py-3 text-sm leading-7 text-slate-800"
+                }
+              >
+                {message.content}
+                {message.role === "assistant" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onInteract?.();
+                      void onSpeak(message.content);
+                    }}
+                    className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-slate-500"
+                  >
+                    <Volume2 size={14} />
+                    Hear this
+                  </button>
+                ) : null}
+              </div>
+            ))}
+            {thinking ? (
+              <div className="rounded-2xl bg-[#f1f5f9] px-4 py-3 text-sm leading-7 text-slate-500">
+                Instructor is thinking…
+              </div>
+            ) : null}
+            <div ref={threadEndRef} />
+          </div>
         ) : hasVideoReader ? (
           <div className="flex min-h-0 flex-1 flex-col gap-3">
             {lastMessage?.role === "user" ? (
