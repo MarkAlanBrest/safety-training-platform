@@ -70,6 +70,21 @@ export async function POST(request: Request) {
       });
     }
 
+    // Confirm the draft can be saved before making the paid generation call.
+    // This prevents a full course from being generated and then discarded when
+    // the database provider is unavailable or over quota.
+    try {
+      await prisma.masonCourse.findFirst({ select: { id: true } });
+    } catch {
+      return Response.json(
+        {
+          error:
+            "Course storage is currently unavailable. AI generation was not started and no generation cost was incurred.",
+        },
+        { status: 503 },
+      );
+    }
+
     const generated = await generateAiCourse({
       brief,
       requestedTitle,
