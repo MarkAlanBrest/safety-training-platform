@@ -97,7 +97,7 @@ type Course = {
   logoData: string | null;
   accentColor: string | null;
   displayMode: "webpage" | "slideshow" | "classroom";
-  courseType: "pdf" | "scorm" | "classroom";
+  courseType: "pdf" | "scorm" | "classroom" | "native";
   scormVersion: string | null;
   scormEntryPoint: string | null;
   intensity: string;
@@ -568,10 +568,10 @@ export default function CourseEditorPage() {
             <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">
-                  Program structure
+                  {course.courseType === "native" ? "AI-generated course" : "Program structure"}
                 </p>
                 <h2 className="mt-1 font-serif text-3xl font-semibold text-[#10283f]">
-                  Sections and source material
+                  {course.courseType === "native" ? "Course chapters" : "Sections and source material"}
                 </h2>
               </div>
               <div className="flex items-center gap-3">
@@ -594,8 +594,9 @@ export default function CourseEditorPage() {
                 <FilePlus2 className="mx-auto text-[#d09a31]" size={38} />
                 <h3 className="mt-4 text-xl font-bold text-[#10283f]">Add the first section</h3>
                 <p className="mt-2 text-sm text-[#6c7881]">
-                  Each section begins with a source PDF. The AI creates a structured draft
-                  that you can review.
+                  {course.courseType === "native"
+                    ? "Add a chapter, then shape its teaching blocks in the visual editor."
+                    : "Each section begins with a source PDF. The AI creates a structured draft that you can review."}
                 </p>
               </div>
             ) : (
@@ -632,7 +633,7 @@ export default function CourseEditorPage() {
                       <span className="flex items-center gap-1.5 text-xs font-bold text-[#6e7981]">
                         <Clock3 size={14} /> {section.estimatedMinutes} min
                       </span>
-                      <label
+                      {course.courseType !== "native" ? <label
                         className={`inline-flex items-center gap-2 rounded-lg border border-[#10283f]/15 px-3 py-2 text-xs font-bold text-[#10283f] transition hover:bg-[#edf1f2] ${
                           regeneratingId !== null ? "pointer-events-none opacity-50" : "cursor-pointer"
                         }`}
@@ -653,7 +654,7 @@ export default function CourseEditorPage() {
                             event.target.value = "";
                           }}
                         />
-                      </label>
+                      </label> : null}
                       <Link
                         href={`/admin/courses/${course.slug}/sections/${section.id}`}
                         className="inline-flex items-center gap-2 rounded-lg bg-[#10283f] px-3 py-2 text-xs font-bold text-white"
@@ -680,7 +681,25 @@ export default function CourseEditorPage() {
             )}
           </section>
 
-          <aside>
+          {course.courseType === "native" ? (
+            <aside className="space-y-5">
+              <section className="sticky top-6 rounded-3xl bg-[#10283f] p-6 text-white shadow-xl">
+                <p className="text-xs font-black uppercase tracking-[.17em] text-[#f2c568]">Review and refine</p>
+                <h2 className="mt-2 font-serif text-2xl font-semibold">Your course is fully editable</h2>
+                <p className="mt-3 text-sm leading-6 text-slate-300">
+                  Open any chapter to edit its explanations, activities, questions, feedback, order, and learning objectives.
+                </p>
+                <a
+                  href={`/training/${course.slug}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-[#f2b744] px-4 py-3 font-bold text-[#10283f]"
+                >
+                  Preview learner experience
+                </a>
+              </section>
+            </aside>
+          ) : <aside>
             <form
               onSubmit={addSection}
               className="sticky top-6 space-y-4 rounded-3xl bg-[#10283f] p-6 text-white shadow-xl"
@@ -725,7 +744,7 @@ export default function CourseEditorPage() {
                 {busy ? "Building section…" : "Add section"}
               </button>
             </form>
-          </aside>
+          </aside>}
         </div>
       ))}
 

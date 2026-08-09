@@ -117,14 +117,14 @@ export default function CoursesPage() {
             Build your first training program
           </h2>
           <p className="mx-auto mt-3 max-w-xl leading-7 text-[#63707a]">
-            Choose the program structure and visual direction, then generate each
-            section from uploaded source material.
+            Describe what learners need to know and optionally add supporting documents.
+            AI will create a professional draft you can edit before publishing.
           </p>
           <Link
             href="/admin/courses/new"
             className="mt-7 inline-flex items-center gap-2 rounded-xl bg-[#10283f] px-5 py-3 font-bold text-white"
           >
-            Create a program <ArrowRight size={18} />
+            Create with AI <ArrowRight size={18} />
           </Link>
         </div>
       ) : (
