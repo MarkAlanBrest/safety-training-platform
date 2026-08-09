@@ -69,8 +69,17 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     console.error("Admin login failed:", error);
+    const detail = error instanceof Error ? error.message : "Unknown database error.";
+    const connectionIssue =
+      /DATABASE_URL is not configured|connect|ECONNREFUSED|ENOTFOUND|timeout|P1001|password authentication failed/i.test(
+        detail,
+      );
     return NextResponse.json(
-      { error: "Admin login is temporarily unavailable." },
+      {
+        error: connectionIssue
+          ? "Database connection failed. On Vercel, set DATABASE_URL to your Neon pooled connection string and redeploy."
+          : "Admin login is temporarily unavailable.",
+      },
       { status: 500 },
     );
   }
