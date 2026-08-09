@@ -2,18 +2,24 @@
 
 import { GraduationCap } from "lucide-react";
 
+export type ScormVoiceProvider = "premium" | "browser";
+
 export default function ScormClassroomTopBar({
   title,
   scormVersion,
   preview = false,
-  voiceLabel,
+  voiceProvider,
+  premiumVoiceLabel = "Premium",
+  onVoiceProviderChange,
   progressPercent = 0,
   locationLabel,
 }: {
   title: string;
   scormVersion: string;
   preview?: boolean;
-  voiceLabel?: string;
+  voiceProvider?: ScormVoiceProvider;
+  premiumVoiceLabel?: string;
+  onVoiceProviderChange?: (provider: ScormVoiceProvider) => void;
   progressPercent?: number;
   locationLabel?: string;
 }) {
@@ -39,10 +45,27 @@ export default function ScormClassroomTopBar({
             {locationLabel}
           </span>
         ) : null}
-        {voiceLabel ? (
-          <span className="hidden rounded-full bg-white/10 px-2.5 py-1 text-xs font-bold text-amber-100 sm:inline">
-            {voiceLabel}
-          </span>
+        {voiceProvider ? (
+          <div className="hidden items-center gap-0.5 rounded-full bg-white/10 p-0.5 text-xs font-bold sm:flex">
+            <button
+              type="button"
+              onClick={() => onVoiceProviderChange?.("premium")}
+              className={`rounded-full px-2.5 py-1 transition ${
+                voiceProvider === "premium" ? "bg-amber-400 text-[#10283f]" : "text-amber-100"
+              }`}
+            >
+              {premiumVoiceLabel}
+            </button>
+            <button
+              type="button"
+              onClick={() => onVoiceProviderChange?.("browser")}
+              className={`rounded-full px-2.5 py-1 transition ${
+                voiceProvider === "browser" ? "bg-amber-400 text-[#10283f]" : "text-amber-100"
+              }`}
+            >
+              Free
+            </button>
+          </div>
         ) : null}
         <div className="w-28 sm:w-40">
           <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[.12em] text-amber-200/90">

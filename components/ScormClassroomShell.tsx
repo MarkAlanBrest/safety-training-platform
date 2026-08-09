@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { VolumeX } from "lucide-react";
 import ScormPlayer, { type ScormRuntimeChange } from "@/components/ScormPlayer";
-import ScormClassroomTopBar from "@/components/ScormClassroomTopBar";
+import ScormClassroomTopBar, { type ScormVoiceProvider } from "@/components/ScormClassroomTopBar";
 import { useInstructorVoice } from "@/lib/instructor-voice";
 import { scormLocationFromRuntime, type ScormInstructorConfig } from "@/lib/scorm-instructor";
 
@@ -49,22 +49,43 @@ export default function ScormClassroomShell({
   course: PublicScormCourse;
   preview?: boolean;
 }) {
+  const voiceStorageKey = `scorm-voice-provider:${course.slug}`;
+  // Server-rendered state has no access to localStorage, so this starts null
+  // (the course default) and is synced from the saved preference once
+  // mounted client-side, same as any other external-store subscription.
+  const [voiceProviderOverride, setVoiceProviderOverride] = useState<ScormVoiceProvider | null>(null);
+  useEffect(() => {
+    const saved = window.localStorage.getItem(voiceStorageKey);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync from localStorage, an external system, on mount
+    if (saved === "premium" || saved === "browser") setVoiceProviderOverride(saved);
+  }, [voiceStorageKey]);
+
   const voiceSettings = useMemo(() => {
     const teaching = course.instructor.teaching;
     const settings = course.instructor.settings;
+    const defaultProvider = teaching.voiceProvider === "browser" ? "browser" : "premium";
     return {
       enabled: settings.speechVoice !== false,
-      provider: teaching.voiceProvider === "browser" ? ("browser" as const) : ("premium" as const),
+      provider: voiceProviderOverride ?? (defaultProvider as ScormVoiceProvider),
       voice: teaching.voice || "cedar",
       speed: typeof teaching.voiceSpeed === "number" ? teaching.voiceSpeed : 0.96,
     };
-  }, [course.instructor]);
+  }, [course.instructor, voiceProviderOverride]);
 
   const { speak, cancelSpeech, unlockAudio, needsAudioUnlock } =
     useInstructorVoice(voiceSettings);
 
   const [progressPercent, setProgressPercent] = useState(0);
   const [locationLabel, setLocationLabel] = useState("");
+
+  const handleVoiceProviderChange = useCallback(
+    (provider: ScormVoiceProvider) => {
+      setVoiceProviderOverride(provider);
+      window.localStorage.setItem(voiceStorageKey, provider);
+      cancelSpeech();
+    },
+    [cancelSpeech, voiceStorageKey],
+  );
 
   const handleRuntimeChange = useCallback((change: ScormRuntimeChange) => {
     setProgressPercent(progressFromRuntime(change.snapshot));
@@ -88,11 +109,8 @@ export default function ScormClassroomShell({
         title={course.title}
         scormVersion={course.scormVersion}
         preview={preview}
-        voiceLabel={
-          voiceSettings.provider === "premium"
-            ? `Premium · ${voiceSettings.voice}`
-            : "Browser voice"
-        }
+        voiceProvider={voiceSettings.provider}
+        onVoiceProviderChange={handleVoiceProviderChange}
         progressPercent={progressPercent}
         locationLabel={locationLabel}
       />

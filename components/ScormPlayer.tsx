@@ -53,17 +53,26 @@ function visibleTextFromFrame(frame: HTMLIFrameElement) {
 /** Authors mark the text meant for narration with `id="ai-narration"` or a `data-ai-narration` attribute. */
 const NARRATION_MARKER_SELECTOR = "#ai-narration, [data-ai-narration]";
 
+/** Rejects `display:none`/`visibility:hidden` elements and screen-reader-only tricks (1px boxes, off-canvas positioning) that would otherwise count as "visible". */
 function isVisibleElement(element: Element) {
   if (!(element instanceof HTMLElement)) return false;
   const withVisibilityCheck = element as HTMLElement & { checkVisibility?: () => boolean };
   if (typeof withVisibilityCheck.checkVisibility === "function") {
     try {
-      return withVisibilityCheck.checkVisibility();
+      if (!withVisibilityCheck.checkVisibility()) return false;
     } catch {
       // Fall through to the geometry-based check below.
     }
+  } else if (!element.offsetParent && element.getClientRects().length === 0) {
+    return false;
   }
-  return Boolean(element.offsetParent) || element.getClientRects().length > 0;
+  const rect = element.getBoundingClientRect();
+  const view = element.ownerDocument.defaultView;
+  if (rect.width < 4 || rect.height < 4) return false;
+  if (view && (rect.right <= 0 || rect.bottom <= 0 || rect.left >= view.innerWidth || rect.top >= view.innerHeight)) {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -71,6 +80,11 @@ function isVisibleElement(element: Element) {
  * falling back to a best-effort scrape of the visible page when the package
  * has no marker. Only the marker's own text is used — never the whole page —
  * so navigation chrome and unrelated UI never gets read aloud.
+ *
+ * When more than one marked element is visible at once (e.g. mid-transition,
+ * or a package that never fully hides inactive screens), the first one in
+ * document order wins — a fixed, stable choice rather than one that can flip
+ * between poll ticks and sound like narration jumping between two screens.
  */
 function narrationTextFromFrame(frame: HTMLIFrameElement) {
   const candidates: Array<{ depth: number; text: string }> = [];
@@ -94,7 +108,8 @@ function narrationTextFromFrame(frame: HTMLIFrameElement) {
     return "";
   }
   if (candidates.length) {
-    return candidates.sort((a, b) => b.depth - a.depth || b.text.length - a.text.length)[0].text;
+    // Stable sort: ties keep document order instead of flip-flopping.
+    return candidates.sort((a, b) => b.depth - a.depth)[0].text;
   }
   return visibleTextFromFrame(frame);
 }
