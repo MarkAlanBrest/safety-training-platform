@@ -1,11 +1,15 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { VolumeX } from "lucide-react";
 import ScormPlayer, { type ScormRuntimeChange } from "@/components/ScormPlayer";
 import ScormClassroomTopBar from "@/components/ScormClassroomTopBar";
 import { useInstructorVoice } from "@/lib/instructor-voice";
-import { scormLocationFromRuntime, type ScormInstructorConfig } from "@/lib/scorm-instructor";
+import {
+  narrationForLocation,
+  scormLocationFromRuntime,
+  type ScormInstructorConfig,
+} from "@/lib/scorm-instructor";
 
 export type PublicScormCourse = {
   title: string;
@@ -67,21 +71,35 @@ export default function ScormClassroomShell({
 
   const [progressPercent, setProgressPercent] = useState(0);
   const [locationLabel, setLocationLabel] = useState("");
+  const lastNarrationKeyRef = useRef("");
+
+  const speakNarration = useCallback(
+    (text: string, key: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || key === lastNarrationKeyRef.current) return;
+      lastNarrationKeyRef.current = key;
+      cancelSpeech();
+      void speak(trimmed);
+    },
+    [cancelSpeech, speak],
+  );
 
   const handleRuntimeChange = useCallback((change: ScormRuntimeChange) => {
     setProgressPercent(progressFromRuntime(change.snapshot));
     const location = scormLocationFromRuntime(change.snapshot);
-    if (location) setLocationLabel(location);
-  }, []);
+    if (!location) return;
+    setLocationLabel(location);
+    const cue = narrationForLocation(course.instructor.narration, location);
+    if (cue) speakNarration(cue.text, `cue:${cue.location}`);
+  }, [course.instructor.narration, speakNarration]);
 
   const handleNarrationText = useCallback(
     (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) return;
-      cancelSpeech();
-      void speak(trimmed);
+      speakNarration(trimmed, `screen:${trimmed}`);
     },
-    [cancelSpeech, speak],
+    [speakNarration],
   );
 
   return (
@@ -103,7 +121,11 @@ export default function ScormClassroomShell({
           preview={preview}
           embedded
           onRuntimeChange={handleRuntimeChange}
-          onVisibleTextChange={voiceSettings.enabled ? handleNarrationText : undefined}
+          onVisibleTextChange={
+            voiceSettings.enabled && course.instructor.narration.length === 0
+              ? handleNarrationText
+              : undefined
+          }
           mutePackageAudio={voiceSettings.enabled}
         />
 

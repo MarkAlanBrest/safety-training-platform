@@ -73,7 +73,14 @@ export function narrationForLocation(
   if (!location) return null;
   const exact = narration.find((cue) => cue.location === location);
   if (exact) return exact;
-  return narration.find((cue) => location.includes(cue.location) || cue.location.includes(location)) || null;
+  const normalizedLocation = location.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  if (!normalizedLocation) return null;
+  return narration.find((cue) => {
+    const normalizedCue = cue.location.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    return normalizedCue === normalizedLocation ||
+      normalizedLocation.includes(normalizedCue) ||
+      normalizedCue.includes(normalizedLocation);
+  }) || null;
 }
 
 export function buildDefaultScormLessonPlan(input: {

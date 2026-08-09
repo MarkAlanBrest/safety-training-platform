@@ -27,6 +27,7 @@ function cleanVisibleScormText(source: string) {
 
 /** Authors mark the text meant for narration with `id="ai-narration"` or a `data-ai-narration` attribute. */
 const NARRATION_MARKER_SELECTOR = "#ai-narration, [data-ai-narration]";
+const silencedPackageSpeechWindows = new WeakSet<Window>();
 
 /** Rejects `display:none`/`visibility:hidden` elements and screen-reader-only tricks (1px boxes, off-canvas positioning) that would otherwise count as "visible". */
 function isVisibleElement(element: Element) {
@@ -91,7 +92,25 @@ function narrationTextFromFrame(frame: HTMLIFrameElement) {
 function muteMediaInsideFrame(frame: HTMLIFrameElement) {
   const visit = (doc: Document) => {
     for (const media of Array.from(doc.querySelectorAll("audio, video"))) {
-      (media as HTMLMediaElement).muted = true;
+      const element = media as HTMLMediaElement;
+      element.autoplay = false;
+      element.muted = true;
+      element.pause();
+    }
+    const view = doc.defaultView;
+    if (view && !silencedPackageSpeechWindows.has(view)) {
+      silencedPackageSpeechWindows.add(view);
+      try {
+        view.speechSynthesis?.cancel();
+        if (view.speechSynthesis) {
+          Object.defineProperty(view.speechSynthesis, "speak", {
+            configurable: true,
+            value: () => undefined,
+          });
+        }
+      } catch {
+        // Some packages lock down their window objects; media muting still applies.
+      }
     }
     for (const child of Array.from(doc.querySelectorAll("iframe"))) {
       try {
