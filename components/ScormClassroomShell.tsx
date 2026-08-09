@@ -86,16 +86,30 @@ export default function ScormClassroomShell({
   const [liveNarration, setLiveNarration] = useState("");
   const [narrationHistory, setNarrationHistory] = useState<string[]>([]);
 
-  const showScormLine = useCallback((text: string) => {
+  const beginScormLine = useCallback((text: string) => {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed) return "";
     setLiveNarration((current) => {
-      if (current && current !== trimmed) {
+      if (current && current !== "…" && current !== trimmed) {
         setNarrationHistory((history) => [...history, current]);
       }
-      return trimmed;
+      // Keep the transcript panel active without revealing the sentence before
+      // playback starts. The first spoken word replaces this immediately.
+      return "…";
     });
+    return trimmed;
   }, []);
+
+  const narrateScormLine = useCallback(
+    async (text: string) => {
+      const narration = beginScormLine(text);
+      if (!narration) return;
+      await speak(narration, {
+        onProgress: (spokenText) => setLiveNarration(spokenText),
+      });
+    },
+    [beginScormLine, speak],
+  );
 
   const sendToInstructor = useCallback(
     async (nextMessages: TeacherMessage[], options?: { speakReply?: boolean }) => {
@@ -120,8 +134,12 @@ export default function ScormClassroomShell({
         const reply = payload.reply?.trim() || "";
         if (reply) {
           setMessages((current) => [...current, { role: "assistant", content: reply }]);
-          showScormLine(reply);
-          if (options?.speakReply !== false) await speak(reply);
+          if (options?.speakReply === false) {
+            beginScormLine(reply);
+            setLiveNarration(reply);
+          } else {
+            await narrateScormLine(reply);
+          }
         }
       } catch (error) {
         const message =
@@ -131,7 +149,7 @@ export default function ScormClassroomShell({
         setThinking(false);
       }
     },
-    [code, course.slug, preview, showScormLine, speak],
+    [beginScormLine, code, course.slug, narrateScormLine, preview],
   );
 
   const handleRuntimeChange = useCallback(
@@ -149,11 +167,10 @@ export default function ScormClassroomShell({
       if (!cue) return;
 
       lastSpokenLocationRef.current = location;
-      showScormLine(cue.text);
       cancelSpeech();
-      void speak(cue.text);
+      void narrateScormLine(cue.text);
     },
-    [cancelSpeech, course.instructor.narration, showScormLine, speak],
+    [cancelSpeech, course.instructor.narration, narrateScormLine],
   );
 
   useEffect(() => {
@@ -163,9 +180,8 @@ export default function ScormClassroomShell({
       course.instructor.opening?.trim() ||
       course.description?.trim() ||
       `Welcome to ${course.title}.`;
-    showScormLine(opening);
-    void speak(opening);
-  }, [course.description, course.instructor.opening, course.title, showScormLine, speak]);
+    void narrateScormLine(opening);
+  }, [course.description, course.instructor.opening, course.title, narrateScormLine]);
 
   const handleSend = useCallback(
     async (message: string) => {

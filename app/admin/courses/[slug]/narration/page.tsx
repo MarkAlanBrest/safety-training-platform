@@ -41,7 +41,7 @@ Inspect the feet and rungs before climbing.`;
 
 export default function ScormNarrationEditorPage() {
   const params = useParams<{ slug: string }>();
-  const slug = params.slug;
+  const slug = params?.slug || "";
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -55,6 +55,7 @@ export default function ScormNarrationEditorPage() {
   const [showBulk, setShowBulk] = useState(false);
 
   useEffect(() => {
+    if (!slug) return;
     let active = true;
     setLoading(true);
     setError("");

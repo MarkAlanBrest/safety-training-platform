@@ -12,6 +12,19 @@ export type InstructorVoiceSettings = {
   speed: number;
 };
 
+export type InstructorSpeechOptions = {
+  /** Receives the portion of the sentence that has been spoken so far. */
+  onProgress?: (spokenText: string, complete: boolean) => void;
+};
+
+function textAtProgress(text: string, progress: number) {
+  if (progress >= 1) return text;
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "";
+  const count = Math.max(1, Math.min(words.length, Math.ceil(words.length * progress)));
+  return words.slice(0, count).join(" ");
+}
+
 export function useInstructorVoice(voiceSettings: InstructorVoiceSettings) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
@@ -55,13 +68,29 @@ export function useInstructorVoice(voiceSettings: InstructorVoiceSettings) {
       .catch(() => setNeedsAudioUnlock(true));
   }, []);
 
-  const playFromUrl = useCallback(async (url: string, controller: AbortController) => {
+  const playFromUrl = useCallback(async (
+    url: string,
+    controller: AbortController,
+    text: string,
+    onProgress?: InstructorSpeechOptions["onProgress"],
+  ) => {
     const audio = new Audio();
     audioRef.current = audio;
     audio.src = url;
+    const updateCaption = () => {
+      if (!onProgress) return;
+      const duration = audio.duration;
+      const progress = Number.isFinite(duration) && duration > 0
+        ? Math.min(1, audio.currentTime / duration)
+        : 0.03;
+      onProgress(textAtProgress(text, progress), progress >= 1);
+    };
+    audio.addEventListener("playing", updateCaption);
+    audio.addEventListener("timeupdate", updateCaption);
 
     const finished = new Promise<void>((resolve) => {
       const done = () => {
+        onProgress?.(text, true);
         setSpeaking(false);
         resolve();
       };
@@ -94,7 +123,12 @@ export function useInstructorVoice(voiceSettings: InstructorVoiceSettings) {
     await finished;
   }, []);
 
-  const playBuffered = useCallback(async (response: Response, controller: AbortController) => {
+  const playBuffered = useCallback(async (
+    response: Response,
+    controller: AbortController,
+    text: string,
+    onProgress?: InstructorSpeechOptions["onProgress"],
+  ) => {
     const url = URL.createObjectURL(await response.blob());
     if (controller.signal.aborted) {
       URL.revokeObjectURL(url);
@@ -104,9 +138,19 @@ export function useInstructorVoice(voiceSettings: InstructorVoiceSettings) {
     audioUrlRef.current = url;
     const audio = new Audio(url);
     audioRef.current = audio;
+    const updateCaption = () => {
+      if (!onProgress) return;
+      const progress = Number.isFinite(audio.duration) && audio.duration > 0
+        ? Math.min(1, audio.currentTime / audio.duration)
+        : 0.03;
+      onProgress(textAtProgress(text, progress), progress >= 1);
+    };
+    audio.addEventListener("playing", updateCaption);
+    audio.addEventListener("timeupdate", updateCaption);
 
     const finished = new Promise<void>((resolve) => {
       const done = () => {
+        onProgress?.(text, true);
         setSpeaking(false);
         if (audioUrlRef.current === url) {
           URL.revokeObjectURL(url);
@@ -137,7 +181,11 @@ export function useInstructorVoice(voiceSettings: InstructorVoiceSettings) {
   }, []);
 
   const speakChunk = useCallback(
-    async (text: string, generation: number) => {
+    async (
+      text: string,
+      generation: number,
+      onProgress?: InstructorSpeechOptions["onProgress"],
+    ) => {
       if (!text.trim() || generation !== speechGenerationRef.current) return;
 
       const controller = new AbortController();
@@ -157,7 +205,13 @@ export function useInstructorVoice(voiceSettings: InstructorVoiceSettings) {
             voices.find((voice) => /mark/i.test(voice.name)) ||
             voices.find((voice) => voice.lang.startsWith("en"));
           if (preferred) utterance.voice = preferred;
+          utterance.onstart = () => onProgress?.(textAtProgress(text, 0.03), false);
+          utterance.onboundary = (event) => {
+            const end = Math.max(1, event.charIndex + (event.charLength || 0));
+            onProgress?.(text.slice(0, end).trimEnd(), false);
+          };
           utterance.onend = () => {
+            onProgress?.(text, true);
             setSpeaking(false);
             resolve();
           };
@@ -181,40 +235,52 @@ export function useInstructorVoice(voiceSettings: InstructorVoiceSettings) {
         speed: String(voiceSettings.speed),
       });
       const streamable = text.length <= MAX_STREAMABLE_SPEECH_LENGTH;
-      const response = await fetch(
-        streamable ? `/api/mason/speech?${params}` : "/api/mason/speech",
-        streamable
-          ? { signal: controller.signal }
-          : {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                text,
-                voice: voiceSettings.voice,
-                speed: voiceSettings.speed,
-              }),
-              signal: controller.signal,
-            },
-      );
-      if (!response.ok || generation !== speechGenerationRef.current) {
-        setSpeaking(false);
-        return;
+      if (streamable) {
+        // Let the audio element stream the GET directly. Fetching it first caused
+        // every premium narration clip to be downloaded twice.
+        await playFromUrl(`/api/mason/speech?${params}`, controller, text, onProgress);
+      } else {
+        const response = await fetch("/api/mason/speech", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text,
+            voice: voiceSettings.voice,
+            speed: voiceSettings.speed,
+          }),
+          signal: controller.signal,
+        });
+        if (!response.ok || generation !== speechGenerationRef.current) {
+          setSpeaking(false);
+          return;
+        }
+        await playBuffered(response, controller, text, onProgress);
       }
-      if (streamable) await playFromUrl(`/api/mason/speech?${params}`, controller);
-      else await playBuffered(response, controller);
     },
     [playBuffered, playFromUrl, voiceSettings],
   );
 
   const speak = useCallback(
-    (text: string) => {
-      if (!voiceSettings.enabled || !text.trim()) return Promise.resolve();
+    (text: string, options?: InstructorSpeechOptions) => {
+      if (!text.trim()) return Promise.resolve();
+      if (!voiceSettings.enabled) {
+        options?.onProgress?.(text, true);
+        return Promise.resolve();
+      }
       const generation = speechGenerationRef.current;
       speakQueueRef.current = speakQueueRef.current
         .then(async () => {
+          let completed = "";
           for (const chunk of speechChunks(text)) {
             if (generation !== speechGenerationRef.current) break;
-            await speakChunk(chunk, generation);
+            await speakChunk(chunk, generation, (partial, complete) => {
+              const visible = [completed, partial].filter(Boolean).join(" ").trim();
+              options?.onProgress?.(visible, complete && visible === text.trim());
+            });
+            completed = [completed, chunk].filter(Boolean).join(" ").trim();
+          }
+          if (generation === speechGenerationRef.current) {
+            options?.onProgress?.(text, true);
           }
         })
         .catch(() => undefined);
