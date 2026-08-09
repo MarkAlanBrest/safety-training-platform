@@ -31,6 +31,7 @@ export type ScormCourseInitInput = {
   theme?: string;
   estimatedMinutes?: number;
   voiceProvider?: string;
+  narrationMode?: "package" | "premium" | "browser";
   voice?: string;
   fileName: string;
 };
@@ -48,7 +49,10 @@ export async function createScormCourseShell(input: ScormCourseInitInput) {
     10,
     Math.min(100000, Number(input.estimatedMinutes) || 60),
   );
-  const voiceProvider = String(input.voiceProvider || "premium");
+  const narrationMode = ["package", "premium", "browser"].includes(String(input.narrationMode))
+    ? String(input.narrationMode)
+    : String(input.voiceProvider || "package");
+  const voiceProvider = narrationMode === "browser" ? "browser" : "premium";
   const voice = String(input.voice || "cedar").trim();
 
   const baseSlug = slugify(title) || "scorm-course";
@@ -62,6 +66,10 @@ export async function createScormCourseShell(input: ScormCourseInitInput) {
       ...defaults.teaching,
       voiceProvider: voiceProvider === "browser" ? "browser" : "premium",
       voice: /^[a-z0-9_-]{1,40}$/i.test(voice) ? voice : "cedar",
+    },
+    settings: {
+      ...defaults.settings,
+      speechVoice: narrationMode !== "package",
     },
   });
   const lessonPlan = buildDefaultScormLessonPlan({ title, description, config });

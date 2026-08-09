@@ -20,6 +20,7 @@ export type ScormCourseInitPayload = {
   theme?: string;
   estimatedMinutes?: number;
   voiceProvider?: string;
+  narrationMode?: "package" | "premium" | "browser";
   voice?: string;
   fileName: string;
 };

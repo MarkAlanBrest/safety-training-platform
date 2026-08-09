@@ -114,6 +114,26 @@ function narrationTextFromFrame(frame: HTMLIFrameElement) {
   return visibleTextFromFrame(frame);
 }
 
+function muteMediaInsideFrame(frame: HTMLIFrameElement) {
+  const visit = (doc: Document) => {
+    for (const media of Array.from(doc.querySelectorAll("audio, video"))) {
+      (media as HTMLMediaElement).muted = true;
+    }
+    for (const child of Array.from(doc.querySelectorAll("iframe"))) {
+      try {
+        if (child.contentDocument) visit(child.contentDocument);
+      } catch {
+        // Cross-origin media cannot be controlled by the course host.
+      }
+    }
+  };
+  try {
+    if (frame.contentDocument) visit(frame.contentDocument);
+  } catch {
+    // Ignore third-party frames.
+  }
+}
+
 export type ScormRuntimeChange = {
   key: string;
   value: string;
@@ -130,6 +150,7 @@ export default function ScormPlayer({
   className,
   onRuntimeChange,
   onVisibleTextChange,
+  mutePackageAudio = false,
 }: {
   title: string;
   slug: string;
@@ -141,6 +162,8 @@ export default function ScormPlayer({
   onRuntimeChange?: (change: ScormRuntimeChange) => void;
   /** Narration text for the current screen, read from an `#ai-narration` / `[data-ai-narration]` marker inside the same-origin SCORM frame (falls back to scraping visible text if no marker is present). */
   onVisibleTextChange?: (text: string) => void;
+  /** Mute embedded SCORM media when the app's selected AI voice is authoritative. */
+  mutePackageAudio?: boolean;
 }) {
   const searchParams = useSearchParams();
   const code = searchParams?.get("code") || "";
@@ -186,6 +209,16 @@ export default function ScormPlayer({
     const timer = window.setInterval(inspect, 400);
     return () => window.clearInterval(timer);
   }, [onVisibleTextChange, ready, runtimeReady]);
+
+  useEffect(() => {
+    if (!ready || !runtimeReady || !mutePackageAudio) return;
+    const mute = () => {
+      if (iframeRef.current) muteMediaInsideFrame(iframeRef.current);
+    };
+    mute();
+    const timer = window.setInterval(mute, 300);
+    return () => window.clearInterval(timer);
+  }, [mutePackageAudio, ready, runtimeReady]);
 
   useEffect(() => {
     if (preview) {

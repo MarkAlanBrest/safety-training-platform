@@ -37,6 +37,9 @@ export async function POST(request: Request) {
       theme: String(form.get("theme") || "heritage"),
       estimatedMinutes: Number(form.get("estimatedMinutes")) || 60,
       voiceProvider: String(form.get("voiceProvider") || "premium"),
+      narrationMode: ["package", "premium", "browser"].includes(String(form.get("narrationMode")))
+        ? (String(form.get("narrationMode")) as "package" | "premium" | "browser")
+        : undefined,
       voice: String(form.get("voice") || "cedar"),
       fileName: file.name,
     });

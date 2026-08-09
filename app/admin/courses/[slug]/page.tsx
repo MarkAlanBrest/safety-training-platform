@@ -49,6 +49,7 @@ type Section = {
     };
     config?: {
       teaching?: { voiceProvider?: "browser" | "premium"; voice?: string; voiceSpeed?: number };
+      settings?: { speechVoice?: boolean };
     };
   };
 };
@@ -184,6 +185,7 @@ export default function CourseEditorPage() {
         published: form.get("published") === "on",
         classroomVoiceProvider: form.get("classroomVoiceProvider"),
         classroomVoice: form.get("classroomVoice"),
+        scormNarrationMode: form.get("scormNarrationMode"),
       }),
     });
     const data = await response.json();
@@ -541,7 +543,7 @@ export default function CourseEditorPage() {
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#69757e]">
             The side panel shows the lesson text as learners move through the SCORM package.
             Put a <code className="rounded bg-slate-100 px-1">narration-script.txt</code> in the ZIP
-            (auto-imported), or edit the script below. Choose Premium · Cedar in Settings.
+            (auto-imported), or edit the script below. Choose one narration mode in Settings.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link href={`/admin/courses/${course.slug}/narration`} className="inline-flex rounded-xl bg-[#c68b1b] px-5 py-3 font-bold text-[#10283f]">
@@ -742,15 +744,32 @@ export default function CourseEditorPage() {
             </label>
 
             <div>
-              <p className="mb-3 text-sm font-bold">Voice quality</p>
+              <p className="mb-3 text-sm font-bold">
+                {course.courseType === "scorm" ? "Narration mode" : "Voice quality"}
+              </p>
               <div className="grid gap-3 sm:grid-cols-2">
-                {VOICE_PROVIDER_OPTIONS.map((option) => (
+                {(course.courseType === "scorm"
+                  ? [
+                      {
+                        id: "package",
+                        label: "Package audio only",
+                        description: "Use the narration already inside the SCORM package. Prevents two voices.",
+                      },
+                      ...VOICE_PROVIDER_OPTIONS,
+                    ]
+                  : VOICE_PROVIDER_OPTIONS
+                ).map((option) => (
                   <label key={option.id} className="cursor-pointer">
                     <input
                       type="radio"
-                      name="classroomVoiceProvider"
+                      name={course.courseType === "scorm" ? "scormNarrationMode" : "classroomVoiceProvider"}
                       value={option.id}
-                      defaultChecked={(course.sections[0]?.lessonPlan.config?.teaching?.voiceProvider || "premium") === option.id}
+                      defaultChecked={
+                        (course.courseType === "scorm" &&
+                        course.sections[0]?.lessonPlan.config?.settings?.speechVoice === false
+                          ? "package"
+                          : course.sections[0]?.lessonPlan.config?.teaching?.voiceProvider || "premium") === option.id
+                      }
                       className="peer sr-only"
                     />
                     <span className="block h-full rounded-2xl border border-[#10283f]/10 p-4 peer-checked:border-[#c68b1b] peer-checked:bg-[#fff9eb] peer-checked:ring-2 peer-checked:ring-[#e8c273]/25">

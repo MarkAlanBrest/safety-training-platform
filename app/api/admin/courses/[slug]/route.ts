@@ -94,6 +94,7 @@ export async function PATCH(
     const displayMode = String(body.displayMode || "webpage");
     const classroomVoiceProvider = String(body.classroomVoiceProvider || "");
     const classroomVoice = String(body.classroomVoice || "").trim();
+    const scormNarrationMode = String(body.scormNarrationMode || "");
 
     if (!title || !isCourseTheme(theme) || !isCourseIntensity(intensity)) {
       return Response.json(
@@ -144,9 +145,13 @@ export async function PATCH(
       },
     });
 
+    const savedVoiceProvider =
+      course.courseType === "scorm" && ["package", "premium", "browser"].includes(scormNarrationMode)
+        ? scormNarrationMode === "browser" ? "browser" : "premium"
+        : classroomVoiceProvider;
     if (
       (course.courseType === "classroom" || course.courseType === "scorm") &&
-      ["browser", "premium"].includes(classroomVoiceProvider) &&
+      ["browser", "premium"].includes(savedVoiceProvider) &&
       /^[a-z0-9_-]{1,40}$/i.test(classroomVoice)
     ) {
       const sections = await prisma.masonSection.findMany({
@@ -165,6 +170,9 @@ export async function PATCH(
           const teaching = config.teaching && typeof config.teaching === "object" && !Array.isArray(config.teaching)
             ? (config.teaching as Record<string, unknown>)
             : {};
+          const settings = config.settings && typeof config.settings === "object" && !Array.isArray(config.settings)
+            ? (config.settings as Record<string, unknown>)
+            : {};
           return [
             prisma.masonSection.update({
               where: { id: section.id },
@@ -175,8 +183,17 @@ export async function PATCH(
                     ...config,
                     teaching: {
                       ...teaching,
-                      voiceProvider: classroomVoiceProvider,
+                      voiceProvider: savedVoiceProvider,
                       voice: classroomVoice,
+                    },
+                    settings: {
+                      ...settings,
+                      speechVoice:
+                        course.courseType === "scorm" && scormNarrationMode === "package"
+                          ? false
+                          : course.courseType === "scorm" && ["premium", "browser"].includes(scormNarrationMode)
+                            ? true
+                            : settings.speechVoice,
                     },
                   },
                 } as Prisma.InputJsonValue,

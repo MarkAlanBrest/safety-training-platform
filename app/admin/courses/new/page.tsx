@@ -15,6 +15,7 @@ export default function NewScormCoursePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [progress, setProgress] = useState("");
+  const [narrationMode, setNarrationMode] = useState<"package" | "premium" | "browser">("package");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,7 +35,8 @@ export default function NewScormCoursePage() {
           title: String(form.get("title") || ""),
           description: String(form.get("description") || ""),
           theme: String(form.get("theme") || "heritage"),
-          voiceProvider: String(form.get("voiceProvider") || "premium"),
+          narrationMode,
+          voiceProvider: narrationMode === "browser" ? "browser" : "premium",
           voice: String(form.get("voice") || "cedar"),
           fileName: file.name,
         },
@@ -102,18 +104,27 @@ export default function NewScormCoursePage() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block text-sm font-semibold text-[#10283f]">
-              Instructor voice
-              <select name="voiceProvider" defaultValue="premium" className="mt-2 w-full rounded-xl border border-[#10283f]/15 px-4 py-3">
+              Narration mode
+              <select
+                name="narrationMode"
+                value={narrationMode}
+                onChange={(event) => setNarrationMode(event.target.value as typeof narrationMode)}
+                className="mt-2 w-full rounded-xl border border-[#10283f]/15 px-4 py-3"
+              >
+                <option value="package">Package audio only (recommended)</option>
                 {VOICE_PROVIDER_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.label}
                   </option>
                 ))}
               </select>
+              <span className="mt-2 block text-xs leading-5 text-[#69757e]">
+                Choose package audio when the SCORM lesson already has narration. This prevents two voices.
+              </span>
             </label>
             <label className="block text-sm font-semibold text-[#10283f]">
               Voice style
-              <select name="voice" defaultValue="cedar" className="mt-2 w-full rounded-xl border border-[#10283f]/15 px-4 py-3">
+              <select name="voice" defaultValue="cedar" disabled={narrationMode === "package"} className="mt-2 w-full rounded-xl border border-[#10283f]/15 px-4 py-3 disabled:bg-slate-100 disabled:text-slate-400">
                 {VOICE_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.label}

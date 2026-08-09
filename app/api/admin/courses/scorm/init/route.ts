@@ -11,6 +11,7 @@ type InitBody = {
   theme?: string;
   estimatedMinutes?: number;
   voiceProvider?: string;
+  narrationMode?: "package" | "premium" | "browser";
   voice?: string;
   fileName?: string;
 };
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
       theme: body.theme,
       estimatedMinutes: body.estimatedMinutes,
       voiceProvider: body.voiceProvider,
+      narrationMode: body.narrationMode,
       voice: body.voice,
       fileName,
     });
