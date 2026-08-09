@@ -4,7 +4,6 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 import AdminShell from "@/components/AdminShell";
-import { VOICE_OPTIONS, VOICE_PROVIDER_OPTIONS } from "@/lib/classroom-builder";
 import {
   createScormCourseFromZip,
   MAX_SCORM_ZIP_BYTES,
@@ -15,8 +14,6 @@ export default function NewScormCoursePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [progress, setProgress] = useState("");
-  const [narrationMode, setNarrationMode] = useState<"package" | "premium" | "browser">("package");
-  const [selectedVoice, setSelectedVoice] = useState("cedar");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,9 +33,9 @@ export default function NewScormCoursePage() {
           title: String(form.get("title") || ""),
           description: String(form.get("description") || ""),
           theme: String(form.get("theme") || "heritage"),
-          narrationMode,
-          voiceProvider: narrationMode === "browser" ? "browser" : "premium",
-          voice: narrationMode === "browser" ? "mark" : selectedVoice,
+          narrationMode: "package",
+          voiceProvider: "premium",
+          voice: "cedar",
           fileName: file.name,
         },
         file,
@@ -61,10 +58,10 @@ export default function NewScormCoursePage() {
     <AdminShell title="Upload SCORM course" eyebrow="New course">
       <div className="mx-auto max-w-3xl">
         <div className="mb-6 rounded-3xl border border-[#10283f]/10 bg-[#10283f] px-6 py-5 text-white">
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-[#e8c273]">SCORM + AI instructor</p>
+          <p className="text-xs font-bold uppercase tracking-[.2em] text-[#e8c273]">SCORM course</p>
           <p className="mt-2 text-sm leading-7 text-white/80">
-            Upload a SCORM package for the lesson content. Learners get your SCORM player on the
-            left, with AI narration and chat on the right using browser or premium voice.
+            Upload a complete SCORM package. Its embedded audio, video, navigation, and interactions
+            play directly in the course viewer.
           </p>
         </div>
 
@@ -103,50 +100,9 @@ export default function NewScormCoursePage() {
             </p>
           </label>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="block text-sm font-semibold text-[#10283f]">
-              Narration mode
-              <select
-                name="narrationMode"
-                value={narrationMode}
-                onChange={(event) => setNarrationMode(event.target.value as typeof narrationMode)}
-                className="mt-2 w-full rounded-xl border border-[#10283f]/15 px-4 py-3"
-              >
-                <option value="package">Package audio only (recommended)</option>
-                {VOICE_PROVIDER_OPTIONS.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <span className="mt-2 block text-xs leading-5 text-[#69757e]">
-                Choose package audio when the SCORM lesson already has narration. This prevents two voices.
-              </span>
-            </label>
-            <label className="block text-sm font-semibold text-[#10283f]">
-              Voice style
-              <select
-                name="voice"
-                value={narrationMode === "browser" ? "mark" : selectedVoice}
-                onChange={(event) => setSelectedVoice(event.target.value)}
-                disabled={narrationMode !== "premium"}
-                className="mt-2 w-full rounded-xl border border-[#10283f]/15 px-4 py-3 disabled:bg-slate-100 disabled:text-slate-500"
-              >
-                {narrationMode === "browser" ? <option value="mark">Mark (device voice)</option> : null}
-                {VOICE_OPTIONS.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <span className="mt-2 block text-xs leading-5 text-[#69757e]">
-                {narrationMode === "premium"
-                  ? `The course will use ${VOICE_OPTIONS.find((option) => option.id === selectedVoice)?.label || selectedVoice}.`
-                  : narrationMode === "browser"
-                    ? "Free narration uses Mark when installed, or the learner's English system voice. Premium voice names are not available in browser mode."
-                    : "The voice is supplied by the SCORM package."}
-              </span>
-            </label>
+          <div className="rounded-2xl border border-[#10283f]/10 bg-slate-50 px-5 py-4 text-sm leading-6 text-[#52616d]">
+            The course viewer does not add narration. Include every voice recording and sound file
+            inside the SCORM package.
           </div>
 
           {progress ? <p className="text-sm font-semibold text-[#69757e]">{progress}</p> : null}

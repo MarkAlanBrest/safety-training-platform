@@ -143,13 +143,7 @@ export default function CourseEditorPage() {
     setLogoData(data.logoData || null);
     setAccentColor(data.accentColor || null);
     if (data.courseType === "scorm") {
-      setScormNarrationMode(
-        data.sections[0]?.lessonPlan.config?.settings?.speechVoice === false
-          ? "package"
-          : data.sections[0]?.lessonPlan.config?.teaching?.voiceProvider === "browser"
-            ? "browser"
-            : "premium",
-      );
+      setScormNarrationMode("package");
     }
   }
 
@@ -743,7 +737,7 @@ export default function CourseEditorPage() {
               <h2 className="mt-2 font-serif text-2xl font-semibold text-[#10283f]">Course and instructor</h2>
               <p className="mt-2 text-sm leading-6 text-[#69757e]">
                 {course.courseType === "scorm"
-                  ? "These settings control the course name and AI instructor voice for the SCORM chat panel."
+                  ? "The SCORM package supplies its own audio, video, navigation, and interactions."
                   : "The PowerPoints supply all visual content. These settings control the course name and AI voice."}
               </p>
             </div>
@@ -763,9 +757,8 @@ export default function CourseEditorPage() {
                       {
                         id: "package",
                         label: "Package audio only",
-                        description: "Use the narration already inside the SCORM package. Prevents two voices.",
+                        description: "The viewer plays only the narration and sound embedded in the SCORM package.",
                       },
-                      ...VOICE_PROVIDER_OPTIONS,
                     ]
                   : VOICE_PROVIDER_OPTIONS
                 ).map((option) => (
@@ -792,7 +785,7 @@ export default function CourseEditorPage() {
               </div>
             </div>
 
-            <label className="block">
+            {course.courseType !== "scorm" ? <label className="block">
               <span className="mb-2 block text-sm font-bold">AI voice</span>
               <select
                 name="classroomVoice"
@@ -813,7 +806,12 @@ export default function CourseEditorPage() {
                     ? "The voice is supplied by the SCORM package."
                     : "This selected premium voice will be used throughout the course."}
               </span>
-            </label>
+            </label> : (
+              <>
+                <input type="hidden" name="scormNarrationMode" value="package" />
+                <input type="hidden" name="classroomVoice" value="cedar" />
+              </>
+            )}
 
             <input type="hidden" name="description" value="" />
             <input type="hidden" name="audience" value="" />
