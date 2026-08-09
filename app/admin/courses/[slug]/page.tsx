@@ -792,19 +792,14 @@ export default function CourseEditorPage() {
                 defaultValue={course.sections[0]?.lessonPlan.config?.teaching?.voice === "mark"
                   ? "cedar"
                   : course.sections[0]?.lessonPlan.config?.teaching?.voice || "cedar"}
-                disabled={course.courseType === "scorm" && scormNarrationMode !== "premium"}
-                className="w-full min-w-0 max-w-full rounded-xl border border-[#10283f]/15 bg-white px-4 py-3 disabled:bg-slate-100 disabled:text-slate-500"
+                className="w-full min-w-0 max-w-full rounded-xl border border-[#10283f]/15 bg-white px-4 py-3"
               >
                 {VOICE_OPTIONS.map((option) => (
                   <option key={option.id} value={option.id}>{option.label}</option>
                 ))}
               </select>
               <span className="mt-2 block text-xs leading-5 text-[#69757e]">
-                {course.courseType === "scorm" && scormNarrationMode === "browser"
-                  ? "Free narration uses Mark when installed, or the learner's English system voice."
-                  : course.courseType === "scorm" && scormNarrationMode === "package"
-                    ? "The voice is supplied by the SCORM package."
-                    : "This selected premium voice will be used throughout the course."}
+                This selected premium voice will be used throughout the course.
               </span>
             </label> : (
               <>
