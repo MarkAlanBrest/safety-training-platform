@@ -8,8 +8,11 @@ import {
   AI_COURSE_SOURCE_EXTENSIONS,
   MAX_AI_COURSE_SOURCE_BYTES,
   MAX_AI_COURSE_TOTAL_SOURCE_BYTES,
-  generateAiCourse,
+  startAiCourseGeneration,
+  pollAiCourseGeneration,
+  cancelAiCourseGeneration,
   type AiCourseSource,
+  type GeneratedAiCourse,
 } from "@/lib/ai-course-generator";
 import { slugify } from "@/lib/mason";
 import type { PlayerSettings } from "@/lib/mason";
@@ -18,6 +21,17 @@ import { prisma } from "@/lib/prisma";
 
 const MAX_SOURCE_COUNT = 8;
 const DATABASE_TIMEOUT_MS = 12_000;
+
+type CourseJobSettings = {
+  requestedTitle: string;
+  requestedTheme: string;
+  displayMode: "webpage" | "slideshow";
+  estimatedMinutes: number;
+  appearance: PlayerSettings["appearance"];
+  toolbarStyle: PlayerSettings["toolbarStyle"];
+  aiCoach: PlayerSettings["aiCoach"];
+  knowledgeScope: PlayerSettings["knowledgeScope"];
+};
 
 async function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -37,6 +51,92 @@ function extension(name: string) {
   return name.split(".").pop()?.toLowerCase() || "";
 }
 
+function readJobSettings(body: Record<string, unknown>): CourseJobSettings | null {
+  const displayMode = String(body.displayMode || "webpage");
+  const requestedTheme = String(body.requestedTheme || "auto");
+  const appearance = String(body.appearance || "light");
+  const toolbarStyle = String(body.toolbarStyle || "guided");
+  const aiCoach = String(body.aiCoach || "ask");
+  const knowledgeScope = String(body.knowledgeScope || "course");
+  if (!["webpage", "slideshow"].includes(displayMode)) return null;
+  if (requestedTheme !== "auto" && !isCourseTheme(requestedTheme)) return null;
+  if (!["light", "dark"].includes(appearance) || !["minimal", "guided"].includes(toolbarStyle)) return null;
+  if (!["off", "ask", "guided"].includes(aiCoach) || !["course", "expanded"].includes(knowledgeScope)) return null;
+  return {
+    requestedTitle: String(body.requestedTitle || "").trim().slice(0, 200),
+    requestedTheme,
+    displayMode: displayMode as CourseJobSettings["displayMode"],
+    estimatedMinutes: Math.max(10, Math.min(240, Number(body.estimatedMinutes) || 30)),
+    appearance: appearance as PlayerSettings["appearance"],
+    toolbarStyle: toolbarStyle as PlayerSettings["toolbarStyle"],
+    aiCoach: aiCoach as PlayerSettings["aiCoach"],
+    knowledgeScope: knowledgeScope as PlayerSettings["knowledgeScope"],
+  };
+}
+
+async function saveCompletedCourse(jobId: string, generated: GeneratedAiCourse, settings: CourseJobSettings) {
+  const marker = `AI generation ${jobId}`;
+  const existing = await prisma.masonSection.findFirst({
+    where: { fileName: marker },
+    select: {
+      course: {
+        select: { title: true, slug: true },
+      },
+    },
+  });
+  if (existing) {
+    return {
+      adminUrl: `/admin/courses/${existing.course.slug}`,
+      previewUrl: `/training/${existing.course.slug}`,
+    };
+  }
+
+  const baseSlug = slugify(generated.title) || "ai-course";
+  const jobSuffix = jobId.replace(/^resp_/, "").slice(-8).toLowerCase();
+  const slug = `${baseSlug}-${jobSuffix}`;
+  const playerSettings: PlayerSettings = {
+    appearance: settings.appearance,
+    toolbarStyle: settings.toolbarStyle,
+    aiCoach: settings.aiCoach,
+    knowledgeScope: settings.knowledgeScope,
+  };
+
+  const course = await withTimeout(prisma.masonCourse.upsert({
+    where: { slug },
+    update: {},
+    create: {
+      title: generated.title,
+      slug,
+      description: generated.description || null,
+      audience: generated.audience || null,
+      theme: settings.requestedTheme === "auto" ? generated.theme : settings.requestedTheme,
+      intensity: settings.estimatedMinutes <= 20 ? "essentials" : settings.estimatedMinutes >= 75 ? "comprehensive" : "standard",
+      estimatedMinutes: generated.estimatedMinutes,
+      courseType: "native",
+      displayMode: settings.displayMode,
+      published: false,
+      sections: {
+        create: generated.sections.map((section, index) => ({
+          title: section.title,
+          position: index + 1,
+          estimatedMinutes: section.estimatedMinutes,
+          fileName: marker,
+          lessonPlan: {
+            ...section.lessonPlan,
+            playerSettings,
+          } as unknown as Prisma.InputJsonValue,
+        })),
+      },
+    },
+    select: { slug: true },
+  }), DATABASE_TIMEOUT_MS, "The generated course could not be saved because storage did not respond.");
+
+  return {
+    adminUrl: `/admin/courses/${course.slug}`,
+    previewUrl: `/training/${course.slug}`,
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const unauthorized = await withTimeout(
@@ -45,6 +145,21 @@ export async function POST(request: Request) {
       "The administrator session check timed out.",
     );
     if (unauthorized) return unauthorized;
+
+    if (request.headers.get("content-type")?.includes("application/json")) {
+      const body = (await request.json()) as Record<string, unknown>;
+      const jobId = String(body.jobId || "");
+      const settings = readJobSettings(body);
+      if (!settings || !/^resp_[a-zA-Z0-9_-]+$/.test(jobId)) {
+        return Response.json({ error: "The background course job settings are invalid." }, { status: 400 });
+      }
+      const result = await pollAiCourseGeneration(jobId, settings.requestedTitle);
+      if (!result.course) {
+        return Response.json({ jobId, status: result.status }, { status: 202 });
+      }
+      const saved = await saveCompletedCourse(jobId, result.course, settings);
+      return Response.json({ jobId, status: "completed", ...saved }, { status: 201 });
+    }
 
     const form = await request.formData();
     const brief = String(form.get("brief") || "").trim();
@@ -128,7 +243,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const generated = await generateAiCourse({
+    const job = await startAiCourseGeneration({
       brief,
       requestedTitle,
       audience,
@@ -138,64 +253,33 @@ export async function POST(request: Request) {
       requestedTheme: requestedTheme === "auto" ? undefined : requestedTheme,
       sources,
     });
-    const playerSettings: PlayerSettings = {
-      appearance: appearance as PlayerSettings["appearance"],
-      toolbarStyle: toolbarStyle as PlayerSettings["toolbarStyle"],
-      aiCoach: aiCoach as PlayerSettings["aiCoach"],
-      knowledgeScope: knowledgeScope as PlayerSettings["knowledgeScope"],
-    };
-
-    const baseSlug = slugify(generated.title) || "ai-course";
-    let slug = baseSlug;
-    let suffix = 2;
-    while (await prisma.masonCourse.findUnique({ where: { slug } })) slug = `${baseSlug}-${suffix++}`;
-
-    const course = await withTimeout(prisma.masonCourse.create({
-      data: {
-        title: generated.title,
-        slug,
-        description: generated.description || null,
-        audience: generated.audience || null,
-        theme: requestedTheme === "auto" ? generated.theme : requestedTheme,
-        intensity: estimatedMinutes <= 20 ? "essentials" : estimatedMinutes >= 75 ? "comprehensive" : "standard",
-        estimatedMinutes: generated.estimatedMinutes,
-        courseType: "native",
-        displayMode,
-        published: false,
-        sections: {
-          create: generated.sections.map((section, index) => ({
-            title: section.title,
-            position: index + 1,
-            estimatedMinutes: section.estimatedMinutes,
-            fileName: sources.length ? sources.map((source) => source.name).join(", ").slice(0, 240) : "AI course brief",
-            lessonPlan: {
-              ...section.lessonPlan,
-              playerSettings,
-            } as unknown as Prisma.InputJsonValue,
-          })),
-        },
-      },
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        published: true,
-        _count: { select: { sections: true } },
-      },
-    }), DATABASE_TIMEOUT_MS, "The generated course could not be saved because storage did not respond.");
-
     return Response.json(
       {
-        course,
-        adminUrl: `/admin/courses/${course.slug}`,
-        previewUrl: `/training/${course.slug}`,
+        jobId: job.id,
+        status: job.status,
       },
-      { status: 201 },
+      { status: 202 },
     );
   } catch (error) {
     console.error("AI course generation failed:", error);
     const message = error instanceof Error ? error.message : "The course could not be generated.";
     const timedOut = /timed out|longer than two minutes|did not respond/i.test(message);
     return Response.json({ error: message }, { status: timedOut ? 504 : 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  const unauthorized = await requireAdmin(request);
+  if (unauthorized) return unauthorized;
+  const jobId = new URL(request.url).searchParams.get("jobId") || "";
+  if (!/^resp_[a-zA-Z0-9_-]+$/.test(jobId)) {
+    return Response.json({ error: "The background course job identifier is invalid." }, { status: 400 });
+  }
+  try {
+    await cancelAiCourseGeneration(jobId);
+    return Response.json({ canceled: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The background course job could not be canceled.";
+    return Response.json({ error: message }, { status: 500 });
   }
 }

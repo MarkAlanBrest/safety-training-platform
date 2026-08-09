@@ -4,7 +4,7 @@ import { extractResponseOutputText } from "@/lib/parse-response";
 export const AI_COURSE_SOURCE_EXTENSIONS = ["pdf", "docx", "pptx", "txt", "md"] as const;
 export const MAX_AI_COURSE_SOURCE_BYTES = 20 * 1024 * 1024;
 export const MAX_AI_COURSE_TOTAL_SOURCE_BYTES = 45 * 1024 * 1024;
-const AI_GENERATION_TIMEOUT_MS = 120_000;
+const AI_REQUEST_TIMEOUT_MS = 25_000;
 
 export type AiCourseSource = {
   name: string;
@@ -159,7 +159,7 @@ function normalizedMoment(moment: LessonMoment): LessonMoment {
   };
 }
 
-export async function generateAiCourse(input: {
+export type AiCourseGenerationInput = {
   brief: string;
   requestedTitle?: string;
   audience?: string;
@@ -168,115 +168,159 @@ export async function generateAiCourse(input: {
   displayMode: "webpage" | "slideshow";
   requestedTheme?: string;
   sources: AiCourseSource[];
-}): Promise<GeneratedAiCourse> {
+};
+
+type AiResponseData = {
+  id?: string;
+  status?: string;
+  output_text?: string;
+  output?: Array<{ content?: Array<{ text?: string }> }>;
+  error?: { message?: string } | null;
+  incomplete_details?: { reason?: string } | null;
+};
+
+function requestBody(input: AiCourseGenerationInput) {
+  const outputBudget = Math.min(28_000, Math.max(12_000, 10_000 + input.estimatedMinutes * 220));
+  return {
+    model: process.env.OPENAI_COURSE_MODEL || process.env.OPENAI_MODEL || "gpt-5.6-sol",
+    background: true,
+    reasoning: { effort: "medium" },
+    instructions: [
+      "Role: You are a senior instructional designer, curriculum writer, assessment designer, and digital learning creative director.",
+      "Goal: Turn the course brief and supporting files into a polished, accurate, responsive web course that feels intentionally designed rather than generated from a generic template.",
+      "Success criteria: Build a coherent chapter sequence; teach concepts in plain language; use concrete examples grounded in the supplied evidence; vary the learning blocks; include coached practice and an independent mastery check; and make every block useful and editable.",
+      "Evidence: Treat supporting files as reference material, not as layouts to reproduce. Do not invent regulations, measurements, procedures, product claims, or citations that are not supported by the brief or files. When evidence is incomplete, teach the supported principle without manufacturing specifics.",
+      "Instructional depth: Each section must have a purposeful arc: a motivating opening, clear explanation, a concrete worked example, active practice, a realistic decision or scenario, and a useful recap. Teach why and how, not merely definitions. Use source-specific facts and workplace examples whenever the evidence supports them.",
+      "Design: Use explain/text blocks for real teaching depth, tiles only for memorable frameworks, dragdrop only for true sequences, flashcards for terms or paired concepts, scenarios for judgment, and questions for checks. Avoid repetitive card grids, repeated introductions, filler, slogans, vague advice, and questions that merely repeat a sentence verbatim.",
+      "Quality control: Every moment must add new instructional value. Do not write generic safety language that could fit any course. Include consequences, common errors, observable cues, and practical decisions appropriate to the stated audience. Ensure every objective is actually taught and assessed.",
+      "Assessments: Choices must be plausible complete answers. Put coached questions in activity phase and the requested number of scored questions in mastery phase across the course. Every scored question needs clear corrective feedback.",
+      "Output: Return only the strict JSON schema. All learner-facing writing must be publication-ready.",
+    ].join("\n\n"),
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: [
+              `Course request: ${input.brief}`,
+              input.requestedTitle ? `Requested title: ${input.requestedTitle}` : "Choose a concise professional title.",
+              input.audience ? `Audience: ${input.audience}` : "Infer a practical audience and state it clearly.",
+              `Target total duration: ${input.estimatedMinutes} minutes.`,
+              `Create approximately ${input.questionCount} mastery questions across the full course.`,
+              input.displayMode === "slideshow"
+                ? "Format: Slide presentation. Make each moment focused enough to fit one screen, generally 60-140 spoken words, while using enough moments to teach the subject thoroughly."
+                : "Format: Scrolling editorial webpage. Write substantial explain/text moments, generally 180-320 words with short paragraphs, and place activities naturally between reading sections.",
+              input.requestedTheme
+                ? `Required visual theme: ${input.requestedTheme}.`
+                : "Choose the visual theme that best suits the subject and audience.",
+              "Make the chapter count and content depth fit the requested duration.",
+            ].join("\n"),
+          },
+          ...input.sources.map(sourceContent),
+        ],
+      },
+    ],
+    max_output_tokens: outputBudget,
+    text: {
+      verbosity: "medium",
+      format: {
+        type: "json_schema",
+        name: "native_training_course",
+        strict: true,
+        schema: generatedCourseSchema,
+      },
+    },
+  };
+}
+
+function parseGeneratedCourse(data: AiResponseData, input: Pick<AiCourseGenerationInput, "requestedTitle">): GeneratedAiCourse {
+  const output = extractResponseOutputText(data);
+  if (!output) throw new Error("AI returned an empty course draft.");
+
+  const generated = JSON.parse(output) as Omit<GeneratedAiCourse, "sections"> & {
+    sections: Array<Omit<GeneratedAiCourse["sections"][number], "lessonPlan"> & Omit<LessonPlan, "sectionTitle">>;
+  };
+  const sections = generated.sections.map((section) => ({
+    title: section.title.trim(),
+    estimatedMinutes: section.estimatedMinutes,
+    lessonPlan: {
+      sectionTitle: section.title.trim(),
+      opening: section.opening.trim(),
+      objectives: section.objectives.map((item) => item.trim()).filter(Boolean),
+      summary: section.summary.trim(),
+      keyFacts: section.keyFacts.map((item) => item.trim()).filter(Boolean),
+      moments: section.moments.map(normalizedMoment),
+    },
+  }));
+
+  if (!sections.length || sections.some((section) => !section.title || section.lessonPlan.moments.length < 5)) {
+    throw new Error("AI returned an incomplete course draft. Please try generating it again.");
+  }
+
+  return {
+    title: generated.title.trim() || input.requestedTitle?.trim() || "New training course",
+    description: generated.description.trim(),
+    audience: generated.audience.trim(),
+    estimatedMinutes: generated.estimatedMinutes,
+    theme: generated.theme,
+    sections,
+  };
+}
+
+async function openAiRequest(url: string, init?: RequestInit, timeoutMs = AI_REQUEST_TIMEOUT_MS) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), AI_GENERATION_TIMEOUT_MS);
-  const outputBudget = Math.min(28_000, Math.max(12_000, 10_000 + input.estimatedMinutes * 220));
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
+    const response = await fetch(url, {
+      ...init,
       signal: controller.signal,
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        ...init?.headers,
       },
-      body: JSON.stringify({
-        model: process.env.OPENAI_COURSE_MODEL || process.env.OPENAI_MODEL || "gpt-5.6-sol",
-        reasoning: { effort: "medium" },
-        instructions: [
-          "Role: You are a senior instructional designer, curriculum writer, assessment designer, and digital learning creative director.",
-          "Goal: Turn the course brief and supporting files into a polished, accurate, responsive web course that feels intentionally designed rather than generated from a generic template.",
-          "Success criteria: Build a coherent chapter sequence; teach concepts in plain language; use concrete examples grounded in the supplied evidence; vary the learning blocks; include coached practice and an independent mastery check; and make every block useful and editable.",
-          "Evidence: Treat supporting files as reference material, not as layouts to reproduce. Do not invent regulations, measurements, procedures, product claims, or citations that are not supported by the brief or files. When evidence is incomplete, teach the supported principle without manufacturing specifics.",
-          "Instructional depth: Each section must have a purposeful arc: a motivating opening, clear explanation, a concrete worked example, active practice, a realistic decision or scenario, and a useful recap. Teach why and how, not merely definitions. Use source-specific facts and workplace examples whenever the evidence supports them.",
-          "Design: Use explain/text blocks for real teaching depth, tiles only for memorable frameworks, dragdrop only for true sequences, flashcards for terms or paired concepts, scenarios for judgment, and questions for checks. Avoid repetitive card grids, repeated introductions, filler, slogans, vague advice, and questions that merely repeat a sentence verbatim.",
-          "Quality control: Every moment must add new instructional value. Do not write generic safety language that could fit any course. Include consequences, common errors, observable cues, and practical decisions appropriate to the stated audience. Ensure every objective is actually taught and assessed.",
-          "Assessments: Choices must be plausible complete answers. Put coached questions in activity phase and the requested number of scored questions in mastery phase across the course. Every scored question needs clear corrective feedback.",
-          "Output: Return only the strict JSON schema. All learner-facing writing must be publication-ready.",
-        ].join("\n\n"),
-        input: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "input_text",
-                text: [
-                  `Course request: ${input.brief}`,
-                  input.requestedTitle ? `Requested title: ${input.requestedTitle}` : "Choose a concise professional title.",
-                  input.audience ? `Audience: ${input.audience}` : "Infer a practical audience and state it clearly.",
-                  `Target total duration: ${input.estimatedMinutes} minutes.`,
-                  `Create approximately ${input.questionCount} mastery questions across the full course.`,
-                  input.displayMode === "slideshow"
-                    ? "Format: Slide presentation. Make each moment focused enough to fit one screen, generally 60-140 spoken words, while using enough moments to teach the subject thoroughly."
-                    : "Format: Scrolling editorial webpage. Write substantial explain/text moments, generally 180-320 words with short paragraphs, and place activities naturally between reading sections.",
-                  input.requestedTheme
-                    ? `Required visual theme: ${input.requestedTheme}.`
-                    : "Choose the visual theme that best suits the subject and audience.",
-                  "Make the chapter count and content depth fit the requested duration.",
-                ].join("\n"),
-              },
-              ...input.sources.map(sourceContent),
-            ],
-          },
-        ],
-        max_output_tokens: outputBudget,
-        text: {
-          verbosity: "medium",
-          format: {
-            type: "json_schema",
-            name: "native_training_course",
-            strict: true,
-            schema: generatedCourseSchema,
-          },
-        },
-      }),
     });
-
-    const data = await response.json();
+    const data = (await response.json()) as AiResponseData;
     if (!response.ok) {
       throw new Error(data?.error?.message || "AI could not generate the course.");
     }
-    const output = extractResponseOutputText(data);
-    if (!output) throw new Error("AI returned an empty course draft.");
-
-    const generated = JSON.parse(output) as Omit<GeneratedAiCourse, "sections"> & {
-      sections: Array<Omit<GeneratedAiCourse["sections"][number], "lessonPlan"> & Omit<LessonPlan, "sectionTitle">>;
-    };
-    const sections = generated.sections.map((section) => ({
-      title: section.title.trim(),
-      estimatedMinutes: section.estimatedMinutes,
-      lessonPlan: {
-        sectionTitle: section.title.trim(),
-        opening: section.opening.trim(),
-        objectives: section.objectives.map((item) => item.trim()).filter(Boolean),
-        summary: section.summary.trim(),
-        keyFacts: section.keyFacts.map((item) => item.trim()).filter(Boolean),
-        moments: section.moments.map(normalizedMoment),
-      },
-    }));
-
-    if (!sections.length || sections.some((section) => !section.title || section.lessonPlan.moments.length < 5)) {
-      throw new Error("AI returned an incomplete course draft. Please try generating it again.");
-    }
-
-    return {
-      title: generated.title.trim() || input.requestedTitle?.trim() || "New training course",
-      description: generated.description.trim(),
-      audience: generated.audience.trim(),
-      estimatedMinutes: generated.estimatedMinutes,
-      theme: generated.theme,
-      sections,
-    };
+    return data;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Course generation took longer than two minutes and was stopped. Try a shorter course or fewer source files.");
+      throw new Error("The AI service did not respond to the request in time. If the background job already started, checking again will recover it.");
     }
     throw error;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+export async function startAiCourseGeneration(input: AiCourseGenerationInput) {
+  const data = await openAiRequest("https://api.openai.com/v1/responses", {
+    method: "POST",
+    body: JSON.stringify(requestBody(input)),
+  }, 90_000);
+  if (!data.id) throw new Error("AI did not return a background job identifier.");
+  return { id: data.id, status: data.status || "queued" };
+}
+
+export async function pollAiCourseGeneration(jobId: string, requestedTitle?: string) {
+  if (!/^resp_[a-zA-Z0-9_-]+$/.test(jobId)) throw new Error("The course generation job identifier is invalid.");
+  const data = await openAiRequest(`https://api.openai.com/v1/responses/${jobId}`);
+  const status = data.status || "unknown";
+  if (status === "queued" || status === "in_progress") return { status, course: null };
+  if (status !== "completed") {
+    throw new Error(data.error?.message || data.incomplete_details?.reason || `Course generation ended with status: ${status}.`);
+  }
+  return { status, course: parseGeneratedCourse(data, { requestedTitle }) };
+}
+
+export async function cancelAiCourseGeneration(jobId: string) {
+  if (!/^resp_[a-zA-Z0-9_-]+$/.test(jobId)) return;
+  await openAiRequest(`https://api.openai.com/v1/responses/${jobId}/cancel`, { method: "POST" });
 }

@@ -23,7 +23,6 @@ const buildStages = [
   "Creating activities and assessments",
   "Polishing the editable draft",
 ];
-const BROWSER_GENERATION_TIMEOUT_MS = 135_000;
 
 function fileSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
@@ -37,6 +36,8 @@ export default function NewAiCoursePage() {
   const [stage, setStage] = useState(0);
   const [error, setError] = useState("");
   const requestController = useRef<AbortController | null>(null);
+  const jobIdRef = useRef<string | null>(null);
+  const stoppedByUser = useRef(false);
 
   const totalBytes = useMemo(() => files.reduce((total, file) => total + file.size, 0), [files]);
 
@@ -45,16 +46,27 @@ export default function NewAiCoursePage() {
     setBuilding(true);
     setStage(0);
     setError("");
+    stoppedByUser.current = false;
+    jobIdRef.current = null;
 
     const timer = window.setInterval(() => {
       setStage((current) => Math.min(buildStages.length - 1, current + 1));
     }, 9000);
     const controller = new AbortController();
     requestController.current = controller;
-    const requestTimeout = window.setTimeout(() => controller.abort(), BROWSER_GENERATION_TIMEOUT_MS);
 
     try {
       const form = new FormData(event.currentTarget);
+      const jobSettings = {
+        requestedTitle: String(form.get("title") || ""),
+        requestedTheme: String(form.get("theme") || "auto"),
+        displayMode: String(form.get("displayMode") || "webpage"),
+        estimatedMinutes: Number(form.get("estimatedMinutes")) || 30,
+        appearance: String(form.get("appearance") || "light"),
+        toolbarStyle: String(form.get("toolbarStyle") || "guided"),
+        aiCoach: String(form.get("aiCoach") || "ask"),
+        knowledgeScope: String(form.get("knowledgeScope") || "course"),
+      };
       form.delete("sources");
       files.forEach((file) => form.append("sources", file, file.name));
       const response = await fetch("/api/admin/courses/generate", {
@@ -62,26 +74,53 @@ export default function NewAiCoursePage() {
         body: form,
         signal: controller.signal,
       });
-      const payload = await parseJsonResponse<{ adminUrl?: string; error?: string }>(response);
-      if (!response.ok || !payload.adminUrl) {
+      let payload = await parseJsonResponse<{ jobId?: string; status?: string; adminUrl?: string; error?: string }>(response);
+      if (!response.ok || !payload.jobId) {
         throw new Error(payload.error || "The course draft could not be generated.");
       }
+      jobIdRef.current = payload.jobId;
+
+      while (!payload.adminUrl) {
+        await new Promise((resolve) => window.setTimeout(resolve, 3500));
+        const pollResponse = await fetch("/api/admin/courses/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({ jobId: jobIdRef.current, ...jobSettings }),
+        });
+        payload = await parseJsonResponse<{ jobId?: string; status?: string; adminUrl?: string; error?: string }>(pollResponse);
+        if (!pollResponse.ok && pollResponse.status !== 202) {
+          throw new Error(payload.error || "The background course job could not be completed.");
+        }
+      }
+      jobIdRef.current = null;
       router.push(payload.adminUrl);
       router.refresh();
     } catch (reason) {
-      const aborted = reason instanceof DOMException && reason.name === "AbortError";
+      const aborted = reason instanceof Error && reason.name === "AbortError";
       setError(
-        aborted
-          ? "Generation was stopped after waiting too long. Try again with a shorter course or fewer source files."
+        aborted && stoppedByUser.current
+          ? "Course generation was stopped."
+          : aborted
+            ? "The progress connection was interrupted. The background job may still be running; refresh and try checking again."
           : reason instanceof Error
             ? reason.message
             : "The course draft could not be generated.",
       );
     } finally {
       window.clearInterval(timer);
-      window.clearTimeout(requestTimeout);
       requestController.current = null;
       setBuilding(false);
+    }
+  }
+
+  async function stopGeneration() {
+    stoppedByUser.current = true;
+    requestController.current?.abort();
+    const jobId = jobIdRef.current;
+    jobIdRef.current = null;
+    if (jobId) {
+      await fetch(`/api/admin/courses/generate?jobId=${encodeURIComponent(jobId)}`, { method: "DELETE" }).catch(() => undefined);
     }
   }
 
@@ -389,13 +428,13 @@ export default function NewAiCoursePage() {
                   <LoaderCircle className="animate-spin text-amber-300" size={24} />
                   <p className="mt-4 text-xs font-black uppercase tracking-[.14em] text-amber-200">Building your course</p>
                   <p className="mt-2 font-semibold leading-6">{buildStages[stage]}</p>
-                  <p className="mt-2 text-xs leading-5 text-slate-300">Most drafts finish within two minutes.</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-300">The class is building in the background. Larger courses can take several minutes without being discarded.</p>
                   <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/15">
                     <div className="h-full rounded-full bg-amber-300 transition-[width] duration-700" style={{ width: `${((stage + 1) / buildStages.length) * 100}%` }} />
                   </div>
                   <button
                     type="button"
-                    onClick={() => requestController.current?.abort()}
+                    onClick={() => void stopGeneration()}
                     className="mt-4 text-xs font-bold text-amber-200 underline decoration-amber-200/40 underline-offset-4 hover:text-white"
                   >
                     Stop generation
