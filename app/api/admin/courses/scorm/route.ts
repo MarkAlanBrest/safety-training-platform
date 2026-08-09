@@ -5,8 +5,8 @@ import { requireAdmin } from "@/lib/admin-session";
 import {
   createScormCourseShell,
   importScormZipIntoCourse,
-  MAX_SCORM_ZIP_BYTES,
 } from "@/lib/scorm-course-create";
+import { MAX_SCORM_ZIP_BYTES, maxScormZipMb } from "@/lib/scorm-limits";
 
 export async function POST(request: Request) {
   const unauthorized = await requireAdmin(request);
@@ -24,7 +24,10 @@ export async function POST(request: Request) {
       return Response.json({ error: "SCORM packages must be uploaded as ZIP files." }, { status: 400 });
     }
     if (file.size > MAX_SCORM_ZIP_BYTES) {
-      return Response.json({ error: "SCORM ZIP uploads are limited to 25 MB." }, { status: 400 });
+      return Response.json(
+        { error: `SCORM ZIP uploads are limited to ${maxScormZipMb()} MB.` },
+        { status: 400 },
+      );
     }
 
     const course = await createScormCourseShell({

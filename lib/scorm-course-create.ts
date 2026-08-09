@@ -12,8 +12,9 @@ import {
   replaceCourseAssetBlobs,
 } from "@/lib/scorm-asset-store";
 import { buildDefaultScormLessonPlan } from "@/lib/scorm-instructor";
+import { MAX_SCORM_ZIP_BYTES } from "@/lib/scorm-limits";
 
-export const MAX_SCORM_ZIP_BYTES = 25 * 1024 * 1024;
+export { MAX_SCORM_ZIP_BYTES };
 
 export type ScormCourseInitInput = {
   title: string;

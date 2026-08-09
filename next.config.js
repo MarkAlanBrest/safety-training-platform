@@ -2,9 +2,10 @@
 const nextConfig = {
   serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist", "node-pptx-png", "skia-canvas", "ffmpeg-static", "pg"],
   experimental: {
-    proxyClientMaxBodySize: "25mb",
+    // Chunked SCORM uploads use ~1 MB parts; one-shot / server-action ceiling matches package cap.
+    proxyClientMaxBodySize: "200mb",
     serverActions: {
-      bodySizeLimit: "25mb",
+      bodySizeLimit: "200mb",
     },
   },
   turbopack: {
