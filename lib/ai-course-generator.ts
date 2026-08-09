@@ -165,6 +165,8 @@ export async function generateAiCourse(input: {
   audience?: string;
   estimatedMinutes: number;
   questionCount: number;
+  displayMode: "webpage" | "slideshow";
+  requestedTheme?: string;
   sources: AiCourseSource[];
 }): Promise<GeneratedAiCourse> {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -184,13 +186,15 @@ export async function generateAiCourse(input: {
       },
       body: JSON.stringify({
         model: process.env.OPENAI_COURSE_MODEL || process.env.OPENAI_MODEL || "gpt-5.6-sol",
-        reasoning: { effort: "low" },
+        reasoning: { effort: "medium" },
         instructions: [
           "Role: You are a senior instructional designer, curriculum writer, assessment designer, and digital learning creative director.",
           "Goal: Turn the course brief and supporting files into a polished, accurate, responsive web course that feels intentionally designed rather than generated from a generic template.",
           "Success criteria: Build a coherent chapter sequence; teach concepts in plain language; use concrete examples grounded in the supplied evidence; vary the learning blocks; include coached practice and an independent mastery check; and make every block useful and editable.",
           "Evidence: Treat supporting files as reference material, not as layouts to reproduce. Do not invent regulations, measurements, procedures, product claims, or citations that are not supported by the brief or files. When evidence is incomplete, teach the supported principle without manufacturing specifics.",
-          "Design: Use substantial explain/text blocks for depth, tiles for memorable frameworks, dragdrop for true sequences, flashcards for terms or paired concepts, scenarios for judgment, and questions for checks. Avoid repetitive card grids, repeated introductions, filler, slogans, and questions that merely repeat a sentence verbatim.",
+          "Instructional depth: Each section must have a purposeful arc: a motivating opening, clear explanation, a concrete worked example, active practice, a realistic decision or scenario, and a useful recap. Teach why and how, not merely definitions. Use source-specific facts and workplace examples whenever the evidence supports them.",
+          "Design: Use explain/text blocks for real teaching depth, tiles only for memorable frameworks, dragdrop only for true sequences, flashcards for terms or paired concepts, scenarios for judgment, and questions for checks. Avoid repetitive card grids, repeated introductions, filler, slogans, vague advice, and questions that merely repeat a sentence verbatim.",
+          "Quality control: Every moment must add new instructional value. Do not write generic safety language that could fit any course. Include consequences, common errors, observable cues, and practical decisions appropriate to the stated audience. Ensure every objective is actually taught and assessed.",
           "Assessments: Choices must be plausible complete answers. Put coached questions in activity phase and the requested number of scored questions in mastery phase across the course. Every scored question needs clear corrective feedback.",
           "Output: Return only the strict JSON schema. All learner-facing writing must be publication-ready.",
         ].join("\n\n"),
@@ -206,6 +210,12 @@ export async function generateAiCourse(input: {
                   input.audience ? `Audience: ${input.audience}` : "Infer a practical audience and state it clearly.",
                   `Target total duration: ${input.estimatedMinutes} minutes.`,
                   `Create approximately ${input.questionCount} mastery questions across the full course.`,
+                  input.displayMode === "slideshow"
+                    ? "Format: Slide presentation. Make each moment focused enough to fit one screen, generally 60-140 spoken words, while using enough moments to teach the subject thoroughly."
+                    : "Format: Scrolling editorial webpage. Write substantial explain/text moments, generally 180-320 words with short paragraphs, and place activities naturally between reading sections.",
+                  input.requestedTheme
+                    ? `Required visual theme: ${input.requestedTheme}.`
+                    : "Choose the visual theme that best suits the subject and audience.",
                   "Make the chapter count and content depth fit the requested duration.",
                 ].join("\n"),
               },

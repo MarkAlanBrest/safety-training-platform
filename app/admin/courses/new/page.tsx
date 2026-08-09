@@ -13,6 +13,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import AdminShell from "@/components/AdminShell";
+import { courseThemes } from "@/lib/course-options";
 import { parseJsonResponse } from "@/lib/parse-response";
 
 const buildStages = [
@@ -180,6 +181,82 @@ export default function NewAiCoursePage() {
                   </select>
                 </label>
               </div>
+            </section>
+
+            <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6 shadow-sm sm:p-8">
+              <div className="flex items-center gap-3">
+                <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#f2ecfb] text-[#644b87]">
+                  <Palette size={21} />
+                </span>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[.15em] text-[#725792]">Learning experience</p>
+                  <h3 className="font-serif text-2xl font-semibold text-[#10283f]">Choose how the class should feel</h3>
+                </div>
+              </div>
+
+              <fieldset className="mt-7">
+                <legend className="text-sm font-bold text-[#263746]">Course view</legend>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {[
+                    {
+                      id: "webpage",
+                      name: "Scrolling page",
+                      description: "A polished article-style class with activities placed naturally in the lesson.",
+                    },
+                    {
+                      id: "slideshow",
+                      name: "Slide presentation",
+                      description: "One focused teaching moment at a time with Previous and Next navigation.",
+                    },
+                  ].map((option) => (
+                    <label key={option.id} className="cursor-pointer">
+                      <input
+                        type="radio"
+                        name="displayMode"
+                        value={option.id}
+                        defaultChecked={option.id === "webpage"}
+                        className="peer sr-only"
+                      />
+                      <span className="block h-full rounded-2xl border border-[#10283f]/10 p-4 transition peer-checked:border-[#c68b1b] peer-checked:bg-[#fff9eb] peer-checked:ring-2 peer-checked:ring-[#e8c273]/25">
+                        <span className="font-bold text-[#10283f]">{option.name}</span>
+                        <span className="mt-1 block text-sm leading-6 text-[#69757e]">{option.description}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset className="mt-7">
+                <legend className="text-sm font-bold text-[#263746]">Visual theme</legend>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="cursor-pointer">
+                    <input type="radio" name="theme" value="auto" defaultChecked className="peer sr-only" />
+                    <span className="block h-full rounded-2xl border border-[#10283f]/10 p-4 transition peer-checked:border-[#c68b1b] peer-checked:bg-[#fff9eb] peer-checked:ring-2 peer-checked:ring-[#e8c273]/25">
+                      <span className="flex overflow-hidden rounded-full">
+                        {courseThemes.map((theme) => (
+                          <span key={theme.id} className="h-3 flex-1" style={{ backgroundColor: theme.colors[2] }} />
+                        ))}
+                      </span>
+                      <span className="mt-3 block font-bold text-[#10283f]">Let AI choose</span>
+                      <span className="mt-1 block text-xs leading-5 text-[#69757e]">Match the subject and audience.</span>
+                    </span>
+                  </label>
+                  {courseThemes.map((theme) => (
+                    <label key={theme.id} className="cursor-pointer">
+                      <input type="radio" name="theme" value={theme.id} className="peer sr-only" />
+                      <span className="block h-full rounded-2xl border border-[#10283f]/10 p-4 transition peer-checked:border-[#c68b1b] peer-checked:bg-[#fff9eb] peer-checked:ring-2 peer-checked:ring-[#e8c273]/25">
+                        <span className="flex overflow-hidden rounded-full">
+                          {theme.colors.map((color) => (
+                            <span key={color} className="h-3 flex-1" style={{ backgroundColor: color }} />
+                          ))}
+                        </span>
+                        <span className="mt-3 block font-bold text-[#10283f]">{theme.name}</span>
+                        <span className="mt-1 block text-xs leading-5 text-[#69757e]">{theme.description}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
             </section>
 
             <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6 shadow-sm sm:p-8">

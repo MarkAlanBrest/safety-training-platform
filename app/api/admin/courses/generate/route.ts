@@ -12,6 +12,7 @@ import {
   type AiCourseSource,
 } from "@/lib/ai-course-generator";
 import { slugify } from "@/lib/mason";
+import { isCourseTheme } from "@/lib/course-options";
 import { prisma } from "@/lib/prisma";
 
 const MAX_SOURCE_COUNT = 8;
@@ -48,6 +49,8 @@ export async function POST(request: Request) {
     const brief = String(form.get("brief") || "").trim();
     const requestedTitle = String(form.get("title") || "").trim();
     const audience = String(form.get("audience") || "").trim();
+    const displayMode = String(form.get("displayMode") || "webpage");
+    const requestedTheme = String(form.get("theme") || "auto");
     const estimatedMinutes = Math.max(10, Math.min(240, Number(form.get("estimatedMinutes")) || 30));
     const questionCount = Math.max(3, Math.min(20, Number(form.get("questionCount")) || 8));
     const files = form.getAll("sources").filter((item): item is File => item instanceof File && item.size > 0);
@@ -60,6 +63,12 @@ export async function POST(request: Request) {
     }
     if (brief.length > 8000) {
       return Response.json({ error: "The course description is limited to 8,000 characters." }, { status: 400 });
+    }
+    if (!['webpage', 'slideshow'].includes(displayMode)) {
+      return Response.json({ error: "Choose either scrolling page or slide presentation." }, { status: 400 });
+    }
+    if (requestedTheme !== "auto" && !isCourseTheme(requestedTheme)) {
+      return Response.json({ error: "Choose a valid course theme." }, { status: 400 });
     }
     if (files.length > MAX_SOURCE_COUNT) {
       return Response.json({ error: `Upload no more than ${MAX_SOURCE_COUNT} supporting files.` }, { status: 400 });
@@ -114,6 +123,8 @@ export async function POST(request: Request) {
       audience,
       estimatedMinutes,
       questionCount,
+      displayMode: displayMode as "webpage" | "slideshow",
+      requestedTheme: requestedTheme === "auto" ? undefined : requestedTheme,
       sources,
     });
 
@@ -128,11 +139,11 @@ export async function POST(request: Request) {
         slug,
         description: generated.description || null,
         audience: generated.audience || null,
-        theme: generated.theme,
+        theme: requestedTheme === "auto" ? generated.theme : requestedTheme,
         intensity: estimatedMinutes <= 20 ? "essentials" : estimatedMinutes >= 75 ? "comprehensive" : "standard",
         estimatedMinutes: generated.estimatedMinutes,
         courseType: "native",
-        displayMode: "webpage",
+        displayMode,
         published: false,
         sections: {
           create: generated.sections.map((section, index) => ({
