@@ -177,7 +177,11 @@ export default function ScormPlayer({
       ref={iframeRef}
       title={title}
       src={launchUrl}
-      className={embedded ? `h-full w-full border-0 bg-white ${className || ""}` : "h-[calc(100vh-77px)] w-full border-0 bg-white"}
+      className={
+        embedded
+          ? `absolute inset-0 h-full w-full border-0 bg-white ${className || ""}`
+          : "h-[calc(100dvh-77px)] w-full border-0 bg-white"
+      }
       allow="autoplay; fullscreen"
       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals"
     />
@@ -185,14 +189,14 @@ export default function ScormPlayer({
 
   if (embedded) {
     return (
-      <div className={`relative h-full min-h-0 bg-white ${className || ""}`}>
+      <div className={`relative h-full min-h-0 w-full overflow-hidden bg-white ${className || ""}`}>
         {error ? (
           <p className="absolute inset-x-0 top-0 z-10 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
             {error}
           </p>
         ) : null}
         {!ready || !runtimeReady ? (
-          <div className="grid h-full min-h-[320px] place-items-center">
+          <div className="grid h-full place-items-center">
             <LoaderCircle className="animate-spin text-[#c68b1b]" size={34} />
           </div>
         ) : (

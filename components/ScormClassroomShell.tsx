@@ -152,6 +152,8 @@ export default function ScormClassroomShell({
     void speak(opening);
   }, [course.description, course.instructor.opening, course.title, speak]);
 
+  const playerHostRef = useRef<HTMLDivElement | null>(null);
+
   const handleSend = useCallback(
     async (message: string) => {
       unlockAudio();
@@ -163,8 +165,17 @@ export default function ScormClassroomShell({
     [cancelSpeech, messages, sendToInstructor, unlockAudio],
   );
 
+  const enterFullscreen = useCallback(() => {
+    const host = playerHostRef.current;
+    if (!host) return;
+    const target =
+      host.querySelector("iframe") ||
+      host;
+    void (target as HTMLElement).requestFullscreen?.().catch(() => undefined);
+  }, []);
+
   return (
-    <main className="flex h-screen flex-col overflow-hidden bg-white text-slate-900">
+    <main className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-white text-slate-900">
       <ScormClassroomTopBar
         title={course.title}
         scormVersion={course.scormVersion}
@@ -176,19 +187,22 @@ export default function ScormClassroomShell({
         }
         progressPercent={progressPercent}
         locationLabel={locationLabel}
+        onFullscreen={enterFullscreen}
       />
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="min-h-0 bg-[#0b1f33]">
-          <ScormPlayer
-            title={course.title}
-            slug={course.slug}
-            entryPoint={course.scormEntryPoint}
-            version={course.scormVersion}
-            preview={preview}
-            embedded
-            onRuntimeChange={handleRuntimeChange}
-          />
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(220px,34%)] overflow-hidden lg:grid-cols-[minmax(0,1fr)_340px] lg:grid-rows-1">
+        <div ref={playerHostRef} className="relative min-h-0 overflow-hidden bg-[#0b1f33]">
+          <div className="absolute inset-0">
+            <ScormPlayer
+              title={course.title}
+              slug={course.slug}
+              entryPoint={course.scormEntryPoint}
+              version={course.scormVersion}
+              preview={preview}
+              embedded
+              onRuntimeChange={handleRuntimeChange}
+            />
+          </div>
         </div>
 
         <div className="flex min-h-0 flex-col border-t border-slate-200 lg:border-l lg:border-t-0">
