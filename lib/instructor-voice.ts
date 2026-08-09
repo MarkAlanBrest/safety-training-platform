@@ -33,6 +33,7 @@ export function useInstructorVoice(voiceSettings: InstructorVoiceSettings) {
   const speakQueueRef = useRef<Promise<void>>(Promise.resolve());
   const speechGenerationRef = useRef(0);
   const speechAbortRef = useRef<AbortController | null>(null);
+  const browserVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const [speaking, setSpeaking] = useState(false);
   const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
 
@@ -67,6 +68,48 @@ export function useInstructorVoice(voiceSettings: InstructorVoiceSettings) {
       })
       .catch(() => setNeedsAudioUnlock(true));
   }, []);
+
+  const getBrowserVoice = useCallback(async (signal: AbortSignal) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return null;
+
+    const synth = window.speechSynthesis;
+    let voices = synth.getVoices();
+
+    // Chromium can return no voices at first. Speaking immediately makes the
+    // opening chunk use a temporary default voice and later chunks switch.
+    if (!voices.length && !signal.aborted) {
+      await new Promise<void>((resolve) => {
+        let timer = 0;
+        const finish = () => {
+          synth.removeEventListener("voiceschanged", finish);
+          signal.removeEventListener("abort", finish);
+          window.clearTimeout(timer);
+          resolve();
+        };
+        synth.addEventListener("voiceschanged", finish);
+        signal.addEventListener("abort", finish, { once: true });
+        timer = window.setTimeout(finish, 1200);
+      });
+      voices = synth.getVoices();
+    }
+
+    if (signal.aborted) return null;
+    const cached = browserVoiceRef.current;
+    if (cached) {
+      const current = voices.find((voice) => voice.voiceURI === cached.voiceURI);
+      if (current) return current;
+    }
+
+    const configured = voiceSettings.voice.trim().toLowerCase();
+    const preferred =
+      voices.find((voice) => voice.name.toLowerCase() === configured || voice.voiceURI.toLowerCase() === configured) ||
+      voices.find((voice) => /mark/i.test(voice.name)) ||
+      voices.find((voice) => /^en(?:-|_)/i.test(voice.lang)) ||
+      voices[0] ||
+      null;
+    browserVoiceRef.current = preferred;
+    return preferred;
+  }, [voiceSettings.voice]);
 
   const playFromUrl = useCallback(async (
     url: string,
@@ -197,14 +240,15 @@ export function useInstructorVoice(voiceSettings: InstructorVoiceSettings) {
           setSpeaking(false);
           return;
         }
+        const browserVoice = await getBrowserVoice(controller.signal);
+        if (controller.signal.aborted || generation !== speechGenerationRef.current) {
+          setSpeaking(false);
+          return;
+        }
         await new Promise<void>((resolve) => {
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.rate = voiceSettings.speed;
-          const voices = window.speechSynthesis.getVoices();
-          const preferred =
-            voices.find((voice) => /mark/i.test(voice.name)) ||
-            voices.find((voice) => voice.lang.startsWith("en"));
-          if (preferred) utterance.voice = preferred;
+          if (browserVoice) utterance.voice = browserVoice;
           utterance.onstart = () => onProgress?.(textAtProgress(text, 0.03), false);
           utterance.onboundary = (event) => {
             const end = Math.max(1, event.charIndex + (event.charLength || 0));
@@ -257,7 +301,7 @@ export function useInstructorVoice(voiceSettings: InstructorVoiceSettings) {
         await playBuffered(response, controller, text, onProgress);
       }
     },
-    [playBuffered, playFromUrl, voiceSettings],
+    [getBrowserVoice, playBuffered, playFromUrl, voiceSettings],
   );
 
   const speak = useCallback(

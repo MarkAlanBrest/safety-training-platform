@@ -327,7 +327,10 @@ export default function ScormPlayer({
       title={title}
       src={launchUrl}
       className={embedded ? `h-full w-full border-0 bg-white ${className || ""}` : "h-[calc(100vh-77px)] w-full border-0 bg-white"}
-      allow="autoplay; fullscreen"
+      allow={mutePackageAudio ? "fullscreen" : "autoplay; fullscreen"}
+      onLoad={() => {
+        if (mutePackageAudio && iframeRef.current) muteMediaInsideFrame(iframeRef.current);
+      }}
       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals"
     />
   );
