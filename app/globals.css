@@ -99,7 +99,23 @@ h4 {
  * treatment even if the page is viewed in grayscale.
  */
 .course-shell {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: clip;
   transition: background-color 180ms ease, color 180ms ease;
+}
+
+.course-shell .course-article,
+.course-shell .course-article section,
+.course-shell .course-article article {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.course-shell .course-article > div:first-child {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Heritage: traditional editorial typography on warm paper. */

@@ -405,7 +405,7 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
             <p className="text-xs font-bold uppercase tracking-[.18em] text-white/50">
               {course.companyName || "Training program"}
             </p>
-            <h1 className="mt-2 text-xl font-semibold leading-7">{course.title}</h1>
+            <h1 className="mt-2 break-words text-xl font-semibold leading-7 !text-white">{course.title}</h1>
           </div>
           <nav className="flex-1 overflow-y-auto px-4 py-6">
             <p className="px-3 text-xs font-bold uppercase tracking-[.16em] text-white/40">Sections</p>
@@ -437,7 +437,7 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
         </div>
       </aside>
 
-      <div className="lg:pl-[290px]">
+      <div className="min-w-0 lg:pl-[290px]">
         <header className="course-topbar sticky top-0 z-30 border-b border-slate-200/80 bg-[color:var(--page)]/95 backdrop-blur">
           <div className="mx-auto flex max-w-[1050px] items-center justify-between gap-4 px-6 py-4 pl-20 lg:px-14">
             <div className="min-w-0">
@@ -452,19 +452,19 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
           </div>
         </header>
 
-        <article className="course-article mx-auto max-w-[1050px] px-6 pb-24 pt-14 sm:px-10 lg:px-14 lg:pt-20">
-          <div className="max-w-[790px]">
+        <article className="course-article mx-auto min-w-0 max-w-[1050px] overflow-x-clip px-6 pb-24 pt-14 sm:px-10 lg:px-14 lg:pt-20">
+          <div className="min-w-0 max-w-[790px]">
             <p className="text-xs font-bold uppercase tracking-[.24em] text-[var(--accent)]">
               Section {String(sectionIndex + 1).padStart(2, "0")}
             </p>
-            <h1 className="mt-5 text-4xl font-semibold leading-[1.08] tracking-[-.035em] text-[var(--ink)] sm:text-6xl">
+            <h1 className="mt-5 break-words text-4xl font-semibold leading-[1.08] tracking-[-.035em] text-[var(--ink)] sm:text-6xl">
               {section.lessonPlan.sectionTitle || section.title}
             </h1>
-            <p className="mt-7 text-xl leading-9 text-slate-600 sm:text-2xl sm:leading-10">
+            <p className="mt-7 break-words text-xl leading-9 text-slate-600 sm:text-2xl sm:leading-10">
               {section.lessonPlan.opening}
             </p>
             {showMomentLabels && sectionIndex === 0 && (
-              <p className="mt-6 inline-flex rounded-full border border-[var(--accent)]/35 bg-[var(--pale)] px-4 py-2 text-sm font-semibold text-[var(--ink)]">
+              <p className="mt-6 block max-w-full break-words whitespace-normal rounded-2xl border border-[var(--accent)]/35 bg-[var(--pale)] px-4 py-3 text-sm font-semibold leading-6 text-[var(--ink)]">
                 Example course — includes AI instructor slides, flash cards, click-to-explore images, and more reading with fewer multiple-choice gates.
               </p>
             )}

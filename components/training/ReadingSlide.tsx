@@ -37,7 +37,7 @@ export default function ReadingSlide({
             {resolvedEyebrow}
           </p>
           <h2
-            className={`mt-3 font-bold tracking-tight text-[var(--ink)] ${
+            className={`mt-3 break-words font-bold tracking-tight text-[var(--ink)] ${
               compact ? "text-3xl sm:text-4xl" : "text-3xl sm:text-4xl"
             }`}
           >
@@ -48,7 +48,7 @@ export default function ReadingSlide({
           </div>
           <div className="mt-7 max-w-3xl space-y-5">
             {parts.map((paragraph) => (
-              <p key={paragraph} className="text-lg leading-8 text-slate-700">
+              <p key={paragraph} className="break-words text-lg leading-8 text-slate-700">
                 {paragraph}
               </p>
             ))}
@@ -71,7 +71,7 @@ export default function ReadingSlide({
             {resolvedEyebrow}
           </p>
           <h2
-            className={`mt-3 font-bold tracking-tight text-[var(--ink)] ${
+            className={`mt-3 break-words font-bold tracking-tight text-[var(--ink)] ${
               compact ? "text-3xl sm:text-5xl" : "text-3xl sm:text-4xl"
             }`}
           >
@@ -84,7 +84,7 @@ export default function ReadingSlide({
             {parts.map((paragraph, index) => (
               <p
                 key={paragraph}
-                className={`leading-8 text-slate-600 ${
+                className={`break-words leading-8 text-slate-600 ${
                   index === 0
                     ? "text-xl font-medium text-slate-700"
                     : "text-lg"
