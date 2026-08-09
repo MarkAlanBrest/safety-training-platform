@@ -1,9 +1,8 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import { neonConfig } from "@neondatabase/serverless";
-import { PrismaNeon } from "@prisma/adapter-neon";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
-import ws from "ws";
+import { Pool } from "pg";
 
 const email = String(process.env.ADMIN_EMAIL || "").trim().toLowerCase();
 const password = String(process.env.ADMIN_PASSWORD || "");
@@ -17,11 +16,11 @@ if (!email || !password) {
   process.exit(0);
 }
 
-neonConfig.webSocketConstructor = ws;
-neonConfig.webSocketConstructor = ws;
-const prisma = new PrismaClient({
-  adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL }),
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL.includes("sslmode=disable") ? false : { rejectUnauthorized: false },
 });
+const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 try {
   const passwordHash = await bcrypt.hash(password, 12);
@@ -43,4 +42,5 @@ try {
   console.log(`Admin ready: ${admin.email}`);
 } finally {
   await prisma.$disconnect();
+  await pool.end();
 }

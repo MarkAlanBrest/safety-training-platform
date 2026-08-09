@@ -6,13 +6,37 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ADMIN_COOKIE, hashSessionToken } from "@/lib/admin-session";
 
+async function ensureBootstrapAdmin(email: string, password: string) {
+  const bootstrapEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const bootstrapPassword = process.env.ADMIN_PASSWORD;
+  if (!bootstrapEmail || !bootstrapPassword) return null;
+  if (email !== bootstrapEmail || password !== bootstrapPassword) return null;
+
+  const existingCount = await prisma.adminUser.count();
+  if (existingCount > 0) return null;
+
+  const passwordHash = await bcrypt.hash(bootstrapPassword, 12);
+  return prisma.adminUser.create({
+    data: {
+      email: bootstrapEmail,
+      passwordHash,
+      active: true,
+      name: process.env.ADMIN_NAME || "Administrator",
+    },
+  });
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const email = String(body.email || "").trim().toLowerCase();
     const password = String(body.password || "");
 
-    const admin = await prisma.adminUser.findUnique({ where: { email } });
+    let admin = await prisma.adminUser.findUnique({ where: { email } });
+    if (!admin) {
+      admin = await ensureBootstrapAdmin(email, password);
+    }
+
     if (!admin || !admin.active || !(await bcrypt.compare(password, admin.passwordHash))) {
       return NextResponse.json(
         { error: "Invalid email or password." },
