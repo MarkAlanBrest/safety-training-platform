@@ -62,7 +62,6 @@ export default function ScormClassroomShell({
   const code = searchParams?.get("code") || "";
   const welcomedRef = useRef(false);
   const lastSpokenLocationRef = useRef("");
-  const lastSpokenVisibleTextRef = useRef("");
   const locationRef = useRef("");
 
   const voiceSettings = useMemo(() => {
@@ -76,7 +75,7 @@ export default function ScormClassroomShell({
     };
   }, [course.instructor]);
 
-  const { speak, cancelSpeech, unlockAudio, speaking, needsAudioUnlock } =
+  const { speak, cancelSpeech, unlockAudio, needsAudioUnlock } =
     useInstructorVoice(voiceSettings);
 
   const [messages, setMessages] = useState<TeacherMessage[]>([]);
@@ -174,26 +173,6 @@ export default function ScormClassroomShell({
     [cancelSpeech, course.instructor.narration, narrateScormLine],
   );
 
-  const handleVisibleTextChange = useCallback(
-    (text: string) => {
-      const cleaned = text.replace(/\s+/g, " ").trim();
-      if (!cleaned || cleaned === lastSpokenVisibleTextRef.current) return;
-
-      // A hand-authored cue is always preferred. Otherwise the SCORM slide talks
-      // automatically using the text that is visibly present in its frame.
-      const authoredCue = narrationForLocation(
-        course.instructor.narration,
-        locationRef.current,
-      );
-      if (authoredCue) return;
-
-      lastSpokenVisibleTextRef.current = cleaned;
-      cancelSpeech();
-      void narrateScormLine(cleaned);
-    },
-    [cancelSpeech, course.instructor.narration, narrateScormLine],
-  );
-
   useEffect(() => {
     if (welcomedRef.current) return;
     welcomedRef.current = true;
@@ -240,7 +219,6 @@ export default function ScormClassroomShell({
             preview={preview}
             embedded
             onRuntimeChange={handleRuntimeChange}
-            onVisibleTextChange={handleVisibleTextChange}
           />
         </div>
 
@@ -252,7 +230,7 @@ export default function ScormClassroomShell({
           ) : null}
           <TeacherChat
             messages={messages}
-            thinking={thinking || speaking}
+            thinking={thinking}
             speechToTextEnabled={course.instructor.settings.speechText}
             needsAudioUnlock={needsAudioUnlock}
             liveNarration={liveNarration}
