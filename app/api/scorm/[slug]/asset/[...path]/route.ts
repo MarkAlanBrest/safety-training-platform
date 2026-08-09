@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-session";
+import { readScormAssetContent } from "@/lib/scorm-asset-store";
 
 export async function GET(
   request: Request,
@@ -22,14 +23,20 @@ export async function GET(
   }
   const asset = await prisma.scormAsset.findUnique({
     where: { courseId_path: { courseId: course.id, path: assetPath } },
+    select: { mimeType: true },
   });
   if (!asset) return new Response("Asset not found.", { status: 404 });
 
-  return new Response(asset.content, {
-    headers: {
-      "Content-Type": asset.mimeType,
-      "Cache-Control": "private, max-age=300",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+  try {
+    const content = await readScormAssetContent(course.id, assetPath);
+    return new Response(content, {
+      headers: {
+        "Content-Type": asset.mimeType,
+        "Cache-Control": "private, max-age=300",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch {
+    return new Response("Asset not found.", { status: 404 });
+  }
 }

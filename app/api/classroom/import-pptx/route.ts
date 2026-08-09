@@ -28,6 +28,7 @@ import {
   type QuestionType,
 } from "@/lib/classroom-question-types";
 import { slugify } from "@/lib/mason";
+import { saveScormAssetBlob } from "@/lib/scorm-asset-store";
 import { renderPptxSlides } from "@/lib/pptx-render-server";
 
 function parseLineup(raw: unknown): LessonLineupItem[] {
@@ -197,24 +198,22 @@ export async function POST(request: Request) {
         select: { id: true, title: true, slug: true, published: true },
       });
 
-      const assets = images.map((image, index) => ({
-        courseId: created.id,
+      return created;
+    });
+
+    for (const [index, image] of images.entries()) {
+      await saveScormAssetBlob({
+        courseId: course.id,
         path: classroomChapterSlideAssetPath(1, index),
         mimeType: image.mimeType,
         content: Buffer.from(image.bytes),
-      }));
-
-      assets.push(
-        {
-          courseId: created.id,
-          path: classroomChapterDeckAssetPath(1),
-          mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-          content: Buffer.from(buffer),
-        },
-      );
-
-      await tx.scormAsset.createMany({ data: assets });
-      return created;
+      });
+    }
+    await saveScormAssetBlob({
+      courseId: course.id,
+      path: classroomChapterDeckAssetPath(1),
+      mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      content: Buffer.from(buffer),
     });
 
     return Response.json({

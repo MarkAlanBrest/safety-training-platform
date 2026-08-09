@@ -6,6 +6,11 @@ import { isCourseTheme } from "@/lib/course-options";
 import { slugify } from "@/lib/mason";
 import { prisma } from "@/lib/prisma";
 import { parseScormPackage } from "@/lib/scorm";
+import {
+  deleteScormAssetsForCourse,
+  readScormAssetsWithPrefix,
+  replaceCourseAssetBlobs,
+} from "@/lib/scorm-asset-store";
 import { buildDefaultScormLessonPlan } from "@/lib/scorm-instructor";
 
 export const MAX_SCORM_ZIP_BYTES = 25 * 1024 * 1024;
@@ -83,24 +88,21 @@ export async function createScormCourseShell(input: ScormCourseInitInput) {
 export async function importScormZipIntoCourse(courseId: number, zip: Uint8Array) {
   const parsed = parseScormPackage(zip);
 
-  await prisma.$transaction(async (transaction) => {
-    await transaction.scormAsset.deleteMany({ where: { courseId } });
-    await transaction.scormAsset.createMany({
-      data: parsed.assets.map((asset) => ({
-        courseId,
-        path: asset.path,
-        mimeType: asset.mimeType,
-        content: Buffer.from(asset.content),
-      })),
-    });
-    await transaction.masonCourse.update({
-      where: { id: courseId },
-      data: {
-        scormVersion: parsed.version,
-        scormEntryPoint: parsed.entryPoint,
-      },
-    });
-  }, { timeout: 120000 });
+  await replaceCourseAssetBlobs(
+    courseId,
+    parsed.assets.map((asset) => ({
+      path: asset.path,
+      mimeType: asset.mimeType,
+      content: Buffer.from(asset.content),
+    })),
+  );
+  await prisma.masonCourse.update({
+    where: { id: courseId },
+    data: {
+      scormVersion: parsed.version,
+      scormEntryPoint: parsed.entryPoint,
+    },
+  });
 
   return parsed;
 }
@@ -110,19 +112,13 @@ export function scormStagingPrefix(uploadId: string) {
 }
 
 export async function readStagedScormZip(courseId: number, uploadId: string) {
-  const prefix = scormStagingPrefix(uploadId);
-  const chunks = await prisma.scormAsset.findMany({
-    where: { courseId, path: { startsWith: prefix } },
-    orderBy: { path: "asc" },
-  });
+  const chunks = await readScormAssetsWithPrefix(courseId, scormStagingPrefix(uploadId));
   if (!chunks.length) {
     throw new Error("The uploaded SCORM package could not be found.");
   }
-  return Buffer.concat(chunks.map((item) => Buffer.from(item.content)));
+  return Buffer.concat(chunks.map((item) => item.content));
 }
 
 export async function deleteStagedScormZip(courseId: number, uploadId: string) {
-  await prisma.scormAsset.deleteMany({
-    where: { courseId, path: { startsWith: scormStagingPrefix(uploadId) } },
-  });
+  await deleteScormAssetsForCourse(courseId, scormStagingPrefix(uploadId));
 }

@@ -4,6 +4,7 @@ export const maxDuration = 60;
 
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/admin-session";
+import { readScormAssetContent } from "@/lib/scorm-asset-store";
 
 const SAFE_ASSET_PATH = /^classroom\/(?:media|activities)\/[a-z0-9-]+(?:\.vtt)?$/;
 
@@ -67,11 +68,17 @@ export async function GET(
 
   const asset = await prisma.scormAsset.findUnique({
     where: { courseId_path: { courseId: course.id, path: assetPath } },
+    select: { mimeType: true },
   });
 
   if (!asset) {
     return new Response("Asset not found.", { status: 404 });
   }
 
-  return respondWithBytes(Buffer.from(asset.content), asset.mimeType, request.headers.get("range"));
+  try {
+    const content = await readScormAssetContent(course.id, assetPath);
+    return respondWithBytes(content, asset.mimeType, request.headers.get("range"));
+  } catch {
+    return new Response("Asset not found.", { status: 404 });
+  }
 }

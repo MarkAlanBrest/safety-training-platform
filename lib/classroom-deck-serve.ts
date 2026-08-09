@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import { classroomChapterDeckAssetPath } from "@/lib/classroom-chapters";
+import { readScormAssetContent } from "@/lib/scorm-asset-store";
 
 type ServeDeckOptions = {
   slug: string;
@@ -35,13 +36,15 @@ export async function serveClassroomDeck({
     return new Response("Course not found.", { status: 404 });
   }
 
+  const assetPath = classroomChapterDeckAssetPath(chapterPosition);
   const asset = await prisma.scormAsset.findUnique({
     where: {
       courseId_path: {
         courseId: course.id,
-        path: classroomChapterDeckAssetPath(chapterPosition),
+        path: assetPath,
       },
     },
+    select: { mimeType: true },
   });
   if (!asset) {
     return new Response("Presentation file not found.", { status: 404 });
@@ -51,7 +54,12 @@ export async function serveClassroomDeck({
     asset.mimeType ||
     "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
-  const content = new Uint8Array(asset.content);
+  let content: Uint8Array;
+  try {
+    content = new Uint8Array(await readScormAssetContent(course.id, assetPath));
+  } catch {
+    return new Response("Presentation file not found.", { status: 404 });
+  }
   const headers = new Headers({
     "Content-Type": mimeType,
     "Content-Disposition": 'inline; filename="presentation.pptx"',
@@ -95,5 +103,5 @@ export async function serveClassroomDeck({
 
   headers.set("Content-Length", String(content.byteLength));
 
-  return new Response(content, { headers });
+  return new Response(Buffer.from(content), { headers });
 }

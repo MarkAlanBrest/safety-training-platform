@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ADMIN_AUTH_DISABLED } from "@/lib/admin-auth";
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (ADMIN_AUTH_DISABLED) {
+    if (pathname === "/admin/login") {
+      return NextResponse.redirect(new URL("/admin/courses", request.url));
+    }
+    return NextResponse.next();
+  }
+
   const isAdminPage = pathname.startsWith("/admin");
   const isAdminApi = pathname.startsWith("/api/admin");
   const isResumePage = pathname.startsWith("/resumes");

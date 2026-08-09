@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { ADMIN_AUTH_DISABLED } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 
 export const ADMIN_COOKIE = "admin-session";
@@ -16,7 +17,23 @@ export function readCookie(request: Request, name: string) {
   return "";
 }
 
+const openAdminSession = {
+  id: "open-admin",
+  tokenHash: "open-admin",
+  adminId: 0,
+  expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+  createdAt: new Date(0),
+  admin: {
+    id: 0,
+    email: "open-admin@local",
+    name: "Open Admin",
+    active: true,
+  },
+};
+
 export async function getAdminSession(request: Request) {
+  if (ADMIN_AUTH_DISABLED) return openAdminSession;
+
   const token = readCookie(request, ADMIN_COOKIE);
   if (!token) return null;
 

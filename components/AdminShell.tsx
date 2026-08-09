@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import {
   BookOpen,
   ExternalLink,
-  LogOut,
   Mic,
   Plus,
   ShieldCheck,
@@ -63,14 +62,7 @@ export default function AdminShell({
   actions,
 }: Props) {
   const pathname = usePathname();
-  const router = useRouter();
   const currentPath = pathname || "";
-
-  async function logout() {
-    await fetch("/admin/logout", { method: "POST" });
-    router.push("/admin/login");
-    router.refresh();
-  }
 
   return (
     <div className="admin-shell">
@@ -101,12 +93,6 @@ export default function AdminShell({
             >
               <ExternalLink size={17} /> View learner site
             </Link>
-            <button
-              onClick={logout}
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white"
-            >
-              <LogOut size={17} /> Sign out
-            </button>
           </div>
         </aside>
 
