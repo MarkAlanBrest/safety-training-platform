@@ -23,11 +23,13 @@ import {
 import FlashcardDeck from "@/components/training/FlashcardDeck";
 import HotspotActivity from "@/components/training/HotspotActivity";
 import TutorMoment from "@/components/training/TutorMoment";
+import CourseToolbar from "@/components/training/CourseToolbar";
 import MomentTypeLabel, {
   isExampleShowcaseCourse,
 } from "@/components/training/MomentTypeLabel";
 import {
   buildPlayerFrames,
+  normalizePlayerSettings,
   type LessonMoment,
   type PublicMasonCourse,
 } from "@/lib/mason";
@@ -290,6 +292,8 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
   const [certificateUrl, setCertificateUrl] = useState("");
   const [completionError, setCompletionError] = useState("");
   const [recordingCompletion, setRecordingCompletion] = useState(false);
+  const playerSettings = normalizePlayerSettings(course.sections[0]?.lessonPlan.playerSettings);
+  const [appearance, setAppearance] = useState<"light" | "dark">(playerSettings.appearance);
   const section = course.sections[sectionIndex];
   const palette = themes[course.theme || "heritage"] || themes.heritage;
   const accentColor =
@@ -351,17 +355,18 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
     <main
       style={
         {
-          "--ink": palette.ink,
+          "--ink": appearance === "dark" ? "#f1f5f9" : palette.ink,
           "--accent": accentColor,
-          "--pale": palette.pale,
-          "--dark": palette.dark,
-          "--page": palette.page,
+          "--pale": appearance === "dark" ? "#1e293b" : palette.pale,
+          "--dark": appearance === "dark" ? "#07111f" : palette.dark,
+          "--page": appearance === "dark" ? "#0b1220" : palette.page,
           "--visual-accent": accentColor,
           "--visual-bg": palette.dark,
           "--visual-dark": palette.dark,
         } as React.CSSProperties
       }
       data-course-theme={course.theme || "heritage"}
+      data-course-appearance={appearance}
       className="course-shell min-h-screen bg-[var(--page)] text-slate-800"
     >
       <button
@@ -671,6 +676,15 @@ function WebpageTrainingPage({ course }: { course: PublicMasonCourse }) {
           )}
         </article>
       </div>
+      <CourseToolbar
+        courseSlug={course.slug}
+        sectionIndex={sectionIndex}
+        sectionTitle={section.title}
+        currentContext={section.lessonPlan.sectionTitle || section.title}
+        settings={playerSettings}
+        appearance={appearance}
+        onAppearanceChange={setAppearance}
+      />
     </main>
   );
 }

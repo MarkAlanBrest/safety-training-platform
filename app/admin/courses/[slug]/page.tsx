@@ -28,6 +28,7 @@ import AdminShell from "@/components/AdminShell";
 import { courseIntensities, courseThemes } from "@/lib/course-options";
 import { learnerCoursePath } from "@/lib/course-routes";
 import { parseJsonResponse } from "@/lib/parse-response";
+import { normalizePlayerSettings, type PlayerSettings } from "@/lib/mason";
 import {
   VOICE_OPTIONS,
   VOICE_PROVIDER_OPTIONS,
@@ -51,6 +52,7 @@ type Section = {
       teaching?: { voiceProvider?: "browser" | "premium"; voice?: string; voiceSpeed?: number };
       settings?: { speechVoice?: boolean };
     };
+    playerSettings?: PlayerSettings;
   };
 };
 
@@ -164,6 +166,10 @@ export default function CourseEditorPage() {
       claimed: course.enrollmentCodes.filter((code) => code.status === "claimed").length,
     };
   }, [course]);
+  const playerSettings = useMemo(
+    () => normalizePlayerSettings(course?.sections[0]?.lessonPlan.playerSettings),
+    [course],
+  );
 
   async function saveSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -190,6 +196,10 @@ export default function CourseEditorPage() {
         classroomVoiceProvider: form.get("classroomVoiceProvider"),
         classroomVoice: form.get("classroomVoice"),
         scormNarrationMode: form.get("scormNarrationMode"),
+        appearance: form.get("appearance"),
+        toolbarStyle: form.get("toolbarStyle"),
+        aiCoach: form.get("aiCoach"),
+        knowledgeScope: form.get("knowledgeScope"),
       }),
     });
     const data = await response.json();
@@ -942,6 +952,71 @@ export default function CourseEditorPage() {
                 ))}
               </div>
             </section>
+
+            {course.courseType === "native" && (
+              <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6">
+                <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">Learner toolbar</p>
+                <p className="mt-2 text-sm leading-6 text-[#6c7881]">Choose the starting appearance, toolbar layout, and AI instructor behavior.</p>
+
+                <fieldset className="mt-5">
+                  <legend className="text-sm font-bold">Starting appearance</legend>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {[
+                      { id: "light", name: "Light" },
+                      { id: "dark", name: "Dark" },
+                    ].map((option) => (
+                      <label key={option.id} className="cursor-pointer">
+                        <input type="radio" name="appearance" value={option.id} defaultChecked={playerSettings.appearance === option.id} className="peer sr-only" />
+                        <span className="block rounded-xl border border-[#10283f]/10 p-3 text-center text-sm font-bold peer-checked:border-[#10283f] peer-checked:bg-[#10283f] peer-checked:text-white">{option.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <fieldset className="mt-5">
+                  <legend className="text-sm font-bold">Toolbar design</legend>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {[
+                      { id: "minimal", name: "Minimal" },
+                      { id: "guided", name: "Guided" },
+                    ].map((option) => (
+                      <label key={option.id} className="cursor-pointer">
+                        <input type="radio" name="toolbarStyle" value={option.id} defaultChecked={playerSettings.toolbarStyle === option.id} className="peer sr-only" />
+                        <span className="block rounded-xl border border-[#10283f]/10 p-3 text-center text-sm font-bold peer-checked:border-[#10283f] peer-checked:bg-[#10283f] peer-checked:text-white">{option.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <fieldset className="mt-5">
+                  <legend className="text-sm font-bold">AI instructor</legend>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                    {[
+                      { id: "off", name: "Off" },
+                      { id: "ask", name: "Ask only" },
+                      { id: "guided", name: "Guided" },
+                    ].map((option) => (
+                      <label key={option.id} className="cursor-pointer">
+                        <input type="radio" name="aiCoach" value={option.id} defaultChecked={playerSettings.aiCoach === option.id} className="peer sr-only" />
+                        <span className="block rounded-xl border border-[#10283f]/10 p-3 text-center text-sm font-bold peer-checked:border-[#10283f] peer-checked:bg-[#eef3f6]">{option.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <fieldset className="mt-5">
+                  <legend className="text-sm font-bold">Answer boundary</legend>
+                  <div className="mt-2 space-y-2 text-sm">
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input type="radio" name="knowledgeScope" value="course" defaultChecked={playerSettings.knowledgeScope === "course"} /> Course material only
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input type="radio" name="knowledgeScope" value="expanded" defaultChecked={playerSettings.knowledgeScope === "expanded"} /> Course plus labeled general knowledge
+                    </label>
+                  </div>
+                </fieldset>
+              </section>
+            )}
 
             <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6">
               <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">

@@ -118,6 +118,44 @@ h4 {
   max-width: 100%;
 }
 
+/* Learner-controlled dark appearance keeps each theme's accent while changing
+ * the reading and presentation surfaces to a comfortable low-light palette. */
+.course-shell[data-course-appearance="dark"] {
+  color-scheme: dark;
+  background: #0b1220;
+}
+
+.course-shell[data-course-appearance="dark"] .course-topbar {
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+.course-shell[data-course-appearance="dark"] .course-article,
+.course-shell[data-course-appearance="dark"] .course-article [class*="text-slate-"] {
+  color: #cbd5e1 !important;
+}
+
+.course-shell[data-course-appearance="dark"] .course-article [class*="bg-white"] {
+  background-color: #111c2d !important;
+}
+
+.course-shell[data-course-appearance="dark"] .course-article [class*="border-slate-"] {
+  border-color: rgba(148, 163, 184, 0.25) !important;
+}
+
+.slideshow-course[data-course-appearance="dark"] > div > section,
+.slideshow-course[data-course-appearance="dark"] > footer {
+  border-color: rgba(148, 163, 184, 0.25) !important;
+  background-color: #111c2d !important;
+}
+
+.slideshow-course[data-course-appearance="dark"] > div > section [class*="bg-white"] {
+  background-color: #17243a !important;
+}
+
+.slideshow-course[data-course-appearance="dark"] > div > section [class*="text-slate-"] {
+  color: #cbd5e1 !important;
+}
+
 /* Heritage: traditional editorial typography on warm paper. */
 .course-shell[data-course-theme="heritage"] {
   background-image:

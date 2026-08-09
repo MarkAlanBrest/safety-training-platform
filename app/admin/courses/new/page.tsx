@@ -257,6 +257,72 @@ export default function NewAiCoursePage() {
                   ))}
                 </div>
               </fieldset>
+
+              <div className="mt-7 grid gap-6 border-t border-[#10283f]/10 pt-7 sm:grid-cols-2">
+                <fieldset>
+                  <legend className="text-sm font-bold text-[#263746]">Starting appearance</legend>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {[
+                      { id: "light", name: "Light" },
+                      { id: "dark", name: "Dark" },
+                    ].map((option) => (
+                      <label key={option.id} className="cursor-pointer">
+                        <input type="radio" name="appearance" value={option.id} defaultChecked={option.id === "light"} className="peer sr-only" />
+                        <span className="block rounded-xl border border-[#10283f]/10 px-3 py-3 text-center text-sm font-bold peer-checked:border-[#10283f] peer-checked:bg-[#10283f] peer-checked:text-white">
+                          {option.name}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-[#69757e]">Learners can switch light and dark from the toolbar.</p>
+                </fieldset>
+
+                <fieldset>
+                  <legend className="text-sm font-bold text-[#263746]">Toolbar design</legend>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {[
+                      { id: "minimal", name: "Minimal" },
+                      { id: "guided", name: "Guided" },
+                    ].map((option) => (
+                      <label key={option.id} className="cursor-pointer">
+                        <input type="radio" name="toolbarStyle" value={option.id} defaultChecked={option.id === "guided"} className="peer sr-only" />
+                        <span className="block rounded-xl border border-[#10283f]/10 px-3 py-3 text-center text-sm font-bold peer-checked:border-[#10283f] peer-checked:bg-[#10283f] peer-checked:text-white">
+                          {option.name}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-[#69757e]">Guided uses labeled tools; Minimal uses compact icons.</p>
+                </fieldset>
+              </div>
+
+              <fieldset className="mt-7 border-t border-[#10283f]/10 pt-7">
+                <legend className="text-sm font-bold text-[#263746]">AI course instructor</legend>
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  {[
+                    { id: "off", name: "Off", description: "No chatbot" },
+                    { id: "ask", name: "Ask only", description: "Learner opens it" },
+                    { id: "guided", name: "Guided", description: "Offers coaching ideas" },
+                  ].map((option) => (
+                    <label key={option.id} className="cursor-pointer">
+                      <input type="radio" name="aiCoach" value={option.id} defaultChecked={option.id === "ask"} className="peer sr-only" />
+                      <span className="block h-full rounded-xl border border-[#10283f]/10 p-3 peer-checked:border-[#10283f] peer-checked:bg-[#eef3f6]">
+                        <span className="block text-sm font-bold text-[#10283f]">{option.name}</span>
+                        <span className="mt-1 block text-xs text-[#69757e]">{option.description}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-4 text-sm">
+                  <span className="font-bold text-[#263746]">Answer boundary:</span>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input type="radio" name="knowledgeScope" value="course" defaultChecked /> Course material only
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input type="radio" name="knowledgeScope" value="expanded" /> Course plus labeled general knowledge
+                  </label>
+                </div>
+              </fieldset>
             </section>
 
             <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6 shadow-sm sm:p-8">

@@ -12,6 +12,7 @@ import {
   type AiCourseSource,
 } from "@/lib/ai-course-generator";
 import { slugify } from "@/lib/mason";
+import type { PlayerSettings } from "@/lib/mason";
 import { isCourseTheme } from "@/lib/course-options";
 import { prisma } from "@/lib/prisma";
 
@@ -51,6 +52,10 @@ export async function POST(request: Request) {
     const audience = String(form.get("audience") || "").trim();
     const displayMode = String(form.get("displayMode") || "webpage");
     const requestedTheme = String(form.get("theme") || "auto");
+    const appearance = String(form.get("appearance") || "light");
+    const toolbarStyle = String(form.get("toolbarStyle") || "guided");
+    const aiCoach = String(form.get("aiCoach") || "ask");
+    const knowledgeScope = String(form.get("knowledgeScope") || "course");
     const estimatedMinutes = Math.max(10, Math.min(240, Number(form.get("estimatedMinutes")) || 30));
     const questionCount = Math.max(3, Math.min(20, Number(form.get("questionCount")) || 8));
     const files = form.getAll("sources").filter((item): item is File => item instanceof File && item.size > 0);
@@ -69,6 +74,12 @@ export async function POST(request: Request) {
     }
     if (requestedTheme !== "auto" && !isCourseTheme(requestedTheme)) {
       return Response.json({ error: "Choose a valid course theme." }, { status: 400 });
+    }
+    if (!["light", "dark"].includes(appearance) || !["minimal", "guided"].includes(toolbarStyle)) {
+      return Response.json({ error: "Choose valid appearance and toolbar settings." }, { status: 400 });
+    }
+    if (!["off", "ask", "guided"].includes(aiCoach) || !["course", "expanded"].includes(knowledgeScope)) {
+      return Response.json({ error: "Choose valid AI instructor settings." }, { status: 400 });
     }
     if (files.length > MAX_SOURCE_COUNT) {
       return Response.json({ error: `Upload no more than ${MAX_SOURCE_COUNT} supporting files.` }, { status: 400 });
@@ -127,6 +138,12 @@ export async function POST(request: Request) {
       requestedTheme: requestedTheme === "auto" ? undefined : requestedTheme,
       sources,
     });
+    const playerSettings: PlayerSettings = {
+      appearance: appearance as PlayerSettings["appearance"],
+      toolbarStyle: toolbarStyle as PlayerSettings["toolbarStyle"],
+      aiCoach: aiCoach as PlayerSettings["aiCoach"],
+      knowledgeScope: knowledgeScope as PlayerSettings["knowledgeScope"],
+    };
 
     const baseSlug = slugify(generated.title) || "ai-course";
     let slug = baseSlug;
@@ -151,7 +168,10 @@ export async function POST(request: Request) {
             position: index + 1,
             estimatedMinutes: section.estimatedMinutes,
             fileName: sources.length ? sources.map((source) => source.name).join(", ").slice(0, 240) : "AI course brief",
-            lessonPlan: section.lessonPlan as unknown as Prisma.InputJsonValue,
+            lessonPlan: {
+              ...section.lessonPlan,
+              playerSettings,
+            } as unknown as Prisma.InputJsonValue,
           })),
         },
       },

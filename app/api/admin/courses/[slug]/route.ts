@@ -10,6 +10,7 @@ import {
 import { requireAdmin } from "@/lib/admin-session";
 import { deleteScormAssetsForCourse } from "@/lib/scorm-asset-store";
 import { VOICE_OPTIONS } from "@/lib/classroom-builder";
+import type { PlayerSettings } from "@/lib/mason";
 
 export async function GET(
   request: Request,
@@ -96,6 +97,10 @@ export async function PATCH(
     const classroomVoiceProvider = String(body.classroomVoiceProvider || "");
     const classroomVoice = String(body.classroomVoice || "").trim();
     const scormNarrationMode = String(body.scormNarrationMode || "");
+    const appearance = String(body.appearance || "light");
+    const toolbarStyle = String(body.toolbarStyle || "guided");
+    const aiCoach = String(body.aiCoach || "ask");
+    const knowledgeScope = String(body.knowledgeScope || "course");
 
     if (!title || !isCourseTheme(theme) || !isCourseIntensity(intensity)) {
       return Response.json(
@@ -114,6 +119,14 @@ export async function PATCH(
         { error: "Choose a valid course format." },
         { status: 400 },
       );
+    }
+    if (
+      !["light", "dark"].includes(appearance) ||
+      !["minimal", "guided"].includes(toolbarStyle) ||
+      !["off", "ask", "guided"].includes(aiCoach) ||
+      !["course", "expanded"].includes(knowledgeScope)
+    ) {
+      return Response.json({ error: "Choose valid learner toolbar settings." }, { status: 400 });
     }
     if (
       logoData &&
@@ -145,6 +158,35 @@ export async function PATCH(
         published: Boolean(body.published),
       },
     });
+
+    if (course.courseType === "native") {
+      const playerSettings: PlayerSettings = {
+        appearance: appearance as PlayerSettings["appearance"],
+        toolbarStyle: toolbarStyle as PlayerSettings["toolbarStyle"],
+        aiCoach: aiCoach as PlayerSettings["aiCoach"],
+        knowledgeScope: knowledgeScope as PlayerSettings["knowledgeScope"],
+      };
+      const nativeSections = await prisma.masonSection.findMany({
+        where: { courseId: course.id },
+        select: { id: true, lessonPlan: true },
+      });
+      await prisma.$transaction(
+        nativeSections.flatMap((section) => {
+          if (!section.lessonPlan || typeof section.lessonPlan !== "object" || Array.isArray(section.lessonPlan)) return [];
+          return [
+            prisma.masonSection.update({
+              where: { id: section.id },
+              data: {
+                lessonPlan: {
+                  ...(section.lessonPlan as Record<string, unknown>),
+                  playerSettings,
+                } as Prisma.InputJsonValue,
+              },
+            }),
+          ];
+        }),
+      );
+    }
 
     const savedVoiceProvider =
       course.courseType === "scorm" && ["package", "premium", "browser"].includes(scormNarrationMode)

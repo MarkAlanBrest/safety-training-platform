@@ -56,6 +56,34 @@ export type LessonMoment = {
   }> | null;
 };
 
+export type PlayerSettings = {
+  appearance: "light" | "dark";
+  toolbarStyle: "minimal" | "guided";
+  aiCoach: "off" | "ask" | "guided";
+  knowledgeScope: "course" | "expanded";
+};
+
+export const defaultPlayerSettings: PlayerSettings = {
+  appearance: "light",
+  toolbarStyle: "guided",
+  aiCoach: "ask",
+  knowledgeScope: "course",
+};
+
+export function normalizePlayerSettings(value: unknown): PlayerSettings {
+  const settings = value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Partial<PlayerSettings>)
+    : {};
+  return {
+    appearance: settings.appearance === "dark" ? "dark" : "light",
+    toolbarStyle: settings.toolbarStyle === "minimal" ? "minimal" : "guided",
+    aiCoach: ["off", "ask", "guided"].includes(String(settings.aiCoach))
+      ? (settings.aiCoach as PlayerSettings["aiCoach"])
+      : "ask",
+    knowledgeScope: settings.knowledgeScope === "expanded" ? "expanded" : "course",
+  };
+}
+
 export type LessonPlan = {
   sectionTitle: string;
   opening: string;
@@ -63,6 +91,7 @@ export type LessonPlan = {
   summary: string;
   keyFacts: string[];
   moments: LessonMoment[];
+  playerSettings?: PlayerSettings;
 };
 
 export type PublicMasonSection = {

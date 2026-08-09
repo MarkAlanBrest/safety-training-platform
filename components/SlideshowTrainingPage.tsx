@@ -20,8 +20,10 @@ import {
 import FlashcardDeck from "@/components/training/FlashcardDeck";
 import HotspotActivity from "@/components/training/HotspotActivity";
 import TutorMoment from "@/components/training/TutorMoment";
+import CourseToolbar from "@/components/training/CourseToolbar";
 import {
   buildPlayerFrames,
+  normalizePlayerSettings,
   type LessonMoment,
   type PublicMasonCourse,
 } from "@/lib/mason";
@@ -146,6 +148,8 @@ export default function SlideshowTrainingPage({
 }) {
   const [sectionIndex, setSectionIndex] = useState(0);
   const [slideIndex, setSlideIndex] = useState(0);
+  const playerSettings = normalizePlayerSettings(course.sections[0]?.lessonPlan.playerSettings);
+  const [appearance, setAppearance] = useState<"light" | "dark">(playerSettings.appearance);
   const section = course.sections[sectionIndex];
   const palette = palettes[course.theme || "heritage"] || palettes.heritage;
   const accent =
@@ -199,14 +203,15 @@ export default function SlideshowTrainingPage({
   return (
     <main
       data-course-theme={course.theme || "heritage"}
+      data-course-appearance={appearance}
       className="course-shell slideshow-course min-h-screen bg-[var(--page)] text-slate-800"
       style={
         {
-          "--ink": palette.ink,
+          "--ink": appearance === "dark" ? "#f1f5f9" : palette.ink,
           "--accent": accent,
-          "--pale": palette.pale,
-          "--dark": palette.dark,
-          "--page": palette.page,
+          "--pale": appearance === "dark" ? "#1e293b" : palette.pale,
+          "--dark": appearance === "dark" ? "#07111f" : palette.dark,
+          "--page": appearance === "dark" ? "#0b1220" : palette.page,
           "--visual-accent": accent,
           "--visual-bg": palette.dark,
           "--visual-dark": palette.dark,
@@ -397,6 +402,24 @@ export default function SlideshowTrainingPage({
           </button>
         </div>
       </footer>
+      <CourseToolbar
+        courseSlug={course.slug}
+        sectionIndex={sectionIndex}
+        sectionTitle={section.title}
+        currentContext={
+          slide.type === "moment"
+            ? slide.moment.title
+            : slide.type === "objectives"
+              ? "Learning objectives"
+              : slide.type === "complete"
+                ? "Section completion"
+                : section.lessonPlan.sectionTitle || section.title
+        }
+        settings={playerSettings}
+        appearance={appearance}
+        onAppearanceChange={setAppearance}
+        raised
+      />
     </main>
   );
 }
