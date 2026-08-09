@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import ScormPlayer, { type ScormRuntimeChange } from "@/components/ScormPlayer";
+import ScormClassroomTopBar from "@/components/ScormClassroomTopBar";
 import TeacherChat, { type TeacherMessage } from "@/components/classroom/TeacherChat";
 import { useInstructorVoice } from "@/lib/instructor-voice";
 import {
@@ -10,6 +11,24 @@ import {
   scormLocationFromRuntime,
   type ScormInstructorConfig,
 } from "@/lib/scorm-instructor";
+
+function progressFromRuntime(snapshot: Record<string, string>) {
+  const measure = Number(
+    snapshot["cmi.progress_measure"] || snapshot["cmi.core.score.raw"] || "",
+  );
+  if (Number.isFinite(measure)) {
+    return measure <= 1 ? measure * 100 : Math.min(100, measure);
+  }
+  const status = (
+    snapshot["cmi.completion_status"] ||
+    snapshot["cmi.core.lesson_status"] ||
+    ""
+  ).toLowerCase();
+  if (status === "completed" || status === "passed") return 100;
+  if (status === "incomplete" || status === "failed") return 35;
+  if (status === "browsed") return 15;
+  return 0;
+}
 
 type ChatApiResponse = {
   reply?: string;
@@ -63,6 +82,8 @@ export default function ScormClassroomShell({
   const [chatError, setChatError] = useState("");
   const [liveNarration, setLiveNarration] = useState("");
   const [narrationHistory, setNarrationHistory] = useState<string[]>([]);
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [locationLabel, setLocationLabel] = useState("");
 
   const appendNarration = useCallback((text: string) => {
     const trimmed = text.trim();
@@ -114,9 +135,13 @@ export default function ScormClassroomShell({
 
   const handleRuntimeChange = useCallback(
     (change: ScormRuntimeChange) => {
-      if (!LOCATION_KEYS.has(change.key)) return;
+      setProgressPercent(progressFromRuntime(change.snapshot));
       const location = scormLocationFromRuntime(change.snapshot);
-      locationRef.current = location;
+      if (location) {
+        locationRef.current = location;
+        setLocationLabel(location);
+      }
+      if (!LOCATION_KEYS.has(change.key)) return;
       if (!location || spokenLocationsRef.current.has(location)) return;
 
       const cue = narrationForLocation(course.instructor.narration, location);
@@ -155,18 +180,14 @@ export default function ScormClassroomShell({
 
   return (
     <main className="flex h-screen flex-col overflow-hidden bg-white text-slate-900">
-      <header className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[.18em] text-[#c68b1b]">
-            SCORM {course.scormVersion}
-            {preview ? " · Preview" : ""}
-          </p>
-          <h1 className="text-lg font-semibold text-[#10283f]">{course.title}</h1>
-        </div>
-        <p className="text-xs font-semibold text-slate-500">
-          Voice: {voiceSettings.provider === "premium" ? "Premium" : "Browser"}
-        </p>
-      </header>
+      <ScormClassroomTopBar
+        title={course.title}
+        scormVersion={course.scormVersion}
+        preview={preview}
+        voiceLabel={voiceSettings.provider === "premium" ? "Premium voice" : "Browser voice"}
+        progressPercent={progressPercent}
+        locationLabel={locationLabel}
+      />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-h-0 bg-[#0b1f33]">
