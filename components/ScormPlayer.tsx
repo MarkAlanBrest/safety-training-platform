@@ -25,31 +25,6 @@ function cleanVisibleScormText(source: string) {
     .slice(0, 1800);
 }
 
-function visibleTextFromFrame(frame: HTMLIFrameElement) {
-  const candidates: Array<{ depth: number; text: string }> = [];
-  const visit = (doc: Document, depth: number) => {
-    const text = cleanVisibleScormText(doc.body?.innerText || "");
-    if (text) candidates.push({ depth, text });
-    for (const child of Array.from(doc.querySelectorAll("iframe"))) {
-      try {
-        if (child.contentDocument) visit(child.contentDocument, depth + 1);
-      } catch {
-        // A third-party embedded frame cannot be inspected; continue with the SCORM document.
-      }
-    }
-  };
-  try {
-    if (frame.contentDocument) visit(frame.contentDocument, 0);
-  } catch {
-    return "";
-  }
-  // Authoring tools commonly place the active slide in a nested same-origin frame.
-  // Prefer the deepest useful document so package navigation chrome is not narrated.
-  return candidates
-    .filter((candidate) => candidate.text.split(/\s+/).length >= 3)
-    .sort((a, b) => b.depth - a.depth || b.text.length - a.text.length)[0]?.text || "";
-}
-
 /** Authors mark the text meant for narration with `id="ai-narration"` or a `data-ai-narration` attribute. */
 const NARRATION_MARKER_SELECTOR = "#ai-narration, [data-ai-narration]";
 
@@ -76,10 +51,9 @@ function isVisibleElement(element: Element) {
 }
 
 /**
- * Reads the current screen's narration text from an author-marked element,
- * falling back to a best-effort scrape of the visible page when the package
- * has no marker. Only the marker's own text is used — never the whole page —
- * so navigation chrome and unrelated UI never gets read aloud.
+ * Reads the current screen's narration text only from an author-marked element.
+ * There is deliberately no whole-page fallback: package chrome, quiz choices,
+ * buttons, and assessment text must never be treated as narration.
  *
  * When more than one marked element is visible at once (e.g. mid-transition,
  * or a package that never fully hides inactive screens), the first one in
@@ -111,7 +85,7 @@ function narrationTextFromFrame(frame: HTMLIFrameElement) {
     // Stable sort: ties keep document order instead of flip-flopping.
     return candidates.sort((a, b) => b.depth - a.depth)[0].text;
   }
-  return visibleTextFromFrame(frame);
+  return "";
 }
 
 function muteMediaInsideFrame(frame: HTMLIFrameElement) {
@@ -160,7 +134,7 @@ export default function ScormPlayer({
   embedded?: boolean;
   className?: string;
   onRuntimeChange?: (change: ScormRuntimeChange) => void;
-  /** Narration text for the current screen, read from an `#ai-narration` / `[data-ai-narration]` marker inside the same-origin SCORM frame (falls back to scraping visible text if no marker is present). */
+  /** Narration text read only from an `#ai-narration` / `[data-ai-narration]` marker inside the same-origin SCORM frame. */
   onVisibleTextChange?: (text: string) => void;
   /** Mute embedded SCORM media when the app's selected AI voice is authoritative. */
   mutePackageAudio?: boolean;
