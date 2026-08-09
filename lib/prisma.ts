@@ -3,27 +3,27 @@ import "server-only";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
+import { resolveDatabaseUrl } from "@/lib/database-url";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
   pool?: Pool;
 };
 
-function databaseUrl() {
-  const connectionString = process.env.DATABASE_URL?.trim();
-  if (!connectionString) {
-    throw new Error("DATABASE_URL is not configured.");
-  }
-  return connectionString;
-}
-
 function createPool() {
+  const connectionString = resolveDatabaseUrl();
+  if (!connectionString) {
+    throw new Error(
+      "DATABASE_URL is not configured. Set DATABASE_URL (Neon pooled URL) on Vercel.",
+    );
+  }
+
   return new Pool({
-    connectionString: databaseUrl(),
+    connectionString,
     max: Number(process.env.DATABASE_POOL_MAX || 10),
     idleTimeoutMillis: 5000,
     connectionTimeoutMillis: 10_000,
-    ssl: databaseUrl().includes("sslmode=disable") ? false : { rejectUnauthorized: false },
+    ssl: connectionString.includes("sslmode=disable") ? false : { rejectUnauthorized: false },
   });
 }
 
