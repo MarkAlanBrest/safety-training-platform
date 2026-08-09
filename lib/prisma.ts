@@ -18,10 +18,13 @@ function createPool() {
     );
   }
 
+  const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+  const configuredMax = Number(process.env.DATABASE_POOL_MAX || 0);
+
   return new Pool({
     connectionString,
-    max: Number(process.env.DATABASE_POOL_MAX || 10),
-    idleTimeoutMillis: 5000,
+    max: configuredMax > 0 ? configuredMax : isServerless ? 1 : 10,
+    idleTimeoutMillis: isServerless ? 1000 : 5000,
     connectionTimeoutMillis: 10_000,
     ssl: connectionString.includes("sslmode=disable") ? false : { rejectUnauthorized: false },
   });
@@ -34,5 +37,17 @@ function createPrismaClient() {
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-globalForPrisma.prisma = prisma;
+function getPrismaClient() {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createPrismaClient();
+  }
+  return globalForPrisma.prisma;
+}
+
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, property, receiver) {
+    const client = getPrismaClient();
+    const value = Reflect.get(client, property, receiver);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
