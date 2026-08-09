@@ -11,6 +11,7 @@ import {
 } from "@/lib/mason";
 import { workplaceHarassmentExampleCourse } from "@/lib/workplace-harassment-example";
 import { scormInstructorConfigFromLessonPlan } from "@/lib/scorm-instructor";
+import { narrationScriptFromStoredCourse } from "@/lib/scorm-course-create";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,10 @@ export default async function TrainingCoursePage({
   }
   if (record.courseType === "scorm") {
     if (!record.scormEntryPoint || !record.scormVersion) notFound();
+    const savedInstructor = scormInstructorConfigFromLessonPlan(record.sections[0]?.lessonPlan);
+    const embeddedScript = savedInstructor.narration.length
+      ? null
+      : await narrationScriptFromStoredCourse(record.id);
     return (
       <ScormClassroomShell
         course={{
@@ -61,7 +66,13 @@ export default async function TrainingCoursePage({
           description: record.description,
           scormVersion: record.scormVersion,
           scormEntryPoint: record.scormEntryPoint,
-          instructor: scormInstructorConfigFromLessonPlan(record.sections[0]?.lessonPlan),
+          instructor: embeddedScript
+            ? {
+                ...savedInstructor,
+                narration: embeddedScript.cues,
+                opening: savedInstructor.opening || embeddedScript.opening,
+              }
+            : savedInstructor,
         }}
       />
     );

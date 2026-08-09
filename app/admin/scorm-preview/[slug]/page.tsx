@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import ScormClassroomShell from "@/components/ScormClassroomShell";
 import { prisma } from "@/lib/prisma";
 import { scormInstructorConfigFromLessonPlan } from "@/lib/scorm-instructor";
+import { narrationScriptFromStoredCourse } from "@/lib/scorm-course-create";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,10 @@ export default async function AdminScormPreviewPage({ params }: { params: Promis
   if (!course || course.courseType !== "scorm" || !course.scormVersion || !course.scormEntryPoint) {
     notFound();
   }
+  const savedInstructor = scormInstructorConfigFromLessonPlan(course.sections[0]?.lessonPlan);
+  const embeddedScript = savedInstructor.narration.length
+    ? null
+    : await narrationScriptFromStoredCourse(course.id);
 
   return (
     <ScormClassroomShell
@@ -30,7 +35,13 @@ export default async function AdminScormPreviewPage({ params }: { params: Promis
         description: course.description,
         scormVersion: course.scormVersion,
         scormEntryPoint: course.scormEntryPoint,
-        instructor: scormInstructorConfigFromLessonPlan(course.sections[0]?.lessonPlan),
+        instructor: embeddedScript
+          ? {
+              ...savedInstructor,
+              narration: embeddedScript.cues,
+              opening: savedInstructor.opening || embeddedScript.opening,
+            }
+          : savedInstructor,
       }}
     />
   );

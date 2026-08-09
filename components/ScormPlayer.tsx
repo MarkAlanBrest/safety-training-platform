@@ -6,6 +6,50 @@ import { Award, LoaderCircle, Maximize2 } from "lucide-react";
 
 type RuntimeData = Record<string, string>;
 
+const SCORM_UI_ONLY_LINE = /^(?:next|previous|back|continue|submit|menu|resources|play|pause|replay|volume|mute|unmute|close|exit|help|notes|seekbar|slide\s+\d+\s+of\s+\d+)$/i;
+
+function cleanVisibleScormText(source: string) {
+  const seen = new Set<string>();
+  return source
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter((line) => {
+      const key = line.toLowerCase();
+      if (!line || line.length > 500 || SCORM_UI_ONLY_LINE.test(line) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 1800);
+}
+
+function visibleTextFromFrame(frame: HTMLIFrameElement) {
+  const candidates: Array<{ depth: number; text: string }> = [];
+  const visit = (doc: Document, depth: number) => {
+    const text = cleanVisibleScormText(doc.body?.innerText || "");
+    if (text) candidates.push({ depth, text });
+    for (const child of Array.from(doc.querySelectorAll("iframe"))) {
+      try {
+        if (child.contentDocument) visit(child.contentDocument, depth + 1);
+      } catch {
+        // A third-party embedded frame cannot be inspected; continue with the SCORM document.
+      }
+    }
+  };
+  try {
+    if (frame.contentDocument) visit(frame.contentDocument, 0);
+  } catch {
+    return "";
+  }
+  // Authoring tools commonly place the active slide in a nested same-origin frame.
+  // Prefer the deepest useful document so package navigation chrome is not narrated.
+  return candidates
+    .filter((candidate) => candidate.text.split(/\s+/).length >= 3)
+    .sort((a, b) => b.depth - a.depth || b.text.length - a.text.length)[0]?.text || "";
+}
+
 export type ScormRuntimeChange = {
   key: string;
   value: string;
@@ -21,6 +65,7 @@ export default function ScormPlayer({
   embedded = false,
   className,
   onRuntimeChange,
+  onVisibleTextChange,
 }: {
   title: string;
   slug: string;
@@ -30,11 +75,14 @@ export default function ScormPlayer({
   embedded?: boolean;
   className?: string;
   onRuntimeChange?: (change: ScormRuntimeChange) => void;
+  /** Visible slide text detected inside the same-origin SCORM frame. */
+  onVisibleTextChange?: (text: string) => void;
 }) {
   const searchParams = useSearchParams();
   const code = searchParams?.get("code") || "";
   const dataRef = useRef<RuntimeData>({});
   const onRuntimeChangeRef = useRef(onRuntimeChange);
+  const onVisibleTextChangeRef = useRef(onVisibleTextChange);
   const [ready, setReady] = useState(false);
   const [runtimeReady, setRuntimeReady] = useState(false);
   const [error, setError] = useState("");
@@ -44,6 +92,36 @@ export default function ScormPlayer({
   useEffect(() => {
     onRuntimeChangeRef.current = onRuntimeChange;
   }, [onRuntimeChange]);
+
+  useEffect(() => {
+    onVisibleTextChangeRef.current = onVisibleTextChange;
+  }, [onVisibleTextChange]);
+
+  useEffect(() => {
+    if (!ready || !runtimeReady || !onVisibleTextChange) return;
+    let lastCandidate = "";
+    let candidateSince = 0;
+    let lastDelivered = "";
+
+    const inspect = () => {
+      const frame = iframeRef.current;
+      if (!frame) return;
+      const text = visibleTextFromFrame(frame);
+      if (!text || text === lastDelivered) return;
+      if (text !== lastCandidate) {
+        lastCandidate = text;
+        candidateSince = Date.now();
+        return;
+      }
+      // Wait for animations/layers to settle before narrating the completed slide.
+      if (Date.now() - candidateSince < 700) return;
+      lastDelivered = text;
+      onVisibleTextChangeRef.current?.(text);
+    };
+
+    const timer = window.setInterval(inspect, 400);
+    return () => window.clearInterval(timer);
+  }, [onVisibleTextChange, ready, runtimeReady]);
 
   useEffect(() => {
     if (preview) {

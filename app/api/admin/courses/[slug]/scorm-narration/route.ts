@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/admin-session";
 import { isClassroomPlan } from "@/lib/classroom";
 import { buildDefaultScormLessonPlan, scormInstructorConfigFromLessonPlan } from "@/lib/scorm-instructor";
 import { normalizeScormNarrationCues } from "@/lib/scorm-narration-document";
+import { narrationScriptFromStoredCourse } from "@/lib/scorm-course-create";
 
 type PatchBody = {
   opening?: string;
@@ -41,14 +42,19 @@ export async function GET(
 
   const section = course.sections[0];
   const instructor = scormInstructorConfigFromLessonPlan(section?.lessonPlan);
+  const embeddedScript = instructor.narration.length
+    ? null
+    : await narrationScriptFromStoredCourse(course.id);
 
   return Response.json({
     title: course.title,
     slug: course.slug,
     scormVersion: course.scormVersion,
     scormEntryPoint: course.scormEntryPoint,
-    opening: instructor.opening || course.description || "",
-    scormNarration: instructor.narration,
+    opening: instructor.opening || embeddedScript?.opening || course.description || "",
+    scormNarration: instructor.narration.length
+      ? instructor.narration
+      : embeddedScript?.cues || [],
     sectionId: section?.id ?? null,
   });
 }

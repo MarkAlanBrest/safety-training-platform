@@ -16,6 +16,22 @@ export function parseScormNarrationDocument(source: string): ScormNarrationCue[]
     return cues;
   }
 
+  // Accept the common authoring format used by narration documents:
+  // `Slide 1`, `Slide 2:`, `Page 3`, etc. The location matcher tolerates a
+  // runtime value such as `slide-1` because it contains the numeric cue id.
+  const slideBlocks = normalized.split(
+    /(?:^|\n)\s*(?:slide|page)\s+(\d+)\s*:?\s*\n/i,
+  );
+  if (slideBlocks.length > 1) {
+    const cues: ScormNarrationCue[] = [];
+    for (let index = 1; index < slideBlocks.length; index += 2) {
+      const location = slideBlocks[index]?.trim();
+      const text = slideBlocks[index + 1]?.trim();
+      if (location && text) cues.push({ location, text });
+    }
+    if (cues.length) return cues;
+  }
+
   return normalized
     .split(/\n{2,}/)
     .map((block) => block.trim())

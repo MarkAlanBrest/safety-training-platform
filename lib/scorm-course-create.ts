@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { parseScormPackage } from "@/lib/scorm";
 import {
   deleteScormAssetsForCourse,
+  readScormAssetContent,
   readScormAssetsWithPrefix,
   replaceCourseAssetBlobs,
 } from "@/lib/scorm-asset-store";
@@ -93,7 +94,7 @@ export async function createScormCourseShell(input: ScormCourseInitInput) {
   return course;
 }
 
-function narrationScriptFromPackage(
+export function narrationScriptFromPackage(
   assets: Array<{ path: string; content: Uint8Array }>,
 ) {
   const script = assets.find((asset) => {
@@ -104,12 +105,33 @@ function narrationScriptFromPackage(
   const source = new TextDecoder().decode(script.content);
   const cues = parseScormNarrationDocument(source);
   if (!cues.length) return null;
-  const openingBlock = source.replace(/\r\n/g, "\n").split(/\n===/)[0]?.trim();
-  const opening =
-    openingBlock && !openingBlock.startsWith("===") && !/^location\s*:/i.test(openingBlock)
-      ? openingBlock
-      : undefined;
+  const normalized = source.replace(/\r\n/g, "\n");
+  const firstCueHeader = normalized.search(
+    /(?:^|\n)\s*(?:===\s*.+?\s*===|(?:slide|page)\s+\d+\s*:?(?=\n|$)|(?:location|page|slide)\s*[:#-])/i,
+  );
+  const openingBlock = firstCueHeader > 0 ? normalized.slice(0, firstCueHeader).trim() : "";
+  const opening = openingBlock || undefined;
   return { cues, opening };
+}
+
+/**
+ * Recover a narration script from an already-uploaded SCORM package. This makes
+ * parser improvements apply to existing courses without requiring a re-upload.
+ */
+export async function narrationScriptFromStoredCourse(courseId: number) {
+  const assets = await prisma.scormAsset.findMany({
+    where: { courseId, mimeType: { startsWith: "text/plain" } },
+    select: { path: true },
+  });
+  const scriptAsset = assets.find((asset) => {
+    const base = asset.path.split("/").pop()?.toLowerCase() || "";
+    return NARRATION_SCRIPT_NAMES.has(base);
+  });
+  if (!scriptAsset) return null;
+  const content = await readScormAssetContent(courseId, scriptAsset.path);
+  return narrationScriptFromPackage([
+    { path: scriptAsset.path, content: new Uint8Array(content) },
+  ]);
 }
 
 export async function importScormZipIntoCourse(courseId: number, zip: Uint8Array) {
