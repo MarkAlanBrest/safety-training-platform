@@ -7,6 +7,7 @@ import {
   BrainCircuit,
   Check,
   FileText,
+  Images,
   LoaderCircle,
   Palette,
   Sparkles,
@@ -21,6 +22,7 @@ const buildStages = [
   "Designing the course structure",
   "Writing lessons and realistic examples",
   "Creating activities and assessments",
+  "Creating realistic course pictures",
   "Polishing the editable draft",
 ];
 
@@ -61,6 +63,7 @@ export default function NewAiCoursePage() {
         requestedTitle: String(form.get("title") || ""),
         requestedTheme: String(form.get("theme") || "auto"),
         displayMode: String(form.get("displayMode") || "webpage"),
+        pictureMode: String(form.get("pictureMode") || "ai"),
         estimatedMinutes: Number(form.get("estimatedMinutes")) || 30,
         appearance: String(form.get("appearance") || "light"),
         toolbarStyle: String(form.get("toolbarStyle") || "guided"),
@@ -295,6 +298,43 @@ export default function NewAiCoursePage() {
                     </label>
                   ))}
                 </div>
+              </fieldset>
+
+              <fieldset className="mt-7 border-t border-[#10283f]/10 pt-7">
+                <legend className="flex items-center gap-2 text-sm font-bold text-[#263746]">
+                  <Images size={17} className="text-[#9a6812]" /> Course pictures
+                </legend>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {[
+                    {
+                      id: "ai",
+                      name: "Photorealistic AI pictures",
+                      description: "AI creates one meaningful, editable landscape picture for each chapter.",
+                    },
+                    {
+                      id: "none",
+                      name: "No generated pictures",
+                      description: "Build the course without image-generation time or cost. Pictures can be added later.",
+                    },
+                  ].map((option) => (
+                    <label key={option.id} className="cursor-pointer">
+                      <input
+                        type="radio"
+                        name="pictureMode"
+                        value={option.id}
+                        defaultChecked={option.id === "ai"}
+                        className="peer sr-only"
+                      />
+                      <span className="block h-full rounded-2xl border border-[#10283f]/10 p-4 transition peer-checked:border-[#c68b1b] peer-checked:bg-[#fff9eb] peer-checked:ring-2 peer-checked:ring-[#e8c273]/25">
+                        <span className="font-bold text-[#10283f]">{option.name}</span>
+                        <span className="mt-1 block text-sm leading-6 text-[#69757e]">{option.description}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs leading-5 text-[#69757e]">
+                  Generated pictures add image-processing time and API cost. They contain no embedded labels, so course text stays editable and accessible.
+                </p>
               </fieldset>
 
               <div className="mt-7 grid gap-6 border-t border-[#10283f]/10 pt-7 sm:grid-cols-2">

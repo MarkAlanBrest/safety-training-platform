@@ -19,6 +19,8 @@ export type LessonMoment = {
   correctAnswer: number | null;
   feedback: string | null;
   pageNumber: number | null;
+  /** Internal prompt retained with editable AI-created visual moments. */
+  imagePrompt?: string | null;
   sourceImage?: string | null;
   sourceImageAlt?: string | null;
   cue?: string | null;

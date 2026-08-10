@@ -41,6 +41,8 @@ const momentSchema = {
     "correctAnswer",
     "feedback",
     "pageNumber",
+    "imagePrompt",
+    "imageAlt",
     "tiles",
     "dragItems",
     "flashcards",
@@ -48,7 +50,7 @@ const momentSchema = {
   properties: {
     kind: {
       type: "string",
-      enum: ["explain", "text", "tiles", "dragdrop", "flashcard", "question", "scenario", "summary"],
+      enum: ["explain", "text", "tiles", "dragdrop", "visual", "flashcard", "question", "scenario", "summary"],
     },
     phase: { type: "string", enum: ["learn", "activity", "mastery"] },
     title: { type: "string" },
@@ -61,6 +63,8 @@ const momentSchema = {
     correctAnswer: nullableInteger,
     feedback: nullableString,
     pageNumber: nullableInteger,
+    imagePrompt: nullableString,
+    imageAlt: nullableString,
     tiles: {
       type: ["array", "null"],
       items: {
@@ -149,6 +153,29 @@ function sourceContent(source: AiCourseSource) {
 
 function normalizedMoment(moment: LessonMoment): LessonMoment {
   const isChoice = moment.kind === "question" || moment.kind === "scenario";
+  const generated = moment as LessonMoment & { imageAlt?: string | null };
+  if (moment.kind === "visual") {
+    const narration = String(moment.narration || "").trim();
+    return {
+      ...moment,
+      narration: "",
+      prompt: null,
+      choices: null,
+      correctAnswer: null,
+      feedback: null,
+      sourceImageAlt: String(generated.imageAlt || moment.title || "Course photograph").trim(),
+      explainerStyle: "flipbook",
+      explainerFrames: [
+        {
+          title: moment.title,
+          caption: String(generated.imageAlt || "").trim(),
+          narration,
+          visualItems: [],
+          sourceImage: null,
+        },
+      ],
+    };
+  }
   return {
     ...moment,
     narration: String(moment.narration || "").trim(),
@@ -166,6 +193,7 @@ export type AiCourseGenerationInput = {
   estimatedMinutes: number;
   questionCount: number;
   displayMode: "webpage" | "slideshow";
+  pictureMode: "ai" | "none";
   requestedTheme?: string;
   sources: AiCourseSource[];
 };
@@ -192,6 +220,9 @@ function requestBody(input: AiCourseGenerationInput) {
       "Evidence: Treat supporting files as reference material, not as layouts to reproduce. Do not invent regulations, measurements, procedures, product claims, or citations that are not supported by the brief or files. When evidence is incomplete, teach the supported principle without manufacturing specifics.",
       "Instructional depth: Each section must have a purposeful arc: a motivating opening, clear explanation, a concrete worked example, active practice, a realistic decision or scenario, and a useful recap. Teach why and how, not merely definitions. Use source-specific facts and workplace examples whenever the evidence supports them.",
       "Design: Use explain/text blocks for real teaching depth, tiles only for memorable frameworks, dragdrop only for true sequences, flashcards for terms or paired concepts, scenarios for judgment, and questions for checks. Avoid repetitive card grids, repeated introductions, filler, slogans, vague advice, and questions that merely repeat a sentence verbatim.",
+      input.pictureMode === "ai"
+        ? "Pictures: Include exactly one visual moment in each section. It must depict a concrete, instructionally useful real-world scene that reinforces the surrounding lesson. Supply a detailed imagePrompt for a realistic professional training photograph and concise imageAlt text. Do not request text, labels, logos, brand marks, graphic injuries, or a generic decorative scene. All non-visual moments must use null for imagePrompt and imageAlt."
+        : "Pictures: Do not create visual moments. Set imagePrompt and imageAlt to null for every moment.",
       "Quality control: Every moment must add new instructional value. Do not write generic safety language that could fit any course. Include consequences, common errors, observable cues, and practical decisions appropriate to the stated audience. Ensure every objective is actually taught and assessed.",
       "Assessments: Choices must be plausible complete answers. Put coached questions in activity phase and the requested number of scored questions in mastery phase across the course. Every scored question needs clear corrective feedback.",
       "Output: Return only the strict JSON schema. All learner-facing writing must be publication-ready.",

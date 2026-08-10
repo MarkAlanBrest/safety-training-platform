@@ -16,6 +16,7 @@ import {
 } from "@/lib/ai-course-generator";
 import { slugify } from "@/lib/mason";
 import type { PlayerSettings } from "@/lib/mason";
+import { addGeneratedCoursePictures } from "@/lib/ai-course-images";
 import { isCourseTheme } from "@/lib/course-options";
 import { prisma } from "@/lib/prisma";
 
@@ -26,6 +27,7 @@ type CourseJobSettings = {
   requestedTitle: string;
   requestedTheme: string;
   displayMode: "webpage" | "slideshow";
+  pictureMode: "ai" | "none";
   estimatedMinutes: number;
   appearance: PlayerSettings["appearance"];
   toolbarStyle: PlayerSettings["toolbarStyle"];
@@ -53,12 +55,14 @@ function extension(name: string) {
 
 function readJobSettings(body: Record<string, unknown>): CourseJobSettings | null {
   const displayMode = String(body.displayMode || "webpage");
+  const pictureMode = String(body.pictureMode || "ai");
   const requestedTheme = String(body.requestedTheme || "auto");
   const appearance = String(body.appearance || "light");
   const toolbarStyle = String(body.toolbarStyle || "guided");
   const aiCoach = String(body.aiCoach || "ask");
   const knowledgeScope = String(body.knowledgeScope || "course");
   if (!["webpage", "slideshow"].includes(displayMode)) return null;
+  if (!["ai", "none"].includes(pictureMode)) return null;
   if (requestedTheme !== "auto" && !isCourseTheme(requestedTheme)) return null;
   if (!["light", "dark"].includes(appearance) || !["minimal", "guided"].includes(toolbarStyle)) return null;
   if (!["off", "ask", "guided"].includes(aiCoach) || !["course", "expanded"].includes(knowledgeScope)) return null;
@@ -66,6 +70,7 @@ function readJobSettings(body: Record<string, unknown>): CourseJobSettings | nul
     requestedTitle: String(body.requestedTitle || "").trim().slice(0, 200),
     requestedTheme,
     displayMode: displayMode as CourseJobSettings["displayMode"],
+    pictureMode: pictureMode as CourseJobSettings["pictureMode"],
     estimatedMinutes: Math.max(10, Math.min(240, Number(body.estimatedMinutes) || 30)),
     appearance: appearance as PlayerSettings["appearance"],
     toolbarStyle: toolbarStyle as PlayerSettings["toolbarStyle"],
@@ -89,6 +94,10 @@ async function saveCompletedCourse(jobId: string, generated: GeneratedAiCourse, 
       adminUrl: `/admin/courses/${existing.course.slug}`,
       previewUrl: `/training/${existing.course.slug}`,
     };
+  }
+
+  if (settings.pictureMode === "ai") {
+    await addGeneratedCoursePictures(generated);
   }
 
   const baseSlug = slugify(generated.title) || "ai-course";
@@ -166,6 +175,7 @@ export async function POST(request: Request) {
     const requestedTitle = String(form.get("title") || "").trim();
     const audience = String(form.get("audience") || "").trim();
     const displayMode = String(form.get("displayMode") || "webpage");
+    const pictureMode = String(form.get("pictureMode") || "ai");
     const requestedTheme = String(form.get("theme") || "auto");
     const appearance = String(form.get("appearance") || "light");
     const toolbarStyle = String(form.get("toolbarStyle") || "guided");
@@ -186,6 +196,9 @@ export async function POST(request: Request) {
     }
     if (!['webpage', 'slideshow'].includes(displayMode)) {
       return Response.json({ error: "Choose either scrolling page or slide presentation." }, { status: 400 });
+    }
+    if (!["ai", "none"].includes(pictureMode)) {
+      return Response.json({ error: "Choose a valid picture option." }, { status: 400 });
     }
     if (requestedTheme !== "auto" && !isCourseTheme(requestedTheme)) {
       return Response.json({ error: "Choose a valid course theme." }, { status: 400 });
@@ -250,6 +263,7 @@ export async function POST(request: Request) {
       estimatedMinutes,
       questionCount,
       displayMode: displayMode as "webpage" | "slideshow",
+      pictureMode: pictureMode as "ai" | "none",
       requestedTheme: requestedTheme === "auto" ? undefined : requestedTheme,
       sources,
     });
