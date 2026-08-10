@@ -27,6 +27,10 @@
   opacity: 1;
 }
 
+.imageLayerActive .image {
+  animation: visual-enter 8s ease-out both;
+}
+
 .image {
   display: block;
   width: 100%;
@@ -161,5 +165,22 @@
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes visual-enter {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: scale(1.01);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .imageLayer,
+  .imageLayerActive .image {
+    animation: none;
+    transition: none;
   }
 }

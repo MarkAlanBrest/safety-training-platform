@@ -2,9 +2,9 @@
 
 import { parsePptxBuffer, type ParsedSlideImage } from "@/lib/ppt-ingest-core";
 
-const MAX_SOURCE_PICTURES = 12;
+const MAX_SOURCE_PICTURES = 24;
 const MAX_PICTURE_BYTES = 300 * 1024;
-const MAX_TOTAL_PICTURE_BYTES = 2_500 * 1024;
+const MAX_TOTAL_PICTURE_BYTES = 4_500 * 1024;
 
 export type PreparedSourcePicture = {
   file: File;
@@ -30,7 +30,9 @@ function slideDocument(fileName: string, slides: ReturnType<typeof parsePptxBuff
         `Visible text: ${slide.bodyText}`,
         slide.bullets.length ? `Key points: ${slide.bullets.join(" | ")}` : "",
         slide.speakerNotes ? `Speaker notes: ${slide.speakerNotes}` : "",
-        slide.image ? "Relevant embedded picture may be available from this slide." : "",
+        slide.images.length
+          ? `${slide.images.length} relevant embedded picture${slide.images.length === 1 ? " may" : "s may"} be available from this slide.`
+          : "",
       ].filter(Boolean).join("\n"),
     ),
   ].join("\n");
@@ -45,7 +47,7 @@ async function compressedPicture(image: ParsedSlideImage, name: string) {
   if (image.bytes.byteLength < 10 * 1024 || image.mimeType === "image/svg+xml") return null;
   try {
     const bitmap = await imageBitmap(image);
-    if (bitmap.width < 480 || bitmap.height < 270 || bitmap.width * bitmap.height < 250_000) {
+    if (bitmap.width < 280 || bitmap.height < 160 || bitmap.width * bitmap.height < 100_000) {
       bitmap.close();
       return null;
     }
@@ -108,27 +110,43 @@ export async function prepareAiCourseSources(
     );
 
     if (!includePowerPointPictures) continue;
-    const candidates = slides.filter((slide) => slide.image).slice(0, MAX_SOURCE_PICTURES - pictures.length);
+    const seenImages = new Set<string>();
+    const candidates = slides
+      .flatMap((slide) =>
+        slide.images.map((image, imageIndex) => ({ slide, image, imageIndex })),
+      )
+      .filter(({ image }) => {
+        const head = Array.from(image.bytes.slice(0, 12)).join(".");
+        const tail = Array.from(image.bytes.slice(-12)).join(".");
+        const key = `${image.mimeType}:${image.bytes.byteLength}:${head}:${tail}`;
+        if (seenImages.has(key)) return false;
+        seenImages.add(key);
+        return true;
+      })
+      .slice(0, MAX_SOURCE_PICTURES - pictures.length);
     for (let offset = 0; offset < candidates.length; offset += 3) {
       if (pictureBytes >= MAX_TOTAL_PICTURE_BYTES) break;
       const batch = candidates.slice(offset, offset + 3);
       const prepared = await Promise.all(
-        batch.map((slide, batchIndex) =>
+        batch.map(({ slide, image, imageIndex }, batchIndex) =>
           compressedPictureWithTimeout(
-            slide.image!,
-            `ppt-picture-${pictures.length + batchIndex + 1}-slide-${slide.index + 1}.jpg`,
+            image,
+            `ppt-picture-${pictures.length + batchIndex + 1}-slide-${slide.index + 1}-${imageIndex + 1}.jpg`,
           ),
         ),
       );
       prepared.forEach((picture, batchIndex) => {
-        const slide = batch[batchIndex];
+        const { slide, image, imageIndex } = batch[batchIndex];
         if (!picture || pictureBytes + picture.size > MAX_TOTAL_PICTURE_BYTES) return;
         pictureBytes += picture.size;
         pictures.push({
           file: picture,
           slideNumber: slide.index + 1,
-          title: slide.title,
-          context: [slide.title, slide.bodyText, slide.speakerNotes, ...slide.bullets].join(" ").slice(0, 6000),
+          title: image.label || `${slide.title} — picture ${imageIndex + 1}`,
+          context: [image.label, slide.title, slide.bodyText, slide.speakerNotes, ...slide.bullets]
+            .filter(Boolean)
+            .join(" ")
+            .slice(0, 6000),
           sourceName: file.name,
         });
       });

@@ -351,7 +351,7 @@ export default function NewAiCoursePage() {
                     {
                       id: "source",
                       name: "Use PowerPoint pictures",
-                      description: "Reuse relevant original deck pictures and finish without waiting for new image generation.",
+                      description: "Reuse relevant original deck pictures, including multi-picture animated visual explainers.",
                     },
                     {
                       id: "ai",

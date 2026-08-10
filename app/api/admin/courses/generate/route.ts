@@ -231,7 +231,7 @@ export async function POST(request: Request) {
     if (files.length > MAX_SOURCE_COUNT) {
       return Response.json({ error: `Upload no more than ${MAX_SOURCE_COUNT} supporting files.` }, { status: 400 });
     }
-    if (pictureFiles.length > 12 || pictureFiles.some((file) => file.size > 350 * 1024)) {
+    if (pictureFiles.length > 24 || pictureFiles.some((file) => file.size > 350 * 1024)) {
       return Response.json({ error: "The prepared PowerPoint pictures are too large." }, { status: 400 });
     }
 

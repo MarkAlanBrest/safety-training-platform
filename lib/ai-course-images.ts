@@ -108,10 +108,10 @@ function relevanceScore(moment: LessonMoment, picture: SourcePicture) {
 }
 
 async function pictureDataUrl(image: ParsedSlideImage) {
-  if (image.bytes.byteLength < 12 * 1024 || image.mimeType === "image/svg+xml") return null;
+  if (image.bytes.byteLength < 8 * 1024 || image.mimeType === "image/svg+xml") return null;
   try {
     const bitmap = await loadImage(Buffer.from(image.bytes));
-    if (bitmap.width < 480 || bitmap.height < 270 || bitmap.width * bitmap.height < 250_000) return null;
+    if (bitmap.width < 280 || bitmap.height < 160 || bitmap.width * bitmap.height < 100_000) return null;
     const scale = Math.min(1, 1600 / bitmap.width, 1200 / bitmap.height);
     const width = Math.max(1, Math.round(bitmap.width * scale));
     const height = Math.max(1, Math.round(bitmap.height * scale));
@@ -147,26 +147,50 @@ async function extractPowerPointPictures(
     try {
       const slides = parsePptxBuffer(new Uint8Array(source.bytes), { maxImageBytes: 6 * 1024 * 1024 });
       for (const slide of slides) {
-        const image = slide.image;
-        if (!image) continue;
-        const hash = createHash("sha256").update(image.bytes).digest("hex");
-        if (seen.has(hash)) continue;
-        const dataUrl = await pictureDataUrl(image);
-        if (!dataUrl) continue;
-        seen.add(hash);
-        pictures.push({
-          dataUrl,
-          slideNumber: slide.index + 1,
-          title: slide.title,
-          context: [slide.title, slide.bodyText, slide.speakerNotes, ...slide.bullets].join(" "),
-          sourceName: source.name,
-        });
+        for (const [imageIndex, image] of slide.images.entries()) {
+          const hash = createHash("sha256").update(image.bytes).digest("hex");
+          if (seen.has(hash)) continue;
+          const dataUrl = await pictureDataUrl(image);
+          if (!dataUrl) continue;
+          seen.add(hash);
+          pictures.push({
+            dataUrl,
+            slideNumber: slide.index + 1,
+            title: image.label || `${slide.title} — picture ${imageIndex + 1}`,
+            context: [image.label, slide.title, slide.bodyText, slide.speakerNotes, ...slide.bullets]
+              .filter(Boolean)
+              .join(" "),
+            sourceName: source.name,
+          });
+        }
       }
     } catch (error) {
       console.error(`Could not extract course pictures from ${source.name}:`, error);
     }
   }
   return pictures;
+}
+
+function narrationSegments(value: string, count: number) {
+  const narration = value.trim();
+  if (count <= 1) return [narration];
+  let parts = narration.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((part) => part.trim()).filter(Boolean) || [];
+  if (parts.length < count) {
+    const words = narration.split(/\s+/).filter(Boolean);
+    const size = Math.max(1, Math.ceil(words.length / count));
+    parts = Array.from({ length: count }, (_, index) => words.slice(index * size, (index + 1) * size).join(" "))
+      .filter(Boolean);
+  }
+  return Array.from({ length: count }, (_, index) => {
+    const start = Math.floor((index * parts.length) / count);
+    const end = Math.max(start + 1, Math.floor(((index + 1) * parts.length) / count));
+    return parts.slice(start, end).join(" ").trim() || narration;
+  });
+}
+
+function pictureLabel(picture: SourcePicture, index: number) {
+  const label = picture.title.replace(/\s+/g, " ").trim();
+  return label && !/^slide \d+$/i.test(label) ? label.slice(0, 90) : `Visual ${index + 1}`;
 }
 
 /** Prefer relevant original PowerPoint pictures and retain their slide provenance. */
@@ -192,23 +216,38 @@ export async function attachPowerPointCoursePictures(
       }))
       .filter((candidate) => candidate.score >= 0)
       .sort((a, b) => b.score - a.score);
-    let pictureIndex = exactMatches[0]?.index ?? -1;
-    if (pictureIndex < 0) {
-      const ranked = pictures
-        .map((picture, index) => ({ index, score: used.has(index) ? -1 : relevanceScore(moment, picture) }))
-        .sort((a, b) => b.score - a.score);
-      if (ranked[0]?.score >= 0.06) pictureIndex = ranked[0].index;
-    }
-    if (pictureIndex < 0) return;
+    const ranked = pictures
+      .map((picture, index) => ({
+        index,
+        score:
+          relevanceScore(moment, picture) +
+          (Number.isFinite(requestedSlide) && Math.abs(picture.slideNumber - requestedSlide) <= 1 ? 0.08 : 0),
+      }))
+      .sort((a, b) => b.score - a.score);
+    const selectedIndexes = [
+      ...exactMatches.map((candidate) => candidate.index),
+      ...ranked.filter((candidate) => !used.has(candidate.index)).map((candidate) => candidate.index),
+      ...ranked.map((candidate) => candidate.index),
+    ].filter((index, position, all) => all.indexOf(index) === position).slice(0, Math.min(4, pictures.length));
+    if (!selectedIndexes.length) return;
 
-    const picture = pictures[pictureIndex];
-    used.add(pictureIndex);
-    moment.pageNumber = picture.slideNumber;
-    moment.sourceImage = picture.dataUrl;
-    moment.sourceImageAlt = `Source PowerPoint${picture.sourceName ? ` ${picture.sourceName}` : ""}, slide ${picture.slideNumber}: ${picture.title}`;
-    if (moment.explainerFrames?.[0]) {
-      moment.explainerFrames[0].sourceImage = picture.dataUrl;
-    }
+    const selected = selectedIndexes.map((index) => pictures[index]);
+    selectedIndexes.forEach((index) => used.add(index));
+    const originalNarration = moment.explainerFrames?.[0]?.narration?.trim() || moment.narration.trim();
+    const segments = narrationSegments(originalNarration, selected.length);
+    const firstPicture = selected[0];
+    moment.pageNumber = firstPicture.slideNumber;
+    moment.sourceImage = firstPicture.dataUrl;
+    moment.sourceImageAlt = `Source PowerPoint${firstPicture.sourceName ? ` ${firstPicture.sourceName}` : ""}, slide ${firstPicture.slideNumber}: ${firstPicture.title}`;
+    moment.explainerStyle = selected.length > 1 ? "step-build" : "flipbook";
+    moment.explainerFrames = selected.map((picture, index) => ({
+      title: pictureLabel(picture, index),
+      caption: `PowerPoint slide ${picture.slideNumber}`,
+      narration: segments[index],
+      visualItems: [],
+      sourceImage: picture.dataUrl,
+    }));
+    moment.playerFrames = null;
   });
 
   course.sections.forEach((section) => {
