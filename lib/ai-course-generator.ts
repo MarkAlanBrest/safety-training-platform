@@ -193,7 +193,7 @@ export type AiCourseGenerationInput = {
   estimatedMinutes: number;
   questionCount: number;
   displayMode: "webpage" | "slideshow";
-  pictureMode: "ai" | "none";
+  pictureMode: "source" | "ai" | "none";
   requestedTheme?: string;
   sources: AiCourseSource[];
 };
@@ -220,8 +220,13 @@ function requestBody(input: AiCourseGenerationInput) {
       "Evidence: Treat supporting files as reference material, not as layouts to reproduce. Do not invent regulations, measurements, procedures, product claims, or citations that are not supported by the brief or files. When evidence is incomplete, teach the supported principle without manufacturing specifics.",
       "Instructional depth: Each section must have a purposeful arc: a motivating opening, clear explanation, a concrete worked example, active practice, a realistic decision or scenario, and a useful recap. Teach why and how, not merely definitions. Use source-specific facts and workplace examples whenever the evidence supports them.",
       "Design: Use explain/text blocks for real teaching depth, tiles only for memorable frameworks, dragdrop only for true sequences, flashcards for terms or paired concepts, scenarios for judgment, and questions for checks. Avoid repetitive card grids, repeated introductions, filler, slogans, vague advice, and questions that merely repeat a sentence verbatim.",
-      input.pictureMode === "ai"
-        ? "Pictures: Include exactly one visual moment in each section. It must depict a concrete, instructionally useful real-world scene that reinforces the surrounding lesson. Supply a detailed imagePrompt for a realistic professional training photograph and concise imageAlt text. Do not request text, labels, logos, brand marks, graphic injuries, or a generic decorative scene. All non-visual moments must use null for imagePrompt and imageAlt."
+      input.pictureMode !== "none"
+        ? [
+            "Pictures: Include exactly one visual moment in each section. It must depict a concrete, instructionally useful real-world scene that reinforces the surrounding lesson. Supply a detailed imagePrompt for a realistic professional training photograph and concise imageAlt text. Do not request text, labels, logos, brand marks, graphic injuries, or a generic decorative scene. All non-visual moments must use null for imagePrompt and imageAlt.",
+            input.pictureMode === "source"
+              ? "When a supplied PowerPoint contains a relevant embedded picture, set pageNumber to that PowerPoint slide number so the original picture can be reused. Prefer topic-specific photos and useful equipment or process images; ignore logos, backgrounds, icons, and decorative graphics. Use null when no source slide is appropriate."
+              : "Set pageNumber to null; pictures will be newly generated.",
+          ].join(" ")
         : "Pictures: Do not create visual moments. Set imagePrompt and imageAlt to null for every moment.",
       "Quality control: Every moment must add new instructional value. Do not write generic safety language that could fit any course. Include consequences, common errors, observable cues, and practical decisions appropriate to the stated audience. Ensure every objective is actually taught and assessed.",
       "Assessments: Choices must be plausible complete answers. Put coached questions in activity phase and the requested number of scored questions in mastery phase across the course. Every scored question needs clear corrective feedback.",

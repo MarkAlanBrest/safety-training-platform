@@ -16,7 +16,10 @@ import {
 } from "@/lib/ai-course-generator";
 import { slugify } from "@/lib/mason";
 import type { PlayerSettings } from "@/lib/mason";
-import { addGeneratedCoursePictures } from "@/lib/ai-course-images";
+import {
+  addGeneratedCoursePictures,
+  attachPowerPointCoursePictures,
+} from "@/lib/ai-course-images";
 import { isCourseTheme } from "@/lib/course-options";
 import { prisma } from "@/lib/prisma";
 
@@ -27,7 +30,7 @@ type CourseJobSettings = {
   requestedTitle: string;
   requestedTheme: string;
   displayMode: "webpage" | "slideshow";
-  pictureMode: "ai" | "none";
+  pictureMode: "source" | "ai" | "none";
   estimatedMinutes: number;
   appearance: PlayerSettings["appearance"];
   toolbarStyle: PlayerSettings["toolbarStyle"];
@@ -55,14 +58,14 @@ function extension(name: string) {
 
 function readJobSettings(body: Record<string, unknown>): CourseJobSettings | null {
   const displayMode = String(body.displayMode || "webpage");
-  const pictureMode = String(body.pictureMode || "ai");
+  const pictureMode = String(body.pictureMode || "source");
   const requestedTheme = String(body.requestedTheme || "auto");
   const appearance = String(body.appearance || "light");
   const toolbarStyle = String(body.toolbarStyle || "guided");
   const aiCoach = String(body.aiCoach || "ask");
   const knowledgeScope = String(body.knowledgeScope || "course");
   if (!["webpage", "slideshow"].includes(displayMode)) return null;
-  if (!["ai", "none"].includes(pictureMode)) return null;
+  if (!["source", "ai", "none"].includes(pictureMode)) return null;
   if (requestedTheme !== "auto" && !isCourseTheme(requestedTheme)) return null;
   if (!["light", "dark"].includes(appearance) || !["minimal", "guided"].includes(toolbarStyle)) return null;
   if (!["off", "ask", "guided"].includes(aiCoach) || !["course", "expanded"].includes(knowledgeScope)) return null;
@@ -79,7 +82,12 @@ function readJobSettings(body: Record<string, unknown>): CourseJobSettings | nul
   };
 }
 
-async function saveCompletedCourse(jobId: string, generated: GeneratedAiCourse, settings: CourseJobSettings) {
+async function saveCompletedCourse(
+  jobId: string,
+  generated: GeneratedAiCourse,
+  settings: CourseJobSettings,
+  sources: AiCourseSource[] = [],
+) {
   const marker = `AI generation ${jobId}`;
   const existing = await prisma.masonSection.findFirst({
     where: { fileName: marker },
@@ -96,7 +104,10 @@ async function saveCompletedCourse(jobId: string, generated: GeneratedAiCourse, 
     };
   }
 
-  if (settings.pictureMode === "ai") {
+  if (settings.pictureMode === "source") {
+    await attachPowerPointCoursePictures(generated, sources);
+    await addGeneratedCoursePictures(generated);
+  } else if (settings.pictureMode === "ai") {
     await addGeneratedCoursePictures(generated);
   }
 
@@ -166,16 +177,20 @@ export async function POST(request: Request) {
       if (!result.course) {
         return Response.json({ jobId, status: result.status }, { status: 202 });
       }
+      if (settings.pictureMode === "source") {
+        return Response.json({ jobId, status: "awaiting_sources" }, { status: 202 });
+      }
       const saved = await saveCompletedCourse(jobId, result.course, settings);
       return Response.json({ jobId, status: "completed", ...saved }, { status: 201 });
     }
 
     const form = await request.formData();
+    const jobId = String(form.get("jobId") || "");
     const brief = String(form.get("brief") || "").trim();
     const requestedTitle = String(form.get("title") || "").trim();
     const audience = String(form.get("audience") || "").trim();
     const displayMode = String(form.get("displayMode") || "webpage");
-    const pictureMode = String(form.get("pictureMode") || "ai");
+    const pictureMode = String(form.get("pictureMode") || "source");
     const requestedTheme = String(form.get("theme") || "auto");
     const appearance = String(form.get("appearance") || "light");
     const toolbarStyle = String(form.get("toolbarStyle") || "guided");
@@ -185,19 +200,19 @@ export async function POST(request: Request) {
     const questionCount = Math.max(3, Math.min(20, Number(form.get("questionCount")) || 8));
     const files = form.getAll("sources").filter((item): item is File => item instanceof File && item.size > 0);
 
-    if (brief.length < 20) {
+    if (!jobId && brief.length < 20) {
       return Response.json(
         { error: "Describe the course in at least a sentence so AI knows what success looks like." },
         { status: 400 },
       );
     }
-    if (brief.length > 8000) {
+    if (!jobId && brief.length > 8000) {
       return Response.json({ error: "The course description is limited to 8,000 characters." }, { status: 400 });
     }
     if (!['webpage', 'slideshow'].includes(displayMode)) {
       return Response.json({ error: "Choose either scrolling page or slide presentation." }, { status: 400 });
     }
-    if (!["ai", "none"].includes(pictureMode)) {
+    if (!["source", "ai", "none"].includes(pictureMode)) {
       return Response.json({ error: "Choose a valid picture option." }, { status: 400 });
     }
     if (requestedTheme !== "auto" && !isCourseTheme(requestedTheme)) {
@@ -237,6 +252,29 @@ export async function POST(request: Request) {
       });
     }
 
+    if (jobId) {
+      const settings = readJobSettings({
+        requestedTitle,
+        requestedTheme,
+        displayMode,
+        pictureMode,
+        estimatedMinutes,
+        appearance,
+        toolbarStyle,
+        aiCoach,
+        knowledgeScope,
+      });
+      if (!settings || !/^resp_[a-zA-Z0-9_-]+$/.test(jobId)) {
+        return Response.json({ error: "The background course job settings are invalid." }, { status: 400 });
+      }
+      const result = await pollAiCourseGeneration(jobId, settings.requestedTitle);
+      if (!result.course) {
+        return Response.json({ jobId, status: result.status }, { status: 202 });
+      }
+      const saved = await saveCompletedCourse(jobId, result.course, settings, sources);
+      return Response.json({ jobId, status: "completed", ...saved }, { status: 201 });
+    }
+
     // Confirm the draft can be saved before making the paid generation call.
     // This prevents a full course from being generated and then discarded when
     // the database provider is unavailable or over quota.
@@ -263,7 +301,7 @@ export async function POST(request: Request) {
       estimatedMinutes,
       questionCount,
       displayMode: displayMode as "webpage" | "slideshow",
-      pictureMode: pictureMode as "ai" | "none",
+      pictureMode: pictureMode as "source" | "ai" | "none",
       requestedTheme: requestedTheme === "auto" ? undefined : requestedTheme,
       sources,
     });

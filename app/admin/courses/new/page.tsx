@@ -22,7 +22,8 @@ const buildStages = [
   "Designing the course structure",
   "Writing lessons and realistic examples",
   "Creating activities and assessments",
-  "Creating realistic course pictures",
+  "Finding pictures from your PowerPoint",
+  "Creating any additional course pictures",
   "Polishing the editable draft",
 ];
 
@@ -85,12 +86,36 @@ export default function NewAiCoursePage() {
 
       while (!payload.adminUrl) {
         await new Promise((resolve) => window.setTimeout(resolve, 3500));
-        const pollResponse = await fetch("/api/admin/courses/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: controller.signal,
-          body: JSON.stringify({ jobId: jobIdRef.current, ...jobSettings }),
-        });
+        const needsPowerPointPictures = payload.status === "awaiting_sources";
+        let pollResponse: Response;
+        if (needsPowerPointPictures) {
+          const finalizeForm = new FormData();
+          finalizeForm.set("jobId", jobIdRef.current || "");
+          finalizeForm.set("title", jobSettings.requestedTitle);
+          finalizeForm.set("theme", jobSettings.requestedTheme);
+          finalizeForm.set("displayMode", jobSettings.displayMode);
+          finalizeForm.set("pictureMode", jobSettings.pictureMode);
+          finalizeForm.set("estimatedMinutes", String(jobSettings.estimatedMinutes));
+          finalizeForm.set("appearance", jobSettings.appearance);
+          finalizeForm.set("toolbarStyle", jobSettings.toolbarStyle);
+          finalizeForm.set("aiCoach", jobSettings.aiCoach);
+          finalizeForm.set("knowledgeScope", jobSettings.knowledgeScope);
+          files
+            .filter((file) => file.name.toLowerCase().endsWith(".pptx"))
+            .forEach((file) => finalizeForm.append("sources", file, file.name));
+          pollResponse = await fetch("/api/admin/courses/generate", {
+            method: "POST",
+            body: finalizeForm,
+            signal: controller.signal,
+          });
+        } else {
+          pollResponse = await fetch("/api/admin/courses/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({ jobId: jobIdRef.current, ...jobSettings }),
+          });
+        }
         payload = await parseJsonResponse<{ jobId?: string; status?: string; adminUrl?: string; error?: string }>(pollResponse);
         if (!pollResponse.ok && pollResponse.status !== 202) {
           throw new Error(payload.error || "The background course job could not be completed.");
@@ -307,9 +332,14 @@ export default function NewAiCoursePage() {
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   {[
                     {
+                      id: "source",
+                      name: "PowerPoint pictures + AI backup",
+                      description: "Reuse relevant original deck pictures first, then create only the pictures still needed.",
+                    },
+                    {
                       id: "ai",
-                      name: "Photorealistic AI pictures",
-                      description: "AI creates one meaningful, editable landscape picture for each chapter.",
+                      name: "New AI pictures only",
+                      description: "Create one new photorealistic, editable landscape picture for each chapter.",
                     },
                     {
                       id: "none",
@@ -322,7 +352,7 @@ export default function NewAiCoursePage() {
                         type="radio"
                         name="pictureMode"
                         value={option.id}
-                        defaultChecked={option.id === "ai"}
+                        defaultChecked={option.id === "source"}
                         className="peer sr-only"
                       />
                       <span className="block h-full rounded-2xl border border-[#10283f]/10 p-4 transition peer-checked:border-[#c68b1b] peer-checked:bg-[#fff9eb] peer-checked:ring-2 peer-checked:ring-[#e8c273]/25">
@@ -333,7 +363,7 @@ export default function NewAiCoursePage() {
                   ))}
                 </div>
                 <p className="mt-3 text-xs leading-5 text-[#69757e]">
-                  Generated pictures add image-processing time and API cost. They contain no embedded labels, so course text stays editable and accessible.
+                  PowerPoint pictures keep their source slide number. AI backup pictures add image-processing time and API cost.
                 </p>
               </fieldset>
 
