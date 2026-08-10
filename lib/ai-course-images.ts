@@ -64,6 +64,16 @@ type SourcePicture = {
   slideNumber: number;
   context: string;
   title: string;
+  sourceName?: string;
+};
+
+export type PowerPointPictureInput = {
+  bytes: Buffer;
+  mimeType: string;
+  slideNumber: number;
+  title: string;
+  context: string;
+  sourceName: string;
 };
 
 const STOP_WORDS = new Set([
@@ -113,9 +123,26 @@ async function pictureDataUrl(image: ParsedSlideImage) {
   }
 }
 
-async function extractPowerPointPictures(sources: AiCourseSource[]) {
+async function extractPowerPointPictures(
+  sources: AiCourseSource[],
+  provided: PowerPointPictureInput[],
+) {
   const pictures: SourcePicture[] = [];
   const seen = new Set<string>();
+  for (const input of provided) {
+    const hash = createHash("sha256").update(input.bytes).digest("hex");
+    if (seen.has(hash)) continue;
+    const dataUrl = await pictureDataUrl({ bytes: new Uint8Array(input.bytes), mimeType: input.mimeType });
+    if (!dataUrl) continue;
+    seen.add(hash);
+    pictures.push({
+      dataUrl,
+      slideNumber: input.slideNumber,
+      title: input.title,
+      context: input.context,
+      sourceName: input.sourceName,
+    });
+  }
   for (const source of sources.filter((item) => item.name.toLowerCase().endsWith(".pptx"))) {
     try {
       const slides = parsePptxBuffer(new Uint8Array(source.bytes), { maxImageBytes: 6 * 1024 * 1024 });
@@ -132,6 +159,7 @@ async function extractPowerPointPictures(sources: AiCourseSource[]) {
           slideNumber: slide.index + 1,
           title: slide.title,
           context: [slide.title, slide.bodyText, slide.speakerNotes, ...slide.bullets].join(" "),
+          sourceName: source.name,
         });
       }
     } catch (error) {
@@ -145,8 +173,9 @@ async function extractPowerPointPictures(sources: AiCourseSource[]) {
 export async function attachPowerPointCoursePictures(
   course: GeneratedAiCourse,
   sources: AiCourseSource[],
+  provided: PowerPointPictureInput[] = [],
 ) {
-  const pictures = await extractPowerPointPictures(sources);
+  const pictures = await extractPowerPointPictures(sources, provided);
   if (!pictures.length) return course;
   const used = new Set<number>();
 
@@ -177,7 +206,7 @@ export async function attachPowerPointCoursePictures(
     used.add(pictureIndex);
     moment.pageNumber = picture.slideNumber;
     moment.sourceImage = picture.dataUrl;
-    moment.sourceImageAlt = `Source PowerPoint, slide ${picture.slideNumber}: ${picture.title}`;
+    moment.sourceImageAlt = `Source PowerPoint${picture.sourceName ? ` ${picture.sourceName}` : ""}, slide ${picture.slideNumber}: ${picture.title}`;
     if (moment.explainerFrames?.[0]) {
       moment.explainerFrames[0].sourceImage = picture.dataUrl;
     }

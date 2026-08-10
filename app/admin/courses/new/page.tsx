@@ -16,6 +16,7 @@ import {
 import AdminShell from "@/components/AdminShell";
 import { courseThemes } from "@/lib/course-options";
 import { parseJsonResponse } from "@/lib/parse-response";
+import { prepareAiCourseSources } from "@/lib/ai-course-source-client";
 
 const buildStages = [
   "Reading your brief and source material",
@@ -64,15 +65,20 @@ export default function NewAiCoursePage() {
         requestedTitle: String(form.get("title") || ""),
         requestedTheme: String(form.get("theme") || "auto"),
         displayMode: String(form.get("displayMode") || "webpage"),
-        pictureMode: String(form.get("pictureMode") || "ai"),
+        pictureMode: String(form.get("pictureMode") || "source"),
         estimatedMinutes: Number(form.get("estimatedMinutes")) || 30,
         appearance: String(form.get("appearance") || "light"),
         toolbarStyle: String(form.get("toolbarStyle") || "guided"),
         aiCoach: String(form.get("aiCoach") || "ask"),
         knowledgeScope: String(form.get("knowledgeScope") || "course"),
       };
+      setStage(1);
+      const preparedSources = await prepareAiCourseSources(
+        files,
+        jobSettings.pictureMode === "source",
+      );
       form.delete("sources");
-      files.forEach((file) => form.append("sources", file, file.name));
+      preparedSources.uploadFiles.forEach((file) => form.append("sources", file, file.name));
       const response = await fetch("/api/admin/courses/generate", {
         method: "POST",
         body: form,
@@ -100,9 +106,20 @@ export default function NewAiCoursePage() {
           finalizeForm.set("toolbarStyle", jobSettings.toolbarStyle);
           finalizeForm.set("aiCoach", jobSettings.aiCoach);
           finalizeForm.set("knowledgeScope", jobSettings.knowledgeScope);
-          files
-            .filter((file) => file.name.toLowerCase().endsWith(".pptx"))
-            .forEach((file) => finalizeForm.append("sources", file, file.name));
+          finalizeForm.set(
+            "sourcePictureManifest",
+            JSON.stringify(
+              preparedSources.pictures.map((picture) => ({
+                slideNumber: picture.slideNumber,
+                title: picture.title,
+                context: picture.context,
+                sourceName: picture.sourceName,
+              })),
+            ),
+          );
+          preparedSources.pictures.forEach((picture) =>
+            finalizeForm.append("sourcePictures", picture.file, picture.file.name),
+          );
           pollResponse = await fetch("/api/admin/courses/generate", {
             method: "POST",
             body: finalizeForm,
@@ -474,7 +491,7 @@ export default function NewAiCoursePage() {
                 </div>
               ) : (
                 <p className="mt-4 text-sm leading-6 text-[#69757e]">
-                  Documents are optional. AI can build from your description alone, but source material improves factual accuracy and company-specific detail.
+                  Documents are optional. PowerPoints are prepared in your browser so large decks upload reliably while keeping slide text, notes, and useful pictures.
                 </p>
               )}
             </section>

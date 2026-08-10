@@ -19,6 +19,7 @@ import type { PlayerSettings } from "@/lib/mason";
 import {
   addGeneratedCoursePictures,
   attachPowerPointCoursePictures,
+  type PowerPointPictureInput,
 } from "@/lib/ai-course-images";
 import { isCourseTheme } from "@/lib/course-options";
 import { prisma } from "@/lib/prisma";
@@ -87,6 +88,7 @@ async function saveCompletedCourse(
   generated: GeneratedAiCourse,
   settings: CourseJobSettings,
   sources: AiCourseSource[] = [],
+  sourcePictures: PowerPointPictureInput[] = [],
 ) {
   const marker = `AI generation ${jobId}`;
   const existing = await prisma.masonSection.findFirst({
@@ -105,7 +107,7 @@ async function saveCompletedCourse(
   }
 
   if (settings.pictureMode === "source") {
-    await attachPowerPointCoursePictures(generated, sources);
+    await attachPowerPointCoursePictures(generated, sources, sourcePictures);
     await addGeneratedCoursePictures(generated);
   } else if (settings.pictureMode === "ai") {
     await addGeneratedCoursePictures(generated);
@@ -199,6 +201,9 @@ export async function POST(request: Request) {
     const estimatedMinutes = Math.max(10, Math.min(240, Number(form.get("estimatedMinutes")) || 30));
     const questionCount = Math.max(3, Math.min(20, Number(form.get("questionCount")) || 8));
     const files = form.getAll("sources").filter((item): item is File => item instanceof File && item.size > 0);
+    const pictureFiles = form
+      .getAll("sourcePictures")
+      .filter((item): item is File => item instanceof File && item.size > 0);
 
     if (!jobId && brief.length < 20) {
       return Response.json(
@@ -226,6 +231,9 @@ export async function POST(request: Request) {
     }
     if (files.length > MAX_SOURCE_COUNT) {
       return Response.json({ error: `Upload no more than ${MAX_SOURCE_COUNT} supporting files.` }, { status: 400 });
+    }
+    if (pictureFiles.length > 12 || pictureFiles.some((file) => file.size > 350 * 1024)) {
+      return Response.json({ error: "The prepared PowerPoint pictures are too large." }, { status: 400 });
     }
 
     let totalBytes = 0;
@@ -267,11 +275,36 @@ export async function POST(request: Request) {
       if (!settings || !/^resp_[a-zA-Z0-9_-]+$/.test(jobId)) {
         return Response.json({ error: "The background course job settings are invalid." }, { status: 400 });
       }
+      let pictureManifest: Array<Record<string, unknown>> = [];
+      try {
+        const rawManifest = String(form.get("sourcePictureManifest") || "[]");
+        const parsed = JSON.parse(rawManifest) as unknown;
+        if (!Array.isArray(parsed) || parsed.length !== pictureFiles.length) throw new Error("invalid manifest");
+        pictureManifest = parsed as Array<Record<string, unknown>>;
+      } catch {
+        return Response.json({ error: "The prepared PowerPoint picture details are invalid." }, { status: 400 });
+      }
+      const sourcePictures: PowerPointPictureInput[] = await Promise.all(
+        pictureFiles.map(async (file, index) => ({
+          bytes: Buffer.from(await file.arrayBuffer()),
+          mimeType: file.type || "image/jpeg",
+          slideNumber: Math.max(1, Math.min(1000, Number(pictureManifest[index].slideNumber) || 1)),
+          title: String(pictureManifest[index].title || "PowerPoint picture").slice(0, 300),
+          context: String(pictureManifest[index].context || "").slice(0, 6000),
+          sourceName: String(pictureManifest[index].sourceName || "PowerPoint").slice(0, 300),
+        })),
+      );
       const result = await pollAiCourseGeneration(jobId, settings.requestedTitle);
       if (!result.course) {
         return Response.json({ jobId, status: result.status }, { status: 202 });
       }
-      const saved = await saveCompletedCourse(jobId, result.course, settings, sources);
+      const saved = await saveCompletedCourse(
+        jobId,
+        result.course,
+        settings,
+        sources,
+        sourcePictures,
+      );
       return Response.json({ jobId, status: "completed", ...saved }, { status: 201 });
     }
 
