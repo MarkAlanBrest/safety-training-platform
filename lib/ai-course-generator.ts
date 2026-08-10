@@ -231,21 +231,43 @@ function normalizedSourceName(value: string | null | undefined) {
   return String(value || "").trim().toLowerCase();
 }
 
-function assertPowerPointCoverage(course: GeneratedAiCourse, sources: AiCourseSource[]) {
+function powerPointKey(sourceName: string | null | undefined, slideNumber: number | null | undefined) {
+  return `${normalizedSourceName(sourceName)}:${Number(slideNumber)}`;
+}
+
+function normalizePowerPointRoadmap(course: GeneratedAiCourse, sources: AiCourseSource[]) {
   const roadmap = powerPointRoadmap(sources);
   if (!roadmap.length) return;
-  const expected = roadmap.map(
-    (slide) => `${normalizedSourceName(slide.sourceName)}:${slide.slideNumber}`,
-  );
-  const actual = course.sections.flatMap((section) =>
-    section.lessonPlan.moments
-      .filter((moment) => moment.phase === "learn" && moment.pageNumber && moment.sourceName)
-      .map((moment) => `${normalizedSourceName(moment.sourceName)}:${moment.pageNumber}`),
-  );
-  const represented = new Set(actual);
-  const missing = roadmap.filter(
-    (slide) => !represented.has(`${normalizedSourceName(slide.sourceName)}:${slide.slideNumber}`),
-  );
+  const expected = roadmap.map((slide) => ({
+    ...slide,
+    key: powerPointKey(slide.sourceName, slide.slideNumber),
+  }));
+  const expectedKeys = new Set(expected.map((slide) => slide.key));
+  const moments = course.sections.flatMap((section) => section.lessonPlan.moments);
+
+  function matchingSlide(moment: LessonMoment) {
+    const exactKey = powerPointKey(moment.sourceName, moment.pageNumber);
+    const exact = expected.find((slide) => slide.key === exactKey);
+    if (exact) return exact;
+    const sameNumber = expected.filter((slide) => slide.slideNumber === Number(moment.pageNumber));
+    return sameNumber.length === 1 ? sameNumber[0] : null;
+  }
+
+  const primaryByKey = new Map<string, LessonMoment>();
+  expected.forEach((slide) => {
+    const candidates = moments.filter((moment) => matchingSlide(moment)?.key === slide.key);
+    const primary =
+      candidates.find(
+        (moment) => moment.phase === "learn" && !["question", "scenario", "dragdrop"].includes(moment.kind),
+      ) || candidates.find((moment) => !["question", "scenario", "dragdrop"].includes(moment.kind));
+    if (!primary) return;
+    primary.phase = "learn";
+    primary.sourceName = slide.sourceName;
+    primary.pageNumber = slide.slideNumber;
+    primaryByKey.set(slide.key, primary);
+  });
+
+  const missing = expected.filter((slide) => !primaryByKey.has(slide.key));
   if (missing.length) {
     const sample = missing
       .slice(0, 6)
@@ -255,11 +277,44 @@ function assertPowerPointCoverage(course: GeneratedAiCourse, sources: AiCourseSo
       `The AI draft skipped ${missing.length} PowerPoint slide${missing.length === 1 ? "" : "s"} (${sample}${missing.length > 6 ? ", …" : ""}). Generate again so every source slide is retained.`,
     );
   }
-  if (actual.length !== expected.length || actual.some((value, index) => value !== expected[index])) {
-    throw new Error(
-      "The AI draft changed the PowerPoint slide order or created duplicate source-slide lessons. Generate again so the online course follows the deck exactly.",
-    );
-  }
+
+  const primaryMoments = new Set(primaryByKey.values());
+  const linked = new Map<string, LessonMoment[]>();
+  const unlinked: LessonMoment[] = [];
+  const mastery: LessonMoment[] = [];
+  moments.forEach((moment) => {
+    if (primaryMoments.has(moment)) return;
+    if (moment.phase === "mastery") {
+      mastery.push(moment);
+      return;
+    }
+    const slide = matchingSlide(moment);
+    if (!slide || !expectedKeys.has(slide.key)) {
+      unlinked.push(moment);
+      return;
+    }
+    if (moment.phase === "learn") {
+      moment.sourceName = null;
+      moment.pageNumber = null;
+    } else {
+      moment.sourceName = slide.sourceName;
+      moment.pageNumber = slide.slideNumber;
+    }
+    linked.set(slide.key, [...(linked.get(slide.key) || []), moment]);
+  });
+
+  const ordered = expected.flatMap((slide) => [
+    primaryByKey.get(slide.key)!,
+    ...(linked.get(slide.key) || []),
+  ]);
+  ordered.push(...unlinked, ...mastery);
+
+  let cursor = 0;
+  course.sections.forEach((section) => {
+    const count = section.lessonPlan.moments.length;
+    section.lessonPlan.moments = ordered.slice(cursor, cursor + count);
+    cursor += count;
+  });
 }
 
 function requestBody(input: AiCourseGenerationInput) {
@@ -378,7 +433,7 @@ function parseGeneratedCourse(
     theme: generated.theme,
     sections,
   };
-  assertPowerPointCoverage(course, input.sources);
+  normalizePowerPointRoadmap(course, input.sources);
   return course;
 }
 
