@@ -61,11 +61,14 @@ export default function NewAiCoursePage() {
 
     try {
       const form = new FormData(event.currentTarget);
+      const hasPowerPoint = files.some((file) => file.name.toLowerCase().endsWith(".pptx"));
+      const pictureMode = hasPowerPoint ? "source" : String(form.get("pictureMode") || "source");
+      form.set("pictureMode", pictureMode);
       const jobSettings = {
         requestedTitle: String(form.get("title") || ""),
         requestedTheme: String(form.get("theme") || "auto"),
         displayMode: String(form.get("displayMode") || "webpage"),
-        pictureMode: String(form.get("pictureMode") || "source"),
+        pictureMode,
         estimatedMinutes: Number(form.get("estimatedMinutes")) || 30,
         appearance: String(form.get("appearance") || "light"),
         toolbarStyle: String(form.get("toolbarStyle") || "guided"),
@@ -120,6 +123,9 @@ export default function NewAiCoursePage() {
           preparedSources.pictures.forEach((picture) =>
             finalizeForm.append("sourcePictures", picture.file, picture.file.name),
           );
+          preparedSources.uploadFiles
+            .filter((file) => file.name.toLowerCase().endsWith("-powerpoint-content.txt"))
+            .forEach((file) => finalizeForm.append("sources", file, file.name));
           pollResponse = await fetch("/api/admin/courses/generate", {
             method: "POST",
             body: finalizeForm,
@@ -351,7 +357,7 @@ export default function NewAiCoursePage() {
                     {
                       id: "source",
                       name: "Use PowerPoint pictures",
-                      description: "Reuse relevant original deck pictures, including multi-picture animated visual explainers.",
+                      description: "Use every PowerPoint slide as the course roadmap, retain its pictures, and add interactions between redesigned lessons.",
                     },
                     {
                       id: "ai",
@@ -380,7 +386,7 @@ export default function NewAiCoursePage() {
                   ))}
                 </div>
                 <p className="mt-3 text-xs leading-5 text-[#69757e]">
-                  PowerPoint pictures keep their source slide number. Choose AI pictures only when you want newly generated images instead.
+                  When a PowerPoint is uploaded, roadmap mode automatically preserves its slide order and original pictures. The AI-only option applies to courses without a PowerPoint.
                 </p>
               </fieldset>
 

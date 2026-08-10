@@ -293,7 +293,7 @@ export async function POST(request: Request) {
           sourceName: String(pictureManifest[index].sourceName || "PowerPoint").slice(0, 300),
         })),
       );
-      const result = await pollAiCourseGeneration(jobId, settings.requestedTitle);
+      const result = await pollAiCourseGeneration(jobId, settings.requestedTitle, sources);
       if (!result.course) {
         return Response.json({ jobId, status: result.status }, { status: 202 });
       }

@@ -19,6 +19,8 @@ export type LessonMoment = {
   correctAnswer: number | null;
   feedback: string | null;
   pageNumber: number | null;
+  /** Original PowerPoint deck for slide-roadmap courses. */
+  sourceName?: string | null;
   /** Internal prompt retained with editable AI-created visual moments. */
   imagePrompt?: string | null;
   sourceImage?: string | null;
