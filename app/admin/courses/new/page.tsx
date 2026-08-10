@@ -24,7 +24,7 @@ const buildStages = [
   "Writing lessons and realistic examples",
   "Creating activities and assessments",
   "Finding pictures from your PowerPoint",
-  "Creating any additional course pictures",
+  "Assembling the editable course",
   "Polishing the editable draft",
 ];
 
@@ -350,8 +350,8 @@ export default function NewAiCoursePage() {
                   {[
                     {
                       id: "source",
-                      name: "PowerPoint pictures + AI backup",
-                      description: "Reuse relevant original deck pictures first, then create only the pictures still needed.",
+                      name: "Use PowerPoint pictures",
+                      description: "Reuse relevant original deck pictures and finish without waiting for new image generation.",
                     },
                     {
                       id: "ai",
@@ -380,7 +380,7 @@ export default function NewAiCoursePage() {
                   ))}
                 </div>
                 <p className="mt-3 text-xs leading-5 text-[#69757e]">
-                  PowerPoint pictures keep their source slide number. AI backup pictures add image-processing time and API cost.
+                  PowerPoint pictures keep their source slide number. Choose AI pictures only when you want newly generated images instead.
                 </p>
               </fieldset>
 

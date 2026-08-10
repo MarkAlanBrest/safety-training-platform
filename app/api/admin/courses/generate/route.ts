@@ -108,7 +108,6 @@ async function saveCompletedCourse(
 
   if (settings.pictureMode === "source") {
     await attachPowerPointCoursePictures(generated, sources, sourcePictures);
-    await addGeneratedCoursePictures(generated);
   } else if (settings.pictureMode === "ai") {
     await addGeneratedCoursePictures(generated);
   }

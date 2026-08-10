@@ -176,7 +176,6 @@ export async function attachPowerPointCoursePictures(
   provided: PowerPointPictureInput[] = [],
 ) {
   const pictures = await extractPowerPointPictures(sources, provided);
-  if (!pictures.length) return course;
   const used = new Set<number>();
 
   course.sections.forEach((section) => {
@@ -210,6 +209,24 @@ export async function attachPowerPointCoursePictures(
     if (moment.explainerFrames?.[0]) {
       moment.explainerFrames[0].sourceImage = picture.dataUrl;
     }
+  });
+
+  course.sections.forEach((section) => {
+    section.lessonPlan.moments = section.lessonPlan.moments.map((moment) => {
+      if (moment.kind !== "visual" || moment.sourceImage || moment.explainerFrames?.[0]?.sourceImage) {
+        return moment;
+      }
+      const narration = moment.explainerFrames?.[0]?.narration?.trim() || moment.narration;
+      return {
+        ...moment,
+        kind: "explain",
+        narration,
+        imagePrompt: null,
+        sourceImage: null,
+        explainerFrames: null,
+        playerFrames: null,
+      };
+    });
   });
   return course;
 }

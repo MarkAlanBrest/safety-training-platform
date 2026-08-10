@@ -69,6 +69,20 @@ async function compressedPicture(image: ParsedSlideImage, name: string) {
   }
 }
 
+async function compressedPictureWithTimeout(image: ParsedSlideImage, name: string) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      compressedPicture(image, name),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), 8_000);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function prepareAiCourseSources(
   files: File[],
   includePowerPointPictures: boolean,
@@ -94,20 +108,29 @@ export async function prepareAiCourseSources(
     );
 
     if (!includePowerPointPictures) continue;
-    for (const slide of slides) {
-      if (!slide.image || pictures.length >= MAX_SOURCE_PICTURES || pictureBytes >= MAX_TOTAL_PICTURE_BYTES) break;
-      const picture = await compressedPicture(
-        slide.image,
-        `ppt-picture-${pictures.length + 1}-slide-${slide.index + 1}.jpg`,
+    const candidates = slides.filter((slide) => slide.image).slice(0, MAX_SOURCE_PICTURES - pictures.length);
+    for (let offset = 0; offset < candidates.length; offset += 3) {
+      if (pictureBytes >= MAX_TOTAL_PICTURE_BYTES) break;
+      const batch = candidates.slice(offset, offset + 3);
+      const prepared = await Promise.all(
+        batch.map((slide, batchIndex) =>
+          compressedPictureWithTimeout(
+            slide.image!,
+            `ppt-picture-${pictures.length + batchIndex + 1}-slide-${slide.index + 1}.jpg`,
+          ),
+        ),
       );
-      if (!picture || pictureBytes + picture.size > MAX_TOTAL_PICTURE_BYTES) continue;
-      pictureBytes += picture.size;
-      pictures.push({
-        file: picture,
-        slideNumber: slide.index + 1,
-        title: slide.title,
-        context: [slide.title, slide.bodyText, slide.speakerNotes, ...slide.bullets].join(" ").slice(0, 6000),
-        sourceName: file.name,
+      prepared.forEach((picture, batchIndex) => {
+        const slide = batch[batchIndex];
+        if (!picture || pictureBytes + picture.size > MAX_TOTAL_PICTURE_BYTES) return;
+        pictureBytes += picture.size;
+        pictures.push({
+          file: picture,
+          slideNumber: slide.index + 1,
+          title: slide.title,
+          context: [slide.title, slide.bodyText, slide.speakerNotes, ...slide.bullets].join(" ").slice(0, 6000),
+          sourceName: file.name,
+        });
       });
     }
   }
