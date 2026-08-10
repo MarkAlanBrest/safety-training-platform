@@ -212,7 +212,7 @@ function requestBody(input: AiCourseGenerationInput) {
   return {
     model: process.env.OPENAI_COURSE_MODEL || process.env.OPENAI_MODEL || "gpt-5.6-sol",
     background: true,
-    reasoning: { effort: "medium" },
+    reasoning: { effort: "low" },
     instructions: [
       "Role: You are a senior instructional designer, curriculum writer, assessment designer, and digital learning creative director.",
       "Goal: Turn the course brief and supporting files into a polished, accurate, responsive web course that feels intentionally designed rather than generated from a generic template.",
