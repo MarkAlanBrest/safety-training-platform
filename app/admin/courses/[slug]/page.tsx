@@ -16,6 +16,7 @@ import {
   ImagePlus,
   PackageCheck,
   Presentation,
+  PlayCircle,
   Plus,
   RefreshCw,
   Save,
@@ -99,7 +100,7 @@ type Course = {
   logoData: string | null;
   accentColor: string | null;
   displayMode: "webpage" | "slideshow" | "classroom";
-  courseType: "pdf" | "scorm" | "classroom" | "native";
+  courseType: "pdf" | "scorm" | "classroom" | "native" | "video";
   scormVersion: string | null;
   scormEntryPoint: string | null;
   intensity: string;
@@ -571,6 +572,23 @@ export default function CourseEditorPage() {
             </Link>
           </div>
           <p className="mt-4 text-xs text-[#69757e]">Preview mode does not alter learner progress or issue a certificate.</p>
+        </section>
+      ) : course.courseType === "video" ? (
+        <section className="rounded-3xl border border-[#10283f]/10 bg-white p-10 text-center shadow-sm">
+          <PlayCircle className="mx-auto text-[#c68b1b]" size={46} />
+          <p className="mt-5 text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">Video lesson</p>
+          <h2 className="mt-2 font-serif text-3xl font-semibold text-[#10283f]">YouTube video course</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#69757e]">
+            Learners watch the linked video full-screen. Add stopping points with knowledge checks and activities that pause playback until they respond correctly.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Link href={`/admin/courses/${course.slug}/video`} className="inline-flex rounded-xl bg-[#c68b1b] px-5 py-3 font-bold text-[#10283f]">
+              Edit video and stopping points
+            </Link>
+            <Link href={`${learnerCoursePath(course.slug, course.courseType)}?preview=1`} target="_blank" className="inline-flex rounded-xl bg-[#10283f] px-5 py-3 font-bold text-white">
+              Preview learner view
+            </Link>
+          </div>
         </section>
       ) : (
         <div className="grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">

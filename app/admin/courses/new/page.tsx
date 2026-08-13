@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Package, Sparkles } from "lucide-react";
+import { ArrowRight, Package, PlayCircle, Sparkles } from "lucide-react";
 import AdminShell from "@/components/AdminShell";
 
 const creationOptions = [
@@ -25,6 +25,16 @@ const creationOptions = [
     accent: "bg-[#e7f2f5] text-[#24546b]",
     cta: "Upload package",
   },
+  {
+    href: "/admin/courses/new/video",
+    eyebrow: "Video lesson",
+    title: "Create video course",
+    description:
+      "Link a YouTube video and add stopping points for knowledge checks, activities, and assessments while learners watch.",
+    icon: PlayCircle,
+    accent: "bg-[#fde8ef] text-[#8d3b57]",
+    cta: "Build video course",
+  },
 ] as const;
 
 export default function NewCoursePage() {
@@ -36,12 +46,11 @@ export default function NewCoursePage() {
             How would you like to build this program?
           </h2>
           <p className="mt-3 max-w-2xl text-base leading-7 text-[#69757e]">
-            Start from scratch with AI, or bring an existing SCORM package from
-            Articulate, iSpring, Captivate, or another authoring tool.
+            Start from scratch with AI, upload a SCORM package, or build a video lesson with timed knowledge checks.
           </p>
         </section>
 
-        <div className="mt-7 grid gap-6 lg:grid-cols-2">
+        <div className="mt-7 grid gap-6 lg:grid-cols-3">
           {creationOptions.map((option) => {
             const Icon = option.icon;
             return (
