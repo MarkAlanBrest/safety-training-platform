@@ -15,11 +15,13 @@ export default function QuickCheckCard({
   question,
   onSelectOption,
   disabled = false,
+  showPrompt = true,
 }: {
   question: ClassroomCheckQuestion;
   /** When provided, multiple-choice/true-false options render as clickable buttons that submit directly. */
   onSelectOption?: (option: string) => void;
   disabled?: boolean;
+  showPrompt?: boolean;
 }) {
   const options = question.options?.length
     ? question.options
@@ -41,10 +43,12 @@ export default function QuickCheckCard({
       </div>
 
       <div className="px-4 py-4">
-        <p className="text-base font-semibold leading-7 text-slate-900">{question.prompt}</p>
+        {showPrompt ? (
+          <p className="text-base font-semibold leading-7 text-slate-900">{question.prompt}</p>
+        ) : null}
 
         {options?.length ? (
-          <div className="mt-3 space-y-2">
+          <div className={showPrompt ? "mt-3 space-y-2" : "space-y-2"}>
             {options.map((option, index) =>
               interactive ? (
                 <button
@@ -72,11 +76,11 @@ export default function QuickCheckCard({
               ),
             )}
           </div>
-        ) : (
+        ) : showPrompt ? (
           <p className="mt-3 text-sm font-medium text-amber-700">
             Type or speak your answer below.
           </p>
-        )}
+        ) : null}
       </div>
     </div>
   );
