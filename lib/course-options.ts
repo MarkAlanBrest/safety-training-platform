@@ -53,8 +53,8 @@ export const courseTypeLabels: Record<string, { name: string; description: strin
     description: "Lessons generated from uploaded PDFs.",
   },
   classroom: {
-    name: "Classroom",
-    description: "PowerPoint-led presentation course.",
+    name: "PowerPoint narration",
+    description: "PowerPoint with exported slide images and AI narration.",
   },
   scorm: {
     name: "SCORM package",

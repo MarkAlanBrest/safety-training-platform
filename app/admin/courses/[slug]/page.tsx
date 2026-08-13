@@ -481,7 +481,7 @@ export default function CourseEditorPage() {
                 Chapters
               </h2>
               <p className="mt-2 text-sm text-[#69757e]">
-                Each chapter is one PowerPoint deck. Learners navigate its slides in the Microsoft viewer.
+                Each chapter is one PowerPoint deck with exported slide images. The AI instructor narrates from speaker notes.
               </p>
             </div>
             <a
@@ -547,7 +547,11 @@ export default function CourseEditorPage() {
 
           <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900">
             <Presentation className="mb-2 text-amber-700" size={22} />
-            To replace a PowerPoint or add another chapter, use the PowerPoint source workflow. Course settings below control the AI voice and publishing.
+            To replace a PowerPoint or add another chapter,{" "}
+            <Link href="/admin/courses/new/classroom" className="font-bold underline decoration-amber-400 underline-offset-4">
+              create a new narration course
+            </Link>{" "}
+            with the updated deck and slide-image ZIP. Course settings below control the AI voice and publishing.
           </div>
         </section>
       ) : course.courseType === "scorm" ? (
