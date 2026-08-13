@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpenCheck, FileText, GraduationCap, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpenCheck, FileText, GraduationCap, Package, Sparkles } from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -15,9 +15,14 @@ export default function HomePage() {
               <h1 className="text-xl font-bold !text-white sm:text-2xl">AI-powered course creation</h1>
             </div>
           </div>
-          <Link href="/admin/courses/new" className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/5">
-            Open AI course builder
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/admin/courses/new" className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/5">
+              New program
+            </Link>
+            <Link href="/admin/courses/new/scorm" className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/5">
+              Upload SCORM
+            </Link>
+          </div>
         </header>
 
         <section className="grid flex-1 gap-10 py-16 lg:grid-cols-[1.12fr_.88fr] lg:items-center lg:py-20">
@@ -29,11 +34,15 @@ export default function HomePage() {
               Turn your expertise into training people remember.
             </h2>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-              Describe the subject and add supporting documents. AI creates a professional, responsive course with chapters, activities, assessments, and an editable learner experience.
+              Describe the subject and add supporting documents, or upload an existing SCORM package.
+              AI creates editable native courses; SCORM imports keep your authoring tool&apos;s interactions and media.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
-              <Link href="/admin/courses/new" className="inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-6 py-3.5 font-bold text-slate-950">
-                Create a course <ArrowRight size={18} />
+              <Link href="/admin/courses/new/ai" className="inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-6 py-3.5 font-bold text-slate-950">
+                <Sparkles size={18} /> Create with AI
+              </Link>
+              <Link href="/admin/courses/new/scorm" className="inline-flex items-center gap-2 rounded-2xl border border-white/15 px-6 py-3.5 font-semibold text-white/90 hover:bg-white/5">
+                <Package size={18} /> Upload SCORM
               </Link>
               <Link href="/training/demo" className="rounded-2xl border border-white/15 px-6 py-3.5 font-semibold text-white/90">
                 View learner experience

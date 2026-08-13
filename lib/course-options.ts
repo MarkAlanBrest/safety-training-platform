@@ -43,6 +43,29 @@ export const courseIntensities = [
   },
 ] as const;
 
+export const courseTypeLabels: Record<string, { name: string; description: string }> = {
+  native: {
+    name: "AI course",
+    description: "Built with the AI course studio.",
+  },
+  pdf: {
+    name: "PDF course",
+    description: "Lessons generated from uploaded PDFs.",
+  },
+  classroom: {
+    name: "Classroom",
+    description: "PowerPoint-led presentation course.",
+  },
+  scorm: {
+    name: "SCORM package",
+    description: "Imported SCORM 1.2 or 2004 training package.",
+  },
+};
+
+export function courseTypeLabel(courseType: string) {
+  return courseTypeLabels[courseType]?.name || courseType;
+}
+
 export function isCourseTheme(value: string) {
   return courseThemes.some((theme) => theme.id === value);
 }

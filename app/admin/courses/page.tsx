@@ -8,11 +8,14 @@ import {
   Clock3,
   KeyRound,
   LoaderCircle,
+  Package,
   Plus,
+  Sparkles,
   Trash2,
   Users,
 } from "lucide-react";
 import AdminShell from "@/components/AdminShell";
+import { courseTypeLabel } from "@/lib/course-options";
 import { parseJsonResponse } from "@/lib/parse-response";
 
 type Course = {
@@ -20,6 +23,7 @@ type Course = {
   title: string;
   slug: string;
   description: string | null;
+  courseType: string;
   theme: string;
   intensity: string;
   estimatedMinutes: number;
@@ -117,15 +121,23 @@ export default function CoursesPage() {
             Build your first training program
           </h2>
           <p className="mx-auto mt-3 max-w-xl leading-7 text-[#63707a]">
-            Describe what learners need to know and optionally add supporting documents.
-            AI will create a professional draft you can edit before publishing.
+            Build a course with AI or upload an existing SCORM package. Both
+            options create a draft you can review before publishing.
           </p>
-          <Link
-            href="/admin/courses/new"
-            className="mt-7 inline-flex items-center gap-2 rounded-xl bg-[#10283f] px-5 py-3 font-bold text-white"
-          >
-            Create with AI <ArrowRight size={18} />
-          </Link>
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/admin/courses/new/ai"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#10283f] px-5 py-3 font-bold text-white"
+            >
+              <Sparkles size={18} /> Create with AI
+            </Link>
+            <Link
+              href="/admin/courses/new/scorm"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#10283f]/15 bg-white px-5 py-3 font-bold text-[#10283f]"
+            >
+              <Package size={18} /> Upload SCORM
+            </Link>
+          </div>
         </div>
       ) : (
         <section className="overflow-hidden rounded-3xl border border-[#10283f]/10 bg-white">
@@ -151,6 +163,9 @@ export default function CoursesPage() {
                       {course.title}
                     </h2>
                     <span className="rounded-full bg-[#fff3d7] px-2 py-0.5 text-[10px] font-black uppercase tracking-[.13em] text-[#8d6012]">
+                      {courseTypeLabel(course.courseType)}
+                    </span>
+                    <span className="rounded-full bg-[#eef3f6] px-2 py-0.5 text-[10px] font-black uppercase tracking-[.13em] text-[#5d6b74]">
                       {course.intensity}
                     </span>
                   </div>
