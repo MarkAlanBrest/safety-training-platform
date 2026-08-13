@@ -9,6 +9,7 @@ import {
   KeyRound,
   LoaderCircle,
   Package,
+  PlayCircle,
   Plus,
   Sparkles,
   Trash2,
@@ -121,8 +122,7 @@ export default function CoursesPage() {
             Build your first training program
           </h2>
           <p className="mx-auto mt-3 max-w-xl leading-7 text-[#63707a]">
-            Build a course with AI or upload an existing SCORM package. Both
-            options create a draft you can review before publishing.
+            Build a course with AI, upload a SCORM package, or create a video lesson with timed knowledge checks.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <Link
@@ -136,6 +136,12 @@ export default function CoursesPage() {
               className="inline-flex items-center gap-2 rounded-xl border border-[#10283f]/15 bg-white px-5 py-3 font-bold text-[#10283f]"
             >
               <Package size={18} /> Upload SCORM
+            </Link>
+            <Link
+              href="/admin/courses/new/video"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#10283f]/15 bg-white px-5 py-3 font-bold text-[#10283f]"
+            >
+              <PlayCircle size={18} /> Video course
             </Link>
           </div>
         </div>

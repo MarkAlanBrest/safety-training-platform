@@ -5,5 +5,8 @@ export function learnerCoursePath(
   if (courseType === "classroom") {
     return `/classroom/${slug}`;
   }
+  if (courseType === "video") {
+    return `/video/${slug}`;
+  }
   return `/training/${slug}`;
 }

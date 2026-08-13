@@ -52,6 +52,9 @@ export default async function TrainingCoursePage({
   if (record.courseType === "classroom") {
     redirect(learnerCoursePath(record.slug, record.courseType));
   }
+  if (record.courseType === "video") {
+    redirect(learnerCoursePath(record.slug, record.courseType));
+  }
   if (record.courseType === "scorm") {
     if (!record.scormEntryPoint || !record.scormVersion) notFound();
     const savedInstructor = scormInstructorConfigFromLessonPlan(record.sections[0]?.lessonPlan);

@@ -60,6 +60,10 @@ export const courseTypeLabels: Record<string, { name: string; description: strin
     name: "SCORM package",
     description: "Imported SCORM 1.2 or 2004 training package.",
   },
+  video: {
+    name: "Video course",
+    description: "YouTube video with timed knowledge checks.",
+  },
 };
 
 export function courseTypeLabel(courseType: string) {
