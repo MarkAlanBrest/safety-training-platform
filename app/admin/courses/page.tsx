@@ -11,6 +11,7 @@ import {
   Package,
   PlayCircle,
   Plus,
+  Presentation,
   Sparkles,
   Trash2,
   Users,
@@ -122,7 +123,7 @@ export default function CoursesPage() {
             Build your first training program
           </h2>
           <p className="mx-auto mt-3 max-w-xl leading-7 text-[#63707a]">
-            Build a course with AI, upload a SCORM package, or create a video lesson with timed knowledge checks.
+            Build with AI, upload PowerPoint slides for narration, import SCORM, or create a video lesson with timed knowledge checks.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <Link
@@ -130,6 +131,12 @@ export default function CoursesPage() {
               className="inline-flex items-center gap-2 rounded-xl bg-[#10283f] px-5 py-3 font-bold text-white"
             >
               <Sparkles size={18} /> Create with AI
+            </Link>
+            <Link
+              href="/admin/courses/new/classroom"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#10283f]/15 bg-white px-5 py-3 font-bold text-[#10283f]"
+            >
+              <Presentation size={18} /> Slides + PPT
             </Link>
             <Link
               href="/admin/courses/new/scorm"

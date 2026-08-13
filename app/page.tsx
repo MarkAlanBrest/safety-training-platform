@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpenCheck, FileText, GraduationCap, Package, PlayCircle, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpenCheck, FileText, GraduationCap, Package, PlayCircle, Presentation, Sparkles } from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -19,6 +19,9 @@ export default function HomePage() {
             <Link href="/admin/courses/new" className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/5">
               New program
             </Link>
+            <Link href="/admin/courses/new/classroom" className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/5">
+              Slides + PPT
+            </Link>
             <Link href="/admin/courses/new/scorm" className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/5">
               Upload SCORM
             </Link>
@@ -37,11 +40,14 @@ export default function HomePage() {
               Turn your expertise into training people remember.
             </h2>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-              Describe the subject and add supporting documents, upload a SCORM package, or link a YouTube video with timed knowledge checks.
+              Build with AI, upload PowerPoint slides for narration, import SCORM, or link a YouTube video with timed knowledge checks.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <Link href="/admin/courses/new/ai" className="inline-flex items-center gap-2 rounded-2xl bg-amber-400 px-6 py-3.5 font-bold text-slate-950">
                 <Sparkles size={18} /> Create with AI
+              </Link>
+              <Link href="/admin/courses/new/classroom" className="inline-flex items-center gap-2 rounded-2xl border border-white/15 px-6 py-3.5 font-semibold text-white/90 hover:bg-white/5">
+                <Presentation size={18} /> Slides + PPT
               </Link>
               <Link href="/admin/courses/new/scorm" className="inline-flex items-center gap-2 rounded-2xl border border-white/15 px-6 py-3.5 font-semibold text-white/90 hover:bg-white/5">
                 <Package size={18} /> Upload SCORM
