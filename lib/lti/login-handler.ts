@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildAuthorizeRedirectUrl } from "@/lib/lti/verify";
+import { resolveCanvasIssuer } from "@/lib/lti/canvas-issuer";
 import { createLtiNonce, createLtiState } from "@/lib/lti/state";
 
 export type LtiLoginParams = {
@@ -39,10 +40,11 @@ export function handleLtiLoginParams(params: Partial<LtiLoginParams>) {
   }
 
   const nonce = createLtiNonce();
-  const state = createLtiState(iss, nonce, clientId);
+  const resolvedIssuer = resolveCanvasIssuer(iss);
+  const state = createLtiState(resolvedIssuer, nonce, clientId);
 
   const redirectUrl = buildAuthorizeRedirectUrl({
-    issuer: iss,
+    issuer: resolvedIssuer,
     clientId,
     loginHint,
     ltiMessageHint,

@@ -1,4 +1,5 @@
-import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
+import { createRemoteJWKSet, decodeJwt, jwtVerify, type JWTPayload } from "jose";
+import { getCanvasBaseUrl, issuerResolutionHint, resolveCanvasIssuer } from "@/lib/lti/canvas-issuer";
 
 const LTI_NONCE_COOKIE = "canvas-lti-nonce";
 const LTI_CUSTOM_CLAIM = "https://purl.imsglobal.org/spec/lti/claim/custom";
@@ -27,11 +28,8 @@ function normalizeIssuer(issuer: string) {
   return issuer.replace(/\/+$/, "");
 }
 
-export async function getOidcConfig(issuer: string) {
+async function fetchOidcConfig(issuer: string) {
   const normalized = normalizeIssuer(issuer);
-  const cached = oidcCache.get(normalized);
-  if (cached) return cached;
-
   const discoveryUrl = `${normalized}/.well-known/openid-configuration`;
   const response = await fetch(discoveryUrl, { cache: "no-store" });
   if (!response.ok) {
@@ -43,6 +41,34 @@ export async function getOidcConfig(issuer: string) {
   return config;
 }
 
+export async function getOidcConfig(issuer: string) {
+  const candidates = new Set<string>();
+  candidates.add(resolveCanvasIssuer(issuer));
+  candidates.add(normalizeIssuer(issuer));
+
+  const baseUrl = getCanvasBaseUrl();
+  if (baseUrl) candidates.add(baseUrl);
+
+  let lastError: Error | null = null;
+  for (const candidate of candidates) {
+    const cached = oidcCache.get(candidate);
+    if (cached) return cached;
+
+    try {
+      return await fetchOidcConfig(candidate);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+
+  const hint = issuerResolutionHint(issuer);
+  if (hint) {
+    throw new Error(`${lastError?.message || "OIDC discovery failed."} ${hint}`);
+  }
+
+  throw lastError || new Error("Could not load Canvas OIDC config.");
+}
+
 export function buildAuthorizeRedirectUrl(params: {
   issuer: string;
   clientId: string;
@@ -52,7 +78,7 @@ export function buildAuthorizeRedirectUrl(params: {
   state: string;
   nonce: string;
 }) {
-  const authorizeBase = `${normalizeIssuer(params.issuer)}/api/lti/authorize_redirect`;
+  const authorizeBase = `${resolveCanvasIssuer(params.issuer)}/api/lti/authorize_redirect`;
   const url = new URL(authorizeBase);
   url.searchParams.set("scope", "openid");
   url.searchParams.set("response_type", "id_token");
@@ -114,10 +140,20 @@ function parseCanvasCourseName(payload: JWTPayload) {
 
 export async function verifyLtiIdToken(
   idToken: string,
-  issuer: string,
+  issuerFromState: string,
   expectedNonce: string,
   expectedClientId: string,
 ) {
+  let issuer = resolveCanvasIssuer(issuerFromState);
+  try {
+    const tokenIssuer = decodeJwt(idToken).iss;
+    if (typeof tokenIssuer === "string") {
+      issuer = resolveCanvasIssuer(tokenIssuer);
+    }
+  } catch {
+    // Fall back to the issuer stored during login.
+  }
+
   const oidc = await getOidcConfig(issuer);
   const jwks = createRemoteJWKSet(new URL(oidc.jwks_uri));
 
