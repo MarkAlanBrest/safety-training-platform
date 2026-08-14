@@ -7,8 +7,8 @@ import {
   encodeCanvasStudentSession,
   CANVAS_SESSION_COOKIE,
 } from "@/lib/canvas/session";
-import { LTI_NONCE_COOKIE, verifyLtiIdToken } from "@/lib/lti/verify";
-import { readCookie } from "@/lib/admin-session";
+import { verifyLtiIdToken } from "@/lib/lti/verify";
+import { parseLtiState } from "@/lib/lti/state";
 
 export async function POST(request: Request) {
   try {
@@ -16,25 +16,12 @@ export async function POST(request: Request) {
     const idToken = String(form.get("id_token") || "");
     const state = String(form.get("state") || "");
 
-    if (!idToken) {
-      return NextResponse.json({ error: "Missing LTI id_token." }, { status: 400 });
+    if (!idToken || !state) {
+      return NextResponse.json({ error: "Missing LTI launch data." }, { status: 400 });
     }
 
-    const nonceCookie = readCookie(request, LTI_NONCE_COOKIE);
-    if (!nonceCookie) {
-      return NextResponse.json({ error: "LTI launch session expired. Reopen the tool from Canvas." }, { status: 400 });
-    }
-
-    const parsed = JSON.parse(nonceCookie) as { nonce?: string; state?: string; iss?: string };
-    if (!parsed.nonce || !parsed.state || !parsed.iss) {
-      return NextResponse.json({ error: "Invalid LTI launch session." }, { status: 400 });
-    }
-
-    if (state !== parsed.state) {
-      return NextResponse.json({ error: "LTI state did not match." }, { status: 400 });
-    }
-
-    const identity = await verifyLtiIdToken(idToken, parsed.iss, parsed.nonce);
+    const parsedState = parseLtiState(state);
+    const identity = await verifyLtiIdToken(idToken, parsedState.iss, parsedState.nonce);
     const { targetUrl } = getLtiConfig();
     const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
 
@@ -47,18 +34,17 @@ export async function POST(request: Request) {
         email: identity.email,
         source: "lti",
       }),
-      canvasSessionCookieOptions(expiresAt),
+      {
+        ...canvasSessionCookieOptions(expiresAt),
+        partitioned: true,
+      },
     );
-    response.cookies.set(LTI_NONCE_COOKIE, "", {
-      path: "/",
-      httpOnly: true,
-      sameSite: "none",
-      secure: true,
-      expires: new Date(0),
-    });
     return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "LTI launch failed.";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return new NextResponse(
+      `<html><body style="font-family:sans-serif;padding:24px"><h1>LTI launch failed</h1><p>${message}</p></body></html>`,
+      { status: 400, headers: { "Content-Type": "text/html; charset=utf-8" } },
+    );
   }
 }

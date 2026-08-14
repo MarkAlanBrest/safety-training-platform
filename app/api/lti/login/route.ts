@@ -1,10 +1,9 @@
 export const runtime = "nodejs";
 
-import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getLtiConfig } from "@/lib/canvas/config";
 import { buildAuthorizeRedirectUrl } from "@/lib/lti/verify";
-import { LTI_NONCE_COOKIE } from "@/lib/lti/verify";
+import { createLtiNonce, createLtiState } from "@/lib/lti/state";
 
 export async function GET(request: Request) {
   try {
@@ -24,8 +23,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unexpected LTI client id." }, { status: 400 });
     }
 
-    const state = randomBytes(16).toString("hex");
-    const nonce = randomBytes(16).toString("hex");
+    const nonce = createLtiNonce();
+    const state = createLtiState(iss, nonce);
 
     const redirectUrl = buildAuthorizeRedirectUrl({
       issuer: iss,
@@ -37,19 +36,7 @@ export async function GET(request: Request) {
       nonce,
     });
 
-    const response = NextResponse.redirect(redirectUrl);
-    response.cookies.set(
-      LTI_NONCE_COOKIE,
-      JSON.stringify({ nonce, state, iss }),
-      {
-        path: "/",
-        httpOnly: true,
-        sameSite: "none",
-        secure: true,
-        maxAge: 300,
-      },
-    );
-    return response;
+    return NextResponse.redirect(redirectUrl);
   } catch (error) {
     const message = error instanceof Error ? error.message : "LTI login failed.";
     return NextResponse.json({ error: message }, { status: 500 });

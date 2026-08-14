@@ -1,4 +1,14 @@
 /** @type {import('next').NextConfig} */
+function canvasFrameAncestors() {
+  const base = process.env.CANVAS_BASE_URL || "";
+  try {
+    const host = new URL(base.startsWith("http") ? base : `https://${base}`).host;
+    return `frame-ancestors 'self' https://${host} https://*.instructure.com`;
+  } catch {
+    return "frame-ancestors 'self' https://*.instructure.com";
+  }
+}
+
 const nextConfig = {
   serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist", "node-pptx-png", "skia-canvas", "ffmpeg-static", "pg"],
   experimental: {
@@ -13,6 +23,7 @@ const nextConfig = {
   },
   transpilePackages: ["pptx-react-viewer"],
   async headers() {
+    const embedPolicy = canvasFrameAncestors();
     return [
       {
         source: "/training/:path*",
@@ -22,6 +33,14 @@ const nextConfig = {
             value: "no-store, no-cache, must-revalidate",
           },
         ],
+      },
+      {
+        source: "/canvas/:path*",
+        headers: [{ key: "Content-Security-Policy", value: embedPolicy }],
+      },
+      {
+        source: "/api/lti/:path*",
+        headers: [{ key: "Content-Security-Policy", value: embedPolicy }],
       },
     ];
   },

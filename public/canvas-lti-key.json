@@ -1,0 +1,21 @@
+{
+  "title": "Student Alerts",
+  "description": "Missing assignments and grades",
+  "custom_fields": {
+    "user_id": "$Canvas.user.id"
+  },
+  "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch",
+  "domain": "safety-training-platform-eight.vercel.app",
+  "privacy_level": "public",
+  "oidc_initiation_url": "https://safety-training-platform-eight.vercel.app/api/lti/login",
+  "redirect_uris": [
+    "https://safety-training-platform-eight.vercel.app/api/lti/launch"
+  ],
+  "placements": [
+    {
+      "message_type": "LtiResourceLinkRequest",
+      "text": "Student Alerts",
+      "placement": "link_selection"
+    }
+  ]
+}
