@@ -66,7 +66,13 @@ export async function handleLtiLaunchPost(
     );
   }
 
-  const identity = await verifyLtiIdToken(idToken, parsedState.iss, parsedState.nonce, clientId);
+  const identity = await verifyLtiIdToken(
+    idToken,
+    parsedState.iss,
+    parsedState.nonce,
+    clientId,
+    request,
+  );
   const { appOrigin, launchUrl } = getLtiConfig();
   const deepLinking = readDeepLinkingSettings(identity.payload);
 

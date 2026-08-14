@@ -1,6 +1,7 @@
 {
   "title": "Student Alerts",
   "description": "Bold course alerts from your teacher",
+  "institution_url": "https://mytrades.instructure.com",
   "custom_fields": {
     "user_id": "$Canvas.user.id",
     "course_id": "$Canvas.course.id"

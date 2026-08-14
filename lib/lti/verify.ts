@@ -1,5 +1,5 @@
 import { createRemoteJWKSet, decodeJwt, jwtVerify, type JWTPayload } from "jose";
-import { getCanvasBaseUrl, issuerResolutionHint, resolveCanvasIssuer } from "@/lib/lti/canvas-issuer";
+import { collectCanvasIssuerCandidates, issuerResolutionHint, resolveCanvasIssuer } from "@/lib/lti/canvas-issuer";
 
 const LTI_NONCE_COOKIE = "canvas-lti-nonce";
 const LTI_CUSTOM_CLAIM = "https://purl.imsglobal.org/spec/lti/claim/custom";
@@ -41,13 +41,11 @@ async function fetchOidcConfig(issuer: string) {
   return config;
 }
 
-export async function getOidcConfig(issuer: string) {
-  const candidates = new Set<string>();
-  candidates.add(resolveCanvasIssuer(issuer));
-  candidates.add(normalizeIssuer(issuer));
-
-  const baseUrl = getCanvasBaseUrl();
-  if (baseUrl) candidates.add(baseUrl);
+export async function getOidcConfig(
+  issuer: string,
+  options?: { idToken?: string; request?: Request },
+) {
+  const candidates = collectCanvasIssuerCandidates(issuer, options);
 
   let lastError: Error | null = null;
   for (const candidate of candidates) {
@@ -153,6 +151,7 @@ export async function verifyLtiIdToken(
   issuerFromState: string,
   expectedNonce: string,
   expectedClientId: string,
+  request?: Request,
 ) {
   let issuer = resolveCanvasIssuer(issuerFromState);
   try {
@@ -164,7 +163,7 @@ export async function verifyLtiIdToken(
     // Fall back to the issuer stored during login.
   }
 
-  const oidc = await getOidcConfig(issuer);
+  const oidc = await getOidcConfig(issuer, { idToken, request });
   const jwks = createRemoteJWKSet(new URL(oidc.jwks_uri));
 
   const { payload } = await jwtVerify(idToken, jwks, {
