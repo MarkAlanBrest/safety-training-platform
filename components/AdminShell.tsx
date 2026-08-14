@@ -20,6 +20,7 @@ type Props = {
 
 const navItems = [
   { href: "/admin/courses", label: "Training programs", icon: BookOpen },
+  { href: "/admin/course-alerts", label: "Course alerts", icon: ShieldCheck },
   { href: "/admin/courses/new", label: "New program", icon: Plus },
   { href: "/admin/courses/new/ai", label: "Create with AI", icon: Sparkles },
 ];
