@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getConfiguredLtiClientId, getLtiConfig } from "@/lib/canvas/config";
-import { normalizeStudentName } from "@/lib/course-alerts";
 import { parseCourseAlertCustomFields } from "@/lib/course-alerts/config";
+import { recordCourseAlertSignup } from "@/lib/course-alerts/db";
 import { saveCourseAlertConfig } from "@/lib/course-alerts/store";
 import {
   canvasSessionCookieOptions,
@@ -17,7 +17,6 @@ import {
 import { isInstructorLtiLaunch } from "@/lib/lti/roles";
 import { verifyLtiIdToken } from "@/lib/lti/verify";
 import { parseLtiState } from "@/lib/lti/state";
-import { prisma } from "@/lib/prisma";
 
 function attachSessionCookie(
   response: NextResponse,
@@ -89,33 +88,23 @@ export async function handleLtiLaunchPost(
       raw.low_grade_threshold !== undefined ||
       raw.banner_message !== undefined
     ) {
-      await saveCourseAlertConfig(identity.courseId, {
-        ...parseCourseAlertCustomFields(raw),
-        courseName: identity.courseName,
-      });
+      try {
+        await saveCourseAlertConfig(identity.courseId, {
+          ...parseCourseAlertCustomFields(raw),
+          courseName: identity.courseName,
+        });
+      } catch (error) {
+        console.error("Course alert config save failed:", error);
+      }
     }
   }
 
   if (identity.courseId) {
-    await prisma.courseAlertSignup.upsert({
-      where: {
-        canvasCourseId_canvasUserId: {
-          canvasCourseId: identity.courseId,
-          canvasUserId: String(identity.userId),
-        },
-      },
-      create: {
-        canvasCourseId: identity.courseId,
-        canvasUserId: String(identity.userId),
-        studentName: identity.name,
-        normalizedName: normalizeStudentName(identity.name),
-        courseName: identity.courseName,
-      },
-      update: {
-        studentName: identity.name,
-        normalizedName: normalizeStudentName(identity.name),
-        courseName: identity.courseName,
-      },
+    await recordCourseAlertSignup({
+      canvasCourseId: identity.courseId,
+      canvasUserId: String(identity.userId),
+      studentName: identity.name,
+      courseName: identity.courseName,
     });
   }
 
