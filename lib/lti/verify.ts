@@ -1,5 +1,5 @@
 import { createRemoteJWKSet, decodeJwt, jwtVerify, type JWTPayload } from "jose";
-import { collectCanvasIssuerCandidates, issuerResolutionHint, resolveCanvasIssuer } from "@/lib/lti/canvas-issuer";
+import { collectCanvasIssuerCandidates, getCanvasBaseUrl, issuerResolutionHint, resolveCanvasIssuer } from "@/lib/lti/canvas-issuer";
 
 const LTI_NONCE_COOKIE = "canvas-lti-nonce";
 const LTI_CUSTOM_CLAIM = "https://purl.imsglobal.org/spec/lti/claim/custom";
@@ -146,6 +146,61 @@ function parseCanvasCourseName(payload: JWTPayload) {
   return null;
 }
 
+const CANVAS_LTI_JWKS_URLS = [
+  "https://sso.canvaslms.com/api/lti/security/jwks",
+  "https://canvas.instructure.com/api/lti/security/jwks",
+];
+
+function getCanvasLtiJwksUrls() {
+  const urls = [...CANVAS_LTI_JWKS_URLS];
+  const baseUrl = getCanvasBaseUrl();
+  if (baseUrl) urls.push(`${baseUrl}/api/lti/security/jwks`);
+  return [...new Set(urls)];
+}
+
+function collectIssuerCandidates(
+  issuerFromState: string,
+  tokenPayload: JWTPayload,
+  request?: Request,
+) {
+  const issuers = new Set<string>();
+  if (typeof tokenPayload.iss === "string") issuers.add(normalizeIssuer(tokenPayload.iss));
+  issuers.add("https://canvas.instructure.com");
+
+  for (const candidate of collectCanvasIssuerCandidates(issuerFromState, {
+    request,
+  })) {
+    issuers.add(candidate);
+  }
+
+  return [...issuers];
+}
+
+async function verifyCanvasLtiJwt(
+  idToken: string,
+  expectedClientId: string,
+  issuerCandidates: string[],
+) {
+  let lastError: Error | null = null;
+
+  for (const jwksUrl of getCanvasLtiJwksUrls()) {
+    const jwks = createRemoteJWKSet(new URL(jwksUrl));
+    for (const issuer of issuerCandidates) {
+      try {
+        return await jwtVerify(idToken, jwks, {
+          issuer,
+          audience: expectedClientId,
+          clockTolerance: 30,
+        });
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
+    }
+  }
+
+  throw lastError || new Error("Could not verify LTI id_token signature.");
+}
+
 export async function verifyLtiIdToken(
   idToken: string,
   issuerFromState: string,
@@ -153,24 +208,15 @@ export async function verifyLtiIdToken(
   expectedClientId: string,
   request?: Request,
 ) {
-  let issuer = resolveCanvasIssuer(issuerFromState);
+  let tokenPayload: JWTPayload;
   try {
-    const tokenIssuer = decodeJwt(idToken).iss;
-    if (typeof tokenIssuer === "string") {
-      issuer = resolveCanvasIssuer(tokenIssuer);
-    }
+    tokenPayload = decodeJwt(idToken);
   } catch {
-    // Fall back to the issuer stored during login.
+    throw new Error("Invalid LTI id_token.");
   }
 
-  const oidc = await getOidcConfig(issuer, { idToken, request });
-  const jwks = createRemoteJWKSet(new URL(oidc.jwks_uri));
-
-  const { payload } = await jwtVerify(idToken, jwks, {
-    issuer: oidc.issuer,
-    audience: expectedClientId,
-    clockTolerance: 30,
-  });
+  const issuerCandidates = collectIssuerCandidates(issuerFromState, tokenPayload, request);
+  const { payload } = await verifyCanvasLtiJwt(idToken, expectedClientId, issuerCandidates);
 
   if (payload.nonce !== expectedNonce) {
     throw new Error("LTI launch nonce did not match.");
@@ -184,6 +230,8 @@ export async function verifyLtiIdToken(
   }
 
   const deploymentClaim = payload[LTI_DEPLOYMENT_CLAIM];
+  const platformIssuer =
+    typeof payload.iss === "string" ? payload.iss : issuerCandidates[0] || "https://canvas.instructure.com";
 
   return {
     userId,
@@ -192,7 +240,7 @@ export async function verifyLtiIdToken(
     deploymentId: typeof deploymentClaim === "string" ? deploymentClaim : null,
     courseId: parseCanvasCourseId(payload),
     courseName: parseCanvasCourseName(payload),
-    platformIssuer: oidc.issuer,
+    platformIssuer,
     nonce: typeof payload.nonce === "string" ? payload.nonce : expectedNonce,
     payload,
   } satisfies LtiLaunchIdentity & {
