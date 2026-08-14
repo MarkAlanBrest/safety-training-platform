@@ -58,9 +58,12 @@ export default function HomePage() {
               <Link href="/admin/courses/new/video" className="inline-flex items-center gap-2 rounded-2xl border border-white/15 px-6 py-3.5 font-semibold text-white/90 hover:bg-white/5">
                 <PlayCircle size={18} /> Video course
               </Link>
-              <Link href="/training/demo" className="rounded-2xl border border-white/15 px-6 py-3.5 font-semibold text-white/90">
-                View learner experience
-              </Link>
+            <Link href="/training/demo" className="rounded-2xl border border-white/15 px-6 py-3.5 font-semibold text-white/90">
+              View learner experience
+            </Link>
+            <Link href="/canvas" className="inline-flex items-center gap-2 rounded-2xl bg-red-500 px-6 py-3.5 font-bold text-white shadow-lg shadow-red-500/30">
+              Canvas alerts
+            </Link>
             </div>
           </div>
 

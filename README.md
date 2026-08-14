@@ -39,6 +39,20 @@ The administration area is available at `/admin/login`. After signing in, an
 administrator can create training programs, manage AI classroom courses, generate
 enrollment codes, view learner rosters, and remove records.
 
+## Canvas LMS alerts
+
+Students can connect their Canvas account at `/canvas` to see missing assignments,
+low grades, and due-soon work with high-visibility alerts and optional desktop
+notifications.
+
+1. Open `/canvas`.
+2. Enter your school's Canvas URL (for example, `yourschool.instructure.com`).
+3. Create a personal access token in Canvas under Account → Settings → Approved Integrations.
+4. Paste the token to connect.
+
+Canvas credentials are stored in an encrypted browser session cookie only. They are
+not written to the database. Set `CANVAS_SESSION_SECRET` in production.
+
 ## Database
 
 The application uses Neon PostgreSQL through Prisma's serverless Neon adapter.
