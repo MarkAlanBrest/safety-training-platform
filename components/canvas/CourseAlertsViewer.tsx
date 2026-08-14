@@ -21,11 +21,18 @@ type AutoAlert = {
 type Props = {
   courseId: string;
   initialCourseName?: string | null;
+  initialStudentName?: string | null;
+  handoffToken?: string | null;
 };
 
-export function CourseAlertsViewer({ courseId, initialCourseName = null }: Props) {
-  const [connected, setConnected] = useState<boolean | null>(null);
-  const [studentName, setStudentName] = useState("");
+export function CourseAlertsViewer({
+  courseId,
+  initialCourseName = null,
+  initialStudentName = null,
+  handoffToken = null,
+}: Props) {
+  const [connected, setConnected] = useState<boolean | null>(handoffToken ? true : null);
+  const [studentName, setStudentName] = useState(initialStudentName || "");
   const [courseName, setCourseName] = useState<string | null>(initialCourseName);
   const [bannerMessage, setBannerMessage] = useState<string | null>(null);
   const [teacherMessages, setTeacherMessages] = useState<TeacherMessage[]>([]);
@@ -45,7 +52,10 @@ export function CourseAlertsViewer({ courseId, initialCourseName = null }: Props
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/course-alerts/feed?course=${encodeURIComponent(courseId)}`);
+      const handoffQuery = handoffToken ? `&handoff=${encodeURIComponent(handoffToken)}` : "";
+      const response = await fetch(
+        `/api/course-alerts/feed?course=${encodeURIComponent(courseId)}${handoffQuery}`,
+      );
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || "Could not load alerts.");
@@ -60,14 +70,18 @@ export function CourseAlertsViewer({ courseId, initialCourseName = null }: Props
     } finally {
       setLoading(false);
     }
-  }, [courseId]);
+  }, [courseId, handoffToken]);
 
   useEffect(() => {
     void (async () => {
+      if (handoffToken) {
+        await loadAlerts();
+        return;
+      }
       const isConnected = await loadStatus();
       if (isConnected) await loadAlerts();
     })();
-  }, [loadAlerts, loadStatus]);
+  }, [handoffToken, loadAlerts, loadStatus]);
 
   useEffect(() => {
     if (!connected) return;

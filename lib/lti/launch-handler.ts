@@ -17,6 +17,7 @@ import {
 import { isInstructorLtiLaunch } from "@/lib/lti/roles";
 import { verifyLtiIdToken } from "@/lib/lti/verify";
 import { parseLtiState } from "@/lib/lti/state";
+import { buildLaunchRedirectHtml, createLaunchHandoff } from "@/lib/lti/launch-handoff";
 
 function attachSessionCookie(
   response: NextResponse,
@@ -45,6 +46,38 @@ function attachSessionCookie(
     },
   );
   return response;
+}
+
+function finishLaunch(
+  appOrigin: string,
+  identity: {
+    userId: number;
+    name: string;
+    email: string | null;
+    courseId: string | null;
+    courseName: string | null;
+  },
+  path: string,
+) {
+  const url = new URL(path.startsWith("http") ? path : `${appOrigin}${path}`);
+  if (identity.courseId && !url.searchParams.has("course")) {
+    url.searchParams.set("course", identity.courseId);
+  }
+
+  const handoff = createLaunchHandoff({
+    userId: identity.userId,
+    name: identity.name,
+    email: identity.email,
+    courseId: identity.courseId,
+    courseName: identity.courseName,
+  });
+  url.searchParams.set("handoff", handoff);
+
+  const response = new NextResponse(buildLaunchRedirectHtml(url.toString()), {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+  return attachSessionCookie(response, identity);
 }
 
 export async function handleLtiLaunchPost(
@@ -109,11 +142,8 @@ export async function handleLtiLaunchPost(
   }
 
   if (deepLinking) {
-    const setupUrl = new URL(`${appOrigin}/canvas/alerts/setup`);
-    if (identity.courseId) setupUrl.searchParams.set("course", identity.courseId);
-    setupUrl.searchParams.set("mode", "import");
-
-    const response = NextResponse.redirect(setupUrl.toString(), { status: 303 });
+    const setupPath = `/canvas/alerts/setup?mode=import${identity.courseId ? `&course=${encodeURIComponent(identity.courseId)}` : ""}`;
+    const response = finishLaunch(appOrigin, identity, setupPath);
     response.cookies.set(
       LTI_DEEP_LINK_COOKIE,
       encodeDeepLinkSession({
@@ -138,17 +168,14 @@ export async function handleLtiLaunchPost(
   }
 
   if (isInstructor && identity.courseId) {
-    const setupUrl = `${appOrigin}/canvas/alerts/setup?course=${encodeURIComponent(identity.courseId)}`;
-    const response = NextResponse.redirect(setupUrl, { status: 303 });
-    return attachSessionCookie(response, identity);
+    return finishLaunch(
+      appOrigin,
+      identity,
+      `/canvas/alerts/setup?course=${encodeURIComponent(identity.courseId)}`,
+    );
   }
 
-  const redirectTarget = identity.courseId
-    ? `${appOrigin}/canvas/alerts?course=${encodeURIComponent(identity.courseId)}`
-    : `${appOrigin}/canvas/alerts`;
-
-  const response = NextResponse.redirect(redirectTarget, { status: 303 });
-  return attachSessionCookie(response, identity);
+  return finishLaunch(appOrigin, identity, "/canvas/alerts");
 }
 
 function launchErrorResponse(message: string) {

@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import { readCookie } from "@/lib/admin-session";
 import { createCanvasClient } from "@/lib/canvas/client";
 import { getCanvasServerConfig, getDevCanvasUserId } from "@/lib/canvas/config";
+import { parseLaunchHandoff } from "@/lib/lti/launch-handoff";
 
 export const CANVAS_SESSION_COOKIE = "canvas-session";
 
@@ -76,6 +77,28 @@ export function getCanvasStudentSession(request: Request): CanvasStudentSession 
   if (encoded) {
     const session = decodeCanvasStudentSession(encoded);
     if (session) return session;
+  }
+
+  try {
+    const handoff = new URL(request.url).searchParams.get("handoff");
+    if (handoff) {
+      const parsed = parseLaunchHandoff(handoff);
+      if (parsed) {
+        const now = Date.now();
+        return {
+          userId: parsed.userId,
+          name: parsed.name,
+          email: parsed.email,
+          courseId: parsed.courseId,
+          courseName: parsed.courseName,
+          source: "lti",
+          connectedAt: new Date(now).toISOString(),
+          expiresAt: new Date(parsed.exp).toISOString(),
+        };
+      }
+    }
+  } catch {
+    // Ignore invalid handoff tokens.
   }
 
   const devUserId = getDevCanvasUserId();

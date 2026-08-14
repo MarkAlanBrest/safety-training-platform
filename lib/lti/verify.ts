@@ -131,7 +131,8 @@ function parseCanvasCourseId(payload: JWTPayload) {
     if (urlMatch?.[1]) return urlMatch[1];
     if (/^\d+$/.test(rawId)) return rawId;
     const endMatch = rawId.match(/(\d+)$/);
-    return endMatch?.[1] || null;
+    if (endMatch?.[1]) return endMatch[1];
+    return rawId;
   }
   if (typeof rawId === "number") return String(rawId);
   return null;

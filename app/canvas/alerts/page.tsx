@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { CourseAlertsViewer } from "@/components/canvas/CourseAlertsViewer";
 import { CANVAS_SESSION_COOKIE, decodeCanvasStudentSession } from "@/lib/canvas/session";
+import { parseLaunchHandoff } from "@/lib/lti/launch-handoff";
 import "../course-alerts.css";
 
 export const metadata: Metadata = {
@@ -13,24 +14,39 @@ type Props = {
   searchParams: Promise<{
     course?: string;
     courseId?: string;
+    handoff?: string;
   }>;
 };
 
 export default async function CourseAlertsPage({ searchParams }: Props) {
   const params = await searchParams;
   const cookieStore = await cookies();
-  const session = decodeCanvasStudentSession(cookieStore.get(CANVAS_SESSION_COOKIE)?.value || "");
-  const courseId = (params.courseId || params.course || session?.courseId || "").trim();
-  const courseName = session?.courseName || null;
+  const cookieSession = decodeCanvasStudentSession(cookieStore.get(CANVAS_SESSION_COOKIE)?.value || "");
+  const handoff = params.handoff ? parseLaunchHandoff(params.handoff) : null;
+  const courseId = (
+    params.courseId ||
+    params.course ||
+    handoff?.courseId ||
+    cookieSession?.courseId ||
+    ""
+  ).trim();
+  const courseName = handoff?.courseName || cookieSession?.courseName || null;
+  const studentName = handoff?.name || cookieSession?.name || null;
+  const hasIdentity = Boolean(cookieSession || handoff);
 
   return (
     <main className="course-alerts-page">
       {courseId ? (
-        <CourseAlertsViewer courseId={courseId} initialCourseName={courseName} />
+        <CourseAlertsViewer
+          courseId={courseId}
+          initialCourseName={courseName}
+          initialStudentName={studentName}
+          handoffToken={params.handoff || null}
+        />
       ) : (
         <div className="course-alerts-shell">
           <h1>Course alerts</h1>
-          {session ? (
+          {hasIdentity ? (
             <>
               <p>Canvas connected you, but did not pass a course id for this launch.</p>
               <p>
@@ -41,11 +57,16 @@ export default async function CourseAlertsPage({ searchParams }: Props) {
               </p>
             </>
           ) : (
-            <p>
-              Open <strong>Student Alerts</strong> from your course in Canvas (Modules → External
-              Tool, or add it to the course home page). Canvas will identify you and pass the course
-              automatically.
-            </p>
+            <>
+              <p>
+                Open <strong>Student Alerts</strong> from your course in Canvas (Modules → External
+                Tool). Do not bookmark this page directly.
+              </p>
+              <p className="course-alerts-quiet">
+                The tool must launch through Canvas LTI at{" "}
+                <code>/api/lti/launch</code>, not <code>/canvas/alerts</code>.
+              </p>
+            </>
           )}
         </div>
       )}
