@@ -1,6 +1,9 @@
+@import url("https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Roboto+Condensed:wght@300;400;700&display=swap");
 @import "tailwindcss";
 
 :root {
+  --font-oswald: "Oswald", sans-serif;
+  --font-roboto-condensed: "Roboto Condensed", sans-serif;
   --ncst-blue: #002d74;
   --ncst-orange: #faa200;
   --ncst-red: #ed1c24;
