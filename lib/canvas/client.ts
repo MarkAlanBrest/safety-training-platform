@@ -35,6 +35,17 @@ export function normalizeCanvasBaseUrl(baseUrl: string) {
   return withProtocol.replace(/\/api\/v1$/i, "");
 }
 
+const CANVAS_USER_AGENT =
+  process.env.CANVAS_USER_AGENT?.trim() || "safety-training-platform/1.0 (Canvas Student Alerts)";
+
+function canvasRequestHeaders(token: string) {
+  return {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/json",
+    "User-Agent": CANVAS_USER_AGENT,
+  };
+}
+
 export function createCanvasClient(options: CanvasClientOptions) {
   const baseUrl = normalizeCanvasBaseUrl(options.baseUrl);
   const token = options.token.trim();
@@ -45,10 +56,7 @@ export function createCanvasClient(options: CanvasClientOptions) {
   async function canvasFetch<T>(path: string, params?: CanvasListParams): Promise<T> {
     const url = `${baseUrl}/api/v1${path}${buildQuery(params)}`;
     const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-      },
+      headers: canvasRequestHeaders(token),
       cache: "no-store",
     });
 
@@ -80,10 +88,7 @@ export function createCanvasClient(options: CanvasClientOptions) {
     while (nextUrl) {
       const pageUrl = nextUrl;
       const response: Response = await fetch(pageUrl, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        },
+        headers: canvasRequestHeaders(token),
         cache: "no-store",
       });
 
