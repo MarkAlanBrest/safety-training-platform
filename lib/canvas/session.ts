@@ -1,10 +1,11 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { readCookie } from "@/lib/admin-session";
-import type { CanvasConfig } from "@/lib/canvas/types";
+import { createCanvasClient } from "@/lib/canvas/client";
+import { getCanvasServerConfig, getDevCanvasUserId } from "@/lib/canvas/config";
 
 export const CANVAS_SESSION_COOKIE = "canvas-session";
 
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
 function getEncryptionKey() {
   const secret =
@@ -34,25 +35,29 @@ function decryptPayload(encoded: string) {
   return decrypted.toString("utf8");
 }
 
-export type CanvasSession = CanvasConfig & {
+export type CanvasStudentSession = {
+  userId: number;
+  name: string;
+  email: string | null;
+  source: "lti" | "dev";
   connectedAt: string;
   expiresAt: string;
 };
 
-export function encodeCanvasSession(config: CanvasConfig) {
+export function encodeCanvasStudentSession(session: Omit<CanvasStudentSession, "connectedAt" | "expiresAt">) {
   const now = Date.now();
-  const session: CanvasSession = {
-    ...config,
+  const payload: CanvasStudentSession = {
+    ...session,
     connectedAt: new Date(now).toISOString(),
     expiresAt: new Date(now + SESSION_TTL_MS).toISOString(),
   };
-  return encryptPayload(JSON.stringify(session));
+  return encryptPayload(JSON.stringify(payload));
 }
 
-export function decodeCanvasSession(encoded: string): CanvasSession | null {
+export function decodeCanvasStudentSession(encoded: string): CanvasStudentSession | null {
   try {
-    const session = JSON.parse(decryptPayload(encoded)) as CanvasSession;
-    if (!session?.baseUrl || !session?.token) return null;
+    const session = JSON.parse(decryptPayload(encoded)) as CanvasStudentSession;
+    if (!session?.userId) return null;
     if (new Date(session.expiresAt).getTime() <= Date.now()) return null;
     return session;
   } catch {
@@ -60,18 +65,42 @@ export function decodeCanvasSession(encoded: string): CanvasSession | null {
   }
 }
 
-export function getCanvasSession(request: Request): CanvasSession | null {
+export function getCanvasStudentSession(request: Request): CanvasStudentSession | null {
   const encoded = readCookie(request, CANVAS_SESSION_COOKIE);
-  if (!encoded) return null;
-  return decodeCanvasSession(encoded);
+  if (encoded) {
+    const session = decodeCanvasStudentSession(encoded);
+    if (session) return session;
+  }
+
+  const devUserId = getDevCanvasUserId();
+  if (!devUserId) return null;
+
+  const now = Date.now();
+  return {
+    userId: devUserId,
+    name: "Dev Student",
+    email: null,
+    source: "dev",
+    connectedAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + SESSION_TTL_MS).toISOString(),
+  };
 }
 
 export function canvasSessionCookieOptions(expiresAt: Date) {
   return {
     path: "/",
     httpOnly: true,
-    sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    sameSite: "none" as const,
+    secure: true,
     expires: expiresAt,
   };
+}
+
+export function createStudentCanvasClient(session: CanvasStudentSession) {
+  const { baseUrl, apiToken } = getCanvasServerConfig();
+  return createCanvasClient({
+    baseUrl,
+    token: apiToken,
+    userId: session.userId,
+  });
 }

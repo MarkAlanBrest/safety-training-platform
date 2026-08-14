@@ -1,5 +1,4 @@
 import type {
-  CanvasConfig,
   CanvasEnrollment,
   CanvasMissingSubmission,
   CanvasPlannerItem,
@@ -7,6 +6,12 @@ import type {
 } from "@/lib/canvas/types";
 
 type CanvasListParams = Record<string, string | number | boolean | string[] | undefined>;
+
+export type CanvasClientOptions = {
+  baseUrl: string;
+  token: string;
+  userId?: number;
+};
 
 function buildQuery(params?: CanvasListParams) {
   if (!params) return "";
@@ -23,17 +28,19 @@ function buildQuery(params?: CanvasListParams) {
   return query ? `?${query}` : "";
 }
 
-function normalizeBaseUrl(baseUrl: string) {
+export function normalizeCanvasBaseUrl(baseUrl: string) {
   const trimmed = baseUrl.trim().replace(/\/+$/, "");
   if (!trimmed) throw new Error("Canvas URL is required.");
   const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   return withProtocol.replace(/\/api\/v1$/i, "");
 }
 
-export function createCanvasClient(config: CanvasConfig) {
-  const baseUrl = normalizeBaseUrl(config.baseUrl);
-  const token = config.token.trim();
+export function createCanvasClient(options: CanvasClientOptions) {
+  const baseUrl = normalizeCanvasBaseUrl(options.baseUrl);
+  const token = options.token.trim();
   if (!token) throw new Error("Canvas access token is required.");
+
+  const userRoot = options.userId ? `/users/${options.userId}` : "/users/self";
 
   async function canvasFetch<T>(path: string, params?: CanvasListParams): Promise<T> {
     const url = `${baseUrl}/api/v1${path}${buildQuery(params)}`;
@@ -55,7 +62,7 @@ export function createCanvasClient(config: CanvasConfig) {
       }
       throw new Error(
         response.status === 401
-          ? "Canvas rejected the access token. Check your token and try again."
+          ? "Canvas rejected the access token. Check CANVAS_API_TOKEN."
           : `Canvas API error (${response.status}): ${detail || response.statusText}`,
       );
     }
@@ -113,30 +120,28 @@ export function createCanvasClient(config: CanvasConfig) {
 
   return {
     baseUrl,
-    async getCurrentUser() {
+    userId: options.userId ?? null,
+    async getUser() {
+      if (options.userId) {
+        return canvasFetch<CanvasUser>(`/users/${options.userId}`);
+      }
       return canvasFetch<CanvasUser>("/users/self");
     },
     async getStudentEnrollments() {
-      return canvasFetchAll<CanvasEnrollment>("/users/self/enrollments", {
+      return canvasFetchAll<CanvasEnrollment>(`${userRoot}/enrollments`, {
         state: ["active"],
         type: ["StudentEnrollment"],
         include: ["current_points", "course"],
       });
     },
     async getMissingSubmissions() {
-      return canvasFetchAll<CanvasMissingSubmission>("/users/self/missing_submissions", {
+      return canvasFetchAll<CanvasMissingSubmission>(`${userRoot}/missing_submissions`, {
         include: ["planner_overrides"],
         filter: ["submittable"],
       });
     },
     async getPlannerItems() {
-      return canvasFetchAll<CanvasPlannerItem>("/planner/items");
+      return canvasFetchAll<CanvasPlannerItem>(`${userRoot}/planner/items`);
     },
   };
-}
-
-export async function validateCanvasConfig(config: CanvasConfig) {
-  const client = createCanvasClient(config);
-  const user = await client.getCurrentUser();
-  return { client, user };
 }

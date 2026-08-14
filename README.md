@@ -41,17 +41,19 @@ enrollment codes, view learner rosters, and remove records.
 
 ## Canvas LMS alerts
 
-Students can connect their Canvas account at `/canvas` to see missing assignments,
-low grades, and due-soon work with high-visibility alerts and optional desktop
-notifications.
+Students launch `/canvas` from an **LTI tool** in Canvas. The server uses your admin API
+token to read that student's missing assignments and grades.
 
-1. Open `/canvas`.
-2. Enter your school's Canvas URL (for example, `yourschool.instructure.com`).
-3. Create a personal access token in Canvas under Account → Settings → Approved Integrations.
-4. Paste the token to connect.
+**Env vars:** `CANVAS_BASE_URL`, `CANVAS_API_TOKEN`, `CANVAS_LTI_CLIENT_ID`,
+`NEXT_PUBLIC_APP_ORIGIN`, `CANVAS_SESSION_SECRET`
 
-Canvas credentials are stored in an encrypted browser session cookie only. They are
-not written to the database. Set `CANVAS_SESSION_SECRET` in production.
+**Canvas developer key (LTI 1.3):**
+- Login URL: `https://your-app.com/api/lti/login`
+- Redirect URI / Target link: `https://your-app.com/api/lti/launch`
+- Custom field: `user_id` = `$Canvas.user.id`
+- Install the key account-wide or per course, then add the tool to course navigation.
+
+For local testing without LTI, set `CANVAS_DEV_USER_ID` to a real Canvas user id.
 
 ## Database
 

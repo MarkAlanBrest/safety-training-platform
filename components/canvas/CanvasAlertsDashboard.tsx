@@ -13,7 +13,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import type { CanvasAlertSummary } from "@/lib/canvas/types";
-import { CanvasConnectForm } from "@/components/canvas/CanvasConnectForm";
+import { CanvasLaunchHint } from "@/components/canvas/CanvasLaunchHint";
 
 const REFRESH_MS = 5 * 60 * 1000;
 
@@ -126,12 +126,7 @@ export function CanvasAlertsDashboard() {
   if (!connected) {
     return (
       <div className="canvas-page">
-        <CanvasConnectForm
-          onConnected={() => {
-            setConnected(true);
-            void loadAlerts();
-          }}
-        />
+        <CanvasLaunchHint />
       </div>
     );
   }
