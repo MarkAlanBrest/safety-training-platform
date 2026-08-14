@@ -4,12 +4,19 @@ import { NextResponse } from "next/server";
 import { handleLtiLoginPost, handleLtiLoginRequest } from "@/lib/lti/login-handler";
 import { handleLtiLaunchPostWithErrorPage } from "@/lib/lti/launch-handler";
 
+function loginErrorResponse(message: string, status = 500) {
+  return new NextResponse(
+    `<html><body style="font-family:sans-serif;padding:24px;max-width:640px"><h1>Student Alerts could not start</h1><p>${message}</p><p>Open this tool from <strong>Canvas → Modules → External Tool → Student Alerts</strong>, not by visiting this URL directly.</p></body></html>`,
+    { status, headers: { "Content-Type": "text/html; charset=utf-8" } },
+  );
+}
+
 export async function GET(request: Request) {
   try {
     return handleLtiLoginRequest(request);
   } catch (error) {
     const message = error instanceof Error ? error.message : "LTI login failed.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return loginErrorResponse(message);
   }
 }
 
@@ -25,15 +32,12 @@ export async function POST(request: Request) {
       return handleLtiLaunchPostWithErrorPage(request, result.form);
     }
 
-    return NextResponse.json(
-      {
-        error:
-          "Unrecognized LTI request. Open Student Alerts from Canvas (Modules → External Tool), not this URL directly.",
-      },
-      { status: 400 },
+    return loginErrorResponse(
+      "Canvas did not send a recognizable login or launch request. Reopen Student Alerts from Canvas.",
+      400,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "LTI login failed.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return loginErrorResponse(message);
   }
 }

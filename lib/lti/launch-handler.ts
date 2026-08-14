@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getLtiConfig } from "@/lib/canvas/config";
+import { getConfiguredLtiClientId, getLtiConfig } from "@/lib/canvas/config";
 import { normalizeStudentName } from "@/lib/course-alerts";
 import {
   canvasSessionCookieOptions,
@@ -51,8 +51,15 @@ export async function handleLtiLaunchPost(
   }
 
   const parsedState = parseLtiState(state);
-  const identity = await verifyLtiIdToken(idToken, parsedState.iss, parsedState.nonce);
-  const { clientId, appOrigin, launchUrl } = getLtiConfig();
+  const clientId = parsedState.clientId || getConfiguredLtiClientId();
+  if (!clientId) {
+    return launchErrorResponse(
+      "LTI client id was missing from the launch. Reopen Student Alerts from Canvas.",
+    );
+  }
+
+  const identity = await verifyLtiIdToken(idToken, parsedState.iss, parsedState.nonce, clientId);
+  const { appOrigin, launchUrl } = getLtiConfig();
   const deepLinking = readDeepLinkingSettings(identity.payload);
 
   if (identity.courseId) {

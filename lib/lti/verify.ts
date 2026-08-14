@@ -1,5 +1,4 @@
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
-import { getLtiConfig } from "@/lib/canvas/config";
 
 const LTI_NONCE_COOKIE = "canvas-lti-nonce";
 const LTI_CUSTOM_CLAIM = "https://purl.imsglobal.org/spec/lti/claim/custom";
@@ -113,14 +112,18 @@ function parseCanvasCourseName(payload: JWTPayload) {
   return null;
 }
 
-export async function verifyLtiIdToken(idToken: string, issuer: string, expectedNonce: string) {
-  const { clientId } = getLtiConfig();
+export async function verifyLtiIdToken(
+  idToken: string,
+  issuer: string,
+  expectedNonce: string,
+  expectedClientId: string,
+) {
   const oidc = await getOidcConfig(issuer);
   const jwks = createRemoteJWKSet(new URL(oidc.jwks_uri));
 
   const { payload } = await jwtVerify(idToken, jwks, {
     issuer: oidc.issuer,
-    audience: clientId,
+    audience: expectedClientId,
     clockTolerance: 30,
   });
 

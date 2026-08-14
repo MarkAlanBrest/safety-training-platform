@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getLtiConfig } from "@/lib/canvas/config";
+import { getConfiguredLtiClientId } from "@/lib/canvas/config";
 import { buildAuthorizeRedirectUrl } from "@/lib/lti/verify";
 import { createLtiNonce, createLtiState } from "@/lib/lti/state";
 
@@ -39,13 +39,13 @@ export function handleLtiLoginParams(params: Partial<LtiLoginParams>) {
     return NextResponse.json({ error: "Missing required LTI login parameters." }, { status: 400 });
   }
 
-  const { clientId: expectedClientId } = getLtiConfig();
-  if (clientId !== expectedClientId) {
+  const configuredClientId = getConfiguredLtiClientId();
+  if (configuredClientId && clientId !== configuredClientId) {
     return NextResponse.json({ error: "Unexpected LTI client id." }, { status: 400 });
   }
 
   const nonce = createLtiNonce();
-  const state = createLtiState(iss, nonce);
+  const state = createLtiState(iss, nonce, clientId);
 
   const redirectUrl = buildAuthorizeRedirectUrl({
     issuer: iss,

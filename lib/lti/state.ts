@@ -3,6 +3,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 type LtiStatePayload = {
   nonce: string;
   iss: string;
+  clientId?: string;
   exp: number;
 };
 
@@ -15,10 +16,11 @@ function getStateSecret() {
   );
 }
 
-export function createLtiState(iss: string, nonce: string) {
+export function createLtiState(iss: string, nonce: string, clientId: string) {
   const payload: LtiStatePayload = {
     nonce,
     iss,
+    clientId,
     exp: Date.now() + 5 * 60 * 1000,
   };
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");

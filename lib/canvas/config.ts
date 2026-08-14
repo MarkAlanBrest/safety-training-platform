@@ -9,16 +9,30 @@ export function getCanvasServerConfig() {
   return { baseUrl, apiToken };
 }
 
-export function getLtiConfig() {
-  const clientId = process.env.CANVAS_LTI_CLIENT_ID?.trim() || "";
-  const appOrigin = process.env.NEXT_PUBLIC_APP_ORIGIN?.trim().replace(/\/+$/, "") || "";
+export function getAppOrigin() {
+  const configured = process.env.NEXT_PUBLIC_APP_ORIGIN?.trim().replace(/\/+$/, "");
+  if (configured) return configured;
 
-  if (!clientId || !appOrigin) {
-    throw new Error("CANVAS_LTI_CLIENT_ID and NEXT_PUBLIC_APP_ORIGIN must be configured.");
+  const vercelUrl = process.env.VERCEL_URL?.trim().replace(/\/+$/, "");
+  if (vercelUrl) return `https://${vercelUrl}`;
+
+  return "";
+}
+
+export function getConfiguredLtiClientId() {
+  return process.env.CANVAS_LTI_CLIENT_ID?.trim() || "";
+}
+
+export function getLtiConfig() {
+  const appOrigin = getAppOrigin();
+  if (!appOrigin) {
+    throw new Error(
+      "App origin is not configured. Set NEXT_PUBLIC_APP_ORIGIN in Vercel (e.g. https://safety-training-platform-eight.vercel.app).",
+    );
   }
 
   return {
-    clientId,
+    clientId: getConfiguredLtiClientId(),
     appOrigin,
     loginUrl: `${appOrigin}/api/lti/login`,
     launchUrl: `${appOrigin}/api/lti/launch`,
