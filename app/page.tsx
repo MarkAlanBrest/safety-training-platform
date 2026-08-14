@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, BookOpenCheck, FileText, GraduationCap, Package, PlayCircle, Presentation, Sparkles } from "lucide-react";
+import { BookOpenCheck, FileText, GraduationCap, Package, PlayCircle, Presentation, Sparkles } from "lucide-react";
+import { CourseCodeEntry } from "@/components/CourseCodeEntry";
 
 export default function HomePage() {
   return (
@@ -30,6 +31,8 @@ export default function HomePage() {
             </Link>
           </div>
         </header>
+
+        <CourseCodeEntry />
 
         <section className="grid flex-1 gap-10 py-16 lg:grid-cols-[1.12fr_.88fr] lg:items-center lg:py-20">
           <div>
