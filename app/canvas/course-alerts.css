@@ -132,6 +132,83 @@
   color: #ffb4b4;
 }
 
+.course-alerts-banner-info {
+  background: linear-gradient(90deg, rgba(30, 64, 175, 0.96), rgba(37, 99, 235, 0.94));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 18px 50px rgba(37, 99, 235, 0.35);
+  animation: none;
+}
+
+.course-alerts-banner-warning {
+  background: linear-gradient(90deg, rgba(180, 83, 9, 0.96), rgba(234, 88, 12, 0.94));
+}
+
+.course-alerts-banner-critical {
+  background: linear-gradient(90deg, rgba(237, 28, 36, 0.96), rgba(255, 90, 31, 0.94));
+}
+
+.course-alerts-setup h1 {
+  margin: 0 0 12px;
+  font-family: var(--font-oswald), Oswald, sans-serif;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+}
+
+.course-alerts-setup-lead {
+  color: #b8c9df;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.course-alerts-setup-form {
+  display: grid;
+  gap: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  background: rgba(8, 18, 34, 0.92);
+  padding: 24px;
+}
+
+.course-alerts-setup-form label {
+  display: grid;
+  gap: 8px;
+  color: #d7e7ff;
+  font-weight: 700;
+}
+
+.course-alerts-setup-form input,
+.course-alerts-setup-form textarea {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  padding: 14px 16px;
+  font-size: 1rem;
+}
+
+.course-alerts-setup-check {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+}
+
+.course-alerts-setup-check input {
+  width: auto;
+}
+
+.course-alerts-setup-form button {
+  border: 0;
+  border-radius: 16px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #ed1c24, #ff5a1f);
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.course-alerts-success {
+  color: #86efac;
+}
+
 @keyframes course-alerts-pulse {
   0%,
   100% {

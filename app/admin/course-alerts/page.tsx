@@ -24,6 +24,11 @@ export default function AdminCourseAlertsPage() {
   const [messages, setMessages] = useState<SentMessage[]>([]);
   const [canvasUserId, setCanvasUserId] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
+  const [missingWorkDays, setMissingWorkDays] = useState(14);
+  const [lowGradeThreshold, setLowGradeThreshold] = useState(70);
+  const [bannerMessage, setBannerMessage] = useState("Check your missing work and grades below.");
+  const [showMissing, setShowMissing] = useState(true);
+  const [showLowGrades, setShowLowGrades] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -40,6 +45,21 @@ export default function AdminCourseAlertsPage() {
       }
       setSignups(data.signups || []);
       setMessages(data.messages || []);
+
+      const configResponse = await fetch(
+        `/api/course-alerts/config?courseId=${encodeURIComponent(courseId.trim())}`,
+      );
+      const configData = await configResponse.json();
+      if (configResponse.ok && configData.config) {
+        setMissingWorkDays(configData.config.missingWorkDays);
+        setLowGradeThreshold(configData.config.lowGradeThreshold);
+        setBannerMessage(
+          configData.config.bannerMessage || "Check your missing work and grades below.",
+        );
+        setShowMissing(configData.config.showMissing);
+        setShowLowGrades(configData.config.showLowGrades);
+        if (configData.config.courseName) setCourseName(configData.config.courseName);
+      }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Could not load signups.");
     } finally {
@@ -82,6 +102,38 @@ export default function AdminCourseAlertsPage() {
     }
   }
 
+  async function handleSaveSettings(event: React.FormEvent) {
+    event.preventDefault();
+    if (!courseId.trim()) return;
+    setLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch("/api/course-alerts/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          courseId: courseId.trim(),
+          courseName: courseName.trim() || null,
+          missingWorkDays,
+          lowGradeThreshold,
+          bannerMessage,
+          showMissing,
+          showLowGrades,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Could not save settings.");
+      }
+      setSuccess("Course alert settings saved.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Could not save settings.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function clearMessage(id: number) {
     await fetch(`/api/course-alerts/clear?id=${id}`, { method: "DELETE" });
     await loadCourse();
@@ -95,7 +147,8 @@ export default function AdminCourseAlertsPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-bold text-slate-900">Course setup</h2>
           <p className="mt-2 text-slate-600">
-            Add the LTI tool to the course home page with Apps. Students who open it are registered automatically.
+            When importing the external tool in Canvas, teachers can set alert rules on the setup screen.
+            You can also edit those settings here.
           </p>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <label className="grid gap-2 text-sm font-semibold text-slate-700">
@@ -122,6 +175,65 @@ export default function AdminCourseAlertsPage() {
             <br />
             <code className="break-all">{launchUrl}</code>
           </p>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-bold text-slate-900">Alert rules</h2>
+          <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleSaveSettings}>
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">
+              Days back for missing work
+              <input
+                type="number"
+                min={1}
+                max={90}
+                className="rounded-xl border border-slate-300 px-4 py-3"
+                value={missingWorkDays}
+                onChange={(event) => setMissingWorkDays(Number(event.target.value))}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">
+              Low grade warning below (%)
+              <input
+                type="number"
+                min={0}
+                max={100}
+                className="rounded-xl border border-slate-300 px-4 py-3"
+                value={lowGradeThreshold}
+                onChange={(event) => setLowGradeThreshold(Number(event.target.value))}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-semibold text-slate-700 md:col-span-2">
+              Message shown to students
+              <textarea
+                className="min-h-24 rounded-xl border border-slate-300 px-4 py-3"
+                value={bannerMessage}
+                onChange={(event) => setBannerMessage(event.target.value)}
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <input
+                type="checkbox"
+                checked={showMissing}
+                onChange={(event) => setShowMissing(event.target.checked)}
+              />
+              Show missing work warnings
+            </label>
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <input
+                type="checkbox"
+                checked={showLowGrades}
+                onChange={(event) => setShowLowGrades(event.target.checked)}
+              />
+              Show low grade warnings
+            </label>
+            <button
+              type="submit"
+              className="rounded-xl bg-slate-900 px-5 py-3 font-bold text-white md:col-span-2"
+              disabled={loading || !courseId.trim()}
+            >
+              Save alert rules
+            </button>
+          </form>
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

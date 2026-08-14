@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
 import { getConfiguredLtiClientId, getLtiConfig } from "@/lib/canvas/config";
 import { normalizeStudentName } from "@/lib/course-alerts";
+import { parseCourseAlertCustomFields } from "@/lib/course-alerts/config";
+import { saveCourseAlertConfig } from "@/lib/course-alerts/store";
 import {
   canvasSessionCookieOptions,
   encodeCanvasStudentSession,
   CANVAS_SESSION_COOKIE,
 } from "@/lib/canvas/session";
+import { readDeepLinkingSettings } from "@/lib/lti/deep-linking";
 import {
-  buildDeepLinkingHtml,
-  buildDeepLinkingResponse,
-  readDeepLinkingSettings,
-} from "@/lib/lti/deep-linking";
+  decodeDeepLinkSession,
+  encodeDeepLinkSession,
+  LTI_DEEP_LINK_COOKIE,
+} from "@/lib/lti/deep-link-session";
+import { isInstructorLtiLaunch } from "@/lib/lti/roles";
 import { verifyLtiIdToken } from "@/lib/lti/verify";
 import { parseLtiState } from "@/lib/lti/state";
 import { prisma } from "@/lib/prisma";
@@ -73,8 +77,24 @@ export async function handleLtiLaunchPost(
     clientId,
     request,
   );
-  const { appOrigin, launchUrl } = getLtiConfig();
+  const { appOrigin } = getLtiConfig();
   const deepLinking = readDeepLinkingSettings(identity.payload);
+  const isInstructor = isInstructorLtiLaunch(identity.payload);
+
+  const customClaim = identity.payload["https://purl.imsglobal.org/spec/lti/claim/custom"];
+  if (identity.courseId && customClaim && typeof customClaim === "object") {
+    const raw = customClaim as Record<string, unknown>;
+    if (
+      raw.missing_work_days !== undefined ||
+      raw.low_grade_threshold !== undefined ||
+      raw.banner_message !== undefined
+    ) {
+      await saveCourseAlertConfig(identity.courseId, {
+        ...parseCourseAlertCustomFields(raw),
+        courseName: identity.courseName,
+      });
+    }
+  }
 
   if (identity.courseId) {
     await prisma.courseAlertSignup.upsert({
@@ -100,16 +120,37 @@ export async function handleLtiLaunchPost(
   }
 
   if (deepLinking) {
-    const jwt = await buildDeepLinkingResponse({
-      clientId,
-      platformIssuer: identity.platformIssuer,
-      nonce: identity.nonce,
-      launchUrl,
-      data: deepLinking.data,
-    });
-    const response = new NextResponse(buildDeepLinkingHtml(deepLinking.deep_link_return_url, jwt), {
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-    });
+    const setupUrl = new URL(`${appOrigin}/canvas/alerts/setup`);
+    if (identity.courseId) setupUrl.searchParams.set("course", identity.courseId);
+    setupUrl.searchParams.set("mode", "import");
+
+    const response = NextResponse.redirect(setupUrl.toString(), { status: 303 });
+    response.cookies.set(
+      LTI_DEEP_LINK_COOKIE,
+      encodeDeepLinkSession({
+        returnUrl: deepLinking.deep_link_return_url,
+        clientId,
+        platformIssuer: identity.platformIssuer,
+        nonce: identity.nonce,
+        courseId: identity.courseId,
+        courseName: identity.courseName,
+        data: deepLinking.data,
+      }),
+      {
+        path: "/",
+        httpOnly: true,
+        sameSite: "none",
+        secure: true,
+        maxAge: 600,
+        partitioned: true,
+      },
+    );
+    return attachSessionCookie(response, identity);
+  }
+
+  if (isInstructor && identity.courseId) {
+    const setupUrl = `${appOrigin}/canvas/alerts/setup?course=${encodeURIComponent(identity.courseId)}`;
+    const response = NextResponse.redirect(setupUrl, { status: 303 });
     return attachSessionCookie(response, identity);
   }
 

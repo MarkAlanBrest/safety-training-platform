@@ -3,10 +3,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { BellRing, ShieldAlert } from "lucide-react";
 
-type AlertMessage = {
+type TeacherMessage = {
   id: number;
   message: string;
   createdAt: string;
+};
+
+type AutoAlert = {
+  id: string;
+  severity: "critical" | "warning" | "info";
+  title: string;
+  message: string;
+  kind: string;
+  link?: string;
 };
 
 type Props = {
@@ -18,7 +27,9 @@ export function CourseAlertsViewer({ courseId, initialCourseName = null }: Props
   const [connected, setConnected] = useState<boolean | null>(null);
   const [studentName, setStudentName] = useState("");
   const [courseName, setCourseName] = useState<string | null>(initialCourseName);
-  const [messages, setMessages] = useState<AlertMessage[]>([]);
+  const [bannerMessage, setBannerMessage] = useState<string | null>(null);
+  const [teacherMessages, setTeacherMessages] = useState<TeacherMessage[]>([]);
+  const [autoAlerts, setAutoAlerts] = useState<AutoAlert[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -34,16 +45,16 @@ export function CourseAlertsViewer({ courseId, initialCourseName = null }: Props
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(
-        `/api/course-alerts/messages?course=${encodeURIComponent(courseId)}`,
-      );
+      const response = await fetch(`/api/course-alerts/feed?course=${encodeURIComponent(courseId)}`);
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || "Could not load alerts.");
       }
       setStudentName(data.studentName || "Student");
       setCourseName(data.courseName || null);
-      setMessages(data.messages || []);
+      setBannerMessage(data.bannerMessage || data.config?.bannerMessage || null);
+      setTeacherMessages(data.teacherMessages || []);
+      setAutoAlerts(data.alerts || []);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Could not load alerts.");
     } finally {
@@ -82,6 +93,8 @@ export function CourseAlertsViewer({ courseId, initialCourseName = null }: Props
     );
   }
 
+  const hasAlerts = teacherMessages.length > 0 || autoAlerts.length > 0;
+
   return (
     <div className="course-alerts-shell">
       <div className="course-alerts-active">
@@ -101,18 +114,36 @@ export function CourseAlertsViewer({ courseId, initialCourseName = null }: Props
           </button>
         </div>
 
+        {bannerMessage ? (
+          <div className="course-alerts-banner course-alerts-banner-info" role="note">
+            <strong>Reminder</strong>
+            <p>{bannerMessage}</p>
+          </div>
+        ) : null}
+
         {error ? <p className="course-alerts-error">{error}</p> : null}
 
-        {messages.length ? (
-          messages.map((alert) => (
-            <div key={alert.id} className="course-alerts-banner" role="alert">
-              <strong>Alert for {studentName}</strong>
-              <p>{alert.message}</p>
-            </div>
-          ))
-        ) : (
+        {teacherMessages.map((alert) => (
+          <div key={`teacher-${alert.id}`} className="course-alerts-banner" role="alert">
+            <strong>Alert for {studentName}</strong>
+            <p>{alert.message}</p>
+          </div>
+        ))}
+
+        {autoAlerts.map((alert) => (
+          <div
+            key={alert.id}
+            className={`course-alerts-banner course-alerts-banner-${alert.severity}`}
+            role="alert"
+          >
+            <strong>{alert.title}</strong>
+            <p>{alert.message}</p>
+          </div>
+        ))}
+
+        {!hasAlerts && !bannerMessage ? (
           <p className="course-alerts-quiet">No alerts right now. You&apos;re all caught up.</p>
-        )}
+        ) : null}
       </div>
     </div>
   );

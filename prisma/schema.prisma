@@ -188,3 +188,16 @@ model CourseAlertMessage {
 
   @@index([canvasCourseId, canvasUserId, active])
 }
+
+model CourseAlertConfig {
+  canvasCourseId    String   @id
+  courseName        String?
+  missingWorkDays   Int      @default(14)
+  lowGradeThreshold Int      @default(70)
+  bannerMessage     String?  @db.Text
+  showMissing       Boolean  @default(true)
+  showLowGrades     Boolean  @default(true)
+  updatedBy         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}

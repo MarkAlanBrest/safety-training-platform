@@ -15,6 +15,11 @@
   ],
   "placements": [
     {
+      "message_type": "LtiDeepLinkingRequest",
+      "text": "Student Alerts",
+      "placement": "assignment_selection"
+    },
+    {
       "message_type": "LtiResourceLinkRequest",
       "text": "Student Alerts",
       "placement": "course_home_sub_navigation"

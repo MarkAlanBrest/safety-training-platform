@@ -1,4 +1,8 @@
 import { importJWK, SignJWT, type JWTPayload } from "jose";
+import {
+  serializeCourseAlertCustomFields,
+  type CourseAlertConfigInput,
+} from "@/lib/course-alerts/config";
 
 const DEEP_LINKING_CLAIM = "https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings";
 const MESSAGE_TYPE_CLAIM = "https://purl.imsglobal.org/spec/lti/claim/message_type";
@@ -41,9 +45,11 @@ export async function buildDeepLinkingResponse(params: {
   nonce: string;
   launchUrl: string;
   data?: string;
+  config?: CourseAlertConfigInput;
 }) {
   const key = await getSigningKey();
   const now = Math.floor(Date.now() / 1000);
+  const custom = params.config ? serializeCourseAlertCustomFields(params.config) : undefined;
 
   const payload: JWTPayload = {
     nonce: params.nonce,
@@ -54,6 +60,7 @@ export async function buildDeepLinkingResponse(params: {
         type: "ltiResourceLink",
         title: "Student Alerts",
         url: params.launchUrl,
+        custom,
         iframe: {
           width: 900,
           height: 320,
