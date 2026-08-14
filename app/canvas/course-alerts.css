@@ -10,7 +10,16 @@
   color: #f8fbff;
 }
 
-.course-alerts-cta,
+.course-alerts-loading {
+  padding: 24px;
+  color: #d7e7ff;
+  text-align: center;
+}
+
+.course-alerts-cta svg {
+  color: #f6d27b;
+  margin-bottom: 12px;
+}
 .course-alerts-form,
 .course-alerts-active {
   border: 1px solid rgba(255, 255, 255, 0.12);

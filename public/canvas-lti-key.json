@@ -1,6 +1,6 @@
 {
   "title": "Student Alerts",
-  "description": "Missing assignments and grades",
+  "description": "Bold course alerts from your teacher",
   "custom_fields": {
     "user_id": "$Canvas.user.id"
   },

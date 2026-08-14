@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getLtiConfig } from "@/lib/canvas/config";
+import { normalizeStudentName } from "@/lib/course-alerts";
 import {
   canvasSessionCookieOptions,
   encodeCanvasStudentSession,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/canvas/session";
 import { verifyLtiIdToken } from "@/lib/lti/verify";
 import { parseLtiState } from "@/lib/lti/state";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
   try {
@@ -22,10 +24,37 @@ export async function POST(request: Request) {
 
     const parsedState = parseLtiState(state);
     const identity = await verifyLtiIdToken(idToken, parsedState.iss, parsedState.nonce);
-    const { targetUrl } = getLtiConfig();
+    const { appOrigin } = getLtiConfig();
     const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
 
-    const response = NextResponse.redirect(targetUrl, { status: 303 });
+    if (identity.courseId) {
+      await prisma.courseAlertSignup.upsert({
+        where: {
+          canvasCourseId_canvasUserId: {
+            canvasCourseId: identity.courseId,
+            canvasUserId: String(identity.userId),
+          },
+        },
+        create: {
+          canvasCourseId: identity.courseId,
+          canvasUserId: String(identity.userId),
+          studentName: identity.name,
+          normalizedName: normalizeStudentName(identity.name),
+          courseName: identity.courseName,
+        },
+        update: {
+          studentName: identity.name,
+          normalizedName: normalizeStudentName(identity.name),
+          courseName: identity.courseName,
+        },
+      });
+    }
+
+    const redirectTarget = identity.courseId
+      ? `${appOrigin}/canvas/alerts?course=${encodeURIComponent(identity.courseId)}`
+      : `${appOrigin}/canvas/alerts`;
+
+    const response = NextResponse.redirect(redirectTarget, { status: 303 });
     response.cookies.set(
       CANVAS_SESSION_COOKIE,
       encodeCanvasStudentSession({

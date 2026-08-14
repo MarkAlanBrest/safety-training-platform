@@ -22,7 +22,7 @@ export function getLtiConfig() {
     appOrigin,
     loginUrl: `${appOrigin}/api/lti/login`,
     launchUrl: `${appOrigin}/api/lti/launch`,
-    targetUrl: `${appOrigin}/canvas`,
+    targetUrl: `${appOrigin}/canvas/alerts`,
   };
 }
 

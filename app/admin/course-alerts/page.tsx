@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import AdminShell from "@/components/AdminShell";
-import { displayStudentName } from "@/lib/course-alerts";
 
 type Signup = {
   id: number;
+  canvasUserId: string;
   studentName: string;
-  normalizedName: string;
   createdAt: string;
 };
 
@@ -23,7 +22,7 @@ export default function AdminCourseAlertsPage() {
   const [courseName, setCourseName] = useState("");
   const [signups, setSignups] = useState<Signup[]>([]);
   const [messages, setMessages] = useState<SentMessage[]>([]);
-  const [studentName, setStudentName] = useState("");
+  const [canvasUserId, setCanvasUserId] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -65,7 +64,7 @@ export default function AdminCourseAlertsPage() {
         body: JSON.stringify({
           courseId: courseId.trim(),
           courseName: courseName.trim() || null,
-          studentName: displayStudentName(studentName),
+          canvasUserId,
           message: alertMessage.trim(),
         }),
       });
@@ -88,9 +87,7 @@ export default function AdminCourseAlertsPage() {
     await loadCourse();
   }
 
-  const embedPath = courseId.trim()
-    ? `/canvas/alerts?course=${encodeURIComponent(courseId.trim())}`
-    : "";
+  const launchUrl = "https://safety-training-platform-eight.vercel.app/api/lti/launch";
 
   return (
     <AdminShell title="Course alerts" eyebrow="Teacher">
@@ -98,7 +95,7 @@ export default function AdminCourseAlertsPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-bold text-slate-900">Course setup</h2>
           <p className="mt-2 text-slate-600">
-            Use the Canvas course id from the course URL. Students sign up with their name on the embed page.
+            Add the LTI tool to the course home page with Apps. Students who open it are registered automatically.
           </p>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <label className="grid gap-2 text-sm font-semibold text-slate-700">
@@ -120,13 +117,11 @@ export default function AdminCourseAlertsPage() {
               />
             </label>
           </div>
-          {embedPath ? (
-            <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
-              Embed on the course home page:
-              <br />
-              <code className="break-all">{embedPath}</code>
-            </p>
-          ) : null}
+          <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
+            LTI launch URL for your developer key:
+            <br />
+            <code className="break-all">{launchUrl}</code>
+          </p>
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -136,13 +131,13 @@ export default function AdminCourseAlertsPage() {
               Signed-up student
               <select
                 className="rounded-xl border border-slate-300 px-4 py-3"
-                value={studentName}
-                onChange={(event) => setStudentName(event.target.value)}
+                value={canvasUserId}
+                onChange={(event) => setCanvasUserId(event.target.value)}
                 required
               >
                 <option value="">Select a student</option>
                 {signups.map((signup) => (
-                  <option key={signup.id} value={signup.studentName}>
+                  <option key={signup.id} value={signup.canvasUserId}>
                     {signup.studentName}
                   </option>
                 ))}
@@ -181,7 +176,7 @@ export default function AdminCourseAlertsPage() {
               ))}
             </ul>
           ) : (
-            <p className="mt-3 text-slate-600">No students have signed up for this course yet.</p>
+            <p className="mt-3 text-slate-600">No students have opened the alerts tool in this course yet.</p>
           )}
         </section>
 

@@ -5,11 +5,15 @@ const LTI_NONCE_COOKIE = "canvas-lti-nonce";
 const LTI_CUSTOM_CLAIM = "https://purl.imsglobal.org/spec/lti/claim/custom";
 const LTI_DEPLOYMENT_CLAIM = "https://purl.imsglobal.org/spec/lti/claim/deployment_id";
 
+const LTI_CONTEXT_CLAIM = "https://purl.imsglobal.org/spec/lti/claim/context";
+
 export type LtiLaunchIdentity = {
   userId: number;
   name: string;
   email: string | null;
   deploymentId: string | null;
+  courseId: string | null;
+  courseName: string | null;
 };
 
 type OidcConfig = {
@@ -85,6 +89,28 @@ function parseCanvasUserId(payload: JWTPayload) {
   return null;
 }
 
+function parseCanvasCourseId(payload: JWTPayload) {
+  const context = payload[LTI_CONTEXT_CLAIM];
+  if (!context || typeof context !== "object") return null;
+  const record = context as Record<string, unknown>;
+  const rawId = record.id;
+  if (typeof rawId === "string") {
+    const match = rawId.match(/(\d+)$/);
+    return match?.[1] || rawId;
+  }
+  if (typeof rawId === "number") return String(rawId);
+  return null;
+}
+
+function parseCanvasCourseName(payload: JWTPayload) {
+  const context = payload[LTI_CONTEXT_CLAIM];
+  if (!context || typeof context !== "object") return null;
+  const record = context as Record<string, unknown>;
+  if (typeof record.title === "string") return record.title;
+  if (typeof record.label === "string") return record.label;
+  return null;
+}
+
 export async function verifyLtiIdToken(idToken: string, issuer: string, expectedNonce: string) {
   const { clientId } = getLtiConfig();
   const oidc = await getOidcConfig(issuer);
@@ -114,6 +140,8 @@ export async function verifyLtiIdToken(idToken: string, issuer: string, expected
     name: typeof payload.name === "string" ? payload.name : "Student",
     email: typeof payload.email === "string" ? payload.email : null,
     deploymentId: typeof deploymentClaim === "string" ? deploymentClaim : null,
+    courseId: parseCanvasCourseId(payload),
+    courseName: parseCanvasCourseName(payload),
   } satisfies LtiLaunchIdentity;
 }
 

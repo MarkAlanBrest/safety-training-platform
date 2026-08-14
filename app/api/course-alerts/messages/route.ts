@@ -1,34 +1,37 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { displayStudentName, normalizeStudentName } from "@/lib/course-alerts";
+import { getCanvasStudentSession } from "@/lib/canvas/session";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const canvasCourseId = url.searchParams.get("courseId")?.trim() || "";
-  const studentName = displayStudentName(url.searchParams.get("name") || "");
-
-  if (!canvasCourseId || !studentName) {
-    return NextResponse.json({ error: "Course and name are required." }, { status: 400 });
+  const session = getCanvasStudentSession(request);
+  if (!session) {
+    return NextResponse.json({ error: "Open this tool from Canvas." }, { status: 401 });
   }
 
-  const normalizedName = normalizeStudentName(studentName);
+  const url = new URL(request.url);
+  const canvasCourseId = url.searchParams.get("courseId")?.trim() || url.searchParams.get("course")?.trim() || "";
+  if (!canvasCourseId) {
+    return NextResponse.json({ error: "Course id is required." }, { status: 400 });
+  }
+
+  const canvasUserId = String(session.userId);
   const now = new Date();
 
   const [signup, messages] = await Promise.all([
     prisma.courseAlertSignup.findUnique({
       where: {
-        canvasCourseId_normalizedName: {
+        canvasCourseId_canvasUserId: {
           canvasCourseId,
-          normalizedName,
+          canvasUserId,
         },
       },
     }),
     prisma.courseAlertMessage.findMany({
       where: {
         canvasCourseId,
-        normalizedName,
+        canvasUserId,
         active: true,
         OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
       },
@@ -38,9 +41,10 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     signedUp: Boolean(signup),
-    studentName: signup?.studentName || studentName,
+    studentName: signup?.studentName || session.name,
     courseId: canvasCourseId,
     courseName: signup?.courseName || null,
+    canvasUserId,
     messages: messages.map((message) => ({
       id: message.id,
       message: message.message,

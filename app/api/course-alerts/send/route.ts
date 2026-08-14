@@ -2,7 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getAdminSession, requireAdmin } from "@/lib/admin-session";
-import { displayStudentName, normalizeStudentName } from "@/lib/course-alerts";
+import { normalizeStudentName } from "@/lib/course-alerts";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
@@ -12,30 +12,29 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const canvasCourseId = String(body.courseId || "").trim();
-    const studentName = displayStudentName(String(body.studentName || ""));
+    const canvasUserId = String(body.canvasUserId || "").trim();
     const message = String(body.message || "").trim();
     const courseName = String(body.courseName || "").trim() || null;
 
-    if (!canvasCourseId || !studentName || !message) {
+    if (!canvasCourseId || !canvasUserId || !message) {
       return NextResponse.json(
-        { error: "Course, student name, and message are required." },
+        { error: "Course, student, and message are required." },
         { status: 400 },
       );
     }
 
-    const normalizedName = normalizeStudentName(studentName);
     const signup = await prisma.courseAlertSignup.findUnique({
       where: {
-        canvasCourseId_normalizedName: {
+        canvasCourseId_canvasUserId: {
           canvasCourseId,
-          normalizedName,
+          canvasUserId,
         },
       },
     });
 
     if (!signup) {
       return NextResponse.json(
-        { error: "That student has not signed up for alerts in this course yet." },
+        { error: "That student has not opened alerts in this course yet." },
         { status: 400 },
       );
     }
@@ -44,8 +43,8 @@ export async function POST(request: Request) {
     const created = await prisma.courseAlertMessage.create({
       data: {
         canvasCourseId,
+        canvasUserId,
         studentName: signup.studentName,
-        normalizedName,
         message,
         createdBy: session?.admin?.email || session?.admin?.name || "teacher",
       },

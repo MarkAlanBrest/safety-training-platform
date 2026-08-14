@@ -164,26 +164,27 @@ model AdminSession {
 model CourseAlertSignup {
   id             Int      @id @default(autoincrement())
   canvasCourseId String
+  canvasUserId   String
   courseName     String?
   studentName    String
   normalizedName String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  @@unique([canvasCourseId, normalizedName])
+  @@unique([canvasCourseId, canvasUserId])
   @@index([canvasCourseId])
 }
 
 model CourseAlertMessage {
   id             Int       @id @default(autoincrement())
   canvasCourseId String
+  canvasUserId   String
   studentName    String
-  normalizedName String
   message        String    @db.Text
   active         Boolean   @default(true)
   createdBy      String?
   createdAt      DateTime  @default(now())
   expiresAt      DateTime?
 
-  @@index([canvasCourseId, normalizedName, active])
+  @@index([canvasCourseId, canvasUserId, active])
 }
