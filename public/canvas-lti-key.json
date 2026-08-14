@@ -2,6 +2,7 @@
   "title": "Student Alerts",
   "description": "Bold course alerts from your teacher",
   "institution_url": "https://mytrades.instructure.com",
+  "app_origin": "https://safety-training-platform-eight.vercel.app",
   "custom_fields": {
     "user_id": "$Canvas.user.id",
     "course_id": "$Canvas.course.id"

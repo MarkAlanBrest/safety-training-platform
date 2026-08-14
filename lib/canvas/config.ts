@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 export function getCanvasServerConfig() {
   const baseUrl = process.env.CANVAS_BASE_URL?.trim() || "";
   const apiToken = process.env.CANVAS_API_TOKEN?.trim() || "";
@@ -9,13 +12,28 @@ export function getCanvasServerConfig() {
   return { baseUrl, apiToken };
 }
 
+function readAppOriginFromConfigFile() {
+  try {
+    const configPath = join(process.cwd(), "public", "canvas-lti-key.json");
+    const config = JSON.parse(readFileSync(configPath, "utf8")) as {
+      app_origin?: string;
+      domain?: string;
+    };
+    const raw = config.app_origin || (config.domain ? `https://${config.domain}` : "");
+    return raw.trim().replace(/\/+$/, "");
+  } catch {
+    return "";
+  }
+}
+
 export function getAppOrigin() {
   const configured = process.env.NEXT_PUBLIC_APP_ORIGIN?.trim().replace(/\/+$/, "");
   if (configured) return configured;
 
-  const vercelUrl = process.env.VERCEL_URL?.trim().replace(/\/+$/, "");
-  if (vercelUrl) return `https://${vercelUrl}`;
+  const fromConfig = readAppOriginFromConfigFile();
+  if (fromConfig) return fromConfig;
 
+  // Never use ephemeral VERCEL_URL for LTI — deployment URLs may require vercel.com SSO.
   return "";
 }
 
