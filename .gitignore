@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+canvas-lti-private-jwk.local.json
 
 # local course / SCORM asset blobs (kept on disk, not in Postgres)
 /data/uploads/*

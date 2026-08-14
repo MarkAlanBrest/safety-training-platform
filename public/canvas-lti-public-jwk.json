@@ -1,0 +1,8 @@
+{
+  "kty": "RSA",
+  "n": "3sLzzxW2VrhTT6hu0J0dwdq2YZjfa_2XT4Sl-5V1znnFtXO15dEFXG09kRdZGekBtGXOeNvTQSkTjgn3B6bNLdzEw1ulRzaEQR2I3GjtG3KJpLtn1b_1sIjVBz7VxgPV7s6Qb5JIvLEfg6ycIrJyDEUdTudBocgNetzyIvNTrdu4P28fRTLloGNQhw2CfgIMoM-e6lq-PmXRxcnp0BiMF_vi9dW3r_w1b0r1oUr4XNFu1gPWpEQzWLFCwjH8KmTgv3yeZBjx8YtTYxZqNI7W2ygvTN0TgRRu8JD0sWjMrGfr-3Z95eRoVCbQxcJG9uknCIsTsgA6UjVLq7sbCwU-nQ",
+  "e": "AQAB",
+  "kid": "student-alerts-2026",
+  "alg": "RS256",
+  "use": "sig"
+}

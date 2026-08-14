@@ -79,8 +79,9 @@ export async function POST(request: Request) {
         imported: false,
         warning:
           message.includes("CANVAS_LTI_PRIVATE_KEY_JWK")
-            ? "Settings saved, but Canvas import needs CANVAS_LTI_PRIVATE_KEY_JWK on the server. Add the tool manually from Modules → External Tool."
+            ? "Settings saved. Automatic Canvas import is not configured yet — add the tool manually (see steps below)."
             : message,
+        manualImport: message.includes("CANVAS_LTI_PRIVATE_KEY_JWK"),
       },
       { status: 200 },
     );

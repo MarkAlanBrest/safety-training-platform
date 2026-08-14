@@ -26,6 +26,7 @@ export function CourseAlertsSetupForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showManualSteps, setShowManualSteps] = useState(false);
 
   useEffect(() => {
     if (!courseId) return;
@@ -83,6 +84,7 @@ export function CourseAlertsSetupForm() {
 
       if (data.warning) {
         setSuccess(data.warning);
+        setShowManualSteps(Boolean(data.manualImport));
       } else if (importMode && data.imported !== false) {
         setSuccess("Student Alerts was added to your course with these settings.");
       } else {
@@ -171,6 +173,22 @@ export function CourseAlertsSetupForm() {
 
         {error ? <p className="course-alerts-error">{error}</p> : null}
         {success ? <p className="course-alerts-success">{success}</p> : null}
+
+        {showManualSteps ? (
+          <div className="course-alerts-manual-steps">
+            <h2>Add Student Alerts to your course</h2>
+            <ol>
+              <li>In Canvas, open your course → <strong>Modules</strong>.</li>
+              <li>Click <strong>+</strong> on a module → <strong>External Tool</strong>.</li>
+              <li>Choose <strong>Student Alerts</strong> → check <strong>Load in a new tab</strong> if embed fails → Add Item.</li>
+              <li>Students open that module link to see alerts with the settings you just saved.</li>
+            </ol>
+            <p className="course-alerts-quiet">
+              Optional: ask your admin to set <code>CANVAS_LTI_PRIVATE_KEY_JWK</code> in Vercel so
+              future imports can finish automatically.
+            </p>
+          </div>
+        ) : null}
 
         <button type="submit" disabled={loading}>
           {loading ? "Saving..." : importMode ? "Add to course with these settings" : "Save settings"}
