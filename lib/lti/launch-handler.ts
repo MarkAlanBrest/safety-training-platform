@@ -17,7 +17,13 @@ import { prisma } from "@/lib/prisma";
 
 function attachSessionCookie(
   response: NextResponse,
-  identity: { userId: number; name: string; email: string | null },
+  identity: {
+    userId: number;
+    name: string;
+    email: string | null;
+    courseId: string | null;
+    courseName: string | null;
+  },
 ) {
   const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
   response.cookies.set(
@@ -26,6 +32,8 @@ function attachSessionCookie(
       userId: identity.userId,
       name: identity.name,
       email: identity.email,
+      courseId: identity.courseId,
+      courseName: identity.courseName,
       source: "lti",
     }),
     {

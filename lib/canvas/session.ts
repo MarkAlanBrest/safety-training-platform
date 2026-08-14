@@ -39,6 +39,8 @@ export type CanvasStudentSession = {
   userId: number;
   name: string;
   email: string | null;
+  courseId: string | null;
+  courseName: string | null;
   source: "lti" | "dev";
   connectedAt: string;
   expiresAt: string;
@@ -59,7 +61,11 @@ export function decodeCanvasStudentSession(encoded: string): CanvasStudentSessio
     const session = JSON.parse(decryptPayload(encoded)) as CanvasStudentSession;
     if (!session?.userId) return null;
     if (new Date(session.expiresAt).getTime() <= Date.now()) return null;
-    return session;
+    return {
+      ...session,
+      courseId: session.courseId ?? null,
+      courseName: session.courseName ?? null,
+    };
   } catch {
     return null;
   }
@@ -80,6 +86,8 @@ export function getCanvasStudentSession(request: Request): CanvasStudentSession 
     userId: devUserId,
     name: "Dev Student",
     email: null,
+    courseId: null,
+    courseName: null,
     source: "dev",
     connectedAt: new Date(now).toISOString(),
     expiresAt: new Date(now + SESSION_TTL_MS).toISOString(),

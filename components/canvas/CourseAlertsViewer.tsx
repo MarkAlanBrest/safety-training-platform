@@ -11,12 +11,13 @@ type AlertMessage = {
 
 type Props = {
   courseId: string;
+  initialCourseName?: string | null;
 };
 
-export function CourseAlertsViewer({ courseId }: Props) {
+export function CourseAlertsViewer({ courseId, initialCourseName = null }: Props) {
   const [connected, setConnected] = useState<boolean | null>(null);
   const [studentName, setStudentName] = useState("");
-  const [courseName, setCourseName] = useState<string | null>(null);
+  const [courseName, setCourseName] = useState<string | null>(initialCourseName);
   const [messages, setMessages] = useState<AlertMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

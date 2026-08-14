@@ -117,13 +117,23 @@ function parseCanvasUserId(payload: JWTPayload) {
 }
 
 function parseCanvasCourseId(payload: JWTPayload) {
+  const custom = readCustomClaim(payload);
+  const customCourseId = custom?.course_id ?? custom?.canvas_course_id;
+  if (typeof customCourseId === "string" && /^\d+$/.test(customCourseId)) {
+    return customCourseId;
+  }
+  if (typeof customCourseId === "number") return String(customCourseId);
+
   const context = payload[LTI_CONTEXT_CLAIM];
   if (!context || typeof context !== "object") return null;
   const record = context as Record<string, unknown>;
   const rawId = record.id;
   if (typeof rawId === "string") {
-    const match = rawId.match(/(\d+)$/);
-    return match?.[1] || rawId;
+    const urlMatch = rawId.match(/\/courses\/(\d+)(?:\/|$)/);
+    if (urlMatch?.[1]) return urlMatch[1];
+    if (/^\d+$/.test(rawId)) return rawId;
+    const endMatch = rawId.match(/(\d+)$/);
+    return endMatch?.[1] || null;
   }
   if (typeof rawId === "number") return String(rawId);
   return null;

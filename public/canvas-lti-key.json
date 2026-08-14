@@ -2,7 +2,8 @@
   "title": "Student Alerts",
   "description": "Bold course alerts from your teacher",
   "custom_fields": {
-    "user_id": "$Canvas.user.id"
+    "user_id": "$Canvas.user.id",
+    "course_id": "$Canvas.course.id"
   },
   "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch",
   "domain": "safety-training-platform-eight.vercel.app",
@@ -12,6 +13,11 @@
     "https://safety-training-platform-eight.vercel.app/api/lti/launch"
   ],
   "placements": [
+    {
+      "message_type": "LtiResourceLinkRequest",
+      "text": "Student Alerts",
+      "placement": "course_home_sub_navigation"
+    },
     {
       "message_type": "LtiResourceLinkRequest",
       "text": "Student Alerts",

@@ -16,6 +16,8 @@ export async function GET(request: Request) {
       name: session.name,
       shortName: session.name.split(" ")[0] || session.name,
     },
+    courseId: session.courseId,
+    courseName: session.courseName,
     source: session.source,
     connectedAt: session.connectedAt,
     expiresAt: session.expiresAt,

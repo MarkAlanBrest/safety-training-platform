@@ -11,7 +11,11 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const canvasCourseId = url.searchParams.get("courseId")?.trim() || url.searchParams.get("course")?.trim() || "";
+  const canvasCourseId =
+    url.searchParams.get("courseId")?.trim() ||
+    url.searchParams.get("course")?.trim() ||
+    session.courseId?.trim() ||
+    "";
   if (!canvasCourseId) {
     return NextResponse.json({ error: "Course id is required." }, { status: 400 });
   }
