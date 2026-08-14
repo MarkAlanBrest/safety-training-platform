@@ -36,13 +36,18 @@ function attachSessionCookie(
   return response;
 }
 
-export async function handleLtiLaunchPost(request: Request) {
-  const form = await request.formData();
+export async function handleLtiLaunchPost(
+  request: Request,
+  existingForm?: FormData,
+) {
+  const form = existingForm ?? (await request.formData());
   const idToken = String(form.get("id_token") || "");
   const state = String(form.get("state") || "");
 
   if (!idToken || !state) {
-    return NextResponse.json({ error: "Missing LTI launch data." }, { status: 400 });
+    return launchErrorResponse(
+      "Missing LTI launch data. Open Student Alerts from Canvas instead of visiting this URL directly.",
+    );
   }
 
   const parsedState = parseLtiState(state);
@@ -95,14 +100,21 @@ export async function handleLtiLaunchPost(request: Request) {
   return attachSessionCookie(response, identity);
 }
 
-export async function handleLtiLaunchPostWithErrorPage(request: Request) {
+function launchErrorResponse(message: string) {
+  return new NextResponse(
+    `<html><body style="font-family:sans-serif;padding:24px"><h1>LTI launch failed</h1><p>${message}</p></body></html>`,
+    { status: 400, headers: { "Content-Type": "text/html; charset=utf-8" } },
+  );
+}
+
+export async function handleLtiLaunchPostWithErrorPage(
+  request: Request,
+  existingForm?: FormData,
+) {
   try {
-    return await handleLtiLaunchPost(request);
+    return await handleLtiLaunchPost(request, existingForm);
   } catch (error) {
     const message = error instanceof Error ? error.message : "LTI launch failed.";
-    return new NextResponse(
-      `<html><body style="font-family:sans-serif;padding:24px"><h1>LTI launch failed</h1><p>${message}</p></body></html>`,
-      { status: 400, headers: { "Content-Type": "text/html; charset=utf-8" } },
-    );
+    return launchErrorResponse(message);
   }
 }

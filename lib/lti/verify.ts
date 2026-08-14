@@ -60,7 +60,9 @@ export function buildAuthorizeRedirectUrl(params: {
   url.searchParams.set("client_id", params.clientId);
   url.searchParams.set("redirect_uri", params.targetLinkUri);
   url.searchParams.set("login_hint", params.loginHint);
-  url.searchParams.set("lti_message_hint", params.ltiMessageHint);
+  if (params.ltiMessageHint) {
+    url.searchParams.set("lti_message_hint", params.ltiMessageHint);
+  }
   url.searchParams.set("state", params.state);
   url.searchParams.set("response_mode", "form_post");
   url.searchParams.set("nonce", params.nonce);

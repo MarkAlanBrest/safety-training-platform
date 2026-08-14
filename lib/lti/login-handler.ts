@@ -3,15 +3,39 @@ import { getLtiConfig } from "@/lib/canvas/config";
 import { buildAuthorizeRedirectUrl } from "@/lib/lti/verify";
 import { createLtiNonce, createLtiState } from "@/lib/lti/state";
 
-export function handleLtiLoginRequest(request: Request) {
-  const url = new URL(request.url);
-  const iss = url.searchParams.get("iss");
-  const loginHint = url.searchParams.get("login_hint");
-  const targetLinkUri = url.searchParams.get("target_link_uri");
-  const ltiMessageHint = url.searchParams.get("lti_message_hint");
-  const clientId = url.searchParams.get("client_id");
+export type LtiLoginParams = {
+  iss: string;
+  loginHint: string;
+  targetLinkUri: string;
+  ltiMessageHint: string;
+  clientId: string;
+};
 
-  if (!iss || !loginHint || !targetLinkUri || !ltiMessageHint || !clientId) {
+function readLoginParamsFromSearchParams(searchParams: URLSearchParams): Partial<LtiLoginParams> {
+  return {
+    iss: searchParams.get("iss") || undefined,
+    loginHint: searchParams.get("login_hint") || undefined,
+    targetLinkUri: searchParams.get("target_link_uri") || undefined,
+    ltiMessageHint: searchParams.get("lti_message_hint") || "",
+    clientId: searchParams.get("client_id") || undefined,
+  };
+}
+
+function readLoginParamsFromForm(form: FormData): Partial<LtiLoginParams> {
+  return {
+    iss: String(form.get("iss") || "") || undefined,
+    loginHint: String(form.get("login_hint") || "") || undefined,
+    targetLinkUri: String(form.get("target_link_uri") || "") || undefined,
+    ltiMessageHint: String(form.get("lti_message_hint") || ""),
+    clientId: String(form.get("client_id") || "") || undefined,
+  };
+}
+
+export function handleLtiLoginParams(params: Partial<LtiLoginParams>) {
+  const { iss, loginHint, targetLinkUri, clientId } = params;
+  const ltiMessageHint = params.ltiMessageHint || "";
+
+  if (!iss || !loginHint || !targetLinkUri || !clientId) {
     return NextResponse.json({ error: "Missing required LTI login parameters." }, { status: 400 });
   }
 
@@ -34,4 +58,26 @@ export function handleLtiLoginRequest(request: Request) {
   });
 
   return NextResponse.redirect(redirectUrl);
+}
+
+export function handleLtiLoginRequest(request: Request) {
+  const url = new URL(request.url);
+  return handleLtiLoginParams(readLoginParamsFromSearchParams(url.searchParams));
+}
+
+export async function handleLtiLoginPost(request: Request) {
+  const form = await request.formData();
+
+  const idToken = String(form.get("id_token") || "");
+  const state = String(form.get("state") || "");
+  if (idToken || state) {
+    return { kind: "launch" as const, form };
+  }
+
+  const loginParams = readLoginParamsFromForm(form);
+  if (loginParams.iss || loginParams.loginHint || loginParams.targetLinkUri || loginParams.clientId) {
+    return { kind: "login" as const, response: handleLtiLoginParams(loginParams) };
+  }
+
+  return { kind: "error" as const };
 }
