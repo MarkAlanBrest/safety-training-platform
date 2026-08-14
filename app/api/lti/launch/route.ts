@@ -8,9 +8,35 @@ import {
   encodeCanvasStudentSession,
   CANVAS_SESSION_COOKIE,
 } from "@/lib/canvas/session";
+import {
+  buildDeepLinkingHtml,
+  buildDeepLinkingResponse,
+  readDeepLinkingSettings,
+} from "@/lib/lti/deep-linking";
 import { verifyLtiIdToken } from "@/lib/lti/verify";
 import { parseLtiState } from "@/lib/lti/state";
 import { prisma } from "@/lib/prisma";
+
+function attachSessionCookie(
+  response: NextResponse,
+  identity: { userId: number; name: string; email: string | null },
+) {
+  const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
+  response.cookies.set(
+    CANVAS_SESSION_COOKIE,
+    encodeCanvasStudentSession({
+      userId: identity.userId,
+      name: identity.name,
+      email: identity.email,
+      source: "lti",
+    }),
+    {
+      ...canvasSessionCookieOptions(expiresAt),
+      partitioned: true,
+    },
+  );
+  return response;
+}
 
 export async function POST(request: Request) {
   try {
@@ -24,8 +50,8 @@ export async function POST(request: Request) {
 
     const parsedState = parseLtiState(state);
     const identity = await verifyLtiIdToken(idToken, parsedState.iss, parsedState.nonce);
-    const { appOrigin } = getLtiConfig();
-    const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
+    const { clientId, appOrigin, launchUrl } = getLtiConfig();
+    const deepLinking = readDeepLinkingSettings(identity.payload);
 
     if (identity.courseId) {
       await prisma.courseAlertSignup.upsert({
@@ -50,25 +76,26 @@ export async function POST(request: Request) {
       });
     }
 
+    if (deepLinking) {
+      const jwt = await buildDeepLinkingResponse({
+        clientId,
+        platformIssuer: identity.platformIssuer,
+        nonce: identity.nonce,
+        launchUrl,
+        data: deepLinking.data,
+      });
+      const response = new NextResponse(buildDeepLinkingHtml(deepLinking.deep_link_return_url, jwt), {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+      return attachSessionCookie(response, identity);
+    }
+
     const redirectTarget = identity.courseId
       ? `${appOrigin}/canvas/alerts?course=${encodeURIComponent(identity.courseId)}`
       : `${appOrigin}/canvas/alerts`;
 
     const response = NextResponse.redirect(redirectTarget, { status: 303 });
-    response.cookies.set(
-      CANVAS_SESSION_COOKIE,
-      encodeCanvasStudentSession({
-        userId: identity.userId,
-        name: identity.name,
-        email: identity.email,
-        source: "lti",
-      }),
-      {
-        ...canvasSessionCookieOptions(expiresAt),
-        partitioned: true,
-      },
-    );
-    return response;
+    return attachSessionCookie(response, identity);
   } catch (error) {
     const message = error instanceof Error ? error.message : "LTI launch failed.";
     return new NextResponse(

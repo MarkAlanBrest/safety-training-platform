@@ -1,12 +1,16 @@
 /** @type {import('next').NextConfig} */
 function canvasFrameAncestors() {
   const base = process.env.CANVAS_BASE_URL || "";
+  const hosts = ["https://*.instructure.com", "https://*.canvaslms.com"];
   try {
-    const host = new URL(base.startsWith("http") ? base : `https://${base}`).host;
-    return `frame-ancestors 'self' https://${host} https://*.instructure.com`;
+    if (base) {
+      const host = new URL(base.startsWith("http") ? base : `https://${base}`).host;
+      hosts.push(`https://${host}`);
+    }
   } catch {
-    return "frame-ancestors 'self' https://*.instructure.com";
+    // ignore invalid CANVAS_BASE_URL
   }
+  return `frame-ancestors 'self' ${hosts.join(" ")}`;
 }
 
 const nextConfig = {

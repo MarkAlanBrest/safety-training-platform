@@ -142,7 +142,14 @@ export async function verifyLtiIdToken(idToken: string, issuer: string, expected
     deploymentId: typeof deploymentClaim === "string" ? deploymentClaim : null,
     courseId: parseCanvasCourseId(payload),
     courseName: parseCanvasCourseName(payload),
-  } satisfies LtiLaunchIdentity;
+    platformIssuer: oidc.issuer,
+    nonce: typeof payload.nonce === "string" ? payload.nonce : expectedNonce,
+    payload,
+  } satisfies LtiLaunchIdentity & {
+    platformIssuer: string;
+    nonce: string;
+    payload: JWTPayload;
+  };
 }
 
 export { LTI_NONCE_COOKIE };
