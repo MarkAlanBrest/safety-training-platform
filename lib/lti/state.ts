@@ -4,6 +4,7 @@ type LtiStatePayload = {
   nonce: string;
   iss: string;
   clientId?: string;
+  targetLinkUri?: string;
   exp: number;
 };
 
@@ -16,11 +17,17 @@ function getStateSecret() {
   );
 }
 
-export function createLtiState(iss: string, nonce: string, clientId: string) {
+export function createLtiState(
+  iss: string,
+  nonce: string,
+  clientId: string,
+  targetLinkUri?: string,
+) {
   const payload: LtiStatePayload = {
     nonce,
     iss,
     clientId,
+    targetLinkUri,
     exp: Date.now() + 5 * 60 * 1000,
   };
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");

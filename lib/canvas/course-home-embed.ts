@@ -37,9 +37,11 @@ async function mapPool<T>(
 
 export function buildFrontPageEmbedHtml(canvasCourseId: string) {
   const { launchUrl } = getLtiConfig();
+  const homeLaunchUrl = new URL(launchUrl);
+  homeLaunchUrl.searchParams.set("placement", "home_embed");
   const embedUrl =
     `/courses/${encodeURIComponent(canvasCourseId)}/external_tools/retrieve` +
-    `?display=borderless&url=${encodeURIComponent(launchUrl)}`;
+    `?display=borderless&url=${encodeURIComponent(homeLaunchUrl.toString())}`;
   const height = HOME_EMBED_BANNER_HEIGHT_PX;
 
   return (

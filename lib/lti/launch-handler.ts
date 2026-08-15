@@ -94,6 +94,13 @@ export async function handleLtiLaunchPost(
   }
 
   const parsedState = parseLtiState(state);
+  const isHomeEmbedLaunch = (() => {
+    try {
+      return new URL(parsedState.targetLinkUri || "").searchParams.get("placement") === "home_embed";
+    } catch {
+      return false;
+    }
+  })();
   const clientId = parsedState.clientId || getConfiguredLtiClientId();
   if (!clientId) {
     return launchErrorResponse(
@@ -154,7 +161,7 @@ export async function handleLtiLaunchPost(
     return response;
   }
 
-  if (isInstructor && identity.courseId) {
+  if (isInstructor && identity.courseId && !isHomeEmbedLaunch) {
     return finishLaunch(
       appOrigin,
       identity,
@@ -163,7 +170,7 @@ export async function handleLtiLaunchPost(
     );
   }
 
-  const studentPath = isIframeLtiLaunch(identity.payload)
+  const studentPath = isHomeEmbedLaunch || isIframeLtiLaunch(identity.payload)
     ? "/canvas/home-embed"
     : "/canvas/alerts";
 

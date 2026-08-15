@@ -4,6 +4,7 @@ import { getCanvasServerConfig } from "@/lib/canvas/config";
 import { CANVAS_USER_AGENT, normalizeCanvasBaseUrl } from "@/lib/canvas/client";
 import { sanitizeFrontPageBody } from "@/lib/canvas/front-page-sanitize";
 import { getToolPublicJwk } from "@/lib/lti/tool-jwk";
+import { HOME_EMBED_VERSION } from "@/lib/canvas/home-embed-constants";
 
 type CanvasExternalTool = {
   id: number;
@@ -52,7 +53,8 @@ function isAlreadyInstalledError(error: unknown) {
 function isCurrentStudentAlertsEmbed(body: string) {
   return (
     body.includes('data-student-alerts-embed="true"') &&
-    body.includes("/external_tools/retrieve")
+    body.includes("/external_tools/retrieve") &&
+    body.includes(`data-student-alerts-version="${HOME_EMBED_VERSION}"`)
   );
 }
 

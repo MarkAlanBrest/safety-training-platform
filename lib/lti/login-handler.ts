@@ -41,7 +41,7 @@ export function handleLtiLoginParams(params: Partial<LtiLoginParams>) {
 
   const nonce = createLtiNonce();
   const resolvedIssuer = resolveCanvasIssuer(iss);
-  const state = createLtiState(resolvedIssuer, nonce, clientId);
+  const state = createLtiState(resolvedIssuer, nonce, clientId, targetLinkUri);
 
   const redirectUrl = buildAuthorizeRedirectUrl({
     issuer: resolvedIssuer,
