@@ -883,7 +883,7 @@ export function createCanvasAdminClient() {
       if (configured && keys.some((key) => String(key.id) === configured || key.client_id === configured)) {
         return configured;
       }
-      return configured || "149450000000000305";
+      return configured || "149450000000000320";
     },
 
     async listLtiRegistrations() {
