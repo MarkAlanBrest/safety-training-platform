@@ -58,19 +58,19 @@ export async function setupCourseHomeStudentAlerts(
     };
   }
 
+  const clientId = await client.resolveStudentAlertsClientId(getConfiguredLtiClientId());
+  const toolOptions = {
+    searchName: "Student Alerts",
+    clientId,
+    launchHost: new URL(getAppOrigin()).hostname,
+  };
   if (!options?.skipToolInstall) {
-    const clientId = await client.resolveStudentAlertsClientId(getConfiguredLtiClientId());
-    const toolOptions = {
-      searchName: "Student Alerts",
-      clientId,
-      launchHost: new URL(getAppOrigin()).hostname,
-    };
     await client.ensureAccountExternalTool(toolOptions).catch(() => null);
     if (access.accountId) {
       await client.ensureAccountExternalTool({ ...toolOptions, accountId: access.accountId }).catch(() => null);
     }
-    await client.ensureCourseExternalTool(canvasCourseId, toolOptions);
   }
+  await client.removeCourseLevelStudentAlertsTools(canvasCourseId, toolOptions).catch(() => null);
 
   const { frontPageUrl, alreadyEmbedded } = await client.prependEmbedToFrontPage(
     canvasCourseId,
@@ -153,53 +153,18 @@ export async function installStudentAlertsToolSchoolWide() {
     }
   }
 
-  const { courses, accountErrors: courseListErrors, usedFallback } = await client.listPublishedCourses();
-  accountErrors.push(...courseListErrors);
-  const failed: Array<{ id: number; name?: string; reason: string }> = [];
-  let installed = 0;
-
-  for (const course of courses) {
-    try {
-      const tool = await client.ensureCourseExternalTool(String(course.id), toolOptions);
-      if (tool) {
-        installed += 1;
-      } else {
-        failed.push({
-          id: course.id,
-          name: course.name,
-          reason: "Canvas did not add Student Alerts to this course.",
-        });
-      }
-    } catch (error) {
-      failed.push({
-        id: course.id,
-        name: course.name,
-        reason: error instanceof Error ? error.message : "Could not add the tool to this course.",
-      });
-    }
-  }
-
-  const fallbackWarning = usedFallback
-    ? `Could not list courses at the account level (${
-        courseListErrors[0] || "no accounts were readable"
-      }), so only courses the Canvas API token's own user is enrolled in were reached. Use a Canvas admin API token with account-level course access to cover every course.`
-    : null;
-
   return {
     ok: true as const,
     accounts,
-    courses: courses.length,
-    installed,
-    failed,
-    usedFallback,
+    courses: 0,
+    installed: accounts,
+    failed: [] as Array<{ id: number; name?: string; reason: string }>,
+    usedFallback: false,
     note:
-      fallbackWarning ||
-      (installed > 0
-        ? `The Student Alerts tool is available in ${installed} course${installed === 1 ? "" : "s"}. Settings are not copied — each class still needs its own setup.`
+      accounts > 0
+        ? "Student Alerts is installed on the Canvas account. Students see it on Home — it is not added to the External Tool picker."
         : accountErrors[0] ||
-          (accounts > 0
-            ? "The account app was installed, but Canvas did not add it to individual courses yet."
-            : "Could not install Student Alerts on the Canvas account. Use a Canvas admin API token.")),
+          "Could not install Student Alerts on the Canvas account. Use a Canvas admin API token.",
     accountErrors,
   };
 }
