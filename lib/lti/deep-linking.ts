@@ -137,17 +137,4 @@ export function parseDeepLinkModuleId(
 
   return candidates.find((id) => /^\d+$/.test(id)) || null;
 }
-  const escapedUrl = returnUrl.replace(/"/g, "&quot;");
-  const escapedJwt = jwt.replace(/"/g, "&quot;");
-  return `<!DOCTYPE html>
-<html>
-  <head><meta charset="utf-8"><title>Adding Student Alerts</title></head>
-  <body style="font-family:sans-serif;padding:24px">
-    <p>Adding Student Alerts to your page...</p>
-    <form id="deep-link-form" method="POST" action="${escapedUrl}">
-      <input type="hidden" name="JWT" value="${escapedJwt}" />
-    </form>
-    <script>document.getElementById("deep-link-form").submit();</script>
-  </body>
-</html>`;
-}
+
