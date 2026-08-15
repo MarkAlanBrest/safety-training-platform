@@ -89,12 +89,13 @@ export function createCanvasAdminClient() {
         return null as T;
       }
 
-      let detail = "";
+      const raw = await response.text().catch(() => "");
+      let detail = raw;
       try {
-        const body = await response.json();
-        detail = body?.errors?.[0]?.message || body?.message || JSON.stringify(body);
+        const parsed = raw ? (JSON.parse(raw) as { errors?: Array<{ message?: string }>; message?: string }) : null;
+        detail = parsed?.errors?.[0]?.message || parsed?.message || raw;
       } catch {
-        detail = await response.text();
+        detail = raw;
       }
       throw new Error(
         `Canvas API error (${response.status}) on ${method} ${path}: ${detail || response.statusText}`,
@@ -383,7 +384,7 @@ export function createCanvasAdminClient() {
       if (!targetUrl) {
         const pages = await canvasJson<Array<{ url?: string; title?: string }>>(
           `/courses/${courseId}/pages`,
-          { query: { per_page: "50" }, allowNotFound: true },
+          { query: { per_page: "100" }, allowNotFound: true },
         );
         const listed =
           pages?.find(
@@ -400,19 +401,44 @@ export function createCanvasAdminClient() {
       }
 
       if (!targetUrl) {
-        const created = await canvasJson<{ url?: string }>(`/courses/${courseId}/pages`, {
-          method: "POST",
-          body: JSON.stringify({
-            wiki_page: {
-              title: "Home",
-              body: embedHtml,
-              published: true,
-              front_page: true,
-              editing_roles: "teachers",
-            },
-          }),
-        });
-        return { frontPageUrl: created?.url || "home", alreadyEmbedded: false as const };
+        const home = await canvasJson<{ url?: string; body?: string }>(
+          `/courses/${courseId}/pages/home`,
+          { allowNotFound: true },
+        );
+        if (home?.url) {
+          targetUrl = home.url;
+          existingBody = home.body || "";
+        }
+      }
+
+      if (!targetUrl) {
+        try {
+          const created = await canvasJson<{ url?: string }>(`/courses/${courseId}/pages`, {
+            method: "POST",
+            body: JSON.stringify({
+              wiki_page: {
+                title: "Home",
+                body: embedHtml,
+                published: true,
+                front_page: true,
+                editing_roles: "teachers",
+              },
+            }),
+          });
+          return { frontPageUrl: created?.url || "home", alreadyEmbedded: false as const };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "";
+          if (!message.includes("(409)") && !/already exists|taken/i.test(message)) {
+            throw error;
+          }
+          const home = await canvasJson<{ url?: string; body?: string }>(
+            `/courses/${courseId}/pages/home`,
+            { allowNotFound: true },
+          );
+          if (!home?.url) throw error;
+          targetUrl = home.url;
+          existingBody = home.body || "";
+        }
       }
 
       if (existingBody.includes('data-student-alerts-embed="true"')) {

@@ -285,6 +285,7 @@ async function saveEnableJob(job: EnableJob) {
 export async function enableStudentAlertsInAllCourses(options?: {
   offset?: number;
   generation?: number;
+  reset?: boolean;
 }) {
   const startedAt = Date.now();
   const deadline = startedAt + ENABLE_DEADLINE_MS;
@@ -303,6 +304,11 @@ export async function enableStudentAlertsInAllCourses(options?: {
     .catch(() => null);
 
   let job = await loadEnableJob();
+  if (options?.reset && job) {
+    job.cursor = 0;
+    job.listedAt = Date.now();
+    await saveEnableJob(job);
+  }
   const jobFresh = Boolean(job && Date.now() - (job?.listedAt || 0) < 6 * 60 * 60 * 1000);
   const jobInProgress = Boolean(jobFresh && job && job.cursor < job.courses.length);
   const jobJustFinished = Boolean(
