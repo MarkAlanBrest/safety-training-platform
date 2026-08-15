@@ -584,7 +584,9 @@ export function createCanvasAdminClient() {
           const name = course.name || "";
           if (
             !options?.allowMasters &&
-            /master|demo|sample|growing with canvas/i.test(name)
+            /master|demo|sample|growing with canvas|practice class|sandbox|instructor training/i.test(
+              name,
+            )
           ) {
             continue;
           }
@@ -677,6 +679,24 @@ export function createCanvasAdminClient() {
       }
 
       return { courses, accountErrors, usedFallback };
+    },
+
+    async listTokenUserCourses() {
+      const courses: Array<{ id: number; name?: string; account_id?: number }> = [];
+      const seen = new Set<number>();
+      try {
+        const mine = await canvasGetAll<CanvasCourse>("/courses", { per_page: "100" });
+        for (const course of mine) {
+          if (!course.id || seen.has(course.id)) continue;
+          const state = course.workflow_state || "";
+          if (state === "deleted" || state === "completed") continue;
+          seen.add(course.id);
+          courses.push({ id: course.id, name: course.name, account_id: course.account_id });
+        }
+      } catch {
+        // Ignore.
+      }
+      return courses;
     },
 
     async listLinkSelectionLaunchDefinitions(courseId: string) {
