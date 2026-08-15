@@ -92,6 +92,32 @@ html.course-alerts-embed-root .course-alerts-page {
   line-height: 1.45;
 }
 
+.course-home-banner-alert-block {
+  margin: 0 0 8px;
+}
+
+.course-home-banner-alert-block:last-child {
+  margin-bottom: 0;
+}
+
+.course-home-banner-links {
+  margin: 4px 0 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.course-home-banner-links a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.course-home-banner-links a:hover,
+.course-home-banner-links a:focus {
+  text-decoration-thickness: 2px;
+}
+
 .course-alerts-shell {
   max-width: 900px;
   margin: 0 auto;

@@ -1,10 +1,11 @@
 import type { createCanvasClient } from "@/lib/canvas/client";
-import type { CanvasAlert, CanvasEnrollment, CanvasUser } from "@/lib/canvas/types";
+import type { CanvasAlert, CanvasAlertItem, CanvasEnrollment, CanvasUser } from "@/lib/canvas/types";
 import type { CourseAlertConfigInput } from "@/lib/course-alerts/config";
 import { getStudentDisplayName } from "@/lib/canvas/home-embed-messages";
 import {
   DEFAULT_ALERT_MESSAGES,
   formatAssignmentList,
+  renderAlertIntro,
   renderAlertTemplate,
 } from "@/lib/course-alerts/messages";
 
@@ -34,6 +35,14 @@ function daysSince(dateString: string | null | undefined) {
   const time = new Date(dateString).getTime();
   if (Number.isNaN(time)) return null;
   return (Date.now() - time) / (1000 * 60 * 60 * 24);
+}
+
+function assignmentUrl(
+  client: CanvasClient,
+  courseId: number,
+  assignment: { id: number; html_url?: string | null },
+) {
+  return assignment.html_url || `${client.baseUrl}/courses/${courseId}/assignments/${assignment.id}`;
 }
 
 function assignmentPercent(score: number, pointsPossible: number | null | undefined) {
@@ -72,7 +81,7 @@ export async function buildCourseScopedAlerts(
 
   const lowGradeAssignmentIds = new Set<number>();
   if (config.showAssignmentLowGrades) {
-    const lowNames: string[] = [];
+    const lowItems: CanvasAlertItem[] = [];
     for (const assignment of assignments) {
       if (assignment.published === false) continue;
       const submission = assignment.submission;
@@ -85,58 +94,68 @@ export async function buildCourseScopedAlerts(
       if (!isZero && !isLowPercent) continue;
 
       lowGradeAssignmentIds.add(assignment.id);
-      lowNames.push(assignment.name);
+      lowItems.push({
+        name: assignment.name,
+        url: assignmentUrl(client, courseId, assignment),
+      });
     }
 
-    if (lowNames.length) {
+    if (lowItems.length) {
+      const names = lowItems.map((item) => item.name);
       alerts.push({
         id: `assignment-low-${courseId}`,
         severity: "critical",
         title: "Low assignment grades",
-        message: renderAlertTemplate(
+        message: renderAlertIntro(
           config.assignmentLowGradeMessage,
           DEFAULT_ALERT_MESSAGES.assignmentLowGrade,
-          { ...templateVarsBase, assignments: formatAssignmentList(lowNames) },
+          { ...templateVarsBase, assignments: formatAssignmentList(names) },
         ),
         courseName,
         courseId,
         dueAt: null,
         link: `${client.baseUrl}/courses/${courseId}/grades`,
         kind: "assignment_low_grade",
+        items: lowItems,
       });
     }
   }
 
   if (config.showMissing) {
-    const missingNames: string[] = [];
+    const missingItems: CanvasAlertItem[] = [];
     for (const assignment of missing) {
       if (assignment.course_id !== courseId) continue;
       if (lowGradeAssignmentIds.has(assignment.id)) continue;
       if (!isWithinMissingWindow(assignment.due_at, config.missingWorkDays)) continue;
-      missingNames.push(assignment.name);
+      missingItems.push({
+        name: assignment.name,
+        url: assignmentUrl(client, courseId, assignment),
+      });
     }
 
-    if (missingNames.length) {
+    if (missingItems.length) {
+      const names = missingItems.map((item) => item.name);
       alerts.push({
         id: `missing-${courseId}`,
         severity: "critical",
         title: "Missing assignments",
-        message: renderAlertTemplate(config.missingMessage, DEFAULT_ALERT_MESSAGES.missing, {
+        message: renderAlertIntro(config.missingMessage, DEFAULT_ALERT_MESSAGES.missing, {
           ...templateVarsBase,
           days: config.missingWorkDays,
-          assignments: formatAssignmentList(missingNames),
+          assignments: formatAssignmentList(names),
         }),
         courseName,
         courseId,
         dueAt: null,
         link: `${client.baseUrl}/courses/${courseId}/grades`,
         kind: "missing",
+        items: missingItems,
       });
     }
   }
 
   if (config.showDueSoon) {
-    const dueSoonNames: string[] = [];
+    const dueSoonItems: CanvasAlertItem[] = [];
     for (const assignment of assignments) {
       if (assignment.published === false) continue;
       const hours = hoursUntil(assignment.due_at);
@@ -144,25 +163,30 @@ export async function buildCourseScopedAlerts(
       const submission = assignment.submission;
       if (submission?.submitted_at || submission?.workflow_state === "submitted") continue;
       if (lowGradeAssignmentIds.has(assignment.id)) continue;
-      dueSoonNames.push(assignment.name);
+      dueSoonItems.push({
+        name: assignment.name,
+        url: assignmentUrl(client, courseId, assignment),
+      });
     }
 
-    if (dueSoonNames.length) {
+    if (dueSoonItems.length) {
+      const names = dueSoonItems.map((item) => item.name);
       alerts.push({
         id: `due-soon-${courseId}`,
         severity: "warning",
         title: "Assignments due soon",
-        message: renderAlertTemplate(config.dueSoonMessage, DEFAULT_ALERT_MESSAGES.dueSoon, {
+        message: renderAlertIntro(config.dueSoonMessage, DEFAULT_ALERT_MESSAGES.dueSoon, {
           ...templateVarsBase,
           hours: config.dueSoonHours,
           days: config.dueSoonHours,
-          assignments: formatAssignmentList(dueSoonNames),
+          assignments: formatAssignmentList(names),
         }),
         courseName,
         courseId,
         dueAt: null,
         link: `${client.baseUrl}/courses/${courseId}`,
         kind: "due_soon",
+        items: dueSoonItems,
       });
     }
   }
@@ -197,6 +221,12 @@ export async function buildCourseScopedAlerts(
         kind: "low_grade",
         score,
         grade,
+        items: [
+          {
+            name: "View grades",
+            url: `${client.baseUrl}/courses/${courseId}/grades`,
+          },
+        ],
       });
     }
   }

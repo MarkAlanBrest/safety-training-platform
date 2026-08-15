@@ -18,6 +18,22 @@ export function formatAssignmentList(names: string[]) {
   return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 }
 
+export function renderAlertIntro(
+  template: string | null | undefined,
+  fallback: string,
+  vars: Record<string, string | number | null | undefined>,
+) {
+  const rendered = renderAlertTemplate(template, fallback, {
+    ...vars,
+    assignments: "",
+  });
+  return rendered
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([.,;:])/g, "$1")
+    .replace(/:\s*\.?$/g, ":")
+    .trim();
+}
+
 export const DEFAULT_ALERT_MESSAGES = {
   missing:
     "Alert: {name}, looking back the last {days} days you have missed the following assignments: {assignments}.",

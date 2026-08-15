@@ -87,6 +87,11 @@ export type CanvasAssignment = {
 
 export type AlertSeverity = "critical" | "warning" | "info";
 
+export type CanvasAlertItem = {
+  name: string;
+  url: string;
+};
+
 export type CanvasAlert = {
   id: string;
   severity: AlertSeverity;
@@ -99,6 +104,7 @@ export type CanvasAlert = {
   kind: "missing" | "due_soon" | "low_grade" | "assignment_low_grade" | "login" | "late";
   score?: number | null;
   grade?: string | null;
+  items?: CanvasAlertItem[];
 };
 
 export type CanvasAlertSummary = {

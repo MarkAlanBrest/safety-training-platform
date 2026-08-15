@@ -9,10 +9,16 @@ type TeacherMessage = {
   message: string;
 };
 
+type AlertItem = {
+  name: string;
+  url: string;
+};
+
 type AutoAlert = {
   id: string;
   title: string;
   message: string;
+  items?: AlertItem[];
 };
 
 type Props = {
@@ -65,30 +71,44 @@ export function CourseHomeBanner({
     };
   }, [courseId, loadAlerts]);
 
-  const alertLines: string[] = [];
-  for (const message of teacherMessages) {
-    if (message.message?.trim()) alertLines.push(message.message.trim());
-  }
-  for (const alert of autoAlerts.slice(0, 4)) {
-    alertLines.push(alert.message);
-  }
-
-  const isWelcome = alertLines.length === 0;
-  const lines = isWelcome ? [buildWelcomeMessage(displayName)] : alertLines;
+  const hasAlerts = teacherMessages.length > 0 || autoAlerts.length > 0;
 
   return (
     <section
-      className={`course-home-banner ${isWelcome ? "course-home-banner-welcome" : "course-home-banner-alert"}`}
+      className={`course-home-banner ${hasAlerts ? "course-home-banner-alert" : "course-home-banner-welcome"}`}
       aria-labelledby="course-home-alerts-title"
     >
       <h2 id="course-home-alerts-title" className="course-home-banner-title">
         {HOME_EMBED_TITLE}
       </h2>
-      {lines.map((line, index) => (
-        <p key={`${index}-${line}`} className="course-home-banner-message">
-          {line}
-        </p>
-      ))}
+      {hasAlerts ? (
+        <>
+          {teacherMessages.map((message) => (
+            <p key={message.id} className="course-home-banner-message">
+              {message.message}
+            </p>
+          ))}
+          {autoAlerts.slice(0, 4).map((alert) => (
+            <div key={alert.id} className="course-home-banner-alert-block">
+              <p className="course-home-banner-message">{alert.message}</p>
+              {alert.items?.length ? (
+                <p className="course-home-banner-links">
+                  {alert.items.map((item, index) => (
+                    <span key={`${alert.id}-${item.url}`}>
+                      {index > 0 ? " · " : null}
+                      <a href={item.url} target="_top" rel="noreferrer">
+                        {item.name}
+                      </a>
+                    </span>
+                  ))}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </>
+      ) : (
+        <p className="course-home-banner-message">{buildWelcomeMessage(displayName)}</p>
+      )}
     </section>
   );
 }
