@@ -155,6 +155,7 @@ export async function ensureStudentAlertsLtiApp() {
         usedFallback: false,
         note: accountErrors[0] || "The Canvas LTI key is missing and could not be recreated.",
         accountErrors,
+        inspect: await client.inspectStudentAlertsLtiKey().catch(() => null),
       };
     }
   }
@@ -218,6 +219,7 @@ export async function ensureStudentAlertsLtiApp() {
         : accountErrors[0] ||
           "Could not install Student Alerts on the Canvas account. Use a Canvas admin API token.",
     accountErrors,
+    inspect: await client.inspectStudentAlertsLtiKey(clientId).catch(() => null),
   };
 }
 
