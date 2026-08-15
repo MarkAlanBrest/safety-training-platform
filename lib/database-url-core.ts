@@ -10,7 +10,19 @@ export function sanitizeDatabaseUrl(raw?: string | null) {
     value = value.slice("DATABASE_URL=".length).trim();
   }
 
-  return value || null;
+  return normalizePostgresDatabaseUrl(value);
+}
+
+export function normalizePostgresDatabaseUrl(value: string) {
+  if (!POSTGRES_SCHEME.test(value)) return value;
+
+  try {
+    const url = new URL(value);
+    url.searchParams.delete("channel_binding");
+    return url.toString();
+  } catch {
+    return value;
+  }
 }
 
 export function isValidPostgresDatabaseUrl(value: string) {
