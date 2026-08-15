@@ -597,7 +597,14 @@ export function createCanvasAdminClient() {
       }
 
       try {
-        addCourses(await canvasGetAll<CanvasCourse>(`/accounts/${rootId}/courses`, { per_page: "100" }));
+        addCourses(
+          await canvasGetAll<CanvasCourse>(`/accounts/${rootId}/courses`, {
+            per_page: "100",
+            published: "true",
+            completed: "false",
+            with_enrollments: "true",
+          }),
+        );
       } catch (error) {
         accountErrors.push(
           `Cannot list courses on account ${rootId}: ${
@@ -608,7 +615,14 @@ export function createCanvasAdminClient() {
 
       if (courses.length === 0 && rootId !== "self") {
         try {
-          addCourses(await canvasGetAll<CanvasCourse>("/accounts/self/courses", { per_page: "100" }));
+          addCourses(
+            await canvasGetAll<CanvasCourse>("/accounts/self/courses", {
+              per_page: "100",
+              published: "true",
+              completed: "false",
+              with_enrollments: "true",
+            }),
+          );
         } catch (error) {
           accountErrors.push(
             `Cannot list courses on account self: ${
@@ -616,6 +630,12 @@ export function createCanvasAdminClient() {
             }`,
           );
         }
+      }
+
+      try {
+        addCourses(await canvasGetAll<CanvasCourse>("/courses", { per_page: "100" }));
+      } catch {
+        // Token user's own enrollments are a bonus, not required.
       }
 
       let usedFallback = false;
