@@ -5,6 +5,33 @@ import { getAdminSession, requireAdmin } from "@/lib/admin-session";
 import { getCanvasStudentSession } from "@/lib/canvas/session";
 import { embedStudentAlertsOnCourseHome } from "@/lib/canvas/course-home-embed-result";
 import { getCourseAlertConfig, saveCourseAlertConfig } from "@/lib/course-alerts/store";
+import type { CourseAlertConfigInput } from "@/lib/course-alerts/config";
+
+type ConfigBody = Partial<CourseAlertConfigInput> & {
+  courseId?: string;
+};
+
+function configFromBody(body: ConfigBody, courseNameFallback?: string | null) {
+  return {
+    courseName: body.courseName || courseNameFallback,
+    missingWorkDays: body.missingWorkDays,
+    lowGradeThreshold: body.lowGradeThreshold,
+    assignmentLowGradePercent: body.assignmentLowGradePercent,
+    loginInactivityDays: body.loginInactivityDays,
+    dueSoonHours: body.dueSoonHours,
+    bannerMessage: body.bannerMessage,
+    missingMessage: body.missingMessage,
+    assignmentLowGradeMessage: body.assignmentLowGradeMessage,
+    loginInactivityMessage: body.loginInactivityMessage,
+    overallLowGradeMessage: body.overallLowGradeMessage,
+    dueSoonMessage: body.dueSoonMessage,
+    showMissing: body.showMissing,
+    showLowGrades: body.showLowGrades,
+    showAssignmentLowGrades: body.showAssignmentLowGrades,
+    showLoginInactivity: body.showLoginInactivity,
+    showDueSoon: body.showDueSoon,
+  };
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -22,17 +49,7 @@ export async function PUT(request: Request) {
   if (unauthorized) return unauthorized;
 
   const admin = await getAdminSession(request);
-
-  const body = (await request.json()) as {
-    courseId?: string;
-    courseName?: string | null;
-    missingWorkDays?: number;
-    lowGradeThreshold?: number;
-    bannerMessage?: string | null;
-    showMissing?: boolean;
-    showLowGrades?: boolean;
-  };
-
+  const body = (await request.json()) as ConfigBody;
   const courseId = body.courseId?.trim();
   if (!courseId) {
     return NextResponse.json({ error: "Course id is required." }, { status: 400 });
@@ -40,19 +57,10 @@ export async function PUT(request: Request) {
 
   const config = await saveCourseAlertConfig(
     courseId,
-    {
-      courseName: body.courseName,
-      missingWorkDays: body.missingWorkDays,
-      lowGradeThreshold: body.lowGradeThreshold,
-      bannerMessage: body.bannerMessage,
-      showMissing: body.showMissing,
-      showLowGrades: body.showLowGrades,
-    },
+    configFromBody(body),
     admin?.admin?.email || admin?.admin?.name || "teacher",
   );
-
   const homeEmbed = await embedStudentAlertsOnCourseHome(courseId);
-
   return NextResponse.json({ config, homeEmbed });
 }
 
@@ -62,16 +70,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Open this setup page from Canvas." }, { status: 401 });
   }
 
-  const body = (await request.json()) as {
-    courseId?: string;
-    courseName?: string | null;
-    missingWorkDays?: number;
-    lowGradeThreshold?: number;
-    bannerMessage?: string | null;
-    showMissing?: boolean;
-    showLowGrades?: boolean;
-  };
-
+  const body = (await request.json()) as ConfigBody;
   const courseId = body.courseId?.trim() || session.courseId?.trim() || "";
   if (!courseId) {
     return NextResponse.json({ error: "Course id is required." }, { status: 400 });
@@ -79,18 +78,9 @@ export async function POST(request: Request) {
 
   const config = await saveCourseAlertConfig(
     courseId,
-    {
-      courseName: body.courseName || session.courseName,
-      missingWorkDays: body.missingWorkDays,
-      lowGradeThreshold: body.lowGradeThreshold,
-      bannerMessage: body.bannerMessage,
-      showMissing: body.showMissing,
-      showLowGrades: body.showLowGrades,
-    },
+    configFromBody(body, session.courseName),
     session.name,
   );
-
   const homeEmbed = await embedStudentAlertsOnCourseHome(courseId);
-
   return NextResponse.json({ config, homeEmbed });
 }

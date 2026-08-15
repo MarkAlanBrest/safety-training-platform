@@ -1,6 +1,12 @@
 import type { createCanvasClient } from "@/lib/canvas/client";
-import type { CanvasAlert, CanvasEnrollment, CanvasMissingSubmission, CanvasUser } from "@/lib/canvas/types";
+import type { CanvasAlert, CanvasEnrollment, CanvasUser } from "@/lib/canvas/types";
 import type { CourseAlertConfigInput } from "@/lib/course-alerts/config";
+import { getStudentDisplayName } from "@/lib/canvas/home-embed-messages";
+import {
+  DEFAULT_ALERT_MESSAGES,
+  formatAssignmentList,
+  renderAlertTemplate,
+} from "@/lib/course-alerts/messages";
 
 type CanvasClient = ReturnType<typeof createCanvasClient>;
 
@@ -9,20 +15,6 @@ function hoursUntil(dateString: string | null | undefined) {
   const due = new Date(dateString).getTime();
   if (Number.isNaN(due)) return null;
   return (due - Date.now()) / (1000 * 60 * 60);
-}
-
-function formatDueMessage(dueAt: string | null) {
-  if (!dueAt) return "No due date listed.";
-  const due = new Date(dueAt);
-  const hours = hoursUntil(dueAt);
-  if (hours === null) return `Due ${due.toLocaleString()}`;
-  if (hours < 0) {
-    const overdueHours = Math.abs(hours);
-    if (overdueHours < 24) return `Overdue by ${Math.ceil(overdueHours)} hour(s).`;
-    return `Overdue by ${Math.ceil(overdueHours / 24)} day(s).`;
-  }
-  if (hours < 24) return `Due in ${Math.ceil(hours)} hour(s).`;
-  return `Due in ${Math.ceil(hours / 24)} day(s) on ${due.toLocaleString()}.`;
 }
 
 function isWithinMissingWindow(dueAt: string | null, missingWorkDays: number) {
@@ -37,6 +29,18 @@ function findEnrollment(enrollments: CanvasEnrollment[], courseId: number) {
   return enrollments.find((enrollment) => enrollment.course_id === courseId) || null;
 }
 
+function daysSince(dateString: string | null | undefined) {
+  if (!dateString) return null;
+  const time = new Date(dateString).getTime();
+  if (Number.isNaN(time)) return null;
+  return (Date.now() - time) / (1000 * 60 * 60 * 24);
+}
+
+function assignmentPercent(score: number, pointsPossible: number | null | undefined) {
+  if (!pointsPossible || pointsPossible <= 0) return score === 0 ? 0 : null;
+  return (score / pointsPossible) * 100;
+}
+
 export async function buildCourseScopedAlerts(
   client: CanvasClient,
   user: CanvasUser,
@@ -48,31 +52,116 @@ export async function buildCourseScopedAlerts(
     return { user, alerts: [] as CanvasAlert[], fetchedAt: new Date().toISOString() };
   }
 
-  const [enrollments, missing, plannerItems] = await Promise.all([
+  const studentName = getStudentDisplayName(user.short_name || user.name);
+  const [enrollments, missing, assignments] = await Promise.all([
     client.getStudentEnrollments(),
-    client.getMissingSubmissions(),
-    client.getPlannerItems(),
+    client.getMissingSubmissions().catch(() => []),
+    client.getCourseAssignments(courseId).catch(() => []),
   ]);
 
   const enrollment = findEnrollment(enrollments, courseId);
   const courseName = enrollment?.course?.name || `Course ${courseId}`;
   const alerts: CanvasAlert[] = [];
+  const templateVarsBase = {
+    name: studentName,
+    days: config.missingWorkDays,
+    threshold: config.lowGradeThreshold,
+    score: "",
+    assignments: "",
+  };
 
-  if (config.showMissing) {
-    for (const assignment of missing) {
-      if (assignment.course_id !== courseId) continue;
-      if (!isWithinMissingWindow(assignment.due_at, config.missingWorkDays)) continue;
+  const lowGradeAssignmentIds = new Set<number>();
+  if (config.showAssignmentLowGrades) {
+    const lowNames: string[] = [];
+    for (const assignment of assignments) {
+      if (assignment.published === false) continue;
+      const submission = assignment.submission;
+      if (!submission || submission.excused) continue;
+      if (submission.score === null || submission.score === undefined) continue;
 
+      const percent = assignmentPercent(submission.score, assignment.points_possible);
+      const isZero = submission.score === 0;
+      const isLowPercent = percent !== null && percent < config.assignmentLowGradePercent;
+      if (!isZero && !isLowPercent) continue;
+
+      lowGradeAssignmentIds.add(assignment.id);
+      lowNames.push(assignment.name);
+    }
+
+    if (lowNames.length) {
       alerts.push({
-        id: `missing-${assignment.id}`,
+        id: `assignment-low-${courseId}`,
         severity: "critical",
-        title: assignment.name,
-        message: `Missing submission. ${formatDueMessage(assignment.due_at)}`,
+        title: "Low assignment grades",
+        message: renderAlertTemplate(
+          config.assignmentLowGradeMessage,
+          DEFAULT_ALERT_MESSAGES.assignmentLowGrade,
+          { ...templateVarsBase, assignments: formatAssignmentList(lowNames) },
+        ),
         courseName,
         courseId,
-        dueAt: assignment.due_at,
-        link: assignment.html_url,
+        dueAt: null,
+        link: `${client.baseUrl}/courses/${courseId}/grades`,
+        kind: "assignment_low_grade",
+      });
+    }
+  }
+
+  if (config.showMissing) {
+    const missingNames: string[] = [];
+    for (const assignment of missing) {
+      if (assignment.course_id !== courseId) continue;
+      if (lowGradeAssignmentIds.has(assignment.id)) continue;
+      if (!isWithinMissingWindow(assignment.due_at, config.missingWorkDays)) continue;
+      missingNames.push(assignment.name);
+    }
+
+    if (missingNames.length) {
+      alerts.push({
+        id: `missing-${courseId}`,
+        severity: "critical",
+        title: "Missing assignments",
+        message: renderAlertTemplate(config.missingMessage, DEFAULT_ALERT_MESSAGES.missing, {
+          ...templateVarsBase,
+          days: config.missingWorkDays,
+          assignments: formatAssignmentList(missingNames),
+        }),
+        courseName,
+        courseId,
+        dueAt: null,
+        link: `${client.baseUrl}/courses/${courseId}/grades`,
         kind: "missing",
+      });
+    }
+  }
+
+  if (config.showDueSoon) {
+    const dueSoonNames: string[] = [];
+    for (const assignment of assignments) {
+      if (assignment.published === false) continue;
+      const hours = hoursUntil(assignment.due_at);
+      if (hours === null || hours < 0 || hours > config.dueSoonHours) continue;
+      const submission = assignment.submission;
+      if (submission?.submitted_at || submission?.workflow_state === "submitted") continue;
+      if (lowGradeAssignmentIds.has(assignment.id)) continue;
+      dueSoonNames.push(assignment.name);
+    }
+
+    if (dueSoonNames.length) {
+      alerts.push({
+        id: `due-soon-${courseId}`,
+        severity: "warning",
+        title: "Assignments due soon",
+        message: renderAlertTemplate(config.dueSoonMessage, DEFAULT_ALERT_MESSAGES.dueSoon, {
+          ...templateVarsBase,
+          days: Math.ceil(config.dueSoonHours / 24),
+          assignments: formatAssignmentList(dueSoonNames),
+        }),
+        courseName,
+        courseId,
+        dueAt: null,
+        link: `${client.baseUrl}/courses/${courseId}`,
+        kind: "due_soon",
       });
     }
   }
@@ -90,8 +179,16 @@ export async function buildCourseScopedAlerts(
       alerts.push({
         id: `grade-${courseId}`,
         severity: score < 60 ? "critical" : "warning",
-        title: `Low grade in ${courseName}`,
-        message: `Current score is ${score.toFixed(1)}%${grade ? ` (${grade})` : ""}.`,
+        title: "Overall grade",
+        message: renderAlertTemplate(
+          config.overallLowGradeMessage,
+          DEFAULT_ALERT_MESSAGES.overallLowGrade,
+          {
+            ...templateVarsBase,
+            threshold: config.lowGradeThreshold,
+            score: score.toFixed(1),
+          },
+        ),
         courseName,
         courseId,
         dueAt: null,
@@ -103,7 +200,30 @@ export async function buildCourseScopedAlerts(
     }
   }
 
-  void plannerItems;
+  if (config.showLoginInactivity) {
+    const lastActivity = enrollment?.last_activity_at || user.last_login || null;
+    const inactiveDays = daysSince(lastActivity);
+    if (inactiveDays !== null && inactiveDays >= config.loginInactivityDays) {
+      alerts.push({
+        id: `login-${courseId}`,
+        severity: "warning",
+        title: "Login reminder",
+        message: renderAlertTemplate(
+          config.loginInactivityMessage,
+          DEFAULT_ALERT_MESSAGES.loginInactivity,
+          {
+            ...templateVarsBase,
+            days: config.loginInactivityDays,
+          },
+        ),
+        courseName,
+        courseId,
+        dueAt: null,
+        link: `${client.baseUrl}/courses/${courseId}`,
+        kind: "login",
+      });
+    }
+  }
 
   return {
     user,

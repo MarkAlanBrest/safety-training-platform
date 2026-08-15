@@ -1,4 +1,5 @@
 import type {
+  CanvasAssignment,
   CanvasEnrollment,
   CanvasMissingSubmission,
   CanvasPlannerItem,
@@ -147,6 +148,12 @@ export function createCanvasClient(options: CanvasClientOptions) {
     },
     async getPlannerItems() {
       return canvasFetchAll<CanvasPlannerItem>(`${userRoot}/planner/items`);
+    },
+    async getCourseAssignments(courseId: string | number) {
+      return canvasFetchAll<CanvasAssignment>(`${userRoot}/courses/${courseId}/assignments`, {
+        include: ["submission"],
+        order_by: "due_at",
+      });
     },
   };
 }

@@ -246,6 +246,21 @@ html.course-alerts-embed-root .course-alerts-page {
   margin-bottom: 20px;
 }
 
+.course-alerts-setup-block {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+}
+
+.course-alerts-setup-block legend {
+  padding: 0 6px;
+  color: #f6d27b;
+  font-weight: 800;
+}
+
 .course-alerts-setup-form {
   display: grid;
   gap: 16px;

@@ -2,13 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { DEFAULT_ALERT_MESSAGES } from "@/lib/course-alerts/messages";
 
 type Config = {
   missingWorkDays: number;
   lowGradeThreshold: number;
-  bannerMessage: string | null;
+  assignmentLowGradePercent: number;
+  loginInactivityDays: number;
+  dueSoonHours: number;
+  missingMessage: string | null;
+  assignmentLowGradeMessage: string | null;
+  loginInactivityMessage: string | null;
+  overallLowGradeMessage: string | null;
+  dueSoonMessage: string | null;
   showMissing: boolean;
   showLowGrades: boolean;
+  showAssignmentLowGrades: boolean;
+  showLoginInactivity: boolean;
+  showDueSoon: boolean;
   courseName: string | null;
 };
 
@@ -18,9 +29,25 @@ export function CourseAlertsSetupForm() {
 
   const [missingWorkDays, setMissingWorkDays] = useState(14);
   const [lowGradeThreshold, setLowGradeThreshold] = useState(70);
-  const [bannerMessage, setBannerMessage] = useState("");
+  const [assignmentLowGradePercent, setAssignmentLowGradePercent] = useState(60);
+  const [loginInactivityDays, setLoginInactivityDays] = useState(6);
+  const [dueSoonHours, setDueSoonHours] = useState(48);
+  const [missingMessage, setMissingMessage] = useState(DEFAULT_ALERT_MESSAGES.missing);
+  const [assignmentLowGradeMessage, setAssignmentLowGradeMessage] = useState(
+    DEFAULT_ALERT_MESSAGES.assignmentLowGrade,
+  );
+  const [loginInactivityMessage, setLoginInactivityMessage] = useState(
+    DEFAULT_ALERT_MESSAGES.loginInactivity,
+  );
+  const [overallLowGradeMessage, setOverallLowGradeMessage] = useState(
+    DEFAULT_ALERT_MESSAGES.overallLowGrade,
+  );
+  const [dueSoonMessage, setDueSoonMessage] = useState(DEFAULT_ALERT_MESSAGES.dueSoon);
   const [showMissing, setShowMissing] = useState(true);
   const [showLowGrades, setShowLowGrades] = useState(true);
+  const [showAssignmentLowGrades, setShowAssignmentLowGrades] = useState(true);
+  const [showLoginInactivity, setShowLoginInactivity] = useState(true);
+  const [showDueSoon, setShowDueSoon] = useState(true);
   const [courseName, setCourseName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -42,9 +69,21 @@ export function CourseAlertsSetupForm() {
       const config = data.config as Config;
       setMissingWorkDays(config.missingWorkDays);
       setLowGradeThreshold(config.lowGradeThreshold);
-      setBannerMessage(config.bannerMessage || "");
+      setAssignmentLowGradePercent(config.assignmentLowGradePercent ?? 60);
+      setLoginInactivityDays(config.loginInactivityDays ?? 6);
+      setDueSoonHours(config.dueSoonHours ?? 48);
+      setMissingMessage(config.missingMessage || DEFAULT_ALERT_MESSAGES.missing);
+      setAssignmentLowGradeMessage(
+        config.assignmentLowGradeMessage || DEFAULT_ALERT_MESSAGES.assignmentLowGrade,
+      );
+      setLoginInactivityMessage(config.loginInactivityMessage || DEFAULT_ALERT_MESSAGES.loginInactivity);
+      setOverallLowGradeMessage(config.overallLowGradeMessage || DEFAULT_ALERT_MESSAGES.overallLowGrade);
+      setDueSoonMessage(config.dueSoonMessage || DEFAULT_ALERT_MESSAGES.dueSoon);
       setShowMissing(config.showMissing);
       setShowLowGrades(config.showLowGrades);
+      setShowAssignmentLowGrades(config.showAssignmentLowGrades !== false);
+      setShowLoginInactivity(config.showLoginInactivity !== false);
+      setShowDueSoon(config.showDueSoon !== false);
       if (config.courseName) setCourseName(config.courseName);
     })();
   }, [courseId]);
@@ -86,9 +125,19 @@ export function CourseAlertsSetupForm() {
           courseName: courseName.trim() || null,
           missingWorkDays,
           lowGradeThreshold,
-          bannerMessage,
+          assignmentLowGradePercent,
+          loginInactivityDays,
+          dueSoonHours,
+          missingMessage,
+          assignmentLowGradeMessage,
+          loginInactivityMessage,
+          overallLowGradeMessage,
+          dueSoonMessage,
           showMissing,
           showLowGrades,
+          showAssignmentLowGrades,
+          showLoginInactivity,
+          showDueSoon,
         }),
       });
 
@@ -126,9 +175,8 @@ export function CourseAlertsSetupForm() {
     <div className="course-alerts-shell course-alerts-setup">
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        Save once. Students see a bold reminder at the top of Home automatically — no module
-        click required. Your existing home page content stays below. The bar hides when there is
-        nothing to communicate.
+        Customize what students see on Home. Use {"{name}"}, {"{days}"}, {"{assignments}"}, {"{score}"},
+        and {"{threshold}"} in the message text. Save once — students do not click anything.
       </p>
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>
@@ -137,57 +185,160 @@ export function CourseAlertsSetupForm() {
           <input value={courseName} onChange={(event) => setCourseName(event.target.value)} />
         </label>
 
-        <label>
-          Days back to check for missing work
-          <input
-            type="number"
-            min={1}
-            max={90}
-            value={missingWorkDays}
-            onChange={(event) => setMissingWorkDays(Number(event.target.value))}
-            required
-          />
-        </label>
+        <fieldset className="course-alerts-setup-block">
+          <legend>Missing assignments</legend>
+          <label className="course-alerts-setup-check">
+            <input
+              type="checkbox"
+              checked={showMissing}
+              onChange={(event) => setShowMissing(event.target.checked)}
+            />
+            Turn on this alert
+          </label>
+          <label>
+            Look back this many days
+            <input
+              type="number"
+              min={1}
+              max={90}
+              value={missingWorkDays}
+              onChange={(event) => setMissingWorkDays(Number(event.target.value))}
+              required
+            />
+          </label>
+          <label>
+            Message
+            <textarea
+              value={missingMessage}
+              onChange={(event) => setMissingMessage(event.target.value)}
+              rows={3}
+            />
+          </label>
+        </fieldset>
 
-        <label>
-          Grade % before low-grade warning
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={lowGradeThreshold}
-            onChange={(event) => setLowGradeThreshold(Number(event.target.value))}
-            required
-          />
-        </label>
+        <fieldset className="course-alerts-setup-block">
+          <legend>Low grades on assignments (including zeros)</legend>
+          <label className="course-alerts-setup-check">
+            <input
+              type="checkbox"
+              checked={showAssignmentLowGrades}
+              onChange={(event) => setShowAssignmentLowGrades(event.target.checked)}
+            />
+            Turn on this alert
+          </label>
+          <label>
+            Flag an assignment if the score is 0 or below this percent
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={assignmentLowGradePercent}
+              onChange={(event) => setAssignmentLowGradePercent(Number(event.target.value))}
+              required
+            />
+          </label>
+          <label>
+            Message
+            <textarea
+              value={assignmentLowGradeMessage}
+              onChange={(event) => setAssignmentLowGradeMessage(event.target.value)}
+              rows={3}
+            />
+          </label>
+        </fieldset>
 
-        <label>
-          Optional message for all students (leave blank to only show missing work / low grades)
-          <textarea
-            value={bannerMessage}
-            onChange={(event) => setBannerMessage(event.target.value)}
-            rows={4}
-            placeholder="e.g. Check your missing assignments this week."
-          />
-        </label>
+        <fieldset className="course-alerts-setup-block">
+          <legend>Overall course grade</legend>
+          <label className="course-alerts-setup-check">
+            <input
+              type="checkbox"
+              checked={showLowGrades}
+              onChange={(event) => setShowLowGrades(event.target.checked)}
+            />
+            Turn on this alert
+          </label>
+          <label>
+            Alert if overall grade falls below this percent
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={lowGradeThreshold}
+              onChange={(event) => setLowGradeThreshold(Number(event.target.value))}
+              required
+            />
+          </label>
+          <label>
+            Message
+            <textarea
+              value={overallLowGradeMessage}
+              onChange={(event) => setOverallLowGradeMessage(event.target.value)}
+              rows={3}
+            />
+          </label>
+        </fieldset>
 
-        <label className="course-alerts-setup-check">
-          <input
-            type="checkbox"
-            checked={showMissing}
-            onChange={(event) => setShowMissing(event.target.checked)}
-          />
-          Show missing assignment warnings in popup
-        </label>
+        <fieldset className="course-alerts-setup-block">
+          <legend>Login / activity</legend>
+          <label className="course-alerts-setup-check">
+            <input
+              type="checkbox"
+              checked={showLoginInactivity}
+              onChange={(event) => setShowLoginInactivity(event.target.checked)}
+            />
+            Turn on this alert
+          </label>
+          <label>
+            Days without activity before alerting
+            <input
+              type="number"
+              min={1}
+              max={90}
+              value={loginInactivityDays}
+              onChange={(event) => setLoginInactivityDays(Number(event.target.value))}
+              required
+            />
+          </label>
+          <label>
+            Message
+            <textarea
+              value={loginInactivityMessage}
+              onChange={(event) => setLoginInactivityMessage(event.target.value)}
+              rows={3}
+            />
+          </label>
+        </fieldset>
 
-        <label className="course-alerts-setup-check">
-          <input
-            type="checkbox"
-            checked={showLowGrades}
-            onChange={(event) => setShowLowGrades(event.target.checked)}
-          />
-          Show low grade warnings in popup
-        </label>
+        <fieldset className="course-alerts-setup-block">
+          <legend>Due soon</legend>
+          <label className="course-alerts-setup-check">
+            <input
+              type="checkbox"
+              checked={showDueSoon}
+              onChange={(event) => setShowDueSoon(event.target.checked)}
+            />
+            Turn on this alert
+          </label>
+          <label>
+            Hours before due date
+            <input
+              type="number"
+              min={1}
+              max={168}
+              value={dueSoonHours}
+              onChange={(event) => setDueSoonHours(Number(event.target.value))}
+              required
+            />
+          </label>
+          <label>
+            Message
+            <textarea
+              value={dueSoonMessage}
+              onChange={(event) => setDueSoonMessage(event.target.value)}
+              rows={3}
+            />
+          </label>
+        </fieldset>
 
         {error ? <p className="course-alerts-error">{error}</p> : null}
         {success ? <p className="course-alerts-success">{success}</p> : null}

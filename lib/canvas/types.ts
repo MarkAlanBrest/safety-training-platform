@@ -9,6 +9,7 @@ export type CanvasUser = {
   short_name: string;
   avatar_url?: string;
   primary_email?: string;
+  last_login?: string | null;
 };
 
 export type CanvasCourse = {
@@ -22,6 +23,8 @@ export type CanvasEnrollment = {
   type: string;
   enrollment_state: string;
   course_id: number;
+  last_activity_at?: string | null;
+  last_attended_at?: string | null;
   course?: CanvasCourse;
   grades?: {
     current_score?: number | null;
@@ -65,6 +68,23 @@ export type CanvasPlannerItem = {
   html_url?: string;
 };
 
+export type CanvasAssignment = {
+  id: number;
+  name: string;
+  due_at?: string | null;
+  points_possible?: number | null;
+  html_url?: string;
+  published?: boolean;
+  submission?: {
+    id?: number;
+    score?: number | null;
+    excused?: boolean;
+    workflow_state?: string;
+    missing?: boolean;
+    submitted_at?: string | null;
+  } | null;
+};
+
 export type AlertSeverity = "critical" | "warning" | "info";
 
 export type CanvasAlert = {
@@ -76,7 +96,7 @@ export type CanvasAlert = {
   courseId: number;
   dueAt: string | null;
   link: string;
-  kind: "missing" | "due_soon" | "low_grade" | "late";
+  kind: "missing" | "due_soon" | "low_grade" | "assignment_low_grade" | "login" | "late";
   score?: number | null;
   grade?: string | null;
 };

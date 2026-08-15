@@ -69,8 +69,8 @@ export function CourseHomeBanner({
   for (const message of teacherMessages) {
     if (message.message?.trim()) alertLines.push(message.message.trim());
   }
-  for (const alert of autoAlerts.slice(0, 3)) {
-    alertLines.push(`${alert.title}: ${alert.message}`);
+  for (const alert of autoAlerts.slice(0, 4)) {
+    alertLines.push(alert.message);
   }
 
   const isWelcome = alertLines.length === 0;

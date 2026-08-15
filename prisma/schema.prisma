@@ -190,14 +190,25 @@ model CourseAlertMessage {
 }
 
 model CourseAlertConfig {
-  canvasCourseId    String   @id
-  courseName        String?
-  missingWorkDays   Int      @default(14)
-  lowGradeThreshold Int      @default(70)
-  bannerMessage     String?  @db.Text
-  showMissing       Boolean  @default(true)
-  showLowGrades     Boolean  @default(true)
-  updatedBy         String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  canvasCourseId             String   @id
+  courseName                 String?
+  missingWorkDays            Int      @default(14)
+  lowGradeThreshold          Int      @default(70)
+  assignmentLowGradePercent  Int      @default(60)
+  loginInactivityDays        Int      @default(6)
+  dueSoonHours               Int      @default(48)
+  bannerMessage              String?  @db.Text
+  missingMessage             String?  @db.Text
+  assignmentLowGradeMessage  String?  @db.Text
+  loginInactivityMessage     String?  @db.Text
+  overallLowGradeMessage     String?  @db.Text
+  dueSoonMessage             String?  @db.Text
+  showMissing                Boolean  @default(true)
+  showLowGrades              Boolean  @default(true)
+  showAssignmentLowGrades    Boolean  @default(true)
+  showLoginInactivity        Boolean  @default(true)
+  showDueSoon                Boolean  @default(true)
+  updatedBy                  String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 }
