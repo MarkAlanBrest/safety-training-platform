@@ -6,6 +6,53 @@ import { sanitizeFrontPageBody } from "@/lib/canvas/front-page-sanitize";
 import { getToolPublicJwk } from "@/lib/lti/tool-jwk";
 import { HOME_EMBED_VERSION } from "@/lib/canvas/home-embed-constants";
 
+type CanvasDeveloperKey = {
+  id?: number;
+  name?: string;
+  is_lti_key?: boolean;
+  workflow_state?: string;
+  client_id?: string;
+};
+
+function isStudentAlertsDeveloperKey(key: CanvasDeveloperKey) {
+  const name = (key.name || "").toLowerCase();
+  return name.includes("student alert") || name === "student alerts";
+}
+
+function extractDeveloperKeyId(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const data = payload as Record<string, unknown>;
+
+  const fromRecord = (value: unknown) => {
+    if (!value || typeof value !== "object") return "";
+    const record = value as { id?: number | string; client_id?: number | string; developer_key_id?: number | string };
+    const id = record.id || record.client_id || record.developer_key_id;
+    return id != null ? String(id) : "";
+  };
+
+  return (
+    fromRecord(data.developer_key) ||
+    (data.developer_key_id != null ? String(data.developer_key_id) : "") ||
+    (data.client_id != null ? String(data.client_id) : "") ||
+    fromRecord(data.tool_configuration) ||
+    fromRecord(data.lti_registration) ||
+    (data.is_lti_key || isStudentAlertsDeveloperKey(data as CanvasDeveloperKey)
+      ? data.id != null
+        ? String(data.id)
+        : ""
+      : "")
+  );
+}
+
+function readStudentAlertsToolSettings() {
+  const settings = JSON.parse(
+    readFileSync(join(process.cwd(), "public", "canvas-lti-key.json"), "utf8"),
+  ) as Record<string, unknown>;
+  settings.public_jwk = getToolPublicJwk();
+  settings.public_jwk_url = "";
+  return settings;
+}
+
 type CanvasExternalTool = {
   id: number;
   name?: string;
@@ -116,6 +163,39 @@ export function createCanvasAdminClient() {
 
     if (response.status === 204) return null as T;
     return (await response.json()) as T;
+  }
+
+  async function canvasLtiJson<T>(path: string, init?: RequestInit) {
+    const method = init?.method || "GET";
+    const response = await fetch(`${baseUrl}${path}`, {
+      ...init,
+      headers: {
+        ...canvasAdminHeaders(apiToken),
+        ...(init?.headers || {}),
+      },
+      cache: "no-store",
+    });
+    const raw = await response.text().catch(() => "");
+    if (!response.ok) {
+      let detail = raw;
+      try {
+        const parsed = raw
+          ? (JSON.parse(raw) as { errors?: Array<{ message?: string }>; message?: string })
+          : null;
+        detail = parsed?.errors?.[0]?.message || parsed?.message || raw;
+      } catch {
+        detail = raw;
+      }
+      throw new Error(
+        `Canvas API error (${response.status}) on ${method} ${path}: ${detail || response.statusText}`,
+      );
+    }
+    if (!raw) return null as T;
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return raw as T;
+    }
   }
 
   async function fetchCanvasCollectionPage<T>(url: string, path: string) {
@@ -774,21 +854,106 @@ export function createCanvasAdminClient() {
     },
 
     async resolveStudentAlertsClientId(preferred?: string) {
+      const keys = await this.listStudentAlertsDeveloperKeys().catch(() => []);
+      const match = keys.find(isStudentAlertsDeveloperKey);
+      if (match?.id) return String(match.id);
+
       const configured = preferred?.trim();
-      if (configured) return configured;
-      try {
-        const keys = await canvasGetAll<{ id: number; name?: string }>("/accounts/self/developer_keys", {
-          per_page: "100",
-        });
-        const match = keys.find((key) => {
-          const name = (key.name || "").toLowerCase();
-          return name.includes("student alert") || name === "student alerts" || name.includes("alert");
-        });
-        if (match?.id) return String(match.id);
-      } catch {
-        // Fall back to the known MyTrades Student Alerts client id.
+      if (configured && keys.some((key) => String(key.id) === configured || key.client_id === configured)) {
+        return configured;
       }
-      return "149450000000000305";
+      return configured || "149450000000000305";
+    },
+
+    async listStudentAlertsDeveloperKeys() {
+      return canvasGetAll<CanvasDeveloperKey>("/accounts/self/developer_keys", {
+        per_page: "100",
+      });
+    },
+
+    async findStudentAlertsDeveloperKey() {
+      const keys = await this.listStudentAlertsDeveloperKeys();
+      return keys.find(isStudentAlertsDeveloperKey) || null;
+    },
+
+    async createStudentAlertsDeveloperKey() {
+      const settings = readStudentAlertsToolSettings();
+      const launchUrl =
+        typeof settings.target_link_uri === "string"
+          ? settings.target_link_uri
+          : `${baseUrl.replace(/\/+$/, "")}/api/lti/launch`;
+      const errors: string[] = [];
+
+      try {
+        const created = await canvasLtiJson<unknown>("/api/lti/accounts/self/developer_keys/tool_configuration", {
+          method: "POST",
+          body: JSON.stringify({
+            tool_configuration: {
+              settings,
+              privacy_level: "public",
+            },
+            developer_key: {
+              name: "Student Alerts",
+              redirect_uris: Array.isArray(settings.redirect_uris)
+                ? settings.redirect_uris
+                : [launchUrl],
+              scopes: [],
+            },
+          }),
+        });
+        const clientId = extractDeveloperKeyId(created);
+        if (clientId) return { clientId, created };
+        errors.push("Canvas created an LTI key but did not return its client id.");
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : "Could not create the LTI developer key.");
+      }
+
+      try {
+        const created = await canvasJson<unknown>("/accounts/self/lti_registrations", {
+          method: "POST",
+          body: JSON.stringify({
+            name: "Student Alerts",
+            workflow_state: "on",
+            configuration: {
+              title: "Student Alerts",
+              description: settings.description || "Bold course alerts from your teacher",
+              domain: "safety-training-platform-eight.vercel.app",
+              tool_id: "student-alerts",
+              privacy_level: "public",
+              target_link_uri: launchUrl,
+              oidc_initiation_url: settings.oidc_initiation_url,
+              redirect_uris: settings.redirect_uris || [launchUrl],
+              public_jwk: settings.public_jwk,
+              scopes: [],
+              custom_fields: settings.custom_fields || {
+                user_id: "$Canvas.user.id",
+                course_id: "$Canvas.course.id",
+              },
+              placements: [
+                {
+                  placement: "course_home_sub_navigation",
+                  enabled: true,
+                  visibility: "members",
+                  required_permissions: "manage_course_content_edit",
+                  text: "Set Student Alerts",
+                  message_type: "LtiResourceLinkRequest",
+                  target_link_uri: `${String(launchUrl)}?placement=alert_settings`,
+                },
+              ],
+            },
+          }),
+        });
+        const clientId = extractDeveloperKeyId(created);
+        if (clientId) return { clientId, created };
+        errors.push("Canvas created an LTI registration but did not return its client id.");
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : "Could not create the LTI registration.");
+      }
+
+      const found = await this.findStudentAlertsDeveloperKey().catch(() => null);
+      if (found?.id) return { clientId: String(found.id), created: found };
+
+      throw new Error(errors.filter(Boolean).join(" ") || "Could not recreate the Student Alerts LTI key.");
     },
 
     async ensureDeveloperKeyEnabled(clientId: string) {
@@ -864,7 +1029,6 @@ export function createCanvasAdminClient() {
           disabled_placements: [
             "resource_selection",
             "assignment_selection",
-            "course_home_sub_navigation",
             "editor_button",
             "homework_submission",
             "migration_selection",
