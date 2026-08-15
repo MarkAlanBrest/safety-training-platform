@@ -18,7 +18,10 @@ export function CourseHomeBannerStatic({
   return (
     <div className="course-home-embed-shell">
       <div className="course-home-banner-top-pixel" aria-hidden="true" />
-      <section className="course-home-banner" aria-labelledby="course-home-alerts-title">
+      <section
+        className="course-home-banner course-home-banner-welcome"
+        aria-labelledby="course-home-alerts-title"
+      >
         <h2 id="course-home-alerts-title" className="course-home-banner-title">
           {title}
         </h2>
