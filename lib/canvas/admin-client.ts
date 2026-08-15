@@ -576,11 +576,18 @@ export function createCanvasAdminClient() {
       const seen = new Set<number>();
       const accountErrors: string[] = [];
 
-      const addCourses = (batch: CanvasCourse[]) => {
+      const addCourses = (batch: CanvasCourse[], options?: { allowMasters?: boolean }) => {
         for (const course of batch) {
           if (!course.id || seen.has(course.id)) continue;
           const state = course.workflow_state || "";
           if (state === "deleted" || state === "completed") continue;
+          const name = course.name || "";
+          if (
+            !options?.allowMasters &&
+            /master|demo|sample|growing with canvas/i.test(name)
+          ) {
+            continue;
+          }
           seen.add(course.id);
           courses.push({ id: course.id, name: course.name, account_id: course.account_id });
         }
@@ -596,15 +603,37 @@ export function createCanvasAdminClient() {
         );
       }
 
+      let enrollmentTermId = "";
       try {
-        addCourses(
-          await canvasGetAll<CanvasCourse>(`/accounts/${rootId}/courses`, {
-            per_page: "100",
-            published: "true",
-            completed: "false",
-            with_enrollments: "true",
-          }),
-        );
+        const terms = await canvasGetAll<{
+          id: number;
+          workflow_state?: string;
+          start_at?: string | null;
+          end_at?: string | null;
+        }>(`/accounts/${rootId}/terms`, { per_page: "100" });
+        const now = Date.now();
+        const current = terms.find((term) => {
+          if (term.workflow_state && term.workflow_state !== "active") return false;
+          const start = term.start_at ? Date.parse(term.start_at) : 0;
+          const end = term.end_at ? Date.parse(term.end_at) : Number.POSITIVE_INFINITY;
+          return start <= now && now <= end;
+        });
+        if (current?.id) enrollmentTermId = String(current.id);
+      } catch {
+        // Continue without a term filter.
+      }
+
+      const courseQuery: Record<string, string> = {
+        per_page: "100",
+        published: "true",
+        completed: "false",
+        with_enrollments: "true",
+        blueprint: "false",
+      };
+      if (enrollmentTermId) courseQuery.enrollment_term_id = enrollmentTermId;
+
+      try {
+        addCourses(await canvasGetAll<CanvasCourse>(`/accounts/${rootId}/courses`, courseQuery));
       } catch (error) {
         accountErrors.push(
           `Cannot list courses on account ${rootId}: ${
@@ -615,14 +644,7 @@ export function createCanvasAdminClient() {
 
       if (courses.length === 0 && rootId !== "self") {
         try {
-          addCourses(
-            await canvasGetAll<CanvasCourse>("/accounts/self/courses", {
-              per_page: "100",
-              published: "true",
-              completed: "false",
-              with_enrollments: "true",
-            }),
-          );
+          addCourses(await canvasGetAll<CanvasCourse>("/accounts/self/courses", courseQuery));
         } catch (error) {
           accountErrors.push(
             `Cannot list courses on account self: ${
@@ -633,7 +655,9 @@ export function createCanvasAdminClient() {
       }
 
       try {
-        addCourses(await canvasGetAll<CanvasCourse>("/courses", { per_page: "100" }));
+        addCourses(await canvasGetAll<CanvasCourse>("/courses", { per_page: "100" }), {
+          allowMasters: true,
+        });
       } catch {
         // Token user's own enrollments are a bonus, not required.
       }
