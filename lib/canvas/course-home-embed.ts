@@ -19,9 +19,10 @@ export function buildFrontPageEmbedHtml(canvasCourseId: string) {
     `<div ${EMBED_MARKER} data-student-alerts-version="${HOME_EMBED_VERSION}" ` +
     `style="background:#fff;margin:0;padding:0;line-height:0;font-size:0;border:0;">` +
     `<iframe src="${escapeHtmlAttribute(embedUrl)}" ` +
-    `style="width:100%;height:${height}px;min-height:${height}px;max-height:240px;` +
+    `width="100%" height="${height}" ` +
+    `style="width:100%;height:${height}px;min-height:${height}px;max-height:${height}px;` +
     `border:0;outline:0;box-shadow:none;display:block;overflow:hidden;background:#fff;" ` +
-    `title="Student Alerts" loading="eager" scrolling="no" referrerpolicy="no-referrer"></iframe>` +
+    `title="Alerts" loading="eager" scrolling="no" referrerpolicy="no-referrer"></iframe>` +
     `</div>`
   );
 }
@@ -37,18 +38,12 @@ export async function setupCourseHomeStudentAlerts(canvasCourseId: string) {
   }
 
   const clientId = getConfiguredLtiClientId();
-  const tool = await client.ensureCourseExternalTool(canvasCourseId, {
-    searchName: "Student Alerts",
-    clientId,
-    launchHost: new URL(getAppOrigin()).hostname,
-  });
-
-  if (!tool && !clientId) {
-    return {
-      ok: false as const,
-      reason:
-        "CANVAS_LTI_CLIENT_ID is not set in Vercel. Add it from your Canvas developer key, redeploy, then save again.",
-    };
+  if (clientId) {
+    await client.ensureCourseExternalTool(canvasCourseId, {
+      searchName: "Student Alerts",
+      clientId,
+      launchHost: new URL(getAppOrigin()).hostname,
+    });
   }
 
   const { frontPageUrl } = await client.prependEmbedToFrontPage(
@@ -63,8 +58,7 @@ export async function setupCourseHomeStudentAlerts(canvasCourseId: string) {
   return {
     ok: true as const,
     mode: "front_page_embed" as const,
-    note:
-      "Settings saved. Students will see a welcome or alert message at the top of Home automatically.",
+    note: "Settings saved. Students will see Alerts at the top of Home automatically.",
   };
 }
 
@@ -75,9 +69,14 @@ export async function refreshHomeEmbedIfStale(canvasCourseId: string) {
     if (!access.ok) return { refreshed: false as const };
 
     const status = await client.getFrontPageEmbedStatus(canvasCourseId);
+    const hasCanvasNestedFrame = Boolean(
+      status.frontPageBody?.includes("/external_tools/") ||
+        status.frontPageBody?.includes("instructure.com/courses/"),
+    );
     if (
       status.hasStudentAlertsEmbed &&
-      status.embedVersion === HOME_EMBED_VERSION
+      status.embedVersion === HOME_EMBED_VERSION &&
+      !hasCanvasNestedFrame
     ) {
       return { refreshed: false as const };
     }

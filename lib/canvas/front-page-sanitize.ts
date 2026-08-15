@@ -1,9 +1,15 @@
 export function sanitizeFrontPageBody(body: string) {
   let cleaned = body;
 
-  cleaned = cleaned.replace(/<div[^>]*data-student-alerts-embed="true"[^>]*>[\s\S]*?<\/div>\s*/gi, "");
-  cleaned = cleaned.replace(/<iframe\b[^>]*\/?>(?:\s*<\/iframe>)?\s*/gi, "");
-  cleaned = cleaned.replace(/<p>\s*<\/p>\s*/gi, "");
+  for (let i = 0; i < 6; i += 1) {
+    const next = cleaned
+      .replace(/<div[^>]*data-student-alerts-embed[^>]*>[\s\S]*?<\/div>/gi, "")
+      .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+      .replace(/<iframe[^>]*\/?>/gi, "")
+      .replace(/<p>\s*<\/p>/gi, "");
+    if (next === cleaned) break;
+    cleaned = next;
+  }
 
   return cleaned.trim();
 }

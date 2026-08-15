@@ -299,12 +299,14 @@ export function createCanvasAdminClient() {
         const versionMatch = body.match(/data-student-alerts-version="(\d+)"/);
         return {
           frontPageUrl: page.url || null,
+          frontPageBody: body,
           hasStudentAlertsEmbed: body.includes('data-student-alerts-embed="true"'),
           embedVersion: versionMatch?.[1] || null,
         };
       } catch {
         return {
           frontPageUrl: null,
+          frontPageBody: "",
           hasStudentAlertsEmbed: false,
           embedVersion: null,
         };

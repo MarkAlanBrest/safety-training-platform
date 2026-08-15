@@ -24,24 +24,6 @@ html.course-alerts-embed-root .course-alerts-page {
   box-shadow: none;
 }
 
-.course-home-embed-shell {
-  margin: 0;
-  padding: 0;
-  background: #fff;
-  line-height: 0;
-  font-size: 0;
-}
-
-.course-home-banner-top-pixel {
-  height: 1px;
-  min-height: 1px;
-  margin: 0;
-  padding: 0;
-  background: #fff;
-  border: 0;
-  display: block;
-}
-
 .course-home-banner-empty {
   height: 0;
   min-height: 0;
@@ -54,20 +36,19 @@ html.course-alerts-embed-root .course-alerts-page {
 
 .course-home-banner {
   margin: 0;
-  padding: 14px 18px;
+  padding: 12px 16px;
   border-radius: 0;
   box-shadow: none;
   border: 0;
   outline: 0;
   font-family: system-ui, sans-serif;
-  line-height: 1.45;
+  line-height: 1.4;
   font-size: 1rem;
 }
 
 .course-home-banner-welcome {
   background: #fff;
   color: #111;
-  border-bottom: 1px solid #e8e8e8;
 }
 
 .course-home-banner-welcome .course-home-banner-title,
@@ -76,7 +57,7 @@ html.course-alerts-embed-root .course-alerts-page {
 }
 
 .course-home-banner-alert {
-  background: linear-gradient(90deg, #ed1c24, #ff5a1f);
+  background: #ed1c24;
   color: #fff;
 }
 
@@ -86,11 +67,11 @@ html.course-alerts-embed-root .course-alerts-page {
 }
 
 .course-home-banner-title {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   padding: 0;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 900;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   line-height: 1.2;
 }

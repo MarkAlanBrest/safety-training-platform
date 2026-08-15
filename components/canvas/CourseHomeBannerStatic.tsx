@@ -16,17 +16,14 @@ export function CourseHomeBannerStatic({
   const bannerMessage = message || buildWelcomeMessage(displayName);
 
   return (
-    <div className="course-home-embed-shell">
-      <div className="course-home-banner-top-pixel" aria-hidden="true" />
-      <section
-        className="course-home-banner course-home-banner-welcome"
-        aria-labelledby="course-home-alerts-title"
-      >
-        <h2 id="course-home-alerts-title" className="course-home-banner-title">
-          {title}
-        </h2>
-        <p className="course-home-banner-message">{bannerMessage}</p>
-      </section>
-    </div>
+    <section
+      className="course-home-banner course-home-banner-welcome"
+      aria-labelledby="course-home-alerts-title"
+    >
+      <h2 id="course-home-alerts-title" className="course-home-banner-title">
+        {title}
+      </h2>
+      <p className="course-home-banner-message">{bannerMessage}</p>
+    </section>
   );
 }
