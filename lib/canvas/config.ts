@@ -51,7 +51,7 @@ export function getAppOrigin() {
 }
 
 export function getConfiguredLtiClientId() {
-  return process.env.CANVAS_LTI_CLIENT_ID?.trim() || "149450000000000305";
+  return process.env.CANVAS_LTI_CLIENT_ID?.trim() || "149450000000000320";
 }
 
 export function getLtiConfig() {
