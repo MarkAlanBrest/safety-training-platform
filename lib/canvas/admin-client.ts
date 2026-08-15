@@ -46,12 +46,12 @@ function isAlreadyInstalledError(error: unknown) {
   );
 }
 
-function parseLinkHeaderNext(link: string) {
-  const nextPart = link
+function parseLinkHeaderRel(link: string, rel: string) {
+  const part = link
     .split(",")
-    .map((part) => part.trim())
-    .find((part) => part.includes('rel="next"'));
-  return nextPart?.match(/<([^>]+)>/)?.[1] || null;
+    .map((item) => item.trim())
+    .find((item) => item.includes(`rel="${rel}"`));
+  return part?.match(/<([^>]+)>/)?.[1] || null;
 }
 
 function canvasAdminHeaders(token: string) {
@@ -105,34 +105,68 @@ export function createCanvasAdminClient() {
     return (await response.json()) as T;
   }
 
+  async function fetchCanvasCollectionPage<T>(url: string, path: string) {
+    const response = await fetch(url, {
+      headers: canvasAdminHeaders(apiToken),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      let detail = "";
+      try {
+        const body = (await response.json()) as { errors?: Array<{ message?: string }>; message?: string };
+        detail = body?.errors?.[0]?.message || body?.message || JSON.stringify(body);
+      } catch {
+        detail = await response.text();
+      }
+      throw new Error(
+        `Canvas API error (${response.status}) on GET ${path}: ${detail || response.statusText}`,
+      );
+    }
+    const batch = (await response.json()) as T[];
+    return {
+      items: Array.isArray(batch) ? batch : [],
+      link: response.headers.get("link") || "",
+    };
+  }
+
   async function canvasGetAll<T>(path: string, query?: Record<string, string>): Promise<T[]> {
     const search = new URLSearchParams(query);
     if (!search.has("per_page")) search.set("per_page", "100");
-    let url: string | null = `${baseUrl}/api/v1${path}?${search.toString()}`;
-    const items: T[] = [];
+    const firstUrl = `${baseUrl}/api/v1${path}?${search.toString()}`;
+    const first = await fetchCanvasCollectionPage<T>(firstUrl, path);
+    const items = [...first.items];
+    const nextUrl = parseLinkHeaderRel(first.link, "next");
+    if (!nextUrl) return items;
 
-    while (url) {
-      const response = await fetch(url, {
-        headers: canvasAdminHeaders(apiToken),
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        let detail = "";
-        try {
-          const body = (await response.json()) as { errors?: Array<{ message?: string }>; message?: string };
-          detail = body?.errors?.[0]?.message || body?.message || JSON.stringify(body);
-        } catch {
-          detail = await response.text();
-        }
-        throw new Error(
-          `Canvas API error (${response.status}) on GET ${path}: ${detail || response.statusText}`,
-        );
+    const lastUrl = parseLinkHeaderRel(first.link, "last");
+    const lastPage = lastUrl ? Number(new URL(lastUrl).searchParams.get("page")) : NaN;
+    if (Number.isFinite(lastPage) && lastPage > 1) {
+      const remaining: string[] = [];
+      const template = new URL(lastUrl || nextUrl);
+      for (let page = 2; page <= lastPage; page += 1) {
+        template.searchParams.set("page", String(page));
+        remaining.push(template.toString());
       }
-      const batch = (await response.json()) as T[];
-      if (Array.isArray(batch)) items.push(...batch);
-      url = parseLinkHeaderNext(response.headers.get("link") || "");
+      let index = 0;
+      async function worker() {
+        while (index < remaining.length) {
+          const current = remaining[index];
+          index += 1;
+          if (!current) return;
+          const page = await fetchCanvasCollectionPage<T>(current, path);
+          items.push(...page.items);
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(8, remaining.length) }, () => worker()));
+      return items;
     }
 
+    let url: string | null = nextUrl;
+    while (url) {
+      const page = await fetchCanvasCollectionPage<T>(url, path);
+      items.push(...page.items);
+      url = parseLinkHeaderRel(page.link, "next");
+    }
     return items;
   }
 
@@ -694,12 +728,14 @@ export function createCanvasAdminClient() {
         }
       }
 
-      try {
-        addCourses(await canvasGetAll<CanvasCourse>("/courses", { per_page: "100" }), {
-          allowMasters: true,
-        });
-      } catch {
-        // Token user's own enrollments are a bonus, not required.
+      if (courses.length < 20) {
+        try {
+          addCourses(await canvasGetAll<CanvasCourse>("/courses", { per_page: "100" }), {
+            allowMasters: true,
+          });
+        } catch {
+          // Token user's own enrollments are a bonus, not required.
+        }
       }
 
       let usedFallback = false;

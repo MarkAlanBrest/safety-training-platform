@@ -5,6 +5,7 @@ import {
   HOME_EMBED_BANNER_HEIGHT_PX,
   HOME_EMBED_VERSION,
 } from "@/lib/canvas/home-embed-constants";
+import { prisma } from "@/lib/prisma";
 
 const EMBED_MARKER = 'data-student-alerts-embed="true"';
 
@@ -237,10 +238,59 @@ export async function diagnoseStudentAlertsTool(canvasCourseId: string) {
   };
 }
 
+const ENABLE_JOB_ID = "__student_alerts_enable_all__";
+const ENABLE_DEADLINE_MS = 50_000;
+
+type EnableJob = {
+  courses: Array<{ id: number; name?: string }>;
+  cursor: number;
+  listedAt: number;
+  usedFallback: boolean;
+  accountErrors: string[];
+};
+
+async function loadEnableJob(): Promise<EnableJob | null> {
+  try {
+    const record = await prisma.courseAlertConfig.findUnique({
+      where: { canvasCourseId: ENABLE_JOB_ID },
+    });
+    if (!record?.bannerMessage) return null;
+    const parsed = JSON.parse(record.bannerMessage) as EnableJob;
+    if (!Array.isArray(parsed.courses) || parsed.courses.length === 0) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function saveEnableJob(job: EnableJob) {
+  try {
+    await prisma.courseAlertConfig.upsert({
+      where: { canvasCourseId: ENABLE_JOB_ID },
+      create: {
+        canvasCourseId: ENABLE_JOB_ID,
+        courseName: "School-wide enable progress",
+        bannerMessage: JSON.stringify(job),
+      },
+      update: {
+        courseName: "School-wide enable progress",
+        bannerMessage: JSON.stringify(job),
+      },
+    });
+  } catch (error) {
+    console.error("Could not persist Student Alerts enable progress:", error);
+  }
+}
+
 export async function enableStudentAlertsInAllCourses(options?: {
   offset?: number;
   generation?: number;
 }) {
+  const startedAt = Date.now();
+  const deadline = startedAt + ENABLE_DEADLINE_MS;
+  const generation = Math.max(0, Math.floor(options?.generation || 0));
+  const requestedOffset = options?.offset;
+
   const client = createCanvasAdminClient();
   const clientId = await client.resolveStudentAlertsClientId(getConfiguredLtiClientId());
   await client.ensureDeveloperKeyEnabled(clientId).catch(() => null);
@@ -252,13 +302,61 @@ export async function enableStudentAlertsInAllCourses(options?: {
     })
     .catch(() => null);
 
-  const listed = await client.listPublishedCourses();
-  const courses = listed.courses;
-  const courseListErrors = [...listed.accountErrors];
-  const usedFallback = listed.usedFallback;
+  let job = await loadEnableJob();
+  const jobFresh = Boolean(job && Date.now() - (job?.listedAt || 0) < 6 * 60 * 60 * 1000);
+  const jobInProgress = Boolean(jobFresh && job && job.cursor < job.courses.length);
+  const jobJustFinished = Boolean(
+    jobFresh && job && job.cursor >= job.courses.length && Date.now() - job.listedAt < 30 * 60 * 1000,
+  );
 
-  const offset = Math.max(0, Math.floor(options?.offset || 0));
+  if (jobJustFinished && generation === 0 && (requestedOffset == null || requestedOffset === 0)) {
+    return {
+      ok: true as const,
+      enabled: 0,
+      installed: 0,
+      accounts: 1,
+      total: job!.courses.length,
+      processedThrough: job!.courses.length,
+      nextOffset: null,
+      remaining: 0,
+      failed: [] as Array<{ id: number; name?: string; reason: string }>,
+      usedFallback: job!.usedFallback,
+      accountErrors: job!.accountErrors,
+      note: `Student Alerts is on in ${job!.courses.length} live class${
+        job!.courses.length === 1 ? "" : "es"
+      }. Each class keeps its own settings.`,
+    };
+  }
+
+  if (!job || !jobFresh || (!jobInProgress && generation === 0 && (requestedOffset == null || requestedOffset === 0))) {
+    const listed = await client.listPublishedCourses();
+    job = {
+      courses: listed.courses.map((course) => ({ id: course.id, name: course.name })),
+      cursor: 0,
+      listedAt: Date.now(),
+      usedFallback: listed.usedFallback,
+      accountErrors: listed.accountErrors,
+    };
+    await saveEnableJob(job);
+  }
+
+  const courses = job.courses;
+  const courseListErrors = [...job.accountErrors];
+  const usedFallback = job.usedFallback;
+  const offset = Math.max(
+    0,
+    Math.floor(
+      requestedOffset != null && requestedOffset > 0
+        ? requestedOffset
+        : jobInProgress
+          ? job.cursor
+          : 0,
+    ),
+  );
+
   if (offset >= courses.length) {
+    job.cursor = courses.length;
+    await saveEnableJob(job);
     return {
       ok: true as const,
       enabled: 0,
@@ -277,38 +375,44 @@ export async function enableStudentAlertsInAllCourses(options?: {
           : "No live Canvas courses were found.",
     };
   }
+
   const failed: Array<{ id: number; name?: string; reason: string }> = [];
   let enabled = 0;
   let cursor = offset;
-  const deadline = Date.now() + 45_000;
 
-  await mapPool(Array.from({ length: 6 }), 6, async () => {
-    while (Date.now() < deadline) {
-      const current = cursor;
-      if (current >= courses.length) return;
-      cursor += 1;
-      const course = courses[current];
-      if (!course) return;
-      try {
-        const result = await setupCourseHomeStudentAlerts(String(course.id), { skipToolInstall: true });
-        if (result.ok) {
-          enabled += 1;
-        } else {
-          failed.push({ id: course.id, name: course.name, reason: result.reason });
+  if (Date.now() < deadline) {
+    await mapPool(Array.from({ length: 6 }), 6, async () => {
+      while (Date.now() < deadline) {
+        const current = cursor;
+        if (current >= courses.length) return;
+        cursor += 1;
+        const course = courses[current];
+        if (!course) return;
+        try {
+          const result = await setupCourseHomeStudentAlerts(String(course.id), { skipToolInstall: true });
+          if (result.ok) {
+            enabled += 1;
+          } else {
+            failed.push({ id: course.id, name: course.name, reason: result.reason });
+          }
+        } catch (error) {
+          failed.push({
+            id: course.id,
+            name: course.name,
+            reason: error instanceof Error ? error.message : "Could not enable this course.",
+          });
         }
-      } catch (error) {
-        failed.push({
-          id: course.id,
-          name: course.name,
-          reason: error instanceof Error ? error.message : "Could not enable this course.",
-        });
       }
-    }
-  });
+    });
+  }
+
+  job.cursor = cursor;
+  await saveEnableJob(job);
 
   const nextOffset = cursor < courses.length ? cursor : null;
-  const generation = Math.max(0, Math.floor(options?.generation || 0));
   if (nextOffset != null && nextOffset > offset && generation < 200) {
+    continueSchoolWideEnable(nextOffset, generation + 1);
+  } else if (nextOffset != null && nextOffset === offset && generation < 200 && Date.now() >= deadline) {
     continueSchoolWideEnable(nextOffset, generation + 1);
   }
 
