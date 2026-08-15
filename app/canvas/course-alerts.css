@@ -6,7 +6,7 @@
 
 .course-alerts-page-embed {
   min-height: 0;
-  background: transparent;
+  background: #fff;
   padding: 0;
 }
 
@@ -14,16 +14,18 @@ html.course-alerts-embed-root,
 body.course-alerts-embed-root,
 html.course-alerts-embed-root .course-alerts-page {
   min-height: 0;
-  background: transparent;
+  background: #fff;
   padding: 0;
   margin: 0;
 }
 
 .course-home-banner-empty {
-  height: 0;
+  height: 1px;
+  min-height: 1px;
   overflow: hidden;
   margin: 0;
   padding: 0;
+  background: #fff;
 }
 
 .course-home-banner {

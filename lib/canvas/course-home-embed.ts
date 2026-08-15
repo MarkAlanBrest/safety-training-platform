@@ -23,9 +23,9 @@ function buildFrontPageEmbedHtml(canvasCourseId: string, canvasBaseUrl: string) 
   const retrieveUrl = `${normalizeCanvasBaseUrl(canvasBaseUrl)}${retrievePath}`;
 
   return (
-    `<div ${EMBED_MARKER}>` +
+    `<div ${EMBED_MARKER} style="background:#fff;margin:0;padding:0;">` +
     `<iframe src="${escapeHtmlAttribute(retrieveUrl)}" ` +
-    `style="width:100%;height:1px;min-height:1px;max-height:220px;border:0;display:block;overflow:hidden;" ` +
+    `style="width:100%;height:1px;min-height:1px;max-height:220px;border:0;display:block;overflow:hidden;background:#fff;" ` +
     `title="Student Alerts" loading="lazy" allow="clipboard-write"></iframe>` +
     `</div>`
   );

@@ -14,7 +14,9 @@ type AutoAlert = {
   severity: "critical" | "warning" | "info";
 };
 
-type Props = {
+// Temporary — remove after verifying the home embed is visible in Canvas.
+const HOME_EMBED_TEST_MESSAGE = "Test: Student alerts are connected on your course home page.";
+
   courseId: string;
   initialBannerMessage?: string | null;
   handoffToken?: string | null;
@@ -77,11 +79,15 @@ export function CourseHomeBanner({
   for (const alert of autoAlerts.slice(0, 3)) {
     lines.push(`${alert.title}: ${alert.message}`);
   }
+  if (!lines.length) {
+    lines.push(HOME_EMBED_TEST_MESSAGE);
+  }
 
   useEffect(() => {
     try {
       if (window.frameElement instanceof HTMLIFrameElement) {
         window.frameElement.style.height = ready && lines.length ? "160px" : "1px";
+        window.frameElement.style.background = "#fff";
       }
     } catch {
       // Cross-origin parent — ignore.
@@ -89,10 +95,6 @@ export function CourseHomeBanner({
   }, [ready, lines.length]);
 
   if (!ready) {
-    return <div className="course-home-banner-empty" aria-hidden="true" />;
-  }
-
-  if (!lines.length) {
     return <div className="course-home-banner-empty" aria-hidden="true" />;
   }
 
