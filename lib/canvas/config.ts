@@ -1,15 +1,28 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export function getCanvasServerConfig() {
+export function getCanvasServerConfigStatus() {
   const baseUrl = process.env.CANVAS_BASE_URL?.trim() || "";
   const apiToken = process.env.CANVAS_API_TOKEN?.trim() || "";
+  const missing: string[] = [];
+  if (!baseUrl) missing.push("CANVAS_BASE_URL");
+  if (!apiToken) missing.push("CANVAS_API_TOKEN");
+  return { ready: missing.length === 0, missing, baseUrl: baseUrl || null };
+}
 
-  if (!baseUrl || !apiToken) {
-    throw new Error("CANVAS_BASE_URL and CANVAS_API_TOKEN must be configured on the server.");
+export function getCanvasServerConfig() {
+  const status = getCanvasServerConfigStatus();
+  if (!status.ready) {
+    const vars = status.missing.join(" and ");
+    throw new Error(
+      `${vars} must be set in Vercel → Project → Settings → Environment Variables (Production), then redeploy.`,
+    );
   }
 
-  return { baseUrl, apiToken };
+  return {
+    baseUrl: status.baseUrl!,
+    apiToken: process.env.CANVAS_API_TOKEN!.trim(),
+  };
 }
 
 function readAppOriginFromConfigFile() {

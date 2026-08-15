@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { getAdminSession, requireAdmin } from "@/lib/admin-session";
+import { getCanvasServerConfigStatus } from "@/lib/canvas/config";
 import { getCanvasStudentSession } from "@/lib/canvas/session";
 import { embedStudentAlertsOnCourseHome } from "@/lib/canvas/course-home-embed-result";
 import { getCourseAlertConfig, saveCourseAlertConfig } from "@/lib/course-alerts/store";
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
   }
 
   const config = await getCourseAlertConfig(courseId);
-  return NextResponse.json({ config });
+  return NextResponse.json({ config, canvasApi: getCanvasServerConfigStatus() });
 }
 
 export async function PUT(request: Request) {
@@ -53,7 +54,7 @@ export async function PUT(request: Request) {
 
   const homeEmbed = await embedStudentAlertsOnCourseHome(courseId);
 
-  return NextResponse.json({ config, homeEmbed });
+  return NextResponse.json({ config, homeEmbed, canvasApi: getCanvasServerConfigStatus() });
 }
 
 export async function POST(request: Request) {
@@ -92,5 +93,5 @@ export async function POST(request: Request) {
 
   const homeEmbed = await embedStudentAlertsOnCourseHome(courseId);
 
-  return NextResponse.json({ config, homeEmbed });
+  return NextResponse.json({ config, homeEmbed, canvasApi: getCanvasServerConfigStatus() });
 }
