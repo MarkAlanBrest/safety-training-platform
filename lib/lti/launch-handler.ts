@@ -12,6 +12,7 @@ import { isInstructorLtiLaunch } from "@/lib/lti/roles";
 import { verifyLtiIdToken } from "@/lib/lti/verify";
 import { parseLtiState } from "@/lib/lti/state";
 import { buildLaunchRedirectHtml, createLaunchHandoff } from "@/lib/lti/launch-handoff";
+import { ensureStudentAlertsLtiApp } from "@/lib/canvas/course-home-embed";
 
 function attachSessionCookie(
   response: NextResponse,
@@ -139,6 +140,9 @@ export async function handleLtiLaunchPost(
   }
 
   if (isInstructor && identity.courseId && !isHomeEmbedLaunch) {
+    await ensureStudentAlertsLtiApp().catch((error) => {
+      console.error("Could not synchronize the Student Alerts Canvas placements:", error);
+    });
     return finishLaunch(
       appOrigin,
       identity,
