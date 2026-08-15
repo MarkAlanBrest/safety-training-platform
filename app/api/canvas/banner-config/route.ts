@@ -1,8 +1,9 @@
 export const runtime = "nodejs";
 
 function parseShowOn() {
-  const raw = (process.env.CANVAS_BANNER_SHOW_ON || "dashboard").trim().toLowerCase();
+  const raw = (process.env.CANVAS_BANNER_SHOW_ON || "all").trim().toLowerCase();
   if (raw === "all" || raw === "everywhere") return "all";
+  if (raw === "course_home" || raw === "course") return "course_home";
   return "dashboard";
 }
 
@@ -15,6 +16,7 @@ export async function GET() {
       enabled,
       showOn: parseShowOn(),
       lowGradeThreshold: Number.isFinite(lowGradeThreshold) ? lowGradeThreshold : 70,
+      missingWorkDays: Number(process.env.CANVAS_MISSING_WORK_DAYS || 14),
       showMissing: (process.env.CANVAS_BANNER_SHOW_MISSING || "true").trim().toLowerCase() !== "false",
       showLowGrades: (process.env.CANVAS_BANNER_SHOW_LOW_GRADES || "true").trim().toLowerCase() !== "false",
     },
