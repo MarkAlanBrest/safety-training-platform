@@ -248,7 +248,27 @@ export async function enableStudentAlertsInAllCourses() {
     })
     .catch(() => null);
 
-  const { courses, accountErrors: courseListErrors, usedFallback } = await client.listPublishedCourses();
+  const listed = await client.listPublishedCourses();
+  let courses = listed.courses;
+  const courseListErrors = [...listed.accountErrors];
+  let usedFallback = listed.usedFallback;
+
+  if (courses.length > 80) {
+    const mine = await client.listTokenUserCourses();
+    if (mine.length > 0 && mine.length <= 80) {
+      courseListErrors.push(
+        `School has ${courses.length} live courses. Enabling ${mine.length} courses this Canvas token user can access now.`,
+      );
+      courses = mine;
+      usedFallback = true;
+    } else {
+      courses = courses.slice(0, 80);
+      courseListErrors.push(
+        `School has ${listed.courses.length} live courses. Enabling the first 80 in this run.`,
+      );
+    }
+  }
+
   const failed: Array<{ id: number; name?: string; reason: string }> = [];
   let enabled = 0;
 
