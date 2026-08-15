@@ -107,6 +107,10 @@ type CanvasExternalTool = {
   name?: string;
   url?: string;
   client_id?: string;
+  developer_key_id?: number;
+  lti_registration_id?: number;
+  deployment_id?: string;
+  course_home_sub_navigation?: Record<string, unknown> | null;
 };
 
 type CanvasModule = {
@@ -1121,10 +1125,15 @@ export function createCanvasAdminClient() {
 
     async probeStudentAlertsLtiInstallation() {
       const registrations = await this.listLtiRegistrations().catch(() => []);
-      const registration =
+      const listedRegistration =
         registrations.find((row) => String(row.name || "").toLowerCase().includes("student alert")) ||
         null;
-      const registrationId = registration?.id != null ? String(registration.id) : "";
+      const registrationId = listedRegistration?.id != null ? String(listedRegistration.id) : "";
+      const registration = registrationId
+        ? await canvasJson<Record<string, unknown>>(
+            `/accounts/self/lti_registrations/${registrationId}`,
+          ).catch(() => listedRegistration)
+        : listedRegistration;
       const developerKeyId =
         registration?.developer_key_id != null
           ? String(registration.developer_key_id)
@@ -1216,7 +1225,11 @@ export function createCanvasAdminClient() {
             id: tool.id,
             name: tool.name ?? null,
             clientId: tool.client_id ?? null,
+            developerKeyId: tool.developer_key_id ?? null,
+            registrationId: tool.lti_registration_id ?? null,
+            deploymentId: tool.deployment_id ?? null,
             url: tool.url ?? null,
+            courseHomeSubNavigation: tool.course_home_sub_navigation ?? null,
           })),
       };
     },
