@@ -9,11 +9,6 @@ import {
   CANVAS_SESSION_COOKIE,
 } from "@/lib/canvas/session";
 import { readDeepLinkingSettings } from "@/lib/lti/deep-linking";
-import {
-  decodeDeepLinkSession,
-  encodeDeepLinkSession,
-  LTI_DEEP_LINK_COOKIE,
-} from "@/lib/lti/deep-link-session";
 import { isInstructorLtiLaunch } from "@/lib/lti/roles";
 import { verifyLtiIdToken } from "@/lib/lti/verify";
 import { parseLtiState } from "@/lib/lti/state";
@@ -142,30 +137,8 @@ export async function handleLtiLaunchPost(
   }
 
   if (deepLinking) {
-    const setupPath = `/canvas/alerts/setup?mode=import${identity.courseId ? `&course=${encodeURIComponent(identity.courseId)}` : ""}`;
-    const response = finishLaunch(appOrigin, identity, setupPath);
-    response.cookies.set(
-      LTI_DEEP_LINK_COOKIE,
-      encodeDeepLinkSession({
-        returnUrl: deepLinking.deep_link_return_url,
-        clientId,
-        platformIssuer: identity.platformIssuer,
-        deploymentId: identity.deploymentId,
-        nonce: identity.nonce,
-        courseId: identity.courseId,
-        courseName: identity.courseName,
-        data: deepLinking.data,
-      }),
-      {
-        path: "/",
-        httpOnly: true,
-        sameSite: "none",
-        secure: true,
-        maxAge: 600,
-        partitioned: true,
-      },
-    );
-    return attachSessionCookie(response, identity);
+    const setupPath = `/canvas/alerts/setup${identity.courseId ? `?course=${encodeURIComponent(identity.courseId)}` : ""}`;
+    return finishLaunch(appOrigin, identity, setupPath);
   }
 
   if (isInstructor && identity.courseId) {

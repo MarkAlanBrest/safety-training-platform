@@ -15,7 +15,6 @@ type Config = {
 export function CourseAlertsSetupForm() {
   const searchParams = useSearchParams();
   const courseId = (searchParams.get("course") || searchParams.get("courseId") || "").trim();
-  const importMode = searchParams.get("mode") === "import";
 
   const [missingWorkDays, setMissingWorkDays] = useState(14);
   const [lowGradeThreshold, setLowGradeThreshold] = useState(70);
@@ -61,33 +60,18 @@ export function CourseAlertsSetupForm() {
     };
 
     try {
-      const endpoint = importMode ? "/api/lti/deep-link/finish" : "/api/course-alerts/config";
-      const response = await fetch(endpoint, {
+      const response = await fetch("/api/course-alerts/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
-      const contentType = response.headers.get("content-type") || "";
-      if (contentType.includes("text/html")) {
-        const html = await response.text();
-        document.open();
-        document.write(html);
-        document.close();
-        return;
-      }
 
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || "Could not save settings.");
       }
 
-      if (data.warning) {
-        setSuccess(data.warning);
-        setShowManualSteps(Boolean(data.manualImport));
-      } else if (importMode && data.imported !== false) {
-        setSuccess("Student Alerts was added to your course with these settings.");
-      } else if (data.homeEmbed?.ok) {
+      if (data.homeEmbed?.ok) {
         setSuccess(
           "Settings saved. Student Alerts will open automatically on the course home page.",
         );
@@ -116,9 +100,9 @@ export function CourseAlertsSetupForm() {
 
   return (
     <div className="course-alerts-shell course-alerts-setup">
-      <h1>{importMode ? "Set up Student Alerts" : "Course alert settings"}</h1>
+      <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        Choose what students should see when they open this tool on the course home page.
+        Choose what students see automatically on the course home page.
       </p>
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>
@@ -195,7 +179,7 @@ export function CourseAlertsSetupForm() {
         ) : null}
 
         <button type="submit" disabled={loading}>
-          {loading ? "Saving..." : importMode ? "Add to course with these settings" : "Save settings"}
+          {loading ? "Saving..." : "Save settings"}
         </button>
       </form>
     </div>
