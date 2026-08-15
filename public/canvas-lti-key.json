@@ -27,47 +27,10 @@
         "selection_width": 800,
         "placements": [
           {
-            "placement": "link_selection",
-            "enabled": true,
-            "text": "Student Alerts",
-            "message_type": "LtiResourceLinkRequest",
-            "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch",
-            "icon_url": "https://safety-training-platform-eight.vercel.app/student-alerts-icon.svg",
-            "selection_height": 600,
-            "selection_width": 800
-          },
-          {
-            "placement": "resource_selection",
-            "enabled": true,
-            "text": "Student Alerts",
-            "message_type": "LtiResourceLinkRequest",
-            "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch",
-            "icon_url": "https://safety-training-platform-eight.vercel.app/student-alerts-icon.svg",
-            "selection_height": 600,
-            "selection_width": 800
-          },
-          {
-            "placement": "assignment_selection",
-            "enabled": true,
-            "text": "Student Alerts",
-            "message_type": "LtiResourceLinkRequest",
-            "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch",
-            "icon_url": "https://safety-training-platform-eight.vercel.app/student-alerts-icon.svg",
-            "selection_height": 600,
-            "selection_width": 800
-          },
-          {
             "placement": "course_navigation",
             "enabled": true,
             "default": "enabled",
             "visibility": "admins",
-            "text": "Student Alerts",
-            "message_type": "LtiResourceLinkRequest",
-            "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch"
-          },
-          {
-            "placement": "course_home_sub_navigation",
-            "enabled": true,
             "text": "Student Alerts",
             "message_type": "LtiResourceLinkRequest",
             "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch"

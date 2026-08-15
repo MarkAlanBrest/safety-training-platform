@@ -731,6 +731,17 @@ export function createCanvasAdminClient() {
         tool_configuration: {
           settings,
           privacy_level: "public",
+          disabled_placements: [
+            "link_selection",
+            "resource_selection",
+            "assignment_selection",
+            "course_home_sub_navigation",
+            "editor_button",
+            "homework_submission",
+            "migration_selection",
+            "collaboration",
+            "course_assignments_menu",
+          ],
         },
       });
 
@@ -937,6 +948,23 @@ export function createCanvasAdminClient() {
         searchName: "Student Alerts",
         clientId,
       });
+    },
+
+    async removeCourseLevelStudentAlertsTools(
+      courseId: string,
+      options: { searchName: string; clientId?: string; launchHost?: string },
+    ) {
+      const localTools = await listCourseExternalTools(courseId, false);
+      let removed = 0;
+      for (const tool of localTools) {
+        if (!tool.id || !matchesExternalTool(tool, options)) continue;
+        await canvasJson(`/courses/${courseId}/external_tools/${tool.id}`, {
+          method: "DELETE",
+          allowNotFound: true,
+        });
+        removed += 1;
+      }
+      return { removed };
     },
 
     async ensureCourseExternalTool(
