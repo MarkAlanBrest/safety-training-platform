@@ -20,6 +20,7 @@ export async function GET() {
   try {
     const client = createCanvasAdminClient();
     const probe = await client.probeAccess();
+    const lti = await client.probeStudentAlertsLtiInstallation();
     return NextResponse.json({
       ready: true,
       missing: [],
@@ -31,6 +32,7 @@ export async function GET() {
           ).host
         : null,
       ...probe,
+      lti,
     });
   } catch (error) {
     return NextResponse.json({

@@ -1026,6 +1026,108 @@ export function createCanvasAdminClient() {
       };
     },
 
+    async probeStudentAlertsLtiInstallation() {
+      const registrations = await this.listLtiRegistrations().catch(() => []);
+      const registration =
+        registrations.find((row) => String(row.name || "").toLowerCase().includes("student alert")) ||
+        null;
+      const registrationId = registration?.id != null ? String(registration.id) : "";
+      const developerKeyId =
+        registration?.developer_key_id != null
+          ? String(registration.developer_key_id)
+          : registration?.developer_keyId != null
+            ? String(registration.developer_keyId)
+            : null;
+
+      const deploymentPayload = registrationId
+        ? await canvasJson<Array<Record<string, unknown>> | { data?: Array<Record<string, unknown>> }>(
+            `/accounts/self/lti_registrations/${registrationId}/deployments`,
+            { query: { per_page: "100" }, allowNotFound: true },
+          ).catch(() => [])
+        : [];
+      const deployments = Array.isArray(deploymentPayload)
+        ? deploymentPayload
+        : Array.isArray(deploymentPayload?.data)
+          ? deploymentPayload.data
+          : [];
+
+      const controls = await Promise.all(
+        deployments.map(async (deployment) => {
+          const deploymentId = deployment.id != null ? String(deployment.id) : "";
+          const rows =
+            registrationId && deploymentId
+              ? await canvasJson<Array<Record<string, unknown>>>(
+                  `/accounts/self/lti_registrations/${registrationId}/deployments/${deploymentId}/controls`,
+                  { query: { per_page: "100" }, allowNotFound: true },
+                ).catch(() => [])
+              : [];
+          return rows.map((row) => ({
+            id: row.id ?? null,
+            deploymentId: row.deployment_id ?? null,
+            accountId: row.account_id ?? null,
+            courseId: row.course_id ?? null,
+            available: row.available ?? null,
+            workflowState: row.workflow_state ?? null,
+          }));
+        }),
+      );
+
+      const configuration =
+        registration?.configuration && typeof registration.configuration === "object"
+          ? (registration.configuration as Record<string, unknown>)
+          : null;
+      const placements = Array.isArray(configuration?.placements)
+        ? (configuration.placements as Array<Record<string, unknown>>)
+        : [];
+      const accountBinding =
+        registration?.account_binding && typeof registration.account_binding === "object"
+          ? (registration.account_binding as Record<string, unknown>)
+          : null;
+      const tools = await this.listAccountExternalTools("self").catch(() => []);
+
+      return {
+        registration: registration
+          ? {
+              id: registrationId,
+              name: registration.name ?? null,
+              developerKeyId,
+              workflowState: registration.workflow_state ?? null,
+              lockDeploying: registration.lock_deploying ?? null,
+              bindingState: accountBinding?.workflow_state ?? null,
+              placements: placements.map((placement) => ({
+                placement: placement.placement ?? null,
+                enabled: placement.enabled ?? null,
+                visibility: placement.visibility ?? null,
+                text: placement.text ?? null,
+                messageType: placement.message_type ?? null,
+                targetLinkUri: placement.target_link_uri ?? null,
+                requiredPermissions: placement.required_permissions ?? null,
+              })),
+            }
+          : null,
+        deployments: deployments.map((deployment, index) => ({
+          id: deployment.id ?? null,
+          deploymentId: deployment.deployment_id ?? null,
+          contextId: deployment.context_id ?? null,
+          contextType: deployment.context_type ?? null,
+          contextName: deployment.context_name ?? null,
+          workflowState: deployment.workflow_state ?? null,
+          controls: controls[index] || [],
+        })),
+        accountTools: tools
+          .filter((tool) => {
+            const name = (tool.name || "").toLowerCase();
+            return name.includes("student alert") || Boolean(developerKeyId && tool.client_id === developerKeyId);
+          })
+          .map((tool) => ({
+            id: tool.id,
+            name: tool.name ?? null,
+            clientId: tool.client_id ?? null,
+            url: tool.url ?? null,
+          })),
+      };
+    },
+
     async createStudentAlertsDeveloperKey() {
       const settings = readStudentAlertsToolSettings();
       const launchUrl =
