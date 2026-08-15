@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { HOME_EMBED_TITLE } from "@/lib/canvas/home-embed-constants";
 import { publishEmbedHeight, watchEmbedHeight } from "@/lib/canvas/embed-resize";
-import { buildWelcomeMessage, getStudentDisplayName } from "@/lib/canvas/home-embed-messages";
+import { getStudentDisplayName } from "@/lib/canvas/home-embed-messages";
 
 type TeacherMessage = {
   id: number;
@@ -111,7 +111,9 @@ export function CourseHomeBanner({
           ))}
         </>
       ) : (
-        <p className="course-home-banner-message">{buildWelcomeMessage(displayName)}</p>
+        <p className="course-home-banner-message course-home-banner-welcome-text">
+          Welcome, <span className="course-home-banner-name">{displayName}</span>
+        </p>
       )}
     </section>
   );

@@ -5,5 +5,5 @@ export function getStudentDisplayName(fullName: string | null | undefined) {
 }
 
 export function buildWelcomeMessage(studentName: string) {
-  return `Welcome, ${studentName} — you are current on your coursework.`;
+  return `Welcome, ${studentName}`;
 }

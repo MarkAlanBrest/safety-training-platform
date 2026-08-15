@@ -48,10 +48,14 @@ html.course-alerts-embed-root .course-alerts-page {
   font-size: 1rem;
 }
 
-.course-home-banner-welcome {
-  background: #fff;
-  color: #111;
-  padding: 8px 12px;
+.course-home-banner-welcome-text {
+  font-size: 1.05rem;
+  font-weight: 500;
+}
+
+.course-home-banner-name {
+  font-size: 1.35rem;
+  font-weight: 800;
 }
 
 .course-home-banner-welcome .course-home-banner-title,
