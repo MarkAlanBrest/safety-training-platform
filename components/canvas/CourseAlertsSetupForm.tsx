@@ -53,6 +53,7 @@ export function CourseAlertsSetupForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [cleaning, setCleaning] = useState(false);
+  const [enablingAll, setEnablingAll] = useState(false);
 
   useEffect(() => {
     if (!courseId) return;
@@ -87,6 +88,31 @@ export function CourseAlertsSetupForm() {
       if (config.courseName) setCourseName(config.courseName);
     })();
   }, [courseId]);
+
+  async function handleEnableAllCourses() {
+    setEnablingAll(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch("/api/course-alerts/enable-all-courses", {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.reason || data.error || "Could not enable Student Alerts in all courses.");
+      }
+      const failedCount = Array.isArray(data.failed) ? data.failed.length : 0;
+      setSuccess(
+        data.note ||
+          `Student Alerts is on in ${data.enabled} course${data.enabled === 1 ? "" : "s"}.` +
+            (failedCount ? ` ${failedCount} course${failedCount === 1 ? "" : "s"} could not be updated.` : ""),
+      );
+    } catch (enableError) {
+      setError(enableError instanceof Error ? enableError.message : "Could not enable all courses.");
+    } finally {
+      setEnablingAll(false);
+    }
+  }
 
   async function handleRemoveEmbed() {
     setCleaning(true);
@@ -175,9 +201,9 @@ export function CourseAlertsSetupForm() {
     <div className="course-alerts-shell course-alerts-setup">
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        Customize what students see on Home. Use {"{name}"}, {"{teacher}"}, {"{days}"}, {"{hours}"},
-        {"{assignments}"}, {"{score}"}, and {"{threshold}"} in the message text. Save once — students
-        do not click anything.
+        Save settings for this course, or turn it on for every course at once. In Canvas, also add
+        <strong> Course Navigation</strong> on the Student Alerts developer key so teachers see the
+        tool in each course menu.
       </p>
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>
@@ -346,6 +372,14 @@ export function CourseAlertsSetupForm() {
 
         <button type="submit" disabled={loading}>
           {loading ? "Saving..." : "Save settings"}
+        </button>
+
+        <button
+          type="button"
+          disabled={enablingAll}
+          onClick={() => void handleEnableAllCourses()}
+        >
+          {enablingAll ? "Enabling in all courses..." : "Turn on Student Alerts in all courses"}
         </button>
 
         <button

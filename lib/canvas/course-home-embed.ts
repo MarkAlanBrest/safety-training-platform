@@ -39,6 +39,11 @@ export async function setupCourseHomeStudentAlerts(canvasCourseId: string) {
 
   const clientId = getConfiguredLtiClientId();
   if (clientId) {
+    await client.ensureAccountExternalTool({
+      searchName: "Student Alerts",
+      clientId,
+      launchHost: new URL(getAppOrigin()).hostname,
+    }).catch(() => null);
     await client.ensureCourseExternalTool(canvasCourseId, {
       searchName: "Student Alerts",
       clientId,
@@ -97,4 +102,55 @@ export async function removeCourseHomeStudentAlerts(canvasCourseId: string) {
 
   await client.removeEmbedFromFrontPage(canvasCourseId);
   return { ok: true as const };
+}
+
+export async function enableStudentAlertsSchoolWide() {
+  const client = createCanvasAdminClient();
+  const clientId = getConfiguredLtiClientId();
+  if (!clientId) {
+    return {
+      ok: false as const,
+      reason: "CANVAS_LTI_CLIENT_ID is not set in Vercel.",
+      enabled: 0,
+      failed: [] as Array<{ id: number; name?: string; reason: string }>,
+    };
+  }
+
+  await client.ensureAccountExternalTool({
+    searchName: "Student Alerts",
+    clientId,
+    launchHost: new URL(getAppOrigin()).hostname,
+  });
+
+  const courses = await client.listPublishedCourses();
+  const failed: Array<{ id: number; name?: string; reason: string }> = [];
+  let enabled = 0;
+
+  for (const course of courses) {
+    try {
+      const result = await setupCourseHomeStudentAlerts(String(course.id));
+      if (result.ok) {
+        enabled += 1;
+      } else {
+        failed.push({ id: course.id, name: course.name, reason: result.reason });
+      }
+    } catch (error) {
+      failed.push({
+        id: course.id,
+        name: course.name,
+        reason: error instanceof Error ? error.message : "Could not enable this course.",
+      });
+    }
+  }
+
+  return {
+    ok: true as const,
+    enabled,
+    total: courses.length,
+    failed,
+    note:
+      enabled > 0
+        ? `Student Alerts is on in ${enabled} course${enabled === 1 ? "" : "s"}. Teachers will also see it in course navigation after the developer key includes Course Navigation.`
+        : "The account app was installed, but no course home pages could be updated.",
+  };
 }

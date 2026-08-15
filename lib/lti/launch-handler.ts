@@ -3,6 +3,7 @@ import { getConfiguredLtiClientId, getLtiConfig } from "@/lib/canvas/config";
 import { parseCourseAlertCustomFields } from "@/lib/course-alerts/config";
 import { recordCourseAlertSignup } from "@/lib/course-alerts/db";
 import { saveCourseAlertConfig } from "@/lib/course-alerts/store";
+import { embedStudentAlertsOnCourseHome } from "@/lib/canvas/course-home-embed-result";
 import {
   canvasSessionCookieOptions,
   encodeCanvasStudentSession,
@@ -135,6 +136,9 @@ export async function handleLtiLaunchPost(
       studentName: identity.name,
       courseName: identity.courseName,
     });
+    if (isInstructor) {
+      void embedStudentAlertsOnCourseHome(identity.courseId);
+    }
   }
 
   if (deepLinking) {

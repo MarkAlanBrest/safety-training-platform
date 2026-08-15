@@ -354,6 +354,72 @@ export function createCanvasAdminClient() {
       };
     },
 
+    async listAccountExternalTools() {
+      const tools = await canvasJson<CanvasExternalTool[]>(`/accounts/self/external_tools`, {
+        query: { per_page: "100" },
+        allowNotFound: true,
+      });
+      return tools || [];
+    },
+
+    async installAccountExternalToolByClientId(clientId: string) {
+      if (!clientId.trim()) {
+        throw new Error("CANVAS_LTI_CLIENT_ID is not configured.");
+      }
+
+      return canvasJson<CanvasExternalTool>(`/accounts/self/external_tools`, {
+        method: "POST",
+        body: JSON.stringify({ client_id: clientId.trim() }),
+      });
+    },
+
+    async ensureAccountExternalTool(options: {
+      searchName: string;
+      clientId?: string;
+      launchHost?: string;
+    }) {
+      const tools = await this.listAccountExternalTools();
+      const existing = tools.find((tool) => matchesExternalTool(tool, options));
+      if (existing) return existing;
+      if (!options.clientId?.trim()) return null;
+
+      try {
+        return await this.installAccountExternalToolByClientId(options.clientId);
+      } catch {
+        const retry = await this.listAccountExternalTools();
+        return retry.find((tool) => matchesExternalTool(tool, options)) || null;
+      }
+    },
+
+    async listPublishedCourses() {
+      const courses: Array<{ id: number; name?: string }> = [];
+      let page = await fetch(`${baseUrl}/api/v1/accounts/self/courses?per_page=100&with_enrollments=false`, {
+        headers: canvasAdminHeaders(apiToken),
+        cache: "no-store",
+      });
+
+      while (page.ok) {
+        const batch = (await page.json()) as Array<{ id: number; name?: string; workflow_state?: string }>;
+        for (const course of batch) {
+          if (course.workflow_state && course.workflow_state !== "available" && course.workflow_state !== "unpublished") {
+            continue;
+          }
+          courses.push({ id: course.id, name: course.name });
+        }
+
+        const link = page.headers.get("link") || "";
+        const nextMatch = link.split(",").map((part) => part.trim()).find((part) => part.endsWith('rel="next"'));
+        const nextUrl = nextMatch?.match(/<([^>]+)>/)?.[1];
+        if (!nextUrl) break;
+        page = await fetch(nextUrl, {
+          headers: canvasAdminHeaders(apiToken),
+          cache: "no-store",
+        });
+      }
+
+      return courses;
+    },
+
     async installExternalToolByClientId(courseId: string, clientId: string) {
       if (!clientId.trim()) {
         throw new Error("CANVAS_LTI_CLIENT_ID is not configured.");
