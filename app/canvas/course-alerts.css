@@ -6,17 +6,22 @@
 
 .course-alerts-page-embed {
   min-height: 0;
-  background: #fff;
+  background: #fff !important;
   padding: 0;
+  margin: 0;
+  border: 0;
+  box-shadow: none;
 }
 
 html.course-alerts-embed-root,
 body.course-alerts-embed-root,
 html.course-alerts-embed-root .course-alerts-page {
   min-height: 0;
-  background: #fff;
+  background: #fff !important;
   padding: 0;
   margin: 0;
+  border: 0;
+  box-shadow: none;
 }
 
 .course-home-embed-shell {
@@ -50,10 +55,12 @@ html.course-alerts-embed-root .course-alerts-page {
 .course-home-banner {
   margin: 0;
   padding: 16px 18px;
-  border-radius: 0 0 12px 12px;
+  border-radius: 0;
   background: linear-gradient(90deg, #ed1c24, #ff5a1f);
   color: #fff;
   box-shadow: none;
+  border: 0;
+  outline: 0;
   font-family: system-ui, sans-serif;
   line-height: 1.45;
   font-size: 1rem;

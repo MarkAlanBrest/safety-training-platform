@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { CourseHomeBanner } from "@/components/canvas/CourseHomeBanner";
+import { CourseHomeBannerStatic } from "@/components/canvas/CourseHomeBannerStatic";
+import { CourseHomeEmbedResizer } from "@/components/canvas/CourseHomeEmbedResizer";
+import { refreshHomeEmbedIfStale } from "@/lib/canvas/course-home-embed";
 import { CANVAS_SESSION_COOKIE, decodeCanvasStudentSession } from "@/lib/canvas/session";
-import { getCourseAlertConfig } from "@/lib/course-alerts/store";
 import { parseLaunchHandoff } from "@/lib/lti/launch-handoff";
 import "../course-alerts.css";
 
@@ -31,19 +32,26 @@ export default async function CourseHomeEmbedPage({ searchParams }: Props) {
     cookieSession?.courseId ||
     ""
   ).trim();
-  const initialConfig = courseId ? await getCourseAlertConfig(courseId) : null;
+
+  if (courseId) {
+    void refreshHomeEmbedIfStale(courseId);
+  }
 
   if (!courseId) {
-    return <div className="course-home-banner-empty" aria-hidden="true" />;
+    return (
+      <main className="course-alerts-page course-alerts-page-embed">
+        <div className="course-home-embed-shell">
+          <div className="course-home-banner-top-pixel" aria-hidden="true" />
+        </div>
+        <CourseHomeEmbedResizer />
+      </main>
+    );
   }
 
   return (
     <main className="course-alerts-page course-alerts-page-embed">
-      <CourseHomeBanner
-        courseId={courseId}
-        initialBannerMessage={initialConfig?.bannerMessage || null}
-        handoffToken={params.handoff || null}
-      />
+      <CourseHomeBannerStatic />
+      <CourseHomeEmbedResizer />
     </main>
   );
 }

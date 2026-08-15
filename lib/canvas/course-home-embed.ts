@@ -1,8 +1,9 @@
-import {
-  getAppOrigin,
-  getConfiguredLtiClientId,
-} from "@/lib/canvas/config";
+import { getAppOrigin, getConfiguredLtiClientId } from "@/lib/canvas/config";
 import { createCanvasAdminClient } from "@/lib/canvas/admin-client";
+import {
+  HOME_EMBED_BANNER_HEIGHT_PX,
+  HOME_EMBED_VERSION,
+} from "@/lib/canvas/home-embed-constants";
 
 const EMBED_MARKER = 'data-student-alerts-embed="true"';
 
@@ -10,13 +11,16 @@ function escapeHtmlAttribute(value: string) {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
-function buildFrontPageEmbedHtml(canvasCourseId: string) {
+export function buildFrontPageEmbedHtml(canvasCourseId: string) {
   const embedUrl = `${getAppOrigin()}/canvas/home-embed?course=${encodeURIComponent(canvasCourseId)}`;
+  const height = HOME_EMBED_BANNER_HEIGHT_PX;
 
   return (
-    `<div ${EMBED_MARKER} style="background:#fff;margin:0;padding:0;line-height:0;font-size:0;">` +
+    `<div ${EMBED_MARKER} data-student-alerts-version="${HOME_EMBED_VERSION}" ` +
+    `style="background:#fff;margin:0;padding:0;line-height:0;font-size:0;border:0;">` +
     `<iframe src="${escapeHtmlAttribute(embedUrl)}" ` +
-    `style="width:100%;height:1px;min-height:1px;max-height:220px;border:0;outline:0;box-shadow:none;display:block;overflow:hidden;background:#fff;" ` +
+    `style="width:100%;height:${height}px;min-height:${height}px;max-height:240px;` +
+    `border:0;outline:0;box-shadow:none;display:block;overflow:hidden;background:#fff;" ` +
     `title="Student Alerts" loading="eager" scrolling="no" referrerpolicy="no-referrer"></iframe>` +
     `</div>`
   );
@@ -60,8 +64,29 @@ export async function setupCourseHomeStudentAlerts(canvasCourseId: string) {
     ok: true as const,
     mode: "front_page_embed" as const,
     note:
-      "Settings saved. Students will see a bold reminder at the top of Home automatically when they have missing work, low grades, or a message from you. Nothing shows when there is nothing to communicate.",
+      "Settings saved. Students will see a bold reminder at the top of Home automatically when they have missing work, low grades, or a message from you.",
   };
+}
+
+export async function refreshHomeEmbedIfStale(canvasCourseId: string) {
+  try {
+    const client = createCanvasAdminClient();
+    const access = await client.getCourseAccess(canvasCourseId);
+    if (!access.ok) return { refreshed: false as const };
+
+    const status = await client.getFrontPageEmbedStatus(canvasCourseId);
+    if (
+      status.hasStudentAlertsEmbed &&
+      status.embedVersion === HOME_EMBED_VERSION
+    ) {
+      return { refreshed: false as const };
+    }
+
+    await setupCourseHomeStudentAlerts(canvasCourseId);
+    return { refreshed: true as const };
+  } catch {
+    return { refreshed: false as const };
+  }
 }
 
 export async function removeCourseHomeStudentAlerts(canvasCourseId: string) {

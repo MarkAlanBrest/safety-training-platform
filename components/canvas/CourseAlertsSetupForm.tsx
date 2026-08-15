@@ -30,6 +30,12 @@ export function CourseAlertsSetupForm() {
   useEffect(() => {
     if (!courseId) return;
     void (async () => {
+      await fetch("/api/course-alerts/refresh-embed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseId }),
+      });
+
       const response = await fetch(`/api/course-alerts/config?courseId=${encodeURIComponent(courseId)}`);
       const data = await response.json();
       if (!response.ok) return;

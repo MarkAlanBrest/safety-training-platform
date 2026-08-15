@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import {
+  HOME_EMBED_BANNER_HEIGHT_PX,
+  HOME_EMBED_TEST_MESSAGE,
+} from "@/lib/canvas/home-embed-constants";
 
 type TeacherMessage = {
   id: number;
@@ -14,9 +18,6 @@ type AutoAlert = {
   severity: "critical" | "warning" | "info";
 };
 
-// Temporary — remove after verifying the home embed is visible in Canvas.
-const HOME_EMBED_TEST_MESSAGE = "Test: Student alerts are connected on your course home page.";
-
 type Props = {
   courseId: string;
   initialBannerMessage?: string | null;
@@ -27,9 +28,11 @@ function resizeEmbedFrame(heightPx: number) {
   try {
     if (window.frameElement instanceof HTMLIFrameElement) {
       window.frameElement.style.height = `${heightPx}px`;
+      window.frameElement.style.minHeight = `${heightPx}px`;
       window.frameElement.style.background = "#fff";
       window.frameElement.style.border = "0";
       window.frameElement.style.boxShadow = "none";
+      window.frameElement.style.outline = "0";
     }
   } catch {
     // Cross-origin parent — ignore.
@@ -44,7 +47,6 @@ export function CourseHomeBanner({
   const [bannerMessage, setBannerMessage] = useState<string | null>(initialBannerMessage);
   const [teacherMessages, setTeacherMessages] = useState<TeacherMessage[]>([]);
   const [autoAlerts, setAutoAlerts] = useState<AutoAlert[]>([]);
-  const [ready, setReady] = useState(false);
 
   const loadAlerts = useCallback(async () => {
     const handoffQuery = handoffToken ? `&handoff=${encodeURIComponent(handoffToken)}` : "";
@@ -53,25 +55,18 @@ export function CourseHomeBanner({
       { credentials: "include" },
     );
 
-    if (response.ok) {
-      const data = await response.json();
-      setBannerMessage(data.bannerMessage || data.config?.bannerMessage || null);
-      setTeacherMessages(data.teacherMessages || []);
-      setAutoAlerts(data.alerts || []);
-      setReady(true);
-      return;
-    }
+    if (!response.ok) return;
 
-    setBannerMessage(null);
-    setTeacherMessages([]);
-    setAutoAlerts([]);
-    setReady(true);
+    const data = await response.json();
+    setBannerMessage(data.bannerMessage || data.config?.bannerMessage || null);
+    setTeacherMessages(data.teacherMessages || []);
+    setAutoAlerts(data.alerts || []);
   }, [courseId, handoffToken]);
 
   useEffect(() => {
     document.documentElement.classList.add("course-alerts-embed-root");
     document.body.classList.add("course-alerts-embed-root");
-    resizeEmbedFrame(1);
+    resizeEmbedFrame(HOME_EMBED_BANNER_HEIGHT_PX);
     return () => {
       document.documentElement.classList.remove("course-alerts-embed-root");
       document.body.classList.remove("course-alerts-embed-root");
@@ -86,37 +81,30 @@ export function CourseHomeBanner({
     return () => window.clearInterval(timer);
   }, [loadAlerts]);
 
-  const lines: string[] = [];
-  if (bannerMessage?.trim()) lines.push(bannerMessage.trim());
+  const lines: string[] = [HOME_EMBED_TEST_MESSAGE];
+  if (bannerMessage?.trim() && bannerMessage.trim() !== HOME_EMBED_TEST_MESSAGE) {
+    lines.unshift(bannerMessage.trim());
+  }
   for (const message of teacherMessages) {
     if (message.message?.trim()) lines.push(message.message.trim());
   }
   for (const alert of autoAlerts.slice(0, 3)) {
     lines.push(`${alert.title}: ${alert.message}`);
   }
-  if (!lines.length) {
-    lines.push(HOME_EMBED_TEST_MESSAGE);
-  }
-
-  const showBanner = ready && lines.length > 0;
 
   useLayoutEffect(() => {
-    resizeEmbedFrame(showBanner ? 120 : 1);
-  }, [showBanner, lines.length]);
+    resizeEmbedFrame(HOME_EMBED_BANNER_HEIGHT_PX);
+  }, [lines.length]);
 
   return (
     <div className="course-home-embed-shell">
       <div className="course-home-banner-top-pixel" aria-hidden="true" />
-      {showBanner ? (
-        <div className="course-home-banner" role="alert">
-          <strong>Reminder</strong>
-          {lines.map((line, index) => (
-            <p key={`${index}-${line}`}>{line}</p>
-          ))}
-        </div>
-      ) : (
-        <div className="course-home-banner-empty" aria-hidden="true" />
-      )}
+      <div className="course-home-banner" role="alert">
+        <strong>Reminder</strong>
+        {lines.map((line, index) => (
+          <p key={`${index}-${line}`}>{line}</p>
+        ))}
+      </div>
     </div>
   );
 }

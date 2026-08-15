@@ -292,6 +292,25 @@ export function createCanvasAdminClient() {
       return { removed: true, frontPageUrl: page.url };
     },
 
+    async getFrontPageEmbedStatus(courseId: string) {
+      try {
+        const page = await canvasJson<{ body?: string; url?: string }>(`/courses/${courseId}/front_page`);
+        const body = page.body || "";
+        const versionMatch = body.match(/data-student-alerts-version="(\d+)"/);
+        return {
+          frontPageUrl: page.url || null,
+          hasStudentAlertsEmbed: body.includes('data-student-alerts-embed="true"'),
+          embedVersion: versionMatch?.[1] || null,
+        };
+      } catch {
+        return {
+          frontPageUrl: null,
+          hasStudentAlertsEmbed: false,
+          embedVersion: null,
+        };
+      }
+    },
+
     async getCourseHomeStatus(courseId: string) {
       const course = await canvasJson<CanvasCourse>(`/courses/${courseId}`);
       let frontPageBody: string | null = null;
