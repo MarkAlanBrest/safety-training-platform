@@ -29,7 +29,6 @@ export async function GET(request: Request) {
       externalToolId: tool?.id ?? null,
       home: homeStatus,
       ready:
-        Boolean(tool) &&
         homeStatus.defaultView === "wiki" &&
         homeStatus.frontPageUrl === "student-alerts-home" &&
         homeStatus.hasStudentAlertsEmbed,
