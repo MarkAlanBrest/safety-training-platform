@@ -66,9 +66,6 @@ export async function setupCourseHomeStudentAlerts(
   };
   if (!options?.skipToolInstall) {
     await client.ensureAccountExternalTool(toolOptions).catch(() => null);
-    if (access.accountId) {
-      await client.ensureAccountExternalTool({ ...toolOptions, accountId: access.accountId }).catch(() => null);
-    }
   }
   await client.removeCourseLevelStudentAlertsTools(canvasCourseId, toolOptions).catch(() => null);
 
@@ -138,20 +135,16 @@ export async function installStudentAlertsToolSchoolWide() {
     launchHost: new URL(getAppOrigin()).hostname,
   };
 
-  const accountIds = await client.listAccountIdsIncludingSubaccounts();
   let accounts = 0;
   const accountErrors: string[] = [];
-  for (const accountId of accountIds) {
-    try {
-      const accountTool = await client.ensureAccountExternalTool({ ...toolOptions, accountId });
-      if (accountTool) accounts += 1;
-      else accountErrors.push(`Canvas did not install Student Alerts on account ${accountId}.`);
-    } catch (error) {
-      accountErrors.push(
-        error instanceof Error ? error.message : `Could not install on account ${accountId}.`,
-      );
-    }
+  try {
+    const accountTool = await client.ensureAccountExternalTool(toolOptions);
+    if (accountTool) accounts = 1;
+    else accountErrors.push("Canvas did not install Student Alerts on the account.");
+  } catch (error) {
+    accountErrors.push(error instanceof Error ? error.message : "Could not install on the Canvas account.");
   }
+  await client.removeDuplicateAccountStudentAlertsTools(toolOptions).catch(() => null);
 
   return {
     ok: true as const,
@@ -162,7 +155,7 @@ export async function installStudentAlertsToolSchoolWide() {
     usedFallback: false,
     note:
       accounts > 0
-        ? "Student Alerts is installed on the Canvas account. Students see it on Home — it is not added to the External Tool picker."
+        ? "Student Alerts is installed once on the Canvas account. Teachers can add it from Modules → External Tool."
         : accountErrors[0] ||
           "Could not install Student Alerts on the Canvas account. Use a Canvas admin API token.",
     accountErrors,
@@ -262,13 +255,13 @@ export async function enableStudentAlertsInAllCourses(options?: {
   const client = createCanvasAdminClient();
   const clientId = await client.resolveStudentAlertsClientId(getConfiguredLtiClientId());
   await client.ensureDeveloperKeyEnabled(clientId).catch(() => null);
-  await client
-    .ensureAccountExternalTool({
-      searchName: "Student Alerts",
-      clientId,
-      launchHost: new URL(getAppOrigin()).hostname,
-    })
-    .catch(() => null);
+  const toolOptions = {
+    searchName: "Student Alerts",
+    clientId,
+    launchHost: new URL(getAppOrigin()).hostname,
+  };
+  await client.ensureAccountExternalTool(toolOptions).catch(() => null);
+  await client.removeDuplicateAccountStudentAlertsTools(toolOptions).catch(() => null);
 
   let job = await loadEnableJob();
   if (options?.reset && job) {
