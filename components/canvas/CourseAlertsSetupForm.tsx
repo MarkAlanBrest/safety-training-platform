@@ -12,6 +12,20 @@ type Config = {
   courseName: string | null;
 };
 
+type CanvasApiStatus = {
+  ready: boolean;
+  missing: string[];
+  baseUrl: string | null;
+};
+
+function isServerConfigError(reason: string) {
+  return (
+    reason.includes("CANVAS_BASE_URL") ||
+    reason.includes("CANVAS_API_TOKEN") ||
+    reason.includes("Environment Variables")
+  );
+}
+
 export function CourseAlertsSetupForm() {
   const searchParams = useSearchParams();
   const courseId = (searchParams.get("course") || searchParams.get("courseId") || "").trim();
@@ -26,6 +40,7 @@ export function CourseAlertsSetupForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showManualSteps, setShowManualSteps] = useState(false);
+  const [canvasApi, setCanvasApi] = useState<CanvasApiStatus | null>(null);
 
   useEffect(() => {
     if (!courseId) return;
@@ -40,6 +55,7 @@ export function CourseAlertsSetupForm() {
       setShowMissing(config.showMissing);
       setShowLowGrades(config.showLowGrades);
       if (config.courseName) setCourseName(config.courseName);
+      if (data.canvasApi) setCanvasApi(data.canvasApi as CanvasApiStatus);
     })();
   }, [courseId]);
 
@@ -71,14 +87,25 @@ export function CourseAlertsSetupForm() {
         throw new Error(data.error || "Could not save settings.");
       }
 
+      if (data.canvasApi) setCanvasApi(data.canvasApi as CanvasApiStatus);
+
       if (data.homeEmbed?.ok) {
         setSuccess(
           "Settings saved. A test message was posted to the course home page — switch to Student View and open Home to check.",
         );
         setShowManualSteps(false);
       } else if (data.homeEmbed?.reason) {
-        setSuccess(`Settings saved. ${data.homeEmbed.reason}`);
-        setShowManualSteps(true);
+        if (isServerConfigError(data.homeEmbed.reason)) {
+          setSuccess("Alert settings saved for this course.");
+          setError(
+            `Could not update the course home page: ${data.homeEmbed.reason} The home page will stay blank until this is fixed.`,
+          );
+          setShowManualSteps(false);
+        } else {
+          setSuccess("Alert settings saved for this course.");
+          setError(`Could not update the course home page: ${data.homeEmbed.reason}`);
+          setShowManualSteps(true);
+        }
       } else {
         setSuccess("Alert settings saved for this course.");
       }
@@ -104,6 +131,29 @@ export function CourseAlertsSetupForm() {
       <p className="course-alerts-setup-lead">
         Choose what students see automatically on the course home page.
       </p>
+
+      {canvasApi && !canvasApi.ready ? (
+        <div className="course-alerts-manual-steps course-alerts-server-setup">
+          <h2>Canvas API not connected</h2>
+          <p>
+            The course home page cannot be updated until these Vercel env vars are set
+            (Production), then the app is redeployed:
+          </p>
+          <ul>
+            {canvasApi.missing.includes("CANVAS_BASE_URL") ? (
+              <li>
+                <strong>CANVAS_BASE_URL</strong> = <code>https://mytrades.instructure.com</code>
+              </li>
+            ) : null}
+            {canvasApi.missing.includes("CANVAS_API_TOKEN") ? (
+              <li>
+                <strong>CANVAS_API_TOKEN</strong> = a Canvas access token from{" "}
+                <strong>Account → Settings → New Access Token</strong> (use an admin account)
+              </li>
+            ) : null}
+          </ul>
+        </div>
+      ) : null}
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>
         <label>
