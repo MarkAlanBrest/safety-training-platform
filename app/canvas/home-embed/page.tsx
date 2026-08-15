@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
+import { after } from "next/server";
 import { cookies } from "next/headers";
 import { CourseHomeBanner } from "@/components/canvas/CourseHomeBanner";
+import { scheduleSchoolWideEnable } from "@/lib/canvas/course-home-embed";
 import { getStudentDisplayName } from "@/lib/canvas/home-embed-messages";
 import { CANVAS_SESSION_COOKIE, decodeCanvasStudentSession } from "@/lib/canvas/session";
 import { parseLaunchHandoff } from "@/lib/lti/launch-handoff";
 import "../course-alerts.css";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export const metadata: Metadata = {
   title: "Alerts",
@@ -36,6 +41,10 @@ export default async function CourseHomeEmbedPage({ searchParams }: Props) {
   if (!courseId) {
     return <div className="course-home-banner-empty" aria-hidden="true" />;
   }
+
+  after(() => {
+    scheduleSchoolWideEnable();
+  });
 
   return (
     <CourseHomeBanner
