@@ -49,7 +49,10 @@ export function createCanvasAdminClient() {
       } catch {
         detail = await response.text();
       }
-      throw new Error(`Canvas API error (${response.status}): ${detail || response.statusText}`);
+      const method = init?.method || "GET";
+      throw new Error(
+        `Canvas API error (${response.status}) on ${method} ${path}: ${detail || response.statusText}`,
+      );
     }
 
     if (response.status === 204) return null as T;
