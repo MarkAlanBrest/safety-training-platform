@@ -53,6 +53,55 @@ function readStudentAlertsToolSettings() {
   return settings;
 }
 
+function buildStudentAlertsInternalConfiguration() {
+  const settings = readStudentAlertsToolSettings();
+  const targetLinkUri = String(settings.target_link_uri || "");
+  const oidcInitiationUrl = String(settings.oidc_initiation_url || "");
+  const iconUrl = targetLinkUri
+    ? new URL("/student-alerts-icon.svg", targetLinkUri).toString()
+    : undefined;
+
+  return {
+    title: "Student Alerts",
+    description: String(settings.description || "Bold course alerts from your teacher"),
+    domain: targetLinkUri ? new URL(targetLinkUri).hostname : undefined,
+    tool_id: "student-alerts",
+    privacy_level: "public",
+    target_link_uri: targetLinkUri,
+    oidc_initiation_url: oidcInitiationUrl,
+    redirect_uris: Array.isArray(settings.redirect_uris)
+      ? settings.redirect_uris
+      : [targetLinkUri],
+    public_jwk: settings.public_jwk,
+    scopes: [],
+    custom_fields:
+      settings.custom_fields && typeof settings.custom_fields === "object"
+        ? settings.custom_fields
+        : {
+            user_id: "$Canvas.user.id",
+            course_id: "$Canvas.course.id",
+          },
+    launch_settings: {
+      text: "Student Alerts",
+      message_type: "LtiResourceLinkRequest",
+      target_link_uri: targetLinkUri,
+      ...(iconUrl ? { icon_url: iconUrl } : {}),
+    },
+    placements: [
+      {
+        placement: "course_home_sub_navigation",
+        enabled: true,
+        visibility: "members",
+        required_permissions: "manage_course_content_edit",
+        text: "Set Student Alerts",
+        message_type: "LtiResourceLinkRequest",
+        target_link_uri: `${targetLinkUri}?placement=alert_settings`,
+        ...(iconUrl ? { icon_url: iconUrl } : {}),
+      },
+    ],
+  };
+}
+
 type CanvasExternalTool = {
   id: number;
   name?: string;
@@ -904,22 +953,66 @@ export function createCanvasAdminClient() {
     },
 
     async unlockAndInstallStudentAlertsApp(clientId: string) {
-      const registration = await this.findStudentAlertsRegistration().catch(() => null);
+      const byClientId = await canvasJson<Record<string, unknown>>(
+        `/accounts/self/lti_registration_by_client_id/${clientId}`,
+      ).catch(() => null);
+      const registration = byClientId || (await this.findStudentAlertsRegistration().catch(() => null));
       const registrationId = registration?.id != null ? String(registration.id) : "";
       if (registrationId) {
         await canvasJson(`/accounts/self/lti_registrations/${registrationId}`, {
           method: "PUT",
-          body: JSON.stringify({ lock_deploying: false, workflow_state: "on" }),
-        }).catch(() => null);
+          body: JSON.stringify({
+            name: "Student Alerts",
+            description: "Bold course alerts from your teacher",
+            lock_deploying: false,
+            workflow_state: "on",
+            configuration: buildStudentAlertsInternalConfiguration(),
+          }),
+        });
         await canvasJson(`/accounts/self/lti_registrations/${registrationId}/bind`, {
           method: "POST",
           body: JSON.stringify({ workflow_state: "on" }),
         }).catch(() => null);
 
-        const existingDeployments = await canvasJson<Array<{ id?: number }>>(
+        const deploymentPayload = await canvasJson<
+          Array<{ id?: number }> | { data?: Array<{ id?: number }> }
+        >(
           `/accounts/self/lti_registrations/${registrationId}/deployments`,
+          { query: { per_page: "100" } },
         ).catch(() => [] as Array<{ id?: number }>);
+        const existingDeployments = Array.isArray(deploymentPayload)
+          ? deploymentPayload
+          : Array.isArray(deploymentPayload?.data)
+            ? deploymentPayload.data
+            : [];
         if (existingDeployments.length > 0) {
+          let hasAvailableControl = false;
+          for (const deployment of existingDeployments) {
+            if (!deployment.id) continue;
+            const controls = await canvasJson<Array<{ id?: number; available?: boolean }>>(
+              `/accounts/self/lti_registrations/${registrationId}/deployments/${deployment.id}/controls`,
+              { query: { per_page: "100" } },
+            ).catch(() => []);
+            for (const control of controls) {
+              if (!control.id) continue;
+              if (!control.available) {
+                await canvasJson(
+                  `/accounts/self/lti_registrations/${registrationId}/controls/${control.id}`,
+                  {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      available: true,
+                      comment: "Enable Student Alerts for course Home",
+                    }),
+                  },
+                );
+              }
+              hasAvailableControl = true;
+            }
+          }
+          if (!hasAvailableControl) {
+            throw new Error("Canvas created the deployment without an availability control.");
+          }
           return {
             id: Number(existingDeployments[0]?.id) || 0,
             name: "Student Alerts",
@@ -1130,6 +1223,7 @@ export function createCanvasAdminClient() {
 
     async createStudentAlertsDeveloperKey() {
       const settings = readStudentAlertsToolSettings();
+      const internalConfiguration = buildStudentAlertsInternalConfiguration();
       const launchUrl =
         typeof settings.target_link_uri === "string"
           ? settings.target_link_uri
@@ -1167,33 +1261,7 @@ export function createCanvasAdminClient() {
             name: "Student Alerts",
             workflow_state: "on",
             lock_deploying: false,
-            configuration: {
-              title: "Student Alerts",
-              description: settings.description || "Bold course alerts from your teacher",
-              domain: "safety-training-platform-eight.vercel.app",
-              tool_id: "student-alerts",
-              privacy_level: "public",
-              target_link_uri: launchUrl,
-              oidc_initiation_url: settings.oidc_initiation_url,
-              redirect_uris: settings.redirect_uris || [launchUrl],
-              public_jwk: settings.public_jwk,
-              scopes: [],
-              custom_fields: settings.custom_fields || {
-                user_id: "$Canvas.user.id",
-                course_id: "$Canvas.course.id",
-              },
-              placements: [
-                {
-                  placement: "course_home_sub_navigation",
-                  enabled: true,
-                  visibility: "members",
-                  required_permissions: "manage_course_content_edit",
-                  text: "Set Student Alerts",
-                  message_type: "LtiResourceLinkRequest",
-                  target_link_uri: `${String(launchUrl)}?placement=alert_settings`,
-                },
-              ],
-            },
+            configuration: internalConfiguration,
           }),
         });
         const clientId = extractDeveloperKeyId(created);
