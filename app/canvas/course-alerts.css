@@ -51,8 +51,8 @@ html.course-alerts-embed-root .course-alerts-page {
 }
 
 .course-home-banner-welcome {
-  background: #fff;
-  color: #111;
+  background: #f3f4f6;
+  color: #374151;
   padding: 12px 16px;
 }
 
@@ -60,17 +60,17 @@ html.course-alerts-embed-root .course-alerts-page {
   margin: 0;
   padding: 0;
   font-family: "Playfair Display", Georgia, "Times New Roman", serif !important;
-  font-size: 32px !important;
-  font-weight: 700 !important;
+  font-size: 22px !important;
+  font-weight: 500 !important;
   font-style: italic !important;
   letter-spacing: 0.01em;
   line-height: 1.25 !important;
-  color: #111 !important;
+  color: #374151 !important;
 }
 
 .course-home-banner-welcome .course-home-banner-title,
 .course-home-banner-welcome .course-home-banner-message {
-  color: #111;
+  color: #374151;
 }
 
 .course-home-banner-alert {

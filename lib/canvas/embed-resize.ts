@@ -1,6 +1,6 @@
 function currentContentHeight() {
-  const hasAlertBanner = Boolean(document.querySelector(".course-home-banner-alert"));
-  if (!hasAlertBanner) return 0;
+  const hasBanner = Boolean(document.querySelector(".course-home-banner"));
+  if (!hasBanner) return 0;
 
   const root = document.querySelector(".course-home-banner") as HTMLElement | null;
   const height = Math.ceil(

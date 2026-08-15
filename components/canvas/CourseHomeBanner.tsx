@@ -26,14 +26,10 @@ type Props = {
   handoffToken?: string | null;
 };
 
-export function CourseHomeBanner({
-  courseId,
-  handoffToken = null,
-}: Props) {
+export function CourseHomeBanner({ courseId, handoffToken = null }: Props) {
   const [teacherMessages, setTeacherMessages] = useState<TeacherMessage[]>([]);
   const [autoAlerts, setAutoAlerts] = useState<AutoAlert[]>([]);
   const [studentName, setStudentName] = useState("Student");
-  const [bannerMessage, setBannerMessage] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const loadAlerts = useCallback(async () => {
@@ -51,7 +47,6 @@ export function CourseHomeBanner({
 
       const data = await response.json();
       setStudentName(data.studentName || "Student");
-      setBannerMessage(data.bannerMessage || data.config?.bannerMessage || null);
       setTeacherMessages(data.teacherMessages || []);
       setAutoAlerts(data.alerts || []);
     } finally {
@@ -79,45 +74,47 @@ export function CourseHomeBanner({
 
   useEffect(() => {
     publishEmbedHeight(loaded ? undefined : 0);
-  }, [hasAlerts, autoAlerts, teacherMessages, bannerMessage, loaded]);
+  }, [hasAlerts, autoAlerts, teacherMessages, loaded]);
 
   if (!loaded) {
     return <div className="course-home-banner-empty" aria-hidden="true" />;
   }
 
   return (
-    <section className="course-home-banner course-home-banner-alert">
-      <h2 className="course-home-banner-title">
-        {HOME_EMBED_TITLE} for {studentName.split(" ")[0] || "Student"}
-      </h2>
-      {bannerMessage ? (
-        <p className="course-home-banner-message">{bannerMessage}</p>
-      ) : null}
-      {teacherMessages.map((message) => (
-        <p key={message.id} className="course-home-banner-message">
-          {message.message}
+    <>
+      <section className="course-home-banner course-home-banner-welcome">
+        <p className="course-home-banner-welcome-line">
+          Welcome, {studentName.split(" ")[0] || "Student"}
         </p>
-      ))}
-      {autoAlerts.slice(0, 4).map((alert) => (
-        <div key={alert.id} className="course-home-banner-alert-block">
-          <p className="course-home-banner-message">{alert.message}</p>
-          {alert.items?.length ? (
-            <p className="course-home-banner-links">
-              {alert.items.map((item, index) => (
-                <span key={`${alert.id}-${item.url}`}>
-                  {index > 0 ? " · " : null}
-                  <a href={item.url} target="_top" rel="noreferrer">
-                    {item.name}
-                  </a>
-                </span>
-              ))}
+      </section>
+
+      {hasAlerts ? (
+        <section className="course-home-banner course-home-banner-alert" role="alert">
+          <h2 className="course-home-banner-title">{HOME_EMBED_TITLE}</h2>
+          {teacherMessages.map((message) => (
+            <p key={message.id} className="course-home-banner-message">
+              {message.message}
             </p>
-          ) : null}
-        </div>
-      ))}
-      {!hasAlerts ? (
-        <p className="course-home-banner-message">No alerts right now. You&apos;re all caught up.</p>
+          ))}
+          {autoAlerts.slice(0, 4).map((alert) => (
+            <div key={alert.id} className="course-home-banner-alert-block">
+              <p className="course-home-banner-message">{alert.message}</p>
+              {alert.items?.length ? (
+                <p className="course-home-banner-links">
+                  {alert.items.map((item, index) => (
+                    <span key={`${alert.id}-${item.url}`}>
+                      {index > 0 ? " · " : null}
+                      <a href={item.url} target="_top" rel="noreferrer">
+                        {item.name}
+                      </a>
+                    </span>
+                  ))}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </section>
       ) : null}
-    </section>
+    </>
   );
 }
