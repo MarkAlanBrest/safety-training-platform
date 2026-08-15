@@ -87,6 +87,14 @@ export function CourseAlertsSetupForm() {
         setShowManualSteps(Boolean(data.manualImport));
       } else if (importMode && data.imported !== false) {
         setSuccess("Student Alerts was added to your course with these settings.");
+      } else if (data.homeEmbed?.ok) {
+        setSuccess(
+          "Settings saved. Student Alerts will open automatically on the course home page.",
+        );
+        setShowManualSteps(false);
+      } else if (data.homeEmbed?.reason) {
+        setSuccess(`Settings saved. ${data.homeEmbed.reason}`);
+        setShowManualSteps(true);
       } else {
         setSuccess("Alert settings saved for this course.");
       }
@@ -180,13 +188,9 @@ export function CourseAlertsSetupForm() {
             <ol>
               <li>In Canvas, open your course → <strong>Modules</strong>.</li>
               <li>Click <strong>+</strong> on a module → <strong>External Tool</strong>.</li>
-              <li>Choose <strong>Student Alerts</strong> → check <strong>Load in a new tab</strong> if embed fails → Add Item.</li>
-              <li>Students open that module link to see alerts with the settings you just saved.</li>
+              <li>Choose <strong>Student Alerts</strong> → <strong>Add Item</strong>.</li>
+              <li>Come back here and click <strong>Save settings</strong> again — alerts will auto-open on the course home page.</li>
             </ol>
-            <p className="course-alerts-quiet">
-              Optional: ask your admin to set <code>CANVAS_LTI_PRIVATE_KEY_JWK</code> in Vercel so
-              future imports can finish automatically.
-            </p>
           </div>
         ) : null}
 

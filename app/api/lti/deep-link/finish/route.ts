@@ -9,6 +9,7 @@ import {
   LTI_DEEP_LINK_COOKIE,
 } from "@/lib/lti/deep-link-session";
 import { readCookie } from "@/lib/admin-session";
+import { embedStudentAlertsOnCourseHome } from "@/lib/canvas/course-home-embed-result";
 import { saveCourseAlertConfig } from "@/lib/course-alerts/store";
 
 export async function POST(request: Request) {
@@ -48,8 +49,10 @@ export async function POST(request: Request) {
     session.name,
   );
 
+  const homeEmbed = await embedStudentAlertsOnCourseHome(courseId);
+
   if (!deepLink) {
-    return NextResponse.json({ ok: true, config, imported: false });
+    return NextResponse.json({ ok: true, config, imported: false, homeEmbed });
   }
 
   try {
