@@ -18,6 +18,7 @@ export async function GET(request: Request) {
     },
     courseId: session.courseId,
     courseName: session.courseName,
+    isInstructor: session.isInstructor,
     source: session.source,
     connectedAt: session.connectedAt,
     expiresAt: session.expiresAt,

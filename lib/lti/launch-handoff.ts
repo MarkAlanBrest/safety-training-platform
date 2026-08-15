@@ -1,11 +1,14 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
+export const LAUNCH_HANDOFF_TTL_MS = 12 * 60 * 60 * 1000;
+
 export type LaunchHandoff = {
   userId: number;
   name: string;
   email: string | null;
   courseId: string | null;
   courseName: string | null;
+  isInstructor: boolean;
   exp: number;
   nonce: string;
 };
@@ -25,7 +28,8 @@ export function createLaunchHandoff(
   const payload: LaunchHandoff = {
     ...identity,
     nonce: randomBytes(8).toString("hex"),
-    exp: Date.now() + 10 * 60 * 1000,
+    isInstructor: identity.isInstructor,
+    exp: Date.now() + LAUNCH_HANDOFF_TTL_MS,
   };
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = createHmac("sha256", getHandoffSecret()).update(body).digest("base64url");

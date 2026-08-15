@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import { readCookie } from "@/lib/admin-session";
 import { createCanvasClient } from "@/lib/canvas/client";
 import { getCanvasServerConfig, getDevCanvasUserId } from "@/lib/canvas/config";
-import { parseLaunchHandoff } from "@/lib/lti/launch-handoff";
+import { parseLaunchHandoff, type LaunchHandoff } from "@/lib/lti/launch-handoff";
 
 export const CANVAS_SESSION_COOKIE = "canvas-session";
 
@@ -42,10 +42,34 @@ export type CanvasStudentSession = {
   email: string | null;
   courseId: string | null;
   courseName: string | null;
+  isInstructor: boolean;
   source: "lti" | "dev";
   connectedAt: string;
   expiresAt: string;
 };
+
+function sessionFromHandoff(parsed: LaunchHandoff): CanvasStudentSession {
+  const now = Date.now();
+  return {
+    userId: parsed.userId,
+    name: parsed.name,
+    email: parsed.email,
+    courseId: parsed.courseId,
+    courseName: parsed.courseName,
+    isInstructor: parsed.isInstructor ?? false,
+    source: "lti",
+    connectedAt: new Date(now).toISOString(),
+    expiresAt: new Date(parsed.exp).toISOString(),
+  };
+}
+
+export function readHandoffToken(request: Request) {
+  try {
+    return new URL(request.url).searchParams.get("handoff")?.trim() || null;
+  } catch {
+    return null;
+  }
+}
 
 export function encodeCanvasStudentSession(session: Omit<CanvasStudentSession, "connectedAt" | "expiresAt">) {
   const now = Date.now();
@@ -66,6 +90,7 @@ export function decodeCanvasStudentSession(encoded: string): CanvasStudentSessio
       ...session,
       courseId: session.courseId ?? null,
       courseName: session.courseName ?? null,
+      isInstructor: session.isInstructor ?? false,
     };
   } catch {
     return null;
@@ -73,32 +98,16 @@ export function decodeCanvasStudentSession(encoded: string): CanvasStudentSessio
 }
 
 export function getCanvasStudentSession(request: Request): CanvasStudentSession | null {
+  const handoff = readHandoffToken(request);
+  if (handoff) {
+    const parsed = parseLaunchHandoff(handoff);
+    if (parsed) return sessionFromHandoff(parsed);
+  }
+
   const encoded = readCookie(request, CANVAS_SESSION_COOKIE);
   if (encoded) {
     const session = decodeCanvasStudentSession(encoded);
     if (session) return session;
-  }
-
-  try {
-    const handoff = new URL(request.url).searchParams.get("handoff");
-    if (handoff) {
-      const parsed = parseLaunchHandoff(handoff);
-      if (parsed) {
-        const now = Date.now();
-        return {
-          userId: parsed.userId,
-          name: parsed.name,
-          email: parsed.email,
-          courseId: parsed.courseId,
-          courseName: parsed.courseName,
-          source: "lti",
-          connectedAt: new Date(now).toISOString(),
-          expiresAt: new Date(parsed.exp).toISOString(),
-        };
-      }
-    }
-  } catch {
-    // Ignore invalid handoff tokens.
   }
 
   const devUserId = getDevCanvasUserId();
@@ -111,6 +120,7 @@ export function getCanvasStudentSession(request: Request): CanvasStudentSession 
     email: null,
     courseId: null,
     courseName: null,
+    isInstructor: false,
     source: "dev",
     connectedAt: new Date(now).toISOString(),
     expiresAt: new Date(now + SESSION_TTL_MS).toISOString(),

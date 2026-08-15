@@ -22,6 +22,7 @@ type Props = {
   courseId: string;
   initialCourseName?: string | null;
   initialStudentName?: string | null;
+  initialBannerMessage?: string | null;
   handoffToken?: string | null;
 };
 
@@ -29,23 +30,25 @@ export function CourseAlertsViewer({
   courseId,
   initialCourseName = null,
   initialStudentName = null,
+  initialBannerMessage = null,
   handoffToken = null,
 }: Props) {
   const [connected, setConnected] = useState<boolean | null>(handoffToken ? true : null);
   const [studentName, setStudentName] = useState(initialStudentName || "");
   const [courseName, setCourseName] = useState<string | null>(initialCourseName);
-  const [bannerMessage, setBannerMessage] = useState<string | null>(null);
+  const [bannerMessage, setBannerMessage] = useState<string | null>(initialBannerMessage);
   const [teacherMessages, setTeacherMessages] = useState<TeacherMessage[]>([]);
   const [autoAlerts, setAutoAlerts] = useState<AutoAlert[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const loadStatus = useCallback(async () => {
-    const response = await fetch("/api/canvas/status");
+    const handoffQuery = handoffToken ? `?handoff=${encodeURIComponent(handoffToken)}` : "";
+    const response = await fetch(`/api/canvas/status${handoffQuery}`);
     const data = await response.json();
     setConnected(Boolean(data.connected));
     return Boolean(data.connected);
-  }, []);
+  }, [handoffToken]);
 
   const loadAlerts = useCallback(async () => {
     if (!courseId) return;
@@ -71,6 +74,15 @@ export function CourseAlertsViewer({
       setLoading(false);
     }
   }, [courseId, handoffToken]);
+
+  useEffect(() => {
+    if (!handoffToken) return;
+    void fetch("/api/lti/bootstrap-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ handoff: handoffToken }),
+    });
+  }, [handoffToken]);
 
   useEffect(() => {
     void (async () => {
