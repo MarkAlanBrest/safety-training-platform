@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { getAppOrigin, getConfiguredLtiClientId } from "@/lib/canvas/config";
 import { createCanvasAdminClient } from "@/lib/canvas/admin-client";
 import {
@@ -70,12 +71,12 @@ export async function setupCourseHomeStudentAlerts(
     await client.ensureCourseExternalTool(canvasCourseId, toolOptions);
   }
 
-  const { frontPageUrl } = await client.prependEmbedToFrontPage(
+  const { frontPageUrl, alreadyEmbedded } = await client.prependEmbedToFrontPage(
     canvasCourseId,
     buildFrontPageEmbedHtml(canvasCourseId),
   );
 
-  if (frontPageUrl) {
+  if (frontPageUrl && (!alreadyEmbedded || access.defaultView !== "wiki")) {
     await client.setCourseHomeToFrontPage(canvasCourseId, frontPageUrl);
   }
 
@@ -236,7 +237,10 @@ export async function diagnoseStudentAlertsTool(canvasCourseId: string) {
   };
 }
 
-export async function enableStudentAlertsInAllCourses() {
+export async function enableStudentAlertsInAllCourses(options?: {
+  offset?: number;
+  generation?: number;
+}) {
   const client = createCanvasAdminClient();
   const clientId = await client.resolveStudentAlertsClientId(getConfiguredLtiClientId());
   await client.ensureDeveloperKeyEnabled(clientId).catch(() => null);
@@ -249,46 +253,66 @@ export async function enableStudentAlertsInAllCourses() {
     .catch(() => null);
 
   const listed = await client.listPublishedCourses();
-  let courses = listed.courses;
+  const courses = listed.courses;
   const courseListErrors = [...listed.accountErrors];
-  let usedFallback = listed.usedFallback;
+  const usedFallback = listed.usedFallback;
 
-  if (courses.length > 80) {
-    const mine = await client.listTokenUserCourses();
-    if (mine.length > 0 && mine.length <= 80) {
-      courseListErrors.push(
-        `School has ${courses.length} live courses. Enabling ${mine.length} courses this Canvas token user can access now.`,
-      );
-      courses = mine;
-      usedFallback = true;
-    } else {
-      courses = courses.slice(0, 80);
-      courseListErrors.push(
-        `School has ${listed.courses.length} live courses. Enabling the first 80 in this run.`,
-      );
-    }
+  const offset = Math.max(0, Math.floor(options?.offset || 0));
+  if (offset >= courses.length) {
+    return {
+      ok: true as const,
+      enabled: 0,
+      installed: 0,
+      accounts: 1,
+      total: courses.length,
+      processedThrough: courses.length,
+      nextOffset: null,
+      remaining: 0,
+      failed: [] as Array<{ id: number; name?: string; reason: string }>,
+      usedFallback,
+      accountErrors: courseListErrors,
+      note:
+        courses.length > 0
+          ? `Student Alerts is already enabled across ${courses.length} live class${courses.length === 1 ? "" : "es"}. Each class keeps its own settings.`
+          : "No live Canvas courses were found.",
+    };
   }
-
   const failed: Array<{ id: number; name?: string; reason: string }> = [];
   let enabled = 0;
+  let cursor = offset;
+  const deadline = Date.now() + 45_000;
 
-  await mapPool(courses, 6, async (course) => {
-    try {
-      const result = await setupCourseHomeStudentAlerts(String(course.id), { skipToolInstall: true });
-      if (result.ok) {
-        enabled += 1;
-      } else {
-        failed.push({ id: course.id, name: course.name, reason: result.reason });
+  await mapPool(Array.from({ length: 6 }), 6, async () => {
+    while (Date.now() < deadline) {
+      const current = cursor;
+      if (current >= courses.length) return;
+      cursor += 1;
+      const course = courses[current];
+      if (!course) return;
+      try {
+        const result = await setupCourseHomeStudentAlerts(String(course.id), { skipToolInstall: true });
+        if (result.ok) {
+          enabled += 1;
+        } else {
+          failed.push({ id: course.id, name: course.name, reason: result.reason });
+        }
+      } catch (error) {
+        failed.push({
+          id: course.id,
+          name: course.name,
+          reason: error instanceof Error ? error.message : "Could not enable this course.",
+        });
       }
-    } catch (error) {
-      failed.push({
-        id: course.id,
-        name: course.name,
-        reason: error instanceof Error ? error.message : "Could not enable this course.",
-      });
     }
   });
 
+  const nextOffset = cursor < courses.length ? cursor : null;
+  const generation = Math.max(0, Math.floor(options?.generation || 0));
+  if (nextOffset != null && nextOffset > offset && generation < 200) {
+    continueSchoolWideEnable(nextOffset, generation + 1);
+  }
+
+  const remaining = Math.max(0, courses.length - cursor);
   const fallbackWarning = usedFallback
     ? `Could not list every account course (${
         courseListErrors[0] || "no accounts were readable"
@@ -301,15 +325,35 @@ export async function enableStudentAlertsInAllCourses() {
     installed: enabled,
     accounts: 1,
     total: courses.length,
+    processedThrough: cursor,
+    nextOffset,
+    remaining,
     failed,
     usedFallback,
     accountErrors: courseListErrors,
     note:
       fallbackWarning ||
-      (enabled > 0
-        ? `Student Alerts is on in ${enabled} class${enabled === 1 ? "" : "es"}. Each class keeps its own settings.`
-        : "Could not turn on Student Alerts in other classes."),
+      (remaining > 0
+        ? `Student Alerts is on in ${enabled} more class${enabled === 1 ? "" : "es"} (${cursor} of ${courses.length}). Continuing automatically. Each class keeps its own settings.`
+        : enabled > 0 || offset > 0
+          ? `Student Alerts is on in ${cursor} class${cursor === 1 ? "" : "es"}. Each class keeps its own settings.`
+          : "Could not turn on Student Alerts in other classes."),
   };
+}
+
+function continueSchoolWideEnable(nextOffset: number, generation: number) {
+  const origin = getAppOrigin();
+  if (!origin) return;
+  const url = `${origin}/api/course-alerts/enable-all-courses?offset=${nextOffset}&generation=${generation}`;
+  const kick = () =>
+    void fetch(url, { method: "GET", cache: "no-store" }).catch((error) => {
+      console.error("Student Alerts enable continuation failed:", error);
+    });
+  try {
+    after(kick);
+  } catch {
+    kick();
+  }
 }
 
 let lastSchoolWideEnableAt = 0;
@@ -319,6 +363,17 @@ export function scheduleSchoolWideEnable() {
   const now = Date.now();
   if (now - lastSchoolWideEnableAt < SCHOOL_WIDE_COOLDOWN_MS) return;
   lastSchoolWideEnableAt = now;
+  const origin = getAppOrigin();
+  if (origin) {
+    void fetch(`${origin}/api/course-alerts/enable-all-courses`, {
+      method: "GET",
+      cache: "no-store",
+    }).catch((error) => {
+      lastSchoolWideEnableAt = 0;
+      console.error("School-wide Student Alerts enable failed:", error);
+    });
+    return;
+  }
   void enableStudentAlertsInAllCourses().catch((error) => {
     lastSchoolWideEnableAt = 0;
     console.error("School-wide Student Alerts enable failed:", error);
