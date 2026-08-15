@@ -41,7 +41,7 @@ export function CourseAlertsViewer({
   const [autoAlerts, setAutoAlerts] = useState<AutoAlert[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [popupOpen, setPopupOpen] = useState(false);
+  const [popupOpen, setPopupOpen] = useState(Boolean(handoffToken && initialBannerMessage));
 
   const loadStatus = useCallback(async () => {
     const response = await fetch("/api/canvas/status");
@@ -101,6 +101,20 @@ export function CourseAlertsViewer({
     }
   }, [connected, bannerMessage, teacherMessages, autoAlerts]);
 
+  if (connected === null && handoffToken && initialBannerMessage) {
+    return (
+      <div className="course-alerts-shell">
+        <div className="course-alerts-popup-overlay" role="dialog" aria-modal="true">
+          <div className="course-alerts-popup">
+            <h2>Reminder</h2>
+            <p className="course-alerts-popup-lead">{initialBannerMessage}</p>
+            <div className="course-alerts-loading">Loading your alerts...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (connected === null) {
     return (
       <div className="course-alerts-shell">
@@ -131,7 +145,7 @@ export function CourseAlertsViewer({
         <div className="course-alerts-cta">
           <ShieldAlert size={36} />
           <h1>Open this from Canvas</h1>
-          <p>Embed this tool on your course home page. Canvas will identify you automatically.</p>
+          <p>Open <strong>Student Alerts</strong> from your course in Canvas (Modules → External Tool).</p>
         </div>
       </div>
     );

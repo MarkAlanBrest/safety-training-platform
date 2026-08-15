@@ -25,31 +25,20 @@ export function CourseAlertsSetupForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [themeSnippetUrl, setThemeSnippetUrl] = useState("");
 
   useEffect(() => {
     if (!courseId) return;
     void (async () => {
-      const [configResponse, homeResponse] = await Promise.all([
-        fetch(`/api/course-alerts/config?courseId=${encodeURIComponent(courseId)}`),
-        fetch(`/api/course-alerts/home-status?courseId=${encodeURIComponent(courseId)}`),
-      ]);
-
-      const configData = await configResponse.json();
-      if (configResponse.ok) {
-        const config = configData.config as Config;
-        setMissingWorkDays(config.missingWorkDays);
-        setLowGradeThreshold(config.lowGradeThreshold);
-        setBannerMessage(config.bannerMessage || "Check your missing work and grades below.");
-        setShowMissing(config.showMissing);
-        setShowLowGrades(config.showLowGrades);
-        if (config.courseName) setCourseName(config.courseName);
-      }
-
-      const homeData = await homeResponse.json();
-      if (homeResponse.ok && homeData.themeSnippetUrl) {
-        setThemeSnippetUrl(homeData.themeSnippetUrl as string);
-      }
+      const response = await fetch(`/api/course-alerts/config?courseId=${encodeURIComponent(courseId)}`);
+      const data = await response.json();
+      if (!response.ok) return;
+      const config = data.config as Config;
+      setMissingWorkDays(config.missingWorkDays);
+      setLowGradeThreshold(config.lowGradeThreshold);
+      setBannerMessage(config.bannerMessage || "Check your missing work and grades below.");
+      setShowMissing(config.showMissing);
+      setShowLowGrades(config.showLowGrades);
+      if (config.courseName) setCourseName(config.courseName);
     })();
   }, [courseId]);
 
@@ -59,21 +48,19 @@ export function CourseAlertsSetupForm() {
     setError("");
     setSuccess("");
 
-    const payload = {
-      courseId,
-      courseName: courseName.trim() || null,
-      missingWorkDays,
-      lowGradeThreshold,
-      bannerMessage,
-      showMissing,
-      showLowGrades,
-    };
-
     try {
       const response = await fetch("/api/course-alerts/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          courseId,
+          courseName: courseName.trim() || null,
+          missingWorkDays,
+          lowGradeThreshold,
+          bannerMessage,
+          showMissing,
+          showLowGrades,
+        }),
       });
 
       const data = await response.json();
@@ -81,13 +68,8 @@ export function CourseAlertsSetupForm() {
         throw new Error(data.error || "Could not save settings.");
       }
 
-      if (data.homeEmbed?.themeSnippetUrl) {
-        setThemeSnippetUrl(data.homeEmbed.themeSnippetUrl);
-      }
-
       setSuccess(
-        data.homeEmbed?.note ||
-          "Settings saved. Add the one-time popup script below so students see a bold popup on the course home page.",
+        "Settings saved. Students get a bold popup when they open Student Alerts from Modules.",
       );
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Could not save settings.");
@@ -109,34 +91,8 @@ export function CourseAlertsSetupForm() {
     <div className="course-alerts-shell course-alerts-setup">
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        Save your bold popup message here. Your Canvas home page content is not changed.
+        Students see a bold popup when they open <strong>Student Alerts</strong> from Modules.
       </p>
-
-      <div className="course-alerts-manual-steps">
-        <h2>Bold popup on course home (one-time setup)</h2>
-        <ol>
-          <li>Click <strong>Save settings</strong> below first.</li>
-          <li>
-            Open{" "}
-            {themeSnippetUrl ? (
-              <a href={themeSnippetUrl} target="_blank" rel="noreferrer">
-                the popup script
-              </a>
-            ) : (
-              "the popup script"
-            )}{" "}
-            and copy it.
-          </li>
-          <li>
-            Canvas <strong>Admin</strong> → <strong>Themes</strong> → <strong>Edit</strong> →{" "}
-            <strong>JavaScript</strong> → paste → <strong>Save</strong>
-          </li>
-          <li>Student View → <strong>Home</strong> → bold popup appears automatically.</li>
-        </ol>
-        <p className="course-alerts-quiet">
-          Opening <strong>Student Alerts</strong> from Modules also shows the same style popup inside the tool.
-        </p>
-      </div>
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>
         <label>
