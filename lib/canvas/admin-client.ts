@@ -45,11 +45,12 @@ export function createCanvasAdminClient() {
 
   async function canvasJson<T>(
     path: string,
-    init?: RequestInit & { query?: Record<string, string> },
+    init?: RequestInit & { query?: Record<string, string>; allowNotFound?: boolean },
   ) {
     const query = init?.query
       ? `?${new URLSearchParams(init.query).toString()}`
       : "";
+    const method = init?.method || "GET";
     const response = await fetch(`${baseUrl}/api/v1${path}${query}`, {
       ...init,
       headers: {
@@ -60,6 +61,10 @@ export function createCanvasAdminClient() {
     });
 
     if (!response.ok) {
+      if (init?.allowNotFound && response.status === 404) {
+        return null as T;
+      }
+
       let detail = "";
       try {
         const body = await response.json();
@@ -67,7 +72,9 @@ export function createCanvasAdminClient() {
       } catch {
         detail = await response.text();
       }
-      throw new Error(`Canvas API error (${response.status}): ${detail || response.statusText}`);
+      throw new Error(
+        `Canvas API error (${response.status}) on ${method} ${path}: ${detail || response.statusText}`,
+      );
     }
 
     if (response.status === 204) return null as T;
@@ -75,9 +82,11 @@ export function createCanvasAdminClient() {
   }
 
   async function listCourseExternalTools(courseId: string) {
-    return canvasJson<CanvasExternalTool[]>(`/courses/${courseId}/external_tools`, {
+    const tools = await canvasJson<CanvasExternalTool[]>(`/courses/${courseId}/external_tools`, {
       query: { per_page: "100" },
+      allowNotFound: true,
     });
+    return tools || [];
   }
 
   function matchesExternalTool(
@@ -103,13 +112,16 @@ export function createCanvasAdminClient() {
   ) {
     const modules = await canvasJson<CanvasModule[]>(`/courses/${courseId}/modules`, {
       query: { per_page: "100" },
+      allowNotFound: true,
     });
+    if (!modules) return null;
 
     for (const module of modules) {
       const items = await canvasJson<CanvasModuleItem[]>(
         `/courses/${courseId}/modules/${module.id}/items`,
-        { query: { per_page: "100" } },
+        { query: { per_page: "100" }, allowNotFound: true },
       );
+      if (!items) continue;
 
       for (const item of items) {
         if (item.type !== "ExternalTool" || !item.content_id) continue;
