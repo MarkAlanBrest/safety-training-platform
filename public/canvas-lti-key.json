@@ -37,7 +37,14 @@
     {
       "message_type": "LtiResourceLinkRequest",
       "text": "Student Alerts",
-      "placement": "link_selection"
+      "placement": "link_selection",
+      "enabled": true
+    },
+    {
+      "message_type": "LtiResourceLinkRequest",
+      "text": "Student Alerts",
+      "placement": "resource_selection",
+      "enabled": true
     }
   ]
 }

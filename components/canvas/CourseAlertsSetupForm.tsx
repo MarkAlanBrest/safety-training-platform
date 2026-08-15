@@ -54,6 +54,7 @@ export function CourseAlertsSetupForm() {
   const [success, setSuccess] = useState("");
   const [cleaning, setCleaning] = useState(false);
   const [enablingAll, setEnablingAll] = useState(false);
+  const [toolInstallNote, setToolInstallNote] = useState("");
 
   useEffect(() => {
     if (!courseId) return;
@@ -62,6 +63,26 @@ export function CourseAlertsSetupForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ courseId }),
+      });
+
+      void fetch("/api/course-alerts/install-tool-all-courses", {
+        method: "POST",
+      }).then(async (installResponse) => {
+        const data = (await installResponse.json()) as {
+          ok?: boolean;
+          installed?: number;
+          courses?: number;
+          note?: string;
+          reason?: string;
+        };
+        if (!installResponse.ok) {
+          setToolInstallNote(
+            data.reason ||
+              "Could not add Student Alerts to other courses. Use a Canvas admin API token, then open this page again.",
+          );
+          return;
+        }
+        if (data.note) setToolInstallNote(data.note);
       });
 
       const response = await fetch(`/api/course-alerts/config?courseId=${encodeURIComponent(courseId)}`);
@@ -104,7 +125,7 @@ export function CourseAlertsSetupForm() {
       const failedCount = Array.isArray(data.failed) ? data.failed.length : 0;
       setSuccess(
         data.note ||
-          `Student Alerts is on in ${data.enabled} course${data.enabled === 1 ? "" : "s"}.` +
+          `Student Alerts is in the External Tool list for ${data.installed ?? data.enabled} course${(data.installed ?? data.enabled) === 1 ? "" : "s"}.` +
             (failedCount ? ` ${failedCount} course${failedCount === 1 ? "" : "s"} could not be updated.` : ""),
       );
     } catch (enableError) {
@@ -201,9 +222,10 @@ export function CourseAlertsSetupForm() {
     <div className="course-alerts-shell course-alerts-setup">
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        Save settings for this course, or turn it on for every course at once. In Canvas, also add
-        <strong> Course Navigation</strong> on the Student Alerts developer key so teachers see the
-        tool in each course menu.
+        Opening this page adds Student Alerts to your other classes so it appears under
+        <strong> Modules → Add → External Tool</strong>. If it still is missing, turn on
+        <strong> Link Selection</strong> (and Course Navigation) on the Student Alerts developer key
+        in Canvas Admin, then open this page again.
       </p>
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>
@@ -369,6 +391,7 @@ export function CourseAlertsSetupForm() {
 
         {error ? <p className="course-alerts-error">{error}</p> : null}
         {success ? <p className="course-alerts-success">{success}</p> : null}
+        {toolInstallNote ? <p className="course-alerts-success">{toolInstallNote}</p> : null}
 
         <button type="submit" disabled={loading}>
           {loading ? "Saving..." : "Save settings"}
@@ -379,7 +402,7 @@ export function CourseAlertsSetupForm() {
           disabled={enablingAll}
           onClick={() => void handleEnableAllCourses()}
         >
-          {enablingAll ? "Enabling in all courses..." : "Turn on Student Alerts in all courses"}
+          {enablingAll ? "Adding to all courses..." : "Add Student Alerts to all courses"}
         </button>
 
         <button
