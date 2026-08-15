@@ -29,7 +29,6 @@ export function CourseAlertsShell({
     return (
       <CourseHomeBanner
         courseId={courseId}
-        studentName={initialStudentName || "Student"}
         handoffToken={handoffToken}
       />
     );

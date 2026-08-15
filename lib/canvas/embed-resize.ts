@@ -1,4 +1,7 @@
 function currentContentHeight() {
+  const hasAlertBanner = Boolean(document.querySelector(".course-home-banner-alert"));
+  if (!hasAlertBanner) return 0;
+
   const root = document.querySelector(".course-home-banner") as HTMLElement | null;
   const height = Math.ceil(
     Math.max(
@@ -15,7 +18,12 @@ export function publishEmbedHeight(heightPx = currentContentHeight()) {
     if (window.frameElement instanceof HTMLIFrameElement) {
       window.frameElement.style.height = `${heightPx}px`;
       window.frameElement.style.minHeight = `${heightPx}px`;
-      window.frameElement.style.maxHeight = "none";
+      window.frameElement.style.maxHeight = heightPx === 0 ? "0" : "none";
+      window.frameElement.style.border = "0";
+      window.frameElement.style.overflow = "hidden";
+      if (heightPx === 0) {
+        window.frameElement.style.display = "block";
+      }
     }
   } catch {
     // Cross-origin parent.
