@@ -41,21 +41,40 @@ export function CourseAlertsSetupForm() {
   const [success, setSuccess] = useState("");
   const [showManualSteps, setShowManualSteps] = useState(false);
   const [canvasApi, setCanvasApi] = useState<CanvasApiStatus | null>(null);
+  const [manualHtml, setManualHtml] = useState("");
+  const [courseAccessError, setCourseAccessError] = useState("");
 
   useEffect(() => {
     if (!courseId) return;
     void (async () => {
-      const response = await fetch(`/api/course-alerts/config?courseId=${encodeURIComponent(courseId)}`);
-      const data = await response.json();
-      if (!response.ok) return;
-      const config = data.config as Config;
-      setMissingWorkDays(config.missingWorkDays);
-      setLowGradeThreshold(config.lowGradeThreshold);
-      setBannerMessage(config.bannerMessage || "Check your missing work and grades below.");
-      setShowMissing(config.showMissing);
-      setShowLowGrades(config.showLowGrades);
-      if (config.courseName) setCourseName(config.courseName);
-      if (data.canvasApi) setCanvasApi(data.canvasApi as CanvasApiStatus);
+      const [configResponse, homeResponse, htmlResponse] = await Promise.all([
+        fetch(`/api/course-alerts/config?courseId=${encodeURIComponent(courseId)}`),
+        fetch(`/api/course-alerts/home-status?courseId=${encodeURIComponent(courseId)}`),
+        fetch(`/api/course-alerts/home-page-html?courseId=${encodeURIComponent(courseId)}`),
+      ]);
+
+      const configData = await configResponse.json();
+      if (configResponse.ok) {
+        const config = configData.config as Config;
+        setMissingWorkDays(config.missingWorkDays);
+        setLowGradeThreshold(config.lowGradeThreshold);
+        setBannerMessage(config.bannerMessage || "Check your missing work and grades below.");
+        setShowMissing(config.showMissing);
+        setShowLowGrades(config.showLowGrades);
+        if (config.courseName) setCourseName(config.courseName);
+        if (configData.canvasApi) setCanvasApi(configData.canvasApi as CanvasApiStatus);
+      }
+
+      const homeData = await homeResponse.json();
+      if (!homeResponse.ok || homeData.courseAccess === false) {
+        setCourseAccessError(homeData.error || homeData.reason || "Canvas API cannot access this course.");
+        setShowManualSteps(true);
+      }
+
+      const htmlData = await htmlResponse.json();
+      if (htmlResponse.ok && htmlData.html) {
+        setManualHtml(htmlData.html as string);
+      }
     })();
   }, [courseId]);
 
@@ -90,10 +109,18 @@ export function CourseAlertsSetupForm() {
       if (data.canvasApi) setCanvasApi(data.canvasApi as CanvasApiStatus);
 
       if (data.homeEmbed?.ok) {
-        setSuccess(
-          "Settings saved. A test message was posted to the course home page — switch to Student View and open Home to check.",
-        );
-        setShowManualSteps(false);
+        if (data.homeEmbed.verified === false) {
+          setSuccess("Alert settings saved for this course.");
+          setError(
+            "Canvas accepted the update but the home page may not be set correctly. Check Student View → Home, or use the manual paste below.",
+          );
+          setShowManualSteps(true);
+        } else {
+          setSuccess(
+            "Settings saved. A test message was posted to the course home page — switch to Student View and open Home to check.",
+          );
+          setShowManualSteps(false);
+        }
       } else if (data.homeEmbed?.reason) {
         if (isServerConfigError(data.homeEmbed.reason)) {
           setSuccess("Alert settings saved for this course.");
@@ -101,6 +128,11 @@ export function CourseAlertsSetupForm() {
             `Could not update the course home page: ${data.homeEmbed.reason} The home page will stay blank until this is fixed.`,
           );
           setShowManualSteps(false);
+        } else if (data.homeEmbed.courseAccess === false) {
+          setSuccess("Alert settings saved for this course.");
+          setError(data.homeEmbed.reason);
+          if (data.homeEmbed.manualHtml) setManualHtml(data.homeEmbed.manualHtml);
+          setShowManualSteps(true);
         } else {
           setSuccess("Alert settings saved for this course.");
           setError(`Could not update the course home page: ${data.homeEmbed.reason}`);
@@ -218,13 +250,41 @@ export function CourseAlertsSetupForm() {
 
         {showManualSteps ? (
           <div className="course-alerts-manual-steps">
-            <h2>Add Student Alerts to your course</h2>
-            <ol>
-              <li>In Canvas, open your course → <strong>Modules</strong>.</li>
-              <li>Click <strong>+</strong> on a module → <strong>External Tool</strong>.</li>
-              <li>Choose <strong>Student Alerts</strong> → <strong>Add Item</strong>.</li>
-              <li>Come back here and click <strong>Save settings</strong> again — alerts will auto-open on the course home page.</li>
-            </ol>
+            {courseAccessError ? (
+              <>
+                <h2>Canvas API cannot update this course automatically</h2>
+                <p className="course-alerts-error">{courseAccessError}</p>
+                <p>
+                  Fix: in Vercel, set <strong>CANVAS_API_TOKEN</strong> to a token from a Canvas{" "}
+                  <strong>admin</strong> account, redeploy, then save again.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2>Add Student Alerts to your course</h2>
+                <ol>
+                  <li>In Canvas, open your course → <strong>Modules</strong>.</li>
+                  <li>Click <strong>+</strong> on a module → <strong>External Tool</strong>.</li>
+                  <li>Choose <strong>Student Alerts</strong> → <strong>Add Item</strong>.</li>
+                  <li>Come back here and click <strong>Save settings</strong> again.</li>
+                </ol>
+              </>
+            )}
+
+            {manualHtml ? (
+              <>
+                <h2>Or paste this on the course Front Page manually</h2>
+                <ol>
+                  <li>Canvas → your course → <strong>Pages</strong></li>
+                  <li>Open the <strong>Front Page</strong> → <strong>Edit</strong> → <strong>HTML Editor</strong></li>
+                  <li>Paste the HTML below → <strong>Save</strong></li>
+                  <li>
+                    <strong>Settings</strong> → set <strong>Home Page</strong> to <strong>Front Page</strong>
+                  </li>
+                </ol>
+                <textarea className="course-alerts-manual-html" readOnly rows={6} value={manualHtml} />
+              </>
+            ) : null}
           </div>
         ) : null}
 

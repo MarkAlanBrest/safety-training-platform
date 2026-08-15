@@ -134,6 +134,28 @@ export function createCanvasAdminClient() {
   }
 
   return {
+    async getCourseAccess(courseId: string) {
+      const course = await canvasJson<CanvasCourse & { name?: string }>(`/courses/${courseId}`, {
+        allowNotFound: true,
+      });
+
+      if (!course) {
+        return {
+          ok: false as const,
+          reason:
+            `The Canvas API token cannot access course ${courseId}. ` +
+            "Create CANVAS_API_TOKEN from a Canvas admin account (Account → Settings → New Access Token), " +
+            "update it in Vercel, redeploy, then save again.",
+        };
+      }
+
+      return {
+        ok: true as const,
+        courseName: course.name || null,
+        defaultView: course.default_view || null,
+      };
+    },
+
     async findCourseExternalTool(
       courseId: string,
       options: { searchName: string; clientId?: string; launchHost?: string },

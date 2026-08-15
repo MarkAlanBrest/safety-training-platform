@@ -1,33 +1,24 @@
 import { createCanvasAdminClient } from "@/lib/canvas/admin-client";
+import { buildTestHomePageBody } from "@/lib/canvas/course-home-page-html";
 
 const FRONT_PAGE_URL = "student-alerts-home";
 const FRONT_PAGE_TITLE = "Student Alerts";
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function buildTestHomePageBody(bannerMessage?: string | null) {
-  const message =
-    bannerMessage?.trim() ||
-    "Student Alerts is connected. Missing work and grade reminders will show here soon.";
-
-  return [
-    `<p><strong style="font-size:1.4em;">Student Alerts — test message</strong></p>`,
-    `<p><strong>${escapeHtml(message)}</strong></p>`,
-    `<p>If you can read this on the course home page, the Canvas home-page connection is working.</p>`,
-  ].join("\n");
-}
 
 export async function setupCourseHomeStudentAlerts(
   canvasCourseId: string,
   options?: { bannerMessage?: string | null },
 ) {
   const client = createCanvasAdminClient();
+  const access = await client.getCourseAccess(canvasCourseId);
+  if (!access.ok) {
+    return {
+      ok: false as const,
+      reason: access.reason,
+      courseAccess: false,
+      manualHtml: buildTestHomePageBody(options?.bannerMessage),
+    };
+  }
+
   const body = buildTestHomePageBody(options?.bannerMessage);
 
   await client.upsertCourseFrontPage(canvasCourseId, {
@@ -37,9 +28,14 @@ export async function setupCourseHomeStudentAlerts(
   });
   await client.setCourseHomeToFrontPage(canvasCourseId, FRONT_PAGE_URL);
 
+  const homeStatus = await client.getCourseHomeStatus(canvasCourseId);
+
   return {
     ok: true as const,
     frontPageUrl: FRONT_PAGE_URL,
     mode: "test_message" as const,
+    courseAccess: true,
+    verified: homeStatus.hasStudentAlertsEmbed && homeStatus.defaultView === "wiki",
+    home: homeStatus,
   };
 }

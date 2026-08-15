@@ -228,6 +228,19 @@
   color: #86efac;
 }
 
+.course-alerts-manual-steps textarea.course-alerts-manual-html {
+  width: 100%;
+  margin-top: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.35);
+  color: #e8f2ff;
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
 @keyframes course-alerts-pulse {
   0%,
   100% {
