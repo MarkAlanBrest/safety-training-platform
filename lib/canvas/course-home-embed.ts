@@ -176,7 +176,28 @@ export async function ensureStudentAlertsLtiApp() {
     if (accountTool) accounts = 1;
     else accountErrors.push("Canvas did not install Student Alerts on the account.");
   } catch (error) {
-    accountErrors.push(error instanceof Error ? error.message : "Could not install on the Canvas account.");
+    const message = error instanceof Error ? error.message : "Could not install on the Canvas account.";
+    accountErrors.push(message);
+    if (!created && /404|does not exist/i.test(message)) {
+      try {
+        const createdKey = await client.createStudentAlertsDeveloperKey();
+        clientId = createdKey.clientId;
+        created = true;
+        await persistLtiClientId(clientId).catch(() => null);
+        await client.ensureDeveloperKeyEnabled(clientId).catch(() => null);
+        const retried = await client.ensureAccountExternalTool({
+          ...toolOptions,
+          clientId,
+        });
+        if (retried) {
+          accounts = 1;
+        }
+      } catch (retryError) {
+        accountErrors.push(
+          retryError instanceof Error ? retryError.message : "Could not recreate the LTI key after install failed.",
+        );
+      }
+    }
   }
   await client.removeDuplicateAccountStudentAlertsTools(toolOptions).catch(() => null);
 
