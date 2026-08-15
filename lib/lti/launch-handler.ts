@@ -4,15 +4,12 @@ import { parseCourseAlertCustomFields } from "@/lib/course-alerts/config";
 import { recordCourseAlertSignup } from "@/lib/course-alerts/db";
 import { saveCourseAlertConfig } from "@/lib/course-alerts/store";
 import { embedStudentAlertsOnCourseHome } from "@/lib/canvas/course-home-embed-result";
-import { createCanvasAdminClient } from "@/lib/canvas/admin-client";
 import {
   canvasSessionCookieOptions,
   encodeCanvasStudentSession,
   CANVAS_SESSION_COOKIE,
 } from "@/lib/canvas/session";
 import {
-  buildDeepLinkingHtml,
-  buildDeepLinkingResponse,
   readDeepLinkingSettings,
 } from "@/lib/lti/deep-linking";
 import { isIframeLtiLaunch } from "@/lib/lti/launch-presentation";
@@ -147,27 +144,13 @@ export async function handleLtiLaunchPost(
   }
 
   if (deepLinking) {
-    try {
-      await createCanvasAdminClient().ensureDeveloperKeyEnabled(clientId).catch(() => null);
-      const { launchUrl } = getLtiConfig();
-      const jwt = await buildDeepLinkingResponse({
-        clientId,
-        platformIssuer: identity.platformIssuer,
-        deploymentId: identity.deploymentId,
-        nonce: identity.nonce,
-        launchUrl,
-        data: deepLinking.data,
-      });
-      const response = new NextResponse(buildDeepLinkingHtml(deepLinking.deep_link_return_url, jwt), {
-        status: 200,
-        headers: { "Content-Type": "text/html; charset=utf-8" },
-      });
-      return attachSessionCookie(response, identity);
-    } catch (error) {
-      console.error("Deep linking auto-return failed:", error);
-      const setupPath = `/canvas/alerts/setup${identity.courseId ? `?course=${encodeURIComponent(identity.courseId)}` : ""}`;
-      return finishLaunch(appOrigin, identity, setupPath);
+    if (identity.courseId && isInstructor) {
+      await embedStudentAlertsOnCourseHome(identity.courseId);
     }
+    const setupPath = `/canvas/alerts/setup${
+      identity.courseId ? `?course=${encodeURIComponent(identity.courseId)}` : ""
+    }`;
+    return finishLaunch(appOrigin, identity, setupPath);
   }
 
   if (isInstructor && identity.courseId) {

@@ -6,7 +6,7 @@ import { handleLtiLaunchPostWithErrorPage } from "@/lib/lti/launch-handler";
 
 function loginErrorResponse(message: string, status = 500) {
   return new NextResponse(
-    `<html><body style="font-family:sans-serif;padding:24px;max-width:640px"><h1>Student Alerts could not start</h1><p>${message}</p><p>Open this tool from <strong>Canvas → Modules → External Tool → Student Alerts</strong>, not by visiting this URL directly.</p></body></html>`,
+    `<html><body style="font-family:sans-serif;padding:24px;max-width:640px"><h1>Student Alerts could not start</h1><p>${message}</p><p>Open <strong>Student Alerts</strong> from the course menu in Canvas, or just go to the course Home page.</p></body></html>`,
     { status, headers: { "Content-Type": "text/html; charset=utf-8" } },
   );
 }

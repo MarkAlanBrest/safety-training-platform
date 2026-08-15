@@ -145,7 +145,7 @@ export function CourseAlertsViewer({
         <div className="course-alerts-cta">
           <ShieldAlert size={36} />
           <h1>Open this from Canvas</h1>
-          <p>Open <strong>Student Alerts</strong> from your course in Canvas (Modules → External Tool).</p>
+          <p>Open <strong>Student Alerts</strong> from your course Home page in Canvas.</p>
         </div>
       </div>
     );
