@@ -1,15 +1,16 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
-import { resolvePrismaDatabaseUrl } from "./lib/database-url-core";
+import {
+  describeDatabaseUrl,
+  resolvePrismaDatabaseUrl,
+} from "./lib/database-url-core";
 
 const resolved = resolvePrismaDatabaseUrl();
 
 if (!resolved.url) {
-  const invalid = resolved.invalid?.length
-    ? ` Invalid values found for: ${resolved.invalid.join(", ")}.`
-    : "";
+  const details = resolved.invalid?.join("; ") || describeDatabaseUrl(process.env.DATABASE_URL);
   throw new Error(
-    `No valid PostgreSQL database URL found. Set DATABASE_URL in Vercel to a pooled Neon URL starting with postgresql:// (no quotes).${invalid}`,
+    `DATABASE_URL is invalid. ${details}. Set DATABASE_URL in Vercel to a Neon pooled URL starting with postgresql:// (no quotes).`,
   );
 }
 

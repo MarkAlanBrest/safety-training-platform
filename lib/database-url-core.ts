@@ -17,31 +17,28 @@ export function isValidPostgresDatabaseUrl(value: string) {
   return POSTGRES_SCHEME.test(value);
 }
 
-export function resolvePrismaDatabaseUrl(env: NodeJS.ProcessEnv = process.env) {
-  const candidates: Array<{ name: string; value?: string }> = [
-    { name: "DATABASE_URL", value: env.DATABASE_URL },
-    { name: "DIRECT_URL", value: env.DIRECT_URL },
-    { name: "DATABASE_URL_UNPOOLED", value: env.DATABASE_URL_UNPOOLED },
-    { name: "POSTGRES_URL_NON_POOLING", value: env.POSTGRES_URL_NON_POOLING },
-    { name: "POSTGRES_URL", value: env.POSTGRES_URL },
-    { name: "POSTGRES_PRISMA_URL", value: env.POSTGRES_PRISMA_URL },
-  ];
-
-  for (const candidate of candidates) {
-    const sanitized = sanitizeDatabaseUrl(candidate.value);
-    if (!sanitized) continue;
-    if (isValidPostgresDatabaseUrl(sanitized)) {
-      return { url: sanitized, source: candidate.name };
-    }
+export function describeDatabaseUrl(raw?: string | null) {
+  const sanitized = sanitizeDatabaseUrl(raw);
+  if (!sanitized) {
+    return "missing or empty";
   }
 
-  const invalid = candidates
-    .map((candidate) => {
-      const sanitized = sanitizeDatabaseUrl(candidate.value);
-      if (!sanitized) return null;
-      return `${candidate.name} (invalid scheme)`;
-    })
-    .filter((entry): entry is string => Boolean(entry));
+  const scheme = sanitized.split(":")[0] || "";
+  const startsWith = JSON.stringify(sanitized.slice(0, Math.min(20, sanitized.length)));
+  return `length=${sanitized.length}, scheme=${JSON.stringify(scheme)}, startsWith=${startsWith}`;
+}
 
-  return { url: null, source: null, invalid };
+export function resolvePrismaDatabaseUrl(env: NodeJS.ProcessEnv = process.env) {
+  const sanitized = sanitizeDatabaseUrl(env.DATABASE_URL);
+  if (sanitized && isValidPostgresDatabaseUrl(sanitized)) {
+    return { url: sanitized, source: "DATABASE_URL" as const };
+  }
+
+  return {
+    url: null,
+    source: null,
+    invalid: env.DATABASE_URL
+      ? [`DATABASE_URL (${describeDatabaseUrl(env.DATABASE_URL)})`]
+      : ["DATABASE_URL (missing)"],
+  };
 }
