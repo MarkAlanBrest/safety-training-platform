@@ -126,11 +126,17 @@ export async function installStudentAlertsToolSchoolWide() {
 
   const accountIds = await client.listAccountIdsIncludingSubaccounts();
   let accounts = 0;
+  const accountErrors: string[] = [];
   for (const accountId of accountIds) {
-    const installed = await client
-      .ensureAccountExternalTool({ ...toolOptions, accountId })
-      .catch(() => null);
-    if (installed) accounts += 1;
+    try {
+      const accountTool = await client.ensureAccountExternalTool({ ...toolOptions, accountId });
+      if (accountTool) accounts += 1;
+      else accountErrors.push(`Canvas did not install Student Alerts on account ${accountId}.`);
+    } catch (error) {
+      accountErrors.push(
+        error instanceof Error ? error.message : `Could not install on account ${accountId}.`,
+      );
+    }
   }
 
   const courses = await client.listPublishedCourses();
@@ -167,9 +173,47 @@ export async function installStudentAlertsToolSchoolWide() {
     note:
       installed > 0
         ? `Student Alerts is available under Modules → Add → External Tool in ${installed} course${installed === 1 ? "" : "s"}.`
-        : accounts > 0
-          ? "The account app was installed, but Canvas did not add it to individual courses yet."
-          : "Could not install Student Alerts on the Canvas account. Use a Canvas admin API token.",
+        : accountErrors[0] ||
+          (accounts > 0
+            ? "The account app was installed, but Canvas did not add it to individual courses yet."
+            : "Could not install Student Alerts on the Canvas account. Use a Canvas admin API token."),
+    accountErrors,
+  };
+}
+
+export async function diagnoseStudentAlertsTool(canvasCourseId: string) {
+  const origin = getAppOrigin();
+  const clientId = getConfiguredLtiClientId();
+  const client = createCanvasAdminClient();
+
+  const definitions = await client
+    .listLinkSelectionLaunchDefinitions(canvasCourseId)
+    .catch(() => [] as Array<{ name?: string }>);
+  const inModulePicker = definitions.some((item) => {
+    const name = (item.name || "").toLowerCase();
+    return name.includes("alert") || name.includes("student");
+  });
+
+  const accountTools = await client.listAccountExternalTools("self").catch(() => []);
+  const courseTool = await client
+    .findCourseExternalTool(canvasCourseId, {
+      searchName: "Student Alerts",
+      clientId,
+      launchHost: origin ? new URL(origin).hostname : undefined,
+    })
+    .catch(() => null);
+
+  return {
+    clientId: clientId || null,
+    targetLinkUri: origin ? `${origin}/api/lti/launch` : null,
+    jsonUrl: origin ? `${origin}/canvas-lti-key.json` : null,
+    inModulePicker,
+    modulePickerTools: definitions.map((item) => item.name).filter(Boolean),
+    courseHasTool: Boolean(courseTool),
+    accountHasTool: accountTools.some((tool) => {
+      const name = (tool.name || "").toLowerCase();
+      return Boolean(clientId && tool.client_id === clientId) || name.includes("alert");
+    }),
   };
 }
 

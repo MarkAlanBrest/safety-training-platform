@@ -3,48 +3,77 @@
   "description": "Bold course alerts from your teacher",
   "institution_url": "https://mytrades.instructure.com",
   "app_origin": "https://safety-training-platform-eight.vercel.app",
+  "oidc_initiation_url": "https://safety-training-platform-eight.vercel.app/api/lti/login",
+  "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch",
   "public_jwk_url": "https://safety-training-platform-eight.vercel.app/api/lti/jwks",
+  "redirect_uris": [
+    "https://safety-training-platform-eight.vercel.app/api/lti/launch"
+  ],
+  "scopes": [],
   "custom_fields": {
     "user_id": "$Canvas.user.id",
     "course_id": "$Canvas.course.id"
   },
-  "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch",
-  "domain": "safety-training-platform-eight.vercel.app",
-  "privacy_level": "public",
-  "oidc_initiation_url": "https://safety-training-platform-eight.vercel.app/api/lti/login",
-  "redirect_uris": [
-    "https://safety-training-platform-eight.vercel.app/api/lti/launch"
-  ],
-  "placements": [
+  "extensions": [
     {
-      "message_type": "LtiDeepLinkingRequest",
-      "text": "Student Alerts",
-      "placement": "assignment_selection"
-    },
-    {
-      "message_type": "LtiResourceLinkRequest",
-      "text": "Student Alerts",
-      "placement": "course_navigation",
-      "enabled": true,
-      "default": "enabled",
-      "visibility": "admins"
-    },
-    {
-      "message_type": "LtiResourceLinkRequest",
-      "text": "Student Alerts",
-      "placement": "course_home_sub_navigation"
-    },
-    {
-      "message_type": "LtiDeepLinkingRequest",
-      "text": "Student Alerts",
-      "placement": "link_selection",
-      "enabled": true
-    },
-    {
-      "message_type": "LtiDeepLinkingRequest",
-      "text": "Student Alerts",
-      "placement": "resource_selection",
-      "enabled": true
+      "domain": "safety-training-platform-eight.vercel.app",
+      "tool_id": "student-alerts",
+      "platform": "canvas.instructure.com",
+      "privacy_level": "public",
+      "settings": {
+        "text": "Student Alerts",
+        "icon_url": "https://safety-training-platform-eight.vercel.app/student-alerts-icon.svg",
+        "selection_height": 600,
+        "selection_width": 800,
+        "placements": [
+          {
+            "placement": "link_selection",
+            "enabled": true,
+            "text": "Student Alerts",
+            "message_type": "LtiDeepLinkingRequest",
+            "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch",
+            "icon_url": "https://safety-training-platform-eight.vercel.app/student-alerts-icon.svg",
+            "selection_height": 600,
+            "selection_width": 800
+          },
+          {
+            "placement": "resource_selection",
+            "enabled": true,
+            "text": "Student Alerts",
+            "message_type": "LtiDeepLinkingRequest",
+            "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch",
+            "icon_url": "https://safety-training-platform-eight.vercel.app/student-alerts-icon.svg",
+            "selection_height": 600,
+            "selection_width": 800
+          },
+          {
+            "placement": "assignment_selection",
+            "enabled": true,
+            "text": "Student Alerts",
+            "message_type": "LtiDeepLinkingRequest",
+            "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch",
+            "icon_url": "https://safety-training-platform-eight.vercel.app/student-alerts-icon.svg",
+            "selection_height": 600,
+            "selection_width": 800
+          },
+          {
+            "placement": "course_navigation",
+            "enabled": true,
+            "default": "enabled",
+            "visibility": "admins",
+            "text": "Student Alerts",
+            "message_type": "LtiResourceLinkRequest",
+            "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch"
+          },
+          {
+            "placement": "course_home_sub_navigation",
+            "enabled": true,
+            "text": "Student Alerts",
+            "message_type": "LtiResourceLinkRequest",
+            "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch"
+          }
+        ]
+      }
     }
   ]
 }

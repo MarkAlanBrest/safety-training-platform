@@ -55,6 +55,15 @@ export function CourseAlertsSetupForm() {
   const [cleaning, setCleaning] = useState(false);
   const [enablingAll, setEnablingAll] = useState(false);
   const [toolInstallNote, setToolInstallNote] = useState("");
+  const [toolStatus, setToolStatus] = useState<{
+    clientId: string | null;
+    targetLinkUri: string | null;
+    jsonUrl: string | null;
+    inModulePicker: boolean;
+    modulePickerTools: string[];
+    courseHasTool: boolean;
+    accountHasTool: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (!courseId) return;
@@ -65,6 +74,12 @@ export function CourseAlertsSetupForm() {
         body: JSON.stringify({ courseId }),
       });
 
+      void fetch(`/api/course-alerts/tool-status?courseId=${encodeURIComponent(courseId)}`).then(
+        async (statusResponse) => {
+          if (statusResponse.ok) setToolStatus(await statusResponse.json());
+        },
+      );
+
       void fetch("/api/course-alerts/install-tool-all-courses", {
         method: "POST",
       }).then(async (installResponse) => {
@@ -74,15 +89,26 @@ export function CourseAlertsSetupForm() {
           courses?: number;
           note?: string;
           reason?: string;
+          accountErrors?: string[];
         };
         if (!installResponse.ok) {
           setToolInstallNote(
             data.reason ||
               "Could not add Student Alerts to other courses. Use a Canvas admin API token, then open this page again.",
           );
-          return;
+        } else if (data.note) {
+          setToolInstallNote(
+            data.accountErrors?.length
+              ? `${data.note} ${data.accountErrors[0]}`
+              : data.note,
+          );
         }
-        if (data.note) setToolInstallNote(data.note);
+        const statusResponse = await fetch(
+          `/api/course-alerts/tool-status?courseId=${encodeURIComponent(courseId)}`,
+        );
+        if (statusResponse.ok) {
+          setToolStatus(await statusResponse.json());
+        }
       });
 
       const response = await fetch(`/api/course-alerts/config?courseId=${encodeURIComponent(courseId)}`);
@@ -222,12 +248,46 @@ export function CourseAlertsSetupForm() {
     <div className="course-alerts-shell course-alerts-setup">
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        Opening this page adds Student Alerts to your other classes so it appears under
-        <strong> Modules → Add → External Tool</strong>. On the developer key, turn on
-        <strong> Link Selection</strong> and set its message type to
-        <strong> LtiDeepLinkingRequest</strong>. Course Navigation should stay
-        <strong> LtiResourceLinkRequest</strong>.
+        Canvas only lists Student Alerts in a class after the app is installed there. Selecting a
+        message type on the developer key is not enough.
       </p>
+
+      <div className="course-alerts-setup-help">
+        <p>
+          <strong>1. Link Selection</strong> on the developer key must have:
+        </p>
+        <ul>
+          <li>Message type: <strong>LtiDeepLinkingRequest</strong></li>
+          <li>
+            Target Link URI:{" "}
+            <code>{toolStatus?.targetLinkUri || "https://safety-training-platform-eight.vercel.app/api/lti/launch"}</code>
+          </li>
+        </ul>
+        <p>
+          <strong>2. Install the app for the whole school</strong> (not just one course):
+          Admin → Settings → Apps → + App → By Client ID
+          {toolStatus?.clientId ? (
+            <>
+              {" "}
+              → <code>{toolStatus.clientId}</code>
+            </>
+          ) : (
+            " → paste the Student Alerts client ID from the developer key"
+          )}
+          .
+        </p>
+        <p>
+          {toolStatus
+            ? toolStatus.inModulePicker
+              ? "This course’s Modules → External Tool list includes Student Alerts."
+              : `This course’s Modules picker does not include Student Alerts yet${
+                  toolStatus.modulePickerTools.length
+                    ? ` (Canvas listed: ${toolStatus.modulePickerTools.join(", ")})`
+                    : ""
+                }.`
+            : "Checking whether Canvas lists Student Alerts in this course…"}
+        </p>
+      </div>
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>
         <label>

@@ -135,6 +135,43 @@ export function createCanvasAdminClient() {
     return items;
   }
 
+  async function postClientIdTool(path: string, clientId: string) {
+    try {
+      return await canvasJson<CanvasExternalTool>(path, {
+        method: "POST",
+        body: JSON.stringify({ client_id: clientId }),
+      });
+    } catch (error) {
+      if (isAlreadyInstalledError(error)) throw error;
+    }
+
+    const response = await fetch(`${baseUrl}/api/v1${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ client_id: clientId }).toString(),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      let detail = "";
+      try {
+        const body = (await response.json()) as { errors?: Array<{ message?: string }>; message?: string };
+        detail = body?.errors?.[0]?.message || body?.message || JSON.stringify(body);
+      } catch {
+        detail = await response.text();
+      }
+      throw new Error(
+        `Canvas API error (${response.status}) on POST ${path}: ${detail || response.statusText}`,
+      );
+    }
+
+    return (await response.json()) as CanvasExternalTool;
+  }
+
   async function listCourseExternalTools(courseId: string, includeParents = false) {
     const query: Record<string, string> = { per_page: "100" };
     if (includeParents) query.include_parents = "true";
@@ -424,10 +461,7 @@ export function createCanvasAdminClient() {
       }
 
       try {
-        return await canvasJson<CanvasExternalTool>(`/accounts/${accountId}/external_tools`, {
-          method: "POST",
-          body: JSON.stringify({ client_id: clientId.trim() }),
-        });
+        return await postClientIdTool(`/accounts/${accountId}/external_tools`, clientId.trim());
       } catch (error) {
         if (!isAlreadyInstalledError(error)) throw error;
         const tools = await this.listAccountExternalTools(accountId);
@@ -452,9 +486,11 @@ export function createCanvasAdminClient() {
 
       try {
         return await this.installAccountExternalToolByClientId(options.clientId, accountId);
-      } catch {
+      } catch (error) {
         const retry = await this.listAccountExternalTools(accountId);
-        return retry.find((tool) => matchesExternalTool(tool, options)) || null;
+        const found = retry.find((tool) => matchesExternalTool(tool, options));
+        if (found) return found;
+        throw error;
       }
     },
 
@@ -514,17 +550,32 @@ export function createCanvasAdminClient() {
       return courses;
     },
 
+    async listLinkSelectionLaunchDefinitions(courseId: string) {
+      const search = new URLSearchParams();
+      search.append("placements[]", "link_selection");
+      search.append("placements[]", "resource_selection");
+      search.set("per_page", "100");
+      const response = await fetch(
+        `${baseUrl}/api/v1/courses/${courseId}/lti_apps/launch_definitions?${search.toString()}`,
+        {
+          headers: canvasAdminHeaders(apiToken),
+          cache: "no-store",
+        },
+      );
+      if (!response.ok) {
+        return [] as Array<{ name?: string; definition_id?: number }>;
+      }
+      const data = (await response.json()) as Array<{ name?: string; definition_id?: number }>;
+      return Array.isArray(data) ? data : [];
+    },
+
     async installExternalToolByClientId(courseId: string, clientId: string) {
       if (!clientId.trim()) {
         throw new Error("CANVAS_LTI_CLIENT_ID is not configured.");
       }
 
       try {
-        const created = await canvasJson<CanvasExternalTool>(`/courses/${courseId}/external_tools`, {
-          method: "POST",
-          body: JSON.stringify({ client_id: clientId.trim() }),
-          allowNotFound: true,
-        });
+        const created = await postClientIdTool(`/courses/${courseId}/external_tools`, clientId.trim());
         if (created?.id) return created;
       } catch (error) {
         if (!isAlreadyInstalledError(error)) {
