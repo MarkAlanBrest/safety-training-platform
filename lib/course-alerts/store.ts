@@ -205,3 +205,28 @@ export async function backfillExistingConfigsAsHomeEnabled() {
   });
 }
 
+const LTI_CLIENT_SENTINEL = "__student_alerts_lti_client_id__";
+
+export async function getPersistedLtiClientId() {
+  const record = await prisma.courseAlertConfig.findUnique({
+    where: { canvasCourseId: LTI_CLIENT_SENTINEL },
+    select: { courseName: true },
+  });
+  return record?.courseName?.trim() || null;
+}
+
+export async function persistLtiClientId(clientId: string) {
+  const trimmed = clientId.trim();
+  if (!trimmed) return;
+  await prisma.courseAlertConfig.upsert({
+    where: { canvasCourseId: LTI_CLIENT_SENTINEL },
+    create: {
+      canvasCourseId: LTI_CLIENT_SENTINEL,
+      courseName: trimmed,
+    },
+    update: {
+      courseName: trimmed,
+    },
+  });
+}
+

@@ -10,6 +10,7 @@ import {
   backfillExistingConfigsAsHomeEnabled,
   isCourseHomeAlertsEnabled,
   listHomeAlertsEnabledCourseIds,
+  persistLtiClientId,
   setCourseHomeAlertsEnabled,
 } from "@/lib/course-alerts/store";
 
@@ -124,9 +125,44 @@ export async function removeCourseHomeStudentAlerts(canvasCourseId: string) {
 }
 
 export async function installStudentAlertsToolSchoolWide() {
+  return ensureStudentAlertsLtiApp();
+}
+
+export async function ensureStudentAlertsLtiApp() {
   const client = createCanvasAdminClient();
-  const clientId = await client.resolveStudentAlertsClientId(getConfiguredLtiClientId());
-  await client.ensureDeveloperKeyEnabled(clientId).catch(() => null);
+  const existing = await client.findStudentAlertsDeveloperKey().catch(() => null);
+  let clientId = existing?.id ? String(existing.id) : "";
+  let created = false;
+  const accountErrors: string[] = [];
+
+  if (!clientId) {
+    try {
+      const createdKey = await client.createStudentAlertsDeveloperKey();
+      clientId = createdKey.clientId;
+      created = true;
+    } catch (error) {
+      accountErrors.push(
+        error instanceof Error ? error.message : "Could not recreate the Student Alerts LTI key.",
+      );
+      return {
+        ok: false as const,
+        created: false,
+        clientId: null,
+        accounts: 0,
+        courses: 0,
+        installed: 0,
+        failed: [] as Array<{ id: number; name?: string; reason: string }>,
+        usedFallback: false,
+        note: accountErrors[0] || "The Canvas LTI key is missing and could not be recreated.",
+        accountErrors,
+      };
+    }
+  }
+
+  await persistLtiClientId(clientId).catch(() => null);
+  await client.ensureDeveloperKeyEnabled(clientId).catch((error) => {
+    accountErrors.push(error instanceof Error ? error.message : "Could not turn the LTI key on.");
+  });
 
   const toolOptions = {
     searchName: "Student Alerts",
@@ -135,7 +171,6 @@ export async function installStudentAlertsToolSchoolWide() {
   };
 
   let accounts = 0;
-  const accountErrors: string[] = [];
   try {
     const accountTool = await client.ensureAccountExternalTool(toolOptions);
     if (accountTool) accounts = 1;
@@ -146,7 +181,9 @@ export async function installStudentAlertsToolSchoolWide() {
   await client.removeDuplicateAccountStudentAlertsTools(toolOptions).catch(() => null);
 
   return {
-    ok: true as const,
+    ok: accounts > 0,
+    created,
+    clientId,
     accounts,
     courses: 0,
     installed: accounts,
@@ -154,7 +191,9 @@ export async function installStudentAlertsToolSchoolWide() {
     usedFallback: false,
     note:
       accounts > 0
-        ? "Student Alerts is installed once on the Canvas account. Teachers can open Set Student Alerts from course Home."
+        ? created
+          ? `Recreated the Student Alerts LTI key (${clientId}) and installed the app on the Canvas account.`
+          : "Student Alerts is installed once on the Canvas account. Teachers can open Set Student Alerts from course Home."
         : accountErrors[0] ||
           "Could not install Student Alerts on the Canvas account. Use a Canvas admin API token.",
     accountErrors,
