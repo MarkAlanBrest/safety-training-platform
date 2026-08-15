@@ -36,7 +36,7 @@ export function normalizeCanvasBaseUrl(baseUrl: string) {
   return withProtocol.replace(/\/api\/v1$/i, "");
 }
 
-const CANVAS_USER_AGENT =
+export const CANVAS_USER_AGENT =
   process.env.CANVAS_USER_AGENT?.trim() || "safety-training-platform/1.0 (Canvas Student Alerts)";
 
 function canvasRequestHeaders(token: string) {

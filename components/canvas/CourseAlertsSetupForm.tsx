@@ -151,8 +151,8 @@ export function CourseAlertsSetupForm() {
       const failedCount = Array.isArray(data.failed) ? data.failed.length : 0;
       setSuccess(
         data.note ||
-          `The tool is available in ${data.installed ?? 0} course${(data.installed ?? 0) === 1 ? "" : "s"}. This does not copy settings. Open Student Alerts in each class to configure that class.` +
-            (failedCount ? ` ${failedCount} course${failedCount === 1 ? "" : "s"} could not be updated.` : ""),
+          `Student Alerts is on in ${data.enabled ?? data.installed ?? 0} class${(data.enabled ?? data.installed ?? 0) === 1 ? "" : "es"}. Each class keeps its own settings.` +
+            (failedCount ? ` ${failedCount} class${failedCount === 1 ? "" : "es"} could not be updated.` : ""),
       );
     } catch (enableError) {
       setError(enableError instanceof Error ? enableError.message : "Could not enable all courses.");
@@ -248,44 +248,16 @@ export function CourseAlertsSetupForm() {
     <div className="course-alerts-shell course-alerts-setup">
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        These settings apply only to this class. Open Student Alerts from another course to set that
-        class up separately. Making the tool visible in Canvas does not copy messages or thresholds.
+        Opening this page turns Student Alerts on for every class Home page. These messages and
+        thresholds apply only to this class. Open setup from another class to change that class.
       </p>
 
       <div className="course-alerts-setup-help">
         <p>
-          <strong>1. Link Selection</strong> on the developer key must have:
-        </p>
-        <ul>
-          <li>Message type: <strong>LtiDeepLinkingRequest</strong></li>
-          <li>
-            Target Link URI:{" "}
-            <code>{toolStatus?.targetLinkUri || "https://safety-training-platform-eight.vercel.app/api/lti/launch"}</code>
-          </li>
-        </ul>
-        <p>
-          <strong>2. Make the tool available in other classes</strong> (this does not copy settings):
-          Admin → Settings → Apps → + App → By Client ID
-          {toolStatus?.clientId ? (
-            <>
-              {" "}
-              → <code>{toolStatus.clientId}</code>
-            </>
-          ) : (
-            " → paste the Student Alerts client ID from the developer key"
-          )}
-          . Then open Student Alerts in each class and save that class’s own settings.
-        </p>
-        <p>
-          {toolStatus
-            ? toolStatus.inModulePicker
-              ? "This course’s Modules → External Tool list includes Student Alerts."
-              : `This course’s Modules picker does not include Student Alerts yet${
-                  toolStatus.modulePickerTools.length
-                    ? ` (Canvas listed: ${toolStatus.modulePickerTools.join(", ")})`
-                    : ""
-                }.`
-            : "Checking whether Canvas lists Student Alerts in this course…"}
+          {toolInstallNote ||
+            (toolStatus
+              ? `Client ID ${toolStatus.clientId || "149450000000000305"}. Students see alerts on Home — you do not need to add an External Tool in Modules.`
+              : "Turning Student Alerts on in every class…")}
         </p>
       </div>
 
@@ -463,7 +435,7 @@ export function CourseAlertsSetupForm() {
           disabled={enablingAll}
           onClick={() => void handleEnableAllCourses()}
         >
-          {enablingAll ? "Making the tool available..." : "Make tool available in other classes"}
+          {enablingAll ? "Turning on every class..." : "Turn on in every class"}
         </button>
 
         <button
