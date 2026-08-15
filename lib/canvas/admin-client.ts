@@ -583,6 +583,47 @@ export function createCanvasAdminClient() {
       }
     },
 
+    async removeDuplicateAccountStudentAlertsTools(options: {
+      searchName: string;
+      clientId?: string;
+      launchHost?: string;
+    }) {
+      const self = await canvasJson<{ id: number; root_account_id?: number | null }>(
+        "/accounts/self",
+      ).catch(() => null);
+      const keepAccounts = new Set<string>(["self"]);
+      if (self?.id) keepAccounts.add(String(self.id));
+      if (self?.root_account_id) keepAccounts.add(String(self.root_account_id));
+
+      const accountIds = ["self", ...(await this.listAccountIdsIncludingSubaccounts()).filter((id) => id !== "self")];
+      const keepToolIds = new Set<number>();
+      let removed = 0;
+
+      for (const accountId of accountIds) {
+        const tools = await this.listAccountExternalTools(accountId).catch(() => []);
+        const matches = tools.filter((tool) => matchesExternalTool(tool, options));
+        for (const tool of matches) {
+          if (!tool.id) continue;
+          if (keepAccounts.has(accountId) && keepToolIds.size === 0) {
+            keepToolIds.add(tool.id);
+            continue;
+          }
+          if (keepToolIds.has(tool.id)) continue;
+          try {
+            await canvasJson(`/accounts/${accountId}/external_tools/${tool.id}`, {
+              method: "DELETE",
+              allowNotFound: true,
+            });
+            removed += 1;
+          } catch {
+            // Tool may be inherited or already deleted.
+          }
+        }
+      }
+
+      return { removed, kept: keepToolIds.size };
+    },
+
     async ensureAccountExternalTool(options: {
       searchName: string;
       clientId?: string;
@@ -732,7 +773,6 @@ export function createCanvasAdminClient() {
           settings,
           privacy_level: "public",
           disabled_placements: [
-            "link_selection",
             "resource_selection",
             "assignment_selection",
             "course_home_sub_navigation",
