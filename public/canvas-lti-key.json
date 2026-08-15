@@ -35,13 +35,13 @@
       "placement": "course_home_sub_navigation"
     },
     {
-      "message_type": "LtiResourceLinkRequest",
+      "message_type": "LtiDeepLinkingRequest",
       "text": "Student Alerts",
       "placement": "link_selection",
       "enabled": true
     },
     {
-      "message_type": "LtiResourceLinkRequest",
+      "message_type": "LtiDeepLinkingRequest",
       "text": "Student Alerts",
       "placement": "resource_selection",
       "enabled": true

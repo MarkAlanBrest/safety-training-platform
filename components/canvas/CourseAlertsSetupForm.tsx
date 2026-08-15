@@ -223,9 +223,10 @@ export function CourseAlertsSetupForm() {
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
         Opening this page adds Student Alerts to your other classes so it appears under
-        <strong> Modules → Add → External Tool</strong>. If it still is missing, turn on
-        <strong> Link Selection</strong> (and Course Navigation) on the Student Alerts developer key
-        in Canvas Admin, then open this page again.
+        <strong> Modules → Add → External Tool</strong>. On the developer key, turn on
+        <strong> Link Selection</strong> and set its message type to
+        <strong> LtiDeepLinkingRequest</strong>. Course Navigation should stay
+        <strong> LtiResourceLinkRequest</strong>.
       </p>
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>
