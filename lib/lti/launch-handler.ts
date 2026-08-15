@@ -7,7 +7,6 @@ import {
   CANVAS_SESSION_COOKIE,
 } from "@/lib/canvas/session";
 import { readDeepLinkingSettings } from "@/lib/lti/deep-linking";
-import { encodeDeepLinkSession, LTI_DEEP_LINK_COOKIE } from "@/lib/lti/deep-link-session";
 import { isIframeLtiLaunch } from "@/lib/lti/launch-presentation";
 import { isInstructorLtiLaunch } from "@/lib/lti/roles";
 import { verifyLtiIdToken } from "@/lib/lti/verify";
@@ -133,32 +132,10 @@ export async function handleLtiLaunchPost(
       return launchErrorResponse("Only a course instructor can configure Student Alerts.");
     }
 
-    const setupPath = `/canvas/alerts/setup?mode=import${
-      identity.courseId ? `&course=${encodeURIComponent(identity.courseId)}` : ""
+    const setupPath = `/canvas/alerts/setup?${
+      identity.courseId ? `course=${encodeURIComponent(identity.courseId)}` : ""
     }`;
-    const response = finishLaunch(appOrigin, identity, setupPath, true);
-    response.cookies.set(
-      LTI_DEEP_LINK_COOKIE,
-      encodeDeepLinkSession({
-        returnUrl: deepLinking.deep_link_return_url,
-        clientId,
-        platformIssuer: identity.platformIssuer,
-        deploymentId: identity.deploymentId,
-        nonce: identity.nonce,
-        courseId: identity.courseId,
-        courseName: identity.courseName,
-        data: deepLinking.data,
-      }),
-      {
-        path: "/",
-        httpOnly: true,
-        sameSite: "none",
-        secure: true,
-        maxAge: 600,
-        partitioned: true,
-      },
-    );
-    return response;
+    return finishLaunch(appOrigin, identity, setupPath, true);
   }
 
   if (isInstructor && identity.courseId && !isHomeEmbedLaunch) {

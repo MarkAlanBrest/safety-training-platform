@@ -34,23 +34,14 @@
         "selection_width": 800,
         "placements": [
           {
-            "placement": "link_selection",
+            "placement": "course_home_sub_navigation",
             "enabled": true,
-            "text": "Student Alerts",
-            "message_type": "LtiDeepLinkingRequest",
-            "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch",
-            "icon_url": "https://safety-training-platform-eight.vercel.app/student-alerts-icon.svg",
-            "selection_height": 600,
-            "selection_width": 800
-          },
-          {
-            "placement": "course_navigation",
-            "enabled": true,
-            "default": "enabled",
-            "visibility": "admins",
-            "text": "Student Alerts",
+            "visibility": "members",
+            "required_permissions": "manage_course_content_edit",
+            "text": "Set Student Alerts",
             "message_type": "LtiResourceLinkRequest",
-            "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch"
+            "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch?placement=alert_settings",
+            "icon_url": "https://safety-training-platform-eight.vercel.app/student-alerts-icon.svg"
           }
         ]
       }

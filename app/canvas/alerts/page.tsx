@@ -62,8 +62,8 @@ export default async function CourseAlertsPage({ searchParams }: Props) {
           ) : (
             <>
               <p>
-                Open <strong>Student Alerts</strong> from your course in Canvas (Modules → External
-                Tool). Do not bookmark this page directly.
+                Open your course Home page in Canvas and click <strong>Set Student Alerts</strong>.
+                Do not bookmark this page directly.
               </p>
               <p className="course-alerts-quiet">
                 The tool must launch through Canvas LTI at{" "}

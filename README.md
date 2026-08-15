@@ -41,13 +41,11 @@ enrollment codes, view learner rosters, and remove records.
 
 ## Canvas LMS alerts
 
-Students launch `/canvas` from an **LTI tool** in Canvas. The server uses your admin API
-token to read that student's missing assignments and grades.
+Canvas launches the tool automatically for the Home alert strip. The server uses your
+admin API token to read the current student's missing assignments and grades.
 
 **Env vars:** `CANVAS_BASE_URL`, `CANVAS_API_TOKEN`, `CANVAS_LTI_CLIENT_ID`,
-`NEXT_PUBLIC_APP_ORIGIN`, `CANVAS_SESSION_SECRET`, `CANVAS_LTI_PRIVATE_KEY_JWK`,
-and `CANVAS_LTI_KID`. The private JWK must match the public key returned by
-`/api/lti/jwks`; it is required for Canvas to accept module deep-link responses.
+`NEXT_PUBLIC_APP_ORIGIN`, and `CANVAS_SESSION_SECRET`.
 
 **Canvas developer key (LTI 1.3):**
 - Login URL: `https://your-app.com/api/lti/login`
@@ -55,17 +53,13 @@ and `CANVAS_LTI_KID`. The private JWK must match the public key returned by
 - Custom fields: `user_id` = `$Canvas.user.id` and `course_id` = `$Canvas.course.id`
   (without `course_id`, Canvas's launch payload has no reliable numeric course id and
   course-scoped features like the home page embed will fail with confusing 404s)
-- Install the key account-wide or per course, then add the tool to course navigation.
+- Install the key account-wide or per course. The teacher settings button uses the
+  `course_home_sub_navigation` placement and appears on the course Home page.
 - Use `https://your-app.com/canvas-lti-key.json` as the developer-key configuration
   URL. After changing that JSON, update/re-import the developer key in Canvas;
   existing Canvas registrations do not automatically pick up placement changes.
-- If Canvas reports `JWT verification failure`, edit the existing Developer Key and
-  set its public-key method to **Public JWK URL** with
-  `https://your-app.com/api/lti/jwks`, or re-import the JSON configuration. The
-  public key stored in Canvas must match the private JWK used by the deployment.
-- Teachers add **Student Alerts** from Modules → Add item → External Tool, choose
-  the alert settings, and click **Save settings and add to module**. Canvas then
-  creates the module item and the app adds the authenticated alert strip to Home.
+- Teachers click **Set Student Alerts** on the course Home page, choose the alert
+  settings, and save. No module item or tool-signed deep-link JWT is involved.
 
 For local testing without LTI, set `CANVAS_DEV_USER_ID` to a real Canvas user id.
 

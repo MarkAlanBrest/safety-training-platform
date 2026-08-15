@@ -11,7 +11,7 @@ export function escapeHtml(value: string) {
 export function buildCourseAnnouncementBody(bannerMessage?: string | null) {
   const message =
     bannerMessage?.trim() ||
-    "Check your missing work and grades. Open Student Alerts in Modules for your personal reminders.";
+    "Check your missing work and grades in the alert panel at the top of this Home page.";
 
   return [
     '<div style="padding:16px 18px;border-radius:12px;background:#b91c1c;color:#fff;">',

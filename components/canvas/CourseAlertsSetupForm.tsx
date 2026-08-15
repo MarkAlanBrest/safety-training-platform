@@ -183,7 +183,8 @@ export function CourseAlertsSetupForm() {
       <h1>{importMode ? "Set up Student Alerts" : "Course alert settings"}</h1>
       <p className="course-alerts-setup-lead">
         These messages and thresholds apply only to this class. Students see alerts on Home only
-        after you save. Other classes stay unchanged until a teacher turns Student Alerts on there.
+        after you save. No module item is needed. Other classes stay unchanged until a teacher
+        turns Student Alerts on there.
       </p>
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>

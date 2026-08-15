@@ -154,7 +154,7 @@ export async function installStudentAlertsToolSchoolWide() {
     usedFallback: false,
     note:
       accounts > 0
-        ? "Student Alerts is installed once on the Canvas account. Teachers can add it from Modules → External Tool."
+        ? "Student Alerts is installed once on the Canvas account. Teachers can open Set Student Alerts from course Home."
         : accountErrors[0] ||
           "Could not install Student Alerts on the Canvas account. Use a Canvas admin API token.",
     accountErrors,
