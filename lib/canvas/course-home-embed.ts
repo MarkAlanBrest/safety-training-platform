@@ -139,7 +139,8 @@ export async function installStudentAlertsToolSchoolWide() {
     }
   }
 
-  const courses = await client.listPublishedCourses();
+  const { courses, accountErrors: courseListErrors, usedFallback } = await client.listPublishedCourses();
+  accountErrors.push(...courseListErrors);
   const failed: Array<{ id: number; name?: string; reason: string }> = [];
   let installed = 0;
 
@@ -164,19 +165,27 @@ export async function installStudentAlertsToolSchoolWide() {
     }
   }
 
+  const fallbackWarning = usedFallback
+    ? `Could not list courses at the account level (${
+        courseListErrors[0] || "no accounts were readable"
+      }), so only courses the Canvas API token's own user is enrolled in were reached. Use a Canvas admin API token with account-level course access to cover every course.`
+    : null;
+
   return {
     ok: true as const,
     accounts,
     courses: courses.length,
     installed,
     failed,
+    usedFallback,
     note:
-      installed > 0
+      fallbackWarning ||
+      (installed > 0
         ? `The Student Alerts tool is available in ${installed} course${installed === 1 ? "" : "s"}. Settings are not copied — each class still needs its own setup.`
         : accountErrors[0] ||
           (accounts > 0
             ? "The account app was installed, but Canvas did not add it to individual courses yet."
-            : "Could not install Student Alerts on the Canvas account. Use a Canvas admin API token."),
+            : "Could not install Student Alerts on the Canvas account. Use a Canvas admin API token.")),
     accountErrors,
   };
 }
