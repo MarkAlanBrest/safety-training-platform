@@ -4,8 +4,6 @@ export function sanitizeFrontPageBody(body: string) {
   for (let i = 0; i < 6; i += 1) {
     const next = cleaned
       .replace(/<div[^>]*data-student-alerts-embed[^>]*>[\s\S]*?<\/div>/gi, "")
-      .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
-      .replace(/<iframe[^>]*\/?>/gi, "")
       .replace(/<p>\s*<\/p>/gi, "");
     if (next === cleaned) break;
     cleaned = next;

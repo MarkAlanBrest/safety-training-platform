@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { getAppOrigin, getConfiguredLtiClientId } from "@/lib/canvas/config";
+import { getAppOrigin, getConfiguredLtiClientId, getLtiConfig } from "@/lib/canvas/config";
 import { createCanvasAdminClient } from "@/lib/canvas/admin-client";
 import {
   HOME_EMBED_BANNER_HEIGHT_PX,
@@ -36,7 +36,10 @@ async function mapPool<T>(
 }
 
 export function buildFrontPageEmbedHtml(canvasCourseId: string) {
-  const embedUrl = `${getAppOrigin()}/canvas/home-embed?course=${encodeURIComponent(canvasCourseId)}`;
+  const { launchUrl } = getLtiConfig();
+  const embedUrl =
+    `/courses/${encodeURIComponent(canvasCourseId)}/external_tools/retrieve` +
+    `?display=borderless&url=${encodeURIComponent(launchUrl)}`;
   const height = HOME_EMBED_BANNER_HEIGHT_PX;
 
   return (
@@ -51,10 +54,7 @@ export function buildFrontPageEmbedHtml(canvasCourseId: string) {
   );
 }
 
-export async function setupCourseHomeStudentAlerts(
-  canvasCourseId: string,
-  options?: { skipToolInstall?: boolean },
-) {
+export async function setupCourseHomeStudentAlerts(canvasCourseId: string) {
   const client = createCanvasAdminClient();
   const access = await client.getCourseAccess(canvasCourseId);
   if (!access.ok) {
@@ -63,17 +63,6 @@ export async function setupCourseHomeStudentAlerts(
       reason: access.reason,
     };
   }
-
-  const clientId = await client.resolveStudentAlertsClientId(getConfiguredLtiClientId());
-  const toolOptions = {
-    searchName: "Student Alerts",
-    clientId,
-    launchHost: new URL(getAppOrigin()).hostname,
-  };
-  if (!options?.skipToolInstall) {
-    await client.ensureAccountExternalTool(toolOptions).catch(() => null);
-  }
-  await client.removeCourseLevelStudentAlertsTools(canvasCourseId, toolOptions).catch(() => null);
 
   const { frontPageUrl, alreadyEmbedded } = await client.prependEmbedToFrontPage(
     canvasCourseId,
@@ -102,16 +91,13 @@ export async function refreshHomeEmbedIfStale(canvasCourseId: string) {
     if (!access.ok) return { refreshed: false as const };
 
     const status = await client.getFrontPageEmbedStatus(canvasCourseId);
-    const hasCanvasNestedFrame = Boolean(
-      status.frontPageBody?.includes("/external_tools/") ||
-        status.frontPageBody?.includes("instructure.com/courses/"),
+    const hasAuthenticatedEmbed = Boolean(
+      status.frontPageBody?.includes("/external_tools/retrieve"),
     );
-    const hasDirectHomeEmbed = Boolean(status.frontPageBody?.includes("/canvas/home-embed"));
     if (
       status.hasStudentAlertsEmbed &&
       status.embedVersion === HOME_EMBED_VERSION &&
-      hasDirectHomeEmbed &&
-      !hasCanvasNestedFrame
+      hasAuthenticatedEmbed
     ) {
       return { refreshed: false as const };
     }

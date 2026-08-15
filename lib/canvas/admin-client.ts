@@ -49,12 +49,10 @@ function isAlreadyInstalledError(error: unknown) {
   );
 }
 
-function isDirectStudentAlertsEmbed(body: string) {
+function isCurrentStudentAlertsEmbed(body: string) {
   return (
     body.includes('data-student-alerts-embed="true"') &&
-    body.includes("/canvas/home-embed") &&
-    !body.includes("/external_tools/") &&
-    !body.includes("external_tools%2F")
+    body.includes("/external_tools/retrieve")
   );
 }
 
@@ -535,7 +533,7 @@ export function createCanvasAdminClient() {
         }
       }
 
-      if (isDirectStudentAlertsEmbed(existingBody)) {
+      if (isCurrentStudentAlertsEmbed(existingBody)) {
         return { frontPageUrl: targetUrl, alreadyEmbedded: true as const };
       }
 

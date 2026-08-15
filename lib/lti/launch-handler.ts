@@ -1,19 +1,13 @@
 import { NextResponse } from "next/server";
-import { getConfiguredLtiClientId, getAppOrigin, getLtiConfig } from "@/lib/canvas/config";
-import { createCanvasAdminClient } from "@/lib/canvas/admin-client";
-import { parseCourseAlertCustomFields } from "@/lib/course-alerts/config";
+import { getConfiguredLtiClientId, getLtiConfig } from "@/lib/canvas/config";
 import { recordCourseAlertSignup } from "@/lib/course-alerts/db";
-import { saveCourseAlertConfig } from "@/lib/course-alerts/store";
-import { embedStudentAlertsOnCourseHome } from "@/lib/canvas/course-home-embed-result";
 import {
   canvasSessionCookieOptions,
   encodeCanvasStudentSession,
   CANVAS_SESSION_COOKIE,
 } from "@/lib/canvas/session";
-import {
-  parseDeepLinkModuleId,
-  readDeepLinkingSettings,
-} from "@/lib/lti/deep-linking";
+import { readDeepLinkingSettings } from "@/lib/lti/deep-linking";
+import { encodeDeepLinkSession, LTI_DEEP_LINK_COOKIE } from "@/lib/lti/deep-link-session";
 import { isIframeLtiLaunch } from "@/lib/lti/launch-presentation";
 import { isInstructorLtiLaunch } from "@/lib/lti/roles";
 import { verifyLtiIdToken } from "@/lib/lti/verify";
@@ -114,26 +108,7 @@ export async function handleLtiLaunchPost(
   const deepLinking = readDeepLinkingSettings(identity.payload);
   const isInstructor = isInstructorLtiLaunch(identity.payload);
 
-  const customClaim = identity.payload["https://purl.imsglobal.org/spec/lti/claim/custom"];
-  if (identity.courseId && customClaim && typeof customClaim === "object") {
-    const raw = customClaim as Record<string, unknown>;
-    if (
-      raw.missing_work_days !== undefined ||
-      raw.low_grade_threshold !== undefined ||
-      raw.banner_message !== undefined
-    ) {
-      try {
-        await saveCourseAlertConfig(identity.courseId, {
-          ...parseCourseAlertCustomFields(raw),
-          courseName: identity.courseName,
-        });
-      } catch (error) {
-        console.error("Course alert config save failed:", error);
-      }
-    }
-  }
-
-  if (identity.courseId) {
+  if (identity.courseId && !isInstructor) {
     await recordCourseAlertSignup({
       canvasCourseId: identity.courseId,
       canvasUserId: String(identity.userId),
@@ -143,38 +118,36 @@ export async function handleLtiLaunchPost(
   }
 
   if (deepLinking) {
-    if (identity.courseId) {
-      if (isInstructor) {
-        await embedStudentAlertsOnCourseHome(identity.courseId);
-      }
-      try {
-        const client = createCanvasAdminClient();
-        const clientIdForTool = getConfiguredLtiClientId();
-        await client.insertStudentAlertsModuleItem(identity.courseId, {
-          searchName: "Student Alerts",
-          clientId: clientIdForTool,
-          launchHost: new URL(getAppOrigin()).hostname,
-          moduleId: parseDeepLinkModuleId(deepLinking, identity.payload),
-          embedUrl: `${getAppOrigin()}/canvas/home-embed?course=${encodeURIComponent(identity.courseId)}`,
-        });
-      } catch (error) {
-        console.error("Could not add Student Alerts to Modules:", error);
-      }
+    if (!isInstructor) {
+      return launchErrorResponse("Only a course instructor can configure Student Alerts.");
     }
 
-    const html = `<!DOCTYPE html>
-<html>
-  <head><meta charset="utf-8"><title>Student Alerts</title></head>
-  <body style="font-family:sans-serif;padding:24px;max-width:560px">
-    <h1 style="font-size:1.25rem">Student Alerts was added</h1>
-    <p>Close this window and refresh Modules. Students also see Alerts on the course Home page.</p>
-  </body>
-</html>`;
-    const response = new NextResponse(html, {
-      status: 200,
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-    });
-    return attachSessionCookie(response, identity);
+    const setupPath = `/canvas/alerts/setup?mode=import${
+      identity.courseId ? `&course=${encodeURIComponent(identity.courseId)}` : ""
+    }`;
+    const response = finishLaunch(appOrigin, identity, setupPath);
+    response.cookies.set(
+      LTI_DEEP_LINK_COOKIE,
+      encodeDeepLinkSession({
+        returnUrl: deepLinking.deep_link_return_url,
+        clientId,
+        platformIssuer: identity.platformIssuer,
+        deploymentId: identity.deploymentId,
+        nonce: identity.nonce,
+        courseId: identity.courseId,
+        courseName: identity.courseName,
+        data: deepLinking.data,
+      }),
+      {
+        path: "/",
+        httpOnly: true,
+        sameSite: "none",
+        secure: true,
+        maxAge: 600,
+        partitioned: true,
+      },
+    );
+    return response;
   }
 
   if (isInstructor && identity.courseId) {

@@ -47,7 +47,6 @@ export async function buildDeepLinkingResponse(params: {
 
   const payload: JWTPayload = {
     nonce: params.nonce,
-    azp: params.clientId,
     [MESSAGE_TYPE_CLAIM]: "LtiDeepLinkingResponse",
     [VERSION_CLAIM]: "1.3.0",
     [CONTENT_ITEMS_CLAIM]: [
@@ -81,6 +80,26 @@ export async function buildDeepLinkingResponse(params: {
     .setIssuedAt(now)
     .setExpirationTime(now + 300)
     .sign(key);
+}
+
+export function buildDeepLinkingHtml(returnUrl: string, jwt: string) {
+  const escapedUrl = returnUrl
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;");
+  const escapedJwt = jwt.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+
+  return `<!DOCTYPE html>
+<html>
+  <head><meta charset="utf-8"><title>Adding Student Alerts</title></head>
+  <body style="font-family:sans-serif;padding:24px">
+    <p>Adding Student Alerts to this module...</p>
+    <form id="deep-link-form" method="POST" action="${escapedUrl}">
+      <input type="hidden" name="JWT" value="${escapedJwt}" />
+    </form>
+    <script>document.getElementById("deep-link-form").submit();</script>
+  </body>
+</html>`;
 }
 
 function canvasDeepLinkAudience(platformIssuer: string) {

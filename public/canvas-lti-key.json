@@ -30,7 +30,7 @@
             "placement": "link_selection",
             "enabled": true,
             "text": "Student Alerts",
-            "message_type": "LtiResourceLinkRequest",
+            "message_type": "LtiDeepLinkingRequest",
             "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch",
             "icon_url": "https://safety-training-platform-eight.vercel.app/student-alerts-icon.svg",
             "selection_height": 600,

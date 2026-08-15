@@ -25,7 +25,8 @@ type Config = {
 
 export function CourseAlertsSetupForm() {
   const searchParams = useSearchParams();
-  const courseId = (searchParams.get("course") || searchParams.get("courseId") || "").trim();
+  const courseId = (searchParams?.get("course") || searchParams?.get("courseId") || "").trim();
+  const importMode = searchParams?.get("mode") === "import";
 
   const [missingWorkDays, setMissingWorkDays] = useState(14);
   const [lowGradeThreshold, setLowGradeThreshold] = useState(70);
@@ -57,12 +58,6 @@ export function CourseAlertsSetupForm() {
   useEffect(() => {
     if (!courseId) return;
     void (async () => {
-      await fetch("/api/course-alerts/refresh-embed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ courseId }),
-      });
-
       const response = await fetch(`/api/course-alerts/config?courseId=${encodeURIComponent(courseId)}`);
       const data = await response.json();
       if (!response.ok) return;
@@ -117,7 +112,9 @@ export function CourseAlertsSetupForm() {
     setSuccess("");
 
     try {
-      const response = await fetch("/api/course-alerts/config", {
+      const response = await fetch(
+        importMode ? "/api/lti/deep-link/finish" : "/api/course-alerts/config",
+        {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -139,7 +136,17 @@ export function CourseAlertsSetupForm() {
           showLoginInactivity,
           showDueSoon,
         }),
-      });
+        },
+      );
+
+      const contentType = response.headers.get("content-type") || "";
+      if (response.ok && contentType.includes("text/html")) {
+        const html = await response.text();
+        document.open();
+        document.write(html);
+        document.close();
+        return;
+      }
 
       const data = await response.json();
       if (!response.ok) {
@@ -173,7 +180,7 @@ export function CourseAlertsSetupForm() {
 
   return (
     <div className="course-alerts-shell course-alerts-setup">
-      <h1>Course alert settings</h1>
+      <h1>{importMode ? "Set up Student Alerts" : "Course alert settings"}</h1>
       <p className="course-alerts-setup-lead">
         These messages and thresholds apply only to this class. Students see alerts on Home only
         after you save. Other classes stay unchanged until a teacher turns Student Alerts on there.
@@ -344,7 +351,11 @@ export function CourseAlertsSetupForm() {
         {success ? <p className="course-alerts-success">{success}</p> : null}
 
         <button type="submit" disabled={loading}>
-          {loading ? "Saving this course..." : "Save this course"}
+          {loading
+            ? "Saving this course..."
+            : importMode
+              ? "Save settings and add to module"
+              : "Save this course"}
         </button>
 
         <button
