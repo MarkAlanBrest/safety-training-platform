@@ -7,6 +7,7 @@ export type CanvasUser = {
   id: number;
   name: string;
   short_name: string;
+  display_name?: string;
   avatar_url?: string;
   primary_email?: string;
   last_login?: string | null;

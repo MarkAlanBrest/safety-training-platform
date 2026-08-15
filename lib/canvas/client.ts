@@ -155,5 +155,17 @@ export function createCanvasClient(options: CanvasClientOptions) {
         order_by: "due_at",
       });
     },
+    async getCourseTeachers(courseId: string | number) {
+      const teachers = await canvasFetchAll<CanvasUser>(`/courses/${courseId}/users`, {
+        enrollment_type: ["teacher"],
+        enrollment_state: ["active"],
+      }).catch(() => [] as CanvasUser[]);
+      if (teachers.length) return teachers;
+
+      return canvasFetchAll<CanvasUser>(`/courses/${courseId}/users`, {
+        enrollment_type: ["ta"],
+        enrollment_state: ["active"],
+      }).catch(() => [] as CanvasUser[]);
+    },
   };
 }

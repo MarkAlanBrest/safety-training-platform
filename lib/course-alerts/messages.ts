@@ -36,13 +36,32 @@ export function renderAlertIntro(
 
 export const DEFAULT_ALERT_MESSAGES = {
   missing:
-    "Alert: {name}, looking back the last {days} days you have missed the following assignments: {assignments}.",
+    "Alert: {name}, looking back the last {days} days you have missed the following assignments: {assignments}. Contact {teacher} if you need help.",
   assignmentLowGrade:
-    "Alert: {name}, it looks like you received a low grade for these assignments: {assignments}. Recommend you contact your instructor for details.",
+    "Alert: {name}, it looks like you received a low grade for these assignments: {assignments}. Recommend you contact {teacher} for details.",
   loginInactivity:
-    "Alert: {name}, you have not logged in for {days} or more days. Logging in regularly is important to stay current on your coursework.",
+    "Alert: {name}, you have not logged in for {days} or more days. Logging in regularly is important to stay current on your coursework. Reach out to {teacher} if you need support.",
   overallLowGrade:
-    "Alert: {name}, your overall grade has fallen below {threshold}% (currently {score}%). Please contact your instructor.",
+    "Alert: {name}, your overall grade has fallen below {threshold}% (currently {score}%). Please contact {teacher}.",
   dueSoon:
-    "Alert: {name}, these assignments are due in the next {hours} hours: {assignments}.",
+    "Alert: {name}, these assignments are due in the next {hours} hours: {assignments}. Ask {teacher} if you have questions.",
 };
+
+const PREVIOUS_DEFAULT_MESSAGES: Record<string, string> = {
+  "Alert: {name}, looking back the last {days} days you have missed the following assignments: {assignments}.":
+    DEFAULT_ALERT_MESSAGES.missing,
+  "Alert: {name}, it looks like you received a low grade for these assignments: {assignments}. Recommend you contact your instructor for details.":
+    DEFAULT_ALERT_MESSAGES.assignmentLowGrade,
+  "Alert: {name}, you have not logged in for {days} or more days. Logging in regularly is important to stay current on your coursework.":
+    DEFAULT_ALERT_MESSAGES.loginInactivity,
+  "Alert: {name}, your overall grade has fallen below {threshold}% (currently {score}%). Please contact your instructor.":
+    DEFAULT_ALERT_MESSAGES.overallLowGrade,
+  "Alert: {name}, these assignments are due in the next {hours} hours: {assignments}.":
+    DEFAULT_ALERT_MESSAGES.dueSoon,
+};
+
+export function currentAlertMessage(stored: string | null | undefined, fallback: string) {
+  const trimmed = stored?.trim() || "";
+  if (!trimmed) return fallback;
+  return PREVIOUS_DEFAULT_MESSAGES[trimmed] || trimmed;
+}

@@ -62,17 +62,24 @@ export async function buildCourseScopedAlerts(
   }
 
   const studentName = getStudentDisplayName(user.short_name || user.name);
-  const [enrollments, missing, assignments] = await Promise.all([
+  const [enrollments, missing, assignments, teachers] = await Promise.all([
     client.getStudentEnrollments(),
     client.getMissingSubmissions().catch(() => []),
     client.getCourseAssignments(courseId).catch(() => []),
+    client.getCourseTeachers(courseId).catch(() => []),
   ]);
 
   const enrollment = findEnrollment(enrollments, courseId);
   const courseName = enrollment?.course?.name || `Course ${courseId}`;
+  const teacherName =
+    formatAssignmentList(
+      teachers.map((teacher) => teacher.display_name || teacher.short_name || teacher.name).filter(Boolean),
+    ) || "your instructor";
   const alerts: CanvasAlert[] = [];
   const templateVarsBase = {
     name: studentName,
+    teacher: teacherName,
+    instructor: teacherName,
     days: config.missingWorkDays,
     threshold: config.lowGradeThreshold,
     score: "",

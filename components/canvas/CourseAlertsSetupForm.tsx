@@ -175,9 +175,9 @@ export function CourseAlertsSetupForm() {
     <div className="course-alerts-shell course-alerts-setup">
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        Customize what students see on Home. Use {"{name}"}, {"{days}"}, {"{hours}"}, {"{assignments}"},
-        {"{score}"}, and {"{threshold}"} in the message text. Save once — students do not click
-        anything.
+        Customize what students see on Home. Use {"{name}"}, {"{teacher}"}, {"{days}"}, {"{hours}"},
+        {"{assignments}"}, {"{score}"}, and {"{threshold}"} in the message text. Save once — students
+        do not click anything.
       </p>
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>

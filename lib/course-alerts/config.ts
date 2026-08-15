@@ -1,4 +1,4 @@
-import { DEFAULT_ALERT_MESSAGES } from "@/lib/course-alerts/messages";
+import { currentAlertMessage, DEFAULT_ALERT_MESSAGES } from "@/lib/course-alerts/messages";
 
 export type CourseAlertConfigInput = {
   missingWorkDays: number;
