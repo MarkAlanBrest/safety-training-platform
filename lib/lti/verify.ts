@@ -127,12 +127,14 @@ function parseCanvasCourseId(payload: JWTPayload) {
   const record = context as Record<string, unknown>;
   const rawId = record.id;
   if (typeof rawId === "string") {
+    // Canvas's context.id is often an opaque hashed string, not the numeric
+    // course id — only trust it when it's plainly numeric or a course URL.
+    // Scraping trailing digits out of an opaque string produces a wrong but
+    // plausible-looking course id, which is worse than returning null.
     const urlMatch = rawId.match(/\/courses\/(\d+)(?:\/|$)/);
     if (urlMatch?.[1]) return urlMatch[1];
     if (/^\d+$/.test(rawId)) return rawId;
-    const endMatch = rawId.match(/(\d+)$/);
-    if (endMatch?.[1]) return endMatch[1];
-    return rawId;
+    return null;
   }
   if (typeof rawId === "number") return String(rawId);
   return null;

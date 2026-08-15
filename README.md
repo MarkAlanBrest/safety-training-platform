@@ -50,7 +50,9 @@ token to read that student's missing assignments and grades.
 **Canvas developer key (LTI 1.3):**
 - Login URL: `https://your-app.com/api/lti/login`
 - Redirect URI / Target link: `https://your-app.com/api/lti/launch`
-- Custom field: `user_id` = `$Canvas.user.id`
+- Custom fields: `user_id` = `$Canvas.user.id` and `course_id` = `$Canvas.course.id`
+  (without `course_id`, Canvas's launch payload has no reliable numeric course id and
+  course-scoped features like the home page embed will fail with confusing 404s)
 - Install the key account-wide or per course, then add the tool to course navigation.
 
 For local testing without LTI, set `CANVAS_DEV_USER_ID` to a real Canvas user id.
