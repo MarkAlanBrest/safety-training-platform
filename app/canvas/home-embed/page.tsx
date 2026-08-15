@@ -3,7 +3,6 @@ import { after } from "next/server";
 import { cookies } from "next/headers";
 import { CourseHomeBanner } from "@/components/canvas/CourseHomeBanner";
 import { scheduleSchoolWideEnable } from "@/lib/canvas/course-home-embed";
-import { getStudentDisplayName } from "@/lib/canvas/home-embed-messages";
 import { CANVAS_SESSION_COOKIE, decodeCanvasStudentSession } from "@/lib/canvas/session";
 import { parseLaunchHandoff } from "@/lib/lti/launch-handoff";
 import "../course-alerts.css";
@@ -36,7 +35,6 @@ export default async function CourseHomeEmbedPage({ searchParams }: Props) {
     cookieSession?.courseId ||
     ""
   ).trim();
-  const studentName = getStudentDisplayName(handoff?.name || cookieSession?.name);
 
   if (!courseId) {
     return <div className="course-home-banner-empty" aria-hidden="true" />;
@@ -49,7 +47,6 @@ export default async function CourseHomeEmbedPage({ searchParams }: Props) {
   return (
     <CourseHomeBanner
       courseId={courseId}
-      studentName={studentName}
       handoffToken={params.handoff || null}
     />
   );
