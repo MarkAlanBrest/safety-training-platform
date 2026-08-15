@@ -154,7 +154,8 @@ export async function buildCourseScopedAlerts(
         title: "Assignments due soon",
         message: renderAlertTemplate(config.dueSoonMessage, DEFAULT_ALERT_MESSAGES.dueSoon, {
           ...templateVarsBase,
-          days: Math.ceil(config.dueSoonHours / 24),
+          hours: config.dueSoonHours,
+          days: config.dueSoonHours,
           assignments: formatAssignmentList(dueSoonNames),
         }),
         courseName,

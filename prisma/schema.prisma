@@ -196,7 +196,7 @@ model CourseAlertConfig {
   lowGradeThreshold          Int      @default(70)
   assignmentLowGradePercent  Int      @default(60)
   loginInactivityDays        Int      @default(6)
-  dueSoonHours               Int      @default(48)
+  dueSoonHours               Int      @default(6)
   bannerMessage              String?  @db.Text
   missingMessage             String?  @db.Text
   assignmentLowGradeMessage  String?  @db.Text

@@ -31,7 +31,7 @@ export const DEFAULT_COURSE_ALERT_CONFIG: CourseAlertConfigInput = {
   lowGradeThreshold: 70,
   assignmentLowGradePercent: 60,
   loginInactivityDays: 6,
-  dueSoonHours: 48,
+  dueSoonHours: 6,
   bannerMessage: null,
   missingMessage: DEFAULT_ALERT_MESSAGES.missing,
   assignmentLowGradeMessage: DEFAULT_ALERT_MESSAGES.assignmentLowGrade,

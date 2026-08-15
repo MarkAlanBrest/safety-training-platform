@@ -27,5 +27,6 @@ export const DEFAULT_ALERT_MESSAGES = {
     "Alert: {name}, you have not logged in for {days} or more days. Logging in regularly is important to stay current on your coursework.",
   overallLowGrade:
     "Alert: {name}, your overall grade has fallen below {threshold}% (currently {score}%). Please contact your instructor.",
-  dueSoon: "Alert: {name}, these assignments are due soon: {assignments}.",
+  dueSoon:
+    "Alert: {name}, these assignments are due in the next {hours} hours: {assignments}.",
 };

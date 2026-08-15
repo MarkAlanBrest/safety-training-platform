@@ -31,7 +31,7 @@ export function CourseAlertsSetupForm() {
   const [lowGradeThreshold, setLowGradeThreshold] = useState(70);
   const [assignmentLowGradePercent, setAssignmentLowGradePercent] = useState(60);
   const [loginInactivityDays, setLoginInactivityDays] = useState(6);
-  const [dueSoonHours, setDueSoonHours] = useState(48);
+  const [dueSoonHours, setDueSoonHours] = useState(6);
   const [missingMessage, setMissingMessage] = useState(DEFAULT_ALERT_MESSAGES.missing);
   const [assignmentLowGradeMessage, setAssignmentLowGradeMessage] = useState(
     DEFAULT_ALERT_MESSAGES.assignmentLowGrade,
@@ -71,7 +71,7 @@ export function CourseAlertsSetupForm() {
       setLowGradeThreshold(config.lowGradeThreshold);
       setAssignmentLowGradePercent(config.assignmentLowGradePercent ?? 60);
       setLoginInactivityDays(config.loginInactivityDays ?? 6);
-      setDueSoonHours(config.dueSoonHours ?? 48);
+      setDueSoonHours(config.dueSoonHours ?? 6);
       setMissingMessage(config.missingMessage || DEFAULT_ALERT_MESSAGES.missing);
       setAssignmentLowGradeMessage(
         config.assignmentLowGradeMessage || DEFAULT_ALERT_MESSAGES.assignmentLowGrade,
@@ -175,8 +175,9 @@ export function CourseAlertsSetupForm() {
     <div className="course-alerts-shell course-alerts-setup">
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        Customize what students see on Home. Use {"{name}"}, {"{days}"}, {"{assignments}"}, {"{score}"},
-        and {"{threshold}"} in the message text. Save once — students do not click anything.
+        Customize what students see on Home. Use {"{name}"}, {"{days}"}, {"{hours}"}, {"{assignments}"},
+        {"{score}"}, and {"{threshold}"} in the message text. Save once — students do not click
+        anything.
       </p>
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>
@@ -320,7 +321,7 @@ export function CourseAlertsSetupForm() {
             Turn on this alert
           </label>
           <label>
-            Hours before due date
+            Hours before the due time (not days)
             <input
               type="number"
               min={1}
