@@ -35,6 +35,9 @@ export async function POST(request: Request) {
   if (!session) {
     return NextResponse.json({ error: "Open this setup page from Canvas." }, { status: 401 });
   }
+  if (session.role !== "instructor") {
+    return NextResponse.json({ error: "Only a course instructor can configure Student Alerts." }, { status: 403 });
+  }
 
   const encoded = readCookie(request, LTI_DEEP_LINK_COOKIE);
   const deepLink = encoded ? decodeDeepLinkSession(encoded) : null;

@@ -70,11 +70,17 @@ export async function POST(request: Request) {
   if (!session) {
     return NextResponse.json({ error: "Open this setup page from Canvas." }, { status: 401 });
   }
+  if (session.role !== "instructor") {
+    return NextResponse.json({ error: "Only a course instructor can change alert settings." }, { status: 403 });
+  }
 
   const body = (await request.json()) as ConfigBody;
   const courseId = body.courseId?.trim() || session.courseId?.trim() || "";
   if (!courseId) {
     return NextResponse.json({ error: "Course id is required." }, { status: 400 });
+  }
+  if (session.courseId && courseId !== session.courseId) {
+    return NextResponse.json({ error: "The course did not match this Canvas launch." }, { status: 403 });
   }
 
   const config = await saveCourseAlertConfig(

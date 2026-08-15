@@ -6,6 +6,7 @@ export type LaunchHandoff = {
   email: string | null;
   courseId: string | null;
   courseName: string | null;
+  role: "instructor" | "student";
   exp: number;
   nonce: string;
 };

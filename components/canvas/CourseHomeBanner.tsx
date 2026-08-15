@@ -58,11 +58,6 @@ export function CourseHomeBanner({
   useEffect(() => {
     document.documentElement.classList.add("course-alerts-embed-root");
     document.body.classList.add("course-alerts-embed-root");
-    void fetch("/api/course-alerts/refresh-embed", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ courseId }),
-    });
     void loadAlerts();
     const stopWatching = watchEmbedHeight();
     const timer = window.setInterval(() => {

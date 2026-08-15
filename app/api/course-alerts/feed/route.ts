@@ -22,6 +22,9 @@ export async function GET(request: Request) {
   if (!canvasCourseId) {
     return NextResponse.json({ error: "Course id is required." }, { status: 400 });
   }
+  if (session.courseId && canvasCourseId !== session.courseId) {
+    return NextResponse.json({ error: "The course did not match this Canvas launch." }, { status: 403 });
+  }
 
   const config = await getCourseAlertConfig(canvasCourseId);
   if (!(await isCourseHomeAlertsEnabled(canvasCourseId))) {

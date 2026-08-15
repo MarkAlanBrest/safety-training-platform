@@ -23,6 +23,7 @@ function attachSessionCookie(
     courseId: string | null;
     courseName: string | null;
   },
+  isInstructor: boolean,
 ) {
   const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
   response.cookies.set(
@@ -34,6 +35,7 @@ function attachSessionCookie(
       courseId: identity.courseId,
       courseName: identity.courseName,
       source: "lti",
+      role: isInstructor ? "instructor" : "student",
     }),
     {
       ...canvasSessionCookieOptions(expiresAt),
@@ -53,6 +55,7 @@ function finishLaunch(
     courseName: string | null;
   },
   path: string,
+  isInstructor: boolean,
 ) {
   const url = new URL(path.startsWith("http") ? path : `${appOrigin}${path}`);
   if (identity.courseId && !url.searchParams.has("course")) {
@@ -65,6 +68,7 @@ function finishLaunch(
     email: identity.email,
     courseId: identity.courseId,
     courseName: identity.courseName,
+    role: isInstructor ? "instructor" : "student",
   });
   url.searchParams.set("handoff", handoff);
 
@@ -72,7 +76,7 @@ function finishLaunch(
     status: 200,
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
-  return attachSessionCookie(response, identity);
+  return attachSessionCookie(response, identity, isInstructor);
 }
 
 export async function handleLtiLaunchPost(
@@ -125,7 +129,7 @@ export async function handleLtiLaunchPost(
     const setupPath = `/canvas/alerts/setup?mode=import${
       identity.courseId ? `&course=${encodeURIComponent(identity.courseId)}` : ""
     }`;
-    const response = finishLaunch(appOrigin, identity, setupPath);
+    const response = finishLaunch(appOrigin, identity, setupPath, true);
     response.cookies.set(
       LTI_DEEP_LINK_COOKIE,
       encodeDeepLinkSession({
@@ -155,6 +159,7 @@ export async function handleLtiLaunchPost(
       appOrigin,
       identity,
       `/canvas/alerts/setup?course=${encodeURIComponent(identity.courseId)}`,
+      true,
     );
   }
 
@@ -162,7 +167,7 @@ export async function handleLtiLaunchPost(
     ? "/canvas/home-embed"
     : "/canvas/alerts";
 
-  return finishLaunch(appOrigin, identity, studentPath);
+  return finishLaunch(appOrigin, identity, studentPath, false);
 }
 
 function launchErrorResponse(message: string) {

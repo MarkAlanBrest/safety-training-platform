@@ -43,6 +43,7 @@ export type CanvasStudentSession = {
   courseId: string | null;
   courseName: string | null;
   source: "lti" | "dev";
+  role: "instructor" | "student";
   connectedAt: string;
   expiresAt: string;
 };
@@ -64,6 +65,7 @@ export function decodeCanvasStudentSession(encoded: string): CanvasStudentSessio
     if (new Date(session.expiresAt).getTime() <= Date.now()) return null;
     return {
       ...session,
+      role: session.role === "instructor" ? "instructor" : "student",
       courseId: session.courseId ?? null,
       courseName: session.courseName ?? null,
     };
@@ -92,6 +94,7 @@ export function getCanvasStudentSession(request: Request): CanvasStudentSession 
           courseId: parsed.courseId,
           courseName: parsed.courseName,
           source: "lti",
+          role: parsed.role === "instructor" ? "instructor" : "student",
           connectedAt: new Date(now).toISOString(),
           expiresAt: new Date(parsed.exp).toISOString(),
         };
@@ -112,6 +115,7 @@ export function getCanvasStudentSession(request: Request): CanvasStudentSession 
     courseId: null,
     courseName: null,
     source: "dev",
+    role: "instructor",
     connectedAt: new Date(now).toISOString(),
     expiresAt: new Date(now + SESSION_TTL_MS).toISOString(),
   };
