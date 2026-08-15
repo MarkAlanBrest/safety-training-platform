@@ -99,9 +99,11 @@ export async function refreshHomeEmbedIfStale(canvasCourseId: string) {
       status.frontPageBody?.includes("/external_tools/") ||
         status.frontPageBody?.includes("instructure.com/courses/"),
     );
+    const hasDirectHomeEmbed = Boolean(status.frontPageBody?.includes("/canvas/home-embed"));
     if (
       status.hasStudentAlertsEmbed &&
       status.embedVersion === HOME_EMBED_VERSION &&
+      hasDirectHomeEmbed &&
       !hasCanvasNestedFrame
     ) {
       return { refreshed: false as const };

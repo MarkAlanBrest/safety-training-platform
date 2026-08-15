@@ -4,6 +4,7 @@ import { parseCourseAlertCustomFields } from "@/lib/course-alerts/config";
 import { recordCourseAlertSignup } from "@/lib/course-alerts/db";
 import { saveCourseAlertConfig } from "@/lib/course-alerts/store";
 import { embedStudentAlertsOnCourseHome } from "@/lib/canvas/course-home-embed-result";
+import { createCanvasAdminClient } from "@/lib/canvas/admin-client";
 import {
   canvasSessionCookieOptions,
   encodeCanvasStudentSession,
@@ -147,6 +148,7 @@ export async function handleLtiLaunchPost(
 
   if (deepLinking) {
     try {
+      await createCanvasAdminClient().ensureDeveloperKeyEnabled(clientId).catch(() => null);
       const { launchUrl } = getLtiConfig();
       const jwt = await buildDeepLinkingResponse({
         clientId,
