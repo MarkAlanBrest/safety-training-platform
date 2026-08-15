@@ -39,16 +39,16 @@ export async function setupCourseHomeStudentAlerts(canvasCourseId: string) {
 
   const clientId = getConfiguredLtiClientId();
   if (clientId) {
-    await client.ensureAccountExternalTool({
+    const toolOptions = {
       searchName: "Student Alerts",
       clientId,
       launchHost: new URL(getAppOrigin()).hostname,
-    }).catch(() => null);
-    await client.ensureCourseExternalTool(canvasCourseId, {
-      searchName: "Student Alerts",
-      clientId,
-      launchHost: new URL(getAppOrigin()).hostname,
-    });
+    };
+    await client.ensureAccountExternalTool(toolOptions).catch(() => null);
+    if (access.accountId) {
+      await client.ensureAccountExternalTool({ ...toolOptions, accountId: access.accountId }).catch(() => null);
+    }
+    await client.ensureCourseExternalTool(canvasCourseId, toolOptions);
   }
 
   const { frontPageUrl } = await client.prependEmbedToFrontPage(
@@ -104,6 +104,119 @@ export async function removeCourseHomeStudentAlerts(canvasCourseId: string) {
   return { ok: true as const };
 }
 
+export async function installStudentAlertsToolSchoolWide() {
+  const client = createCanvasAdminClient();
+  const clientId = getConfiguredLtiClientId();
+  if (!clientId) {
+    return {
+      ok: false as const,
+      reason: "CANVAS_LTI_CLIENT_ID is not set in Vercel.",
+      accounts: 0,
+      courses: 0,
+      installed: 0,
+      failed: [] as Array<{ id: number; name?: string; reason: string }>,
+    };
+  }
+
+  const toolOptions = {
+    searchName: "Student Alerts",
+    clientId,
+    launchHost: new URL(getAppOrigin()).hostname,
+  };
+
+  const accountIds = await client.listAccountIdsIncludingSubaccounts();
+  let accounts = 0;
+  const accountErrors: string[] = [];
+  for (const accountId of accountIds) {
+    try {
+      const accountTool = await client.ensureAccountExternalTool({ ...toolOptions, accountId });
+      if (accountTool) accounts += 1;
+      else accountErrors.push(`Canvas did not install Student Alerts on account ${accountId}.`);
+    } catch (error) {
+      accountErrors.push(
+        error instanceof Error ? error.message : `Could not install on account ${accountId}.`,
+      );
+    }
+  }
+
+  const courses = await client.listPublishedCourses();
+  const failed: Array<{ id: number; name?: string; reason: string }> = [];
+  let installed = 0;
+
+  for (const course of courses) {
+    try {
+      const tool = await client.ensureCourseExternalTool(String(course.id), toolOptions);
+      if (tool) {
+        installed += 1;
+      } else {
+        failed.push({
+          id: course.id,
+          name: course.name,
+          reason: "Canvas did not add Student Alerts to this course.",
+        });
+      }
+    } catch (error) {
+      failed.push({
+        id: course.id,
+        name: course.name,
+        reason: error instanceof Error ? error.message : "Could not add the tool to this course.",
+      });
+    }
+  }
+
+  return {
+    ok: true as const,
+    accounts,
+    courses: courses.length,
+    installed,
+    failed,
+    note:
+      installed > 0
+        ? `Student Alerts is available under Modules → Add → External Tool in ${installed} course${installed === 1 ? "" : "s"}.`
+        : accountErrors[0] ||
+          (accounts > 0
+            ? "The account app was installed, but Canvas did not add it to individual courses yet."
+            : "Could not install Student Alerts on the Canvas account. Use a Canvas admin API token."),
+    accountErrors,
+  };
+}
+
+export async function diagnoseStudentAlertsTool(canvasCourseId: string) {
+  const origin = getAppOrigin();
+  const clientId = getConfiguredLtiClientId();
+  const client = createCanvasAdminClient();
+
+  const definitions = await client
+    .listLinkSelectionLaunchDefinitions(canvasCourseId)
+    .catch(() => [] as Array<{ name?: string }>);
+  const inModulePicker = definitions.some((item) => {
+    const name = (item.name || "").toLowerCase();
+    return name.includes("alert") || name.includes("student");
+  });
+
+  const accountTools = await client.listAccountExternalTools("self").catch(() => []);
+  const courseTool = await client
+    .findCourseExternalTool(canvasCourseId, {
+      searchName: "Student Alerts",
+      clientId,
+      launchHost: origin ? new URL(origin).hostname : undefined,
+    })
+    .catch(() => null);
+
+  return {
+    clientId: clientId || null,
+    targetLinkUri: origin ? `${origin}/api/lti/launch` : null,
+    jsonUrl: origin ? `${origin}/canvas-lti-key.json` : null,
+    inModulePicker,
+    modulePickerTools: definitions.map((item) => item.name).filter(Boolean),
+    courseHasTool: Boolean(courseTool),
+    accountHasTool: accountTools.some((tool) => {
+      const name = (tool.name || "").toLowerCase();
+      return Boolean(clientId && tool.client_id === clientId) || name.includes("alert");
+    }),
+  };
+}
+
 export async function enableStudentAlertsSchoolWide() {
   const client = createCanvasAdminClient();
   const clientId = getConfiguredLtiClientId();
@@ -112,18 +225,24 @@ export async function enableStudentAlertsSchoolWide() {
       ok: false as const,
       reason: "CANVAS_LTI_CLIENT_ID is not set in Vercel.",
       enabled: 0,
+      installed: 0,
       failed: [] as Array<{ id: number; name?: string; reason: string }>,
     };
   }
 
-  await client.ensureAccountExternalTool({
-    searchName: "Student Alerts",
-    clientId,
-    launchHost: new URL(getAppOrigin()).hostname,
-  });
+  const toolInstall = await installStudentAlertsToolSchoolWide();
+  if (!toolInstall.ok) {
+    return {
+      ok: false as const,
+      reason: toolInstall.reason,
+      enabled: 0,
+      installed: 0,
+      failed: toolInstall.failed,
+    };
+  }
 
   const courses = await client.listPublishedCourses();
-  const failed: Array<{ id: number; name?: string; reason: string }> = [];
+  const failed: Array<{ id: number; name?: string; reason: string }> = [...toolInstall.failed];
   let enabled = 0;
 
   for (const course of courses) {
@@ -146,11 +265,12 @@ export async function enableStudentAlertsSchoolWide() {
   return {
     ok: true as const,
     enabled,
+    installed: toolInstall.installed,
     total: courses.length,
     failed,
     note:
-      enabled > 0
-        ? `Student Alerts is on in ${enabled} course${enabled === 1 ? "" : "s"}. Teachers will also see it in course navigation after the developer key includes Course Navigation.`
-        : "The account app was installed, but no course home pages could be updated.",
+      toolInstall.installed > 0
+        ? `Student Alerts is in the External Tool list for ${toolInstall.installed} course${toolInstall.installed === 1 ? "" : "s"}. Home alerts are on in ${enabled} course${enabled === 1 ? "" : "s"}.`
+        : "The account app was installed, but no courses could be updated.",
   };
 }

@@ -28,9 +28,31 @@ type WikiPage = {
 };
 
 type CanvasCourse = {
+  id?: number;
+  name?: string;
+  account_id?: number;
   default_view?: string;
   wiki_page?: { url?: string };
+  workflow_state?: string;
 };
+
+function isAlreadyInstalledError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  return (
+    message.includes("already") ||
+    message.includes("taken") ||
+    message.includes("duplicate") ||
+    message.includes("unique")
+  );
+}
+
+function parseLinkHeaderNext(link: string) {
+  const nextPart = link
+    .split(",")
+    .map((part) => part.trim())
+    .find((part) => part.includes('rel="next"'));
+  return nextPart?.match(/<([^>]+)>/)?.[1] || null;
+}
 
 function canvasAdminHeaders(token: string) {
   return {
@@ -82,9 +104,79 @@ export function createCanvasAdminClient() {
     return (await response.json()) as T;
   }
 
-  async function listCourseExternalTools(courseId: string) {
+  async function canvasGetAll<T>(path: string, query?: Record<string, string>): Promise<T[]> {
+    const search = new URLSearchParams(query);
+    if (!search.has("per_page")) search.set("per_page", "100");
+    let url: string | null = `${baseUrl}/api/v1${path}?${search.toString()}`;
+    const items: T[] = [];
+
+    while (url) {
+      const response = await fetch(url, {
+        headers: canvasAdminHeaders(apiToken),
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        let detail = "";
+        try {
+          const body = (await response.json()) as { errors?: Array<{ message?: string }>; message?: string };
+          detail = body?.errors?.[0]?.message || body?.message || JSON.stringify(body);
+        } catch {
+          detail = await response.text();
+        }
+        throw new Error(
+          `Canvas API error (${response.status}) on GET ${path}: ${detail || response.statusText}`,
+        );
+      }
+      const batch = (await response.json()) as T[];
+      if (Array.isArray(batch)) items.push(...batch);
+      url = parseLinkHeaderNext(response.headers.get("link") || "");
+    }
+
+    return items;
+  }
+
+  async function postClientIdTool(path: string, clientId: string) {
+    try {
+      return await canvasJson<CanvasExternalTool>(path, {
+        method: "POST",
+        body: JSON.stringify({ client_id: clientId }),
+      });
+    } catch (error) {
+      if (isAlreadyInstalledError(error)) throw error;
+    }
+
+    const response = await fetch(`${baseUrl}/api/v1${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ client_id: clientId }).toString(),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      let detail = "";
+      try {
+        const body = (await response.json()) as { errors?: Array<{ message?: string }>; message?: string };
+        detail = body?.errors?.[0]?.message || body?.message || JSON.stringify(body);
+      } catch {
+        detail = await response.text();
+      }
+      throw new Error(
+        `Canvas API error (${response.status}) on POST ${path}: ${detail || response.statusText}`,
+      );
+    }
+
+    return (await response.json()) as CanvasExternalTool;
+  }
+
+  async function listCourseExternalTools(courseId: string, includeParents = false) {
+    const query: Record<string, string> = { per_page: "100" };
+    if (includeParents) query.include_parents = "true";
     const tools = await canvasJson<CanvasExternalTool[]>(`/courses/${courseId}/external_tools`, {
-      query: { per_page: "100" },
+      query,
       allowNotFound: true,
     });
     return tools || [];
@@ -154,6 +246,7 @@ export function createCanvasAdminClient() {
         ok: true as const,
         courseName: course.name || null,
         defaultView: course.default_view || null,
+        accountId: course.account_id ? String(course.account_id) : null,
       };
     },
 
@@ -354,70 +447,126 @@ export function createCanvasAdminClient() {
       };
     },
 
-    async listAccountExternalTools() {
-      const tools = await canvasJson<CanvasExternalTool[]>(`/accounts/self/external_tools`, {
+    async listAccountExternalTools(accountId = "self") {
+      const tools = await canvasJson<CanvasExternalTool[]>(`/accounts/${accountId}/external_tools`, {
         query: { per_page: "100" },
         allowNotFound: true,
       });
       return tools || [];
     },
 
-    async installAccountExternalToolByClientId(clientId: string) {
+    async installAccountExternalToolByClientId(clientId: string, accountId = "self") {
       if (!clientId.trim()) {
         throw new Error("CANVAS_LTI_CLIENT_ID is not configured.");
       }
 
-      return canvasJson<CanvasExternalTool>(`/accounts/self/external_tools`, {
-        method: "POST",
-        body: JSON.stringify({ client_id: clientId.trim() }),
-      });
+      try {
+        return await postClientIdTool(`/accounts/${accountId}/external_tools`, clientId.trim());
+      } catch (error) {
+        if (!isAlreadyInstalledError(error)) throw error;
+        const tools = await this.listAccountExternalTools(accountId);
+        return (
+          tools.find((tool) => tool.client_id === clientId.trim() || (tool.name || "").toLowerCase().includes("alert")) ||
+          null
+        );
+      }
     },
 
     async ensureAccountExternalTool(options: {
       searchName: string;
       clientId?: string;
       launchHost?: string;
+      accountId?: string;
     }) {
-      const tools = await this.listAccountExternalTools();
+      const accountId = options.accountId || "self";
+      const tools = await this.listAccountExternalTools(accountId);
       const existing = tools.find((tool) => matchesExternalTool(tool, options));
       if (existing) return existing;
       if (!options.clientId?.trim()) return null;
 
       try {
-        return await this.installAccountExternalToolByClientId(options.clientId);
-      } catch {
-        const retry = await this.listAccountExternalTools();
-        return retry.find((tool) => matchesExternalTool(tool, options)) || null;
+        return await this.installAccountExternalToolByClientId(options.clientId, accountId);
+      } catch (error) {
+        const retry = await this.listAccountExternalTools(accountId);
+        const found = retry.find((tool) => matchesExternalTool(tool, options));
+        if (found) return found;
+        throw error;
       }
     },
 
-    async listPublishedCourses() {
-      const courses: Array<{ id: number; name?: string }> = [];
-      let page = await fetch(`${baseUrl}/api/v1/accounts/self/courses?per_page=100&with_enrollments=false`, {
-        headers: canvasAdminHeaders(apiToken),
-        cache: "no-store",
-      });
-
-      while (page.ok) {
-        const batch = (await page.json()) as Array<{ id: number; name?: string; workflow_state?: string }>;
-        for (const course of batch) {
-          if (course.workflow_state && course.workflow_state !== "available" && course.workflow_state !== "unpublished") {
-            continue;
-          }
-          courses.push({ id: course.id, name: course.name });
-        }
-
-        const link = page.headers.get("link") || "";
-        const nextMatch = link.split(",").map((part) => part.trim()).find((part) => part.endsWith('rel="next"'));
-        const nextUrl = nextMatch?.match(/<([^>]+)>/)?.[1];
-        if (!nextUrl) break;
-        page = await fetch(nextUrl, {
-          headers: canvasAdminHeaders(apiToken),
-          cache: "no-store",
+    async listAccountIdsIncludingSubaccounts() {
+      const ids = new Set<string>(["self"]);
+      try {
+        const subs = await canvasGetAll<{ id: number }>("/accounts/self/sub_accounts", {
+          recursive: "true",
+          per_page: "100",
         });
+        for (const sub of subs) {
+          if (sub.id) ids.add(String(sub.id));
+        }
+      } catch {
+        // Token may not be able to list subaccounts; still install on self.
+      }
+      return [...ids];
+    },
+
+    async listPublishedCourses() {
+      const accountIds = await this.listAccountIdsIncludingSubaccounts();
+      const courses: Array<{ id: number; name?: string; account_id?: number }> = [];
+      const seen = new Set<number>();
+
+      for (const accountId of accountIds) {
+        try {
+          const batch = await canvasGetAll<CanvasCourse>(`/accounts/${accountId}/courses`, {
+            per_page: "100",
+          });
+          for (const course of batch) {
+            if (!course.id || seen.has(course.id)) continue;
+            const state = course.workflow_state || "";
+            if (state === "deleted" || state === "completed") continue;
+            seen.add(course.id);
+            courses.push({ id: course.id, name: course.name, account_id: course.account_id });
+          }
+        } catch {
+          // Skip accounts the token cannot read.
+        }
+      }
+
+      if (courses.length === 0) {
+        try {
+          const mine = await canvasGetAll<CanvasCourse>("/courses", { per_page: "100" });
+          for (const course of mine) {
+            if (!course.id || seen.has(course.id)) continue;
+            const state = course.workflow_state || "";
+            if (state === "deleted" || state === "completed") continue;
+            seen.add(course.id);
+            courses.push({ id: course.id, name: course.name, account_id: course.account_id });
+          }
+        } catch {
+          // No fallback courses available.
+        }
       }
 
       return courses;
+    },
+
+    async listLinkSelectionLaunchDefinitions(courseId: string) {
+      const search = new URLSearchParams();
+      search.append("placements[]", "link_selection");
+      search.append("placements[]", "resource_selection");
+      search.set("per_page", "100");
+      const response = await fetch(
+        `${baseUrl}/api/v1/courses/${courseId}/lti_apps/launch_definitions?${search.toString()}`,
+        {
+          headers: canvasAdminHeaders(apiToken),
+          cache: "no-store",
+        },
+      );
+      if (!response.ok) {
+        return [] as Array<{ name?: string; definition_id?: number }>;
+      }
+      const data = (await response.json()) as Array<{ name?: string; definition_id?: number }>;
+      return Array.isArray(data) ? data : [];
     },
 
     async installExternalToolByClientId(courseId: string, clientId: string) {
@@ -425,13 +574,23 @@ export function createCanvasAdminClient() {
         throw new Error("CANVAS_LTI_CLIENT_ID is not configured.");
       }
 
-      const created = await canvasJson<CanvasExternalTool>(`/courses/${courseId}/external_tools`, {
-        method: "POST",
-        body: JSON.stringify({ client_id: clientId.trim() }),
-        allowNotFound: true,
-      });
+      try {
+        const created = await postClientIdTool(`/courses/${courseId}/external_tools`, clientId.trim());
+        if (created?.id) return created;
+      } catch (error) {
+        if (!isAlreadyInstalledError(error)) {
+          const inherited = (await listCourseExternalTools(courseId, true)).find((tool) =>
+            matchesExternalTool(tool, { searchName: "Student Alerts", clientId }),
+          );
+          if (inherited) return inherited;
+          throw error;
+        }
+      }
 
-      if (created?.id) return created;
+      const local = (await listCourseExternalTools(courseId, true)).find((tool) =>
+        matchesExternalTool(tool, { searchName: "Student Alerts", clientId }),
+      );
+      if (local) return local;
 
       return findExternalToolInModules(courseId, {
         searchName: "Student Alerts",
@@ -443,15 +602,27 @@ export function createCanvasAdminClient() {
       courseId: string,
       options: { searchName: string; clientId?: string; launchHost?: string },
     ) {
-      const existing = await this.findCourseExternalTool(courseId, options);
-      if (existing) return existing;
+      // Modules → Add → External Tool lists course-level installs. An inherited
+      // account tool often does not appear in that picker, so install locally
+      // even when a parent account already has the app.
+      const localTools = await listCourseExternalTools(courseId, false);
+      const local = localTools.find((tool) => matchesExternalTool(tool, options));
+      if (local) return local;
 
-      if (!options.clientId?.trim()) return null;
+      if (!options.clientId?.trim()) {
+        return (await listCourseExternalTools(courseId, true)).find((tool) =>
+          matchesExternalTool(tool, options),
+        ) || null;
+      }
 
       try {
         return await this.installExternalToolByClientId(courseId, options.clientId);
       } catch {
-        return this.findCourseExternalTool(courseId, options);
+        return (
+          (await listCourseExternalTools(courseId, true)).find((tool) =>
+            matchesExternalTool(tool, options),
+          ) || this.findCourseExternalTool(courseId, options)
+        );
       }
     },
 

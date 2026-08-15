@@ -9,7 +9,11 @@ import {
   encodeCanvasStudentSession,
   CANVAS_SESSION_COOKIE,
 } from "@/lib/canvas/session";
-import { readDeepLinkingSettings } from "@/lib/lti/deep-linking";
+import {
+  buildDeepLinkingHtml,
+  buildDeepLinkingResponse,
+  readDeepLinkingSettings,
+} from "@/lib/lti/deep-linking";
 import { isIframeLtiLaunch } from "@/lib/lti/launch-presentation";
 import { isInstructorLtiLaunch } from "@/lib/lti/roles";
 import { verifyLtiIdToken } from "@/lib/lti/verify";
@@ -142,8 +146,26 @@ export async function handleLtiLaunchPost(
   }
 
   if (deepLinking) {
-    const setupPath = `/canvas/alerts/setup${identity.courseId ? `?course=${encodeURIComponent(identity.courseId)}` : ""}`;
-    return finishLaunch(appOrigin, identity, setupPath);
+    try {
+      const { launchUrl } = getLtiConfig();
+      const jwt = await buildDeepLinkingResponse({
+        clientId,
+        platformIssuer: identity.platformIssuer,
+        deploymentId: identity.deploymentId,
+        nonce: identity.nonce,
+        launchUrl,
+        data: deepLinking.data,
+      });
+      const response = new NextResponse(buildDeepLinkingHtml(deepLinking.deep_link_return_url, jwt), {
+        status: 200,
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+      return attachSessionCookie(response, identity);
+    } catch (error) {
+      console.error("Deep linking auto-return failed:", error);
+      const setupPath = `/canvas/alerts/setup${identity.courseId ? `?course=${encodeURIComponent(identity.courseId)}` : ""}`;
+      return finishLaunch(appOrigin, identity, setupPath);
+    }
   }
 
   if (isInstructor && identity.courseId) {
