@@ -20,8 +20,8 @@ export function buildFrontPageEmbedHtml(canvasCourseId: string) {
     `style="background:#fff;margin:0;padding:0;line-height:0;font-size:0;border:0;">` +
     `<iframe src="${escapeHtmlAttribute(embedUrl)}" ` +
     `width="100%" height="${height}" ` +
-    `style="width:100%;height:${height}px;min-height:${height}px;max-height:${height}px;` +
-    `border:0;outline:0;box-shadow:none;display:block;overflow:hidden;background:#fff;" ` +
+    `style="width:100%;height:${height}px;min-height:${height}px;border:0;outline:0;` +
+    `box-shadow:none;display:block;overflow:hidden;background:#fff;" ` +
     `title="Alerts" loading="eager" scrolling="no" referrerpolicy="no-referrer"></iframe>` +
     `</div>`
   );

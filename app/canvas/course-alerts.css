@@ -17,6 +17,8 @@ html.course-alerts-embed-root,
 body.course-alerts-embed-root,
 html.course-alerts-embed-root .course-alerts-page {
   min-height: 0;
+  height: auto;
+  overflow: hidden;
   background: #fff !important;
   padding: 0;
   margin: 0;
@@ -49,6 +51,7 @@ html.course-alerts-embed-root .course-alerts-page {
 .course-home-banner-welcome {
   background: #fff;
   color: #111;
+  padding: 8px 12px;
 }
 
 .course-home-banner-welcome .course-home-banner-title,

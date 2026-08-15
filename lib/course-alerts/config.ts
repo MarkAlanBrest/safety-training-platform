@@ -55,7 +55,8 @@ function clampInt(value: unknown, fallback: number, min: number, max: number) {
 function optionalMessage(value: unknown, fallback: string | null) {
   if (typeof value !== "string") return fallback;
   const trimmed = value.trim();
-  return trimmed ? trimmed : fallback;
+  if (!trimmed) return fallback;
+  return currentAlertMessage(trimmed, fallback || trimmed);
 }
 
 export function normalizeCourseAlertConfigInput(

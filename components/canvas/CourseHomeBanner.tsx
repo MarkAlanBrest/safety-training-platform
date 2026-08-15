@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { HOME_EMBED_TITLE } from "@/lib/canvas/home-embed-constants";
+import { publishEmbedHeight, watchEmbedHeight } from "@/lib/canvas/embed-resize";
 import { buildWelcomeMessage, getStudentDisplayName } from "@/lib/canvas/home-embed-messages";
 
 type TeacherMessage = {
@@ -61,11 +62,13 @@ export function CourseHomeBanner({
       body: JSON.stringify({ courseId }),
     });
     void loadAlerts();
+    const stopWatching = watchEmbedHeight();
     const timer = window.setInterval(() => {
       void loadAlerts();
     }, 60_000);
     return () => {
       window.clearInterval(timer);
+      stopWatching();
       document.documentElement.classList.remove("course-alerts-embed-root");
       document.body.classList.remove("course-alerts-embed-root");
     };
@@ -73,16 +76,17 @@ export function CourseHomeBanner({
 
   const hasAlerts = teacherMessages.length > 0 || autoAlerts.length > 0;
 
+  useEffect(() => {
+    publishEmbedHeight();
+  }, [hasAlerts, autoAlerts, teacherMessages, displayName]);
+
   return (
     <section
       className={`course-home-banner ${hasAlerts ? "course-home-banner-alert" : "course-home-banner-welcome"}`}
-      aria-labelledby="course-home-alerts-title"
     >
-      <h2 id="course-home-alerts-title" className="course-home-banner-title">
-        {HOME_EMBED_TITLE}
-      </h2>
       {hasAlerts ? (
         <>
+          <h2 className="course-home-banner-title">{HOME_EMBED_TITLE}</h2>
           {teacherMessages.map((message) => (
             <p key={message.id} className="course-home-banner-message">
               {message.message}

@@ -1,5 +1,6 @@
-export const HOME_EMBED_VERSION = "10";
+export const HOME_EMBED_VERSION = "11";
 
 export const HOME_EMBED_TITLE = "Alerts";
 
-export const HOME_EMBED_BANNER_HEIGHT_PX = 240;
+/** Starting iframe height; JS resizes to fit content. */
+export const HOME_EMBED_BANNER_HEIGHT_PX = 48;
