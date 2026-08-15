@@ -72,10 +72,6 @@ export function createCanvasAdminClient() {
       } catch {
         detail = await response.text();
       }
-<<<<<<< HEAD
-      const method = init?.method || "GET";
-=======
->>>>>>> cursor/student-home-fix-76e9
       throw new Error(
         `Canvas API error (${response.status}) on ${method} ${path}: ${detail || response.statusText}`,
       );
