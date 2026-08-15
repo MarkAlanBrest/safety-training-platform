@@ -1,6 +1,6 @@
 {
   "kty": "RSA",
-  "n": "3sLzzxW2VrhTT6hu0J0dwdq2YZjfa_2XT4Sl-5V1znnFtXO15dEFXG09kRdZGekBtGXOeNvTQSkTjgn3B6bNLdzEw1ulRzaEQR2I3GjtG3KJpLtn1b_1sIjVBz7VxgPV7s6Qb5JIvLEfg6ycIrJyDEUdTudBocgNetzyIvNTrdu4P28fRTLloGNQhw2CfgIMoM-e6lq-PmXRxcnp0BiMF_vi9dW3r_w1b0r1oUr4XNFu1gPWpEQzWLFCwjH8KmTgv3yeZBjx8YtTYxZqNI7W2ygvTN0TgRRu8JD0sWjMrGfr-3Z95eRoVCbQxcJG9uknCIsTsgA6UjVLq7sbCwU-nQ",
+  "n": "tocgFMX8hz5W6wlUnV6cISFz03FEnEP5pVm0WK2YplJaG4gynG9geeN-CUyVuqKGHpSs1bEUlZxtvU5JvyFiGbFb4ZOkdRSon_6EjYYEwb9FVVIUMPszYjbZxqge7lozid_xgt2Kx8lrwUvGZeZ2hYJdNtEAAv_wf2p5seIbRSCsA0PqZBsZRSMXy2MbDgTJ3MifC1AGiRITc1MgERwi6RrLZGtLIRE29hY_9tX66G4vXK77LabOfkEHzqaO5PB1rmQ7bJrL8nolODZuNbiRwB1z-gBNWFUiKhTObR_z8gzzExNjS_9l46MgDaCBcPF53zj3SEQ9yO4lneNjrcgbnw",
   "e": "AQAB",
   "kid": "student-alerts-2026",
   "alg": "RS256",
