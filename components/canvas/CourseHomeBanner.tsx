@@ -111,9 +111,7 @@ export function CourseHomeBanner({
           ))}
         </>
       ) : (
-        <p className="course-home-banner-message course-home-banner-welcome-text">
-          Welcome, <span className="course-home-banner-name">{displayName}</span>
-        </p>
+        <p className="course-home-banner-welcome-line">{`Welcome, ${displayName}`}</p>
       )}
     </section>
   );
