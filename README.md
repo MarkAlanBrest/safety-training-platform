@@ -59,6 +59,10 @@ and `CANVAS_LTI_KID`. The private JWK must match the public key returned by
 - Use `https://your-app.com/canvas-lti-key.json` as the developer-key configuration
   URL. After changing that JSON, update/re-import the developer key in Canvas;
   existing Canvas registrations do not automatically pick up placement changes.
+- If Canvas reports `JWT verification failure`, edit the existing Developer Key and
+  set its public-key method to **Public JWK URL** with
+  `https://your-app.com/api/lti/jwks`, or re-import the JSON configuration. The
+  public key stored in Canvas must match the private JWK used by the deployment.
 - Teachers add **Student Alerts** from Modules → Add item → External Tool, choose
   the alert settings, and click **Save settings and add to module**. Canvas then
   creates the module item and the app adds the authenticated alert strip to Home.

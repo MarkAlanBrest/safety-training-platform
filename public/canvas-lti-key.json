@@ -5,7 +5,14 @@
   "app_origin": "https://safety-training-platform-eight.vercel.app",
   "oidc_initiation_url": "https://safety-training-platform-eight.vercel.app/api/lti/login",
   "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch",
-  "public_jwk_url": "https://safety-training-platform-eight.vercel.app/api/lti/jwks",
+  "public_jwk": {
+    "kty": "RSA",
+    "n": "tocgFMX8hz5W6wlUnV6cISFz03FEnEP5pVm0WK2YplJaG4gynG9geeN-CUyVuqKGHpSs1bEUlZxtvU5JvyFiGbFb4ZOkdRSon_6EjYYEwb9FVVIUMPszYjbZxqge7lozid_xgt2Kx8lrwUvGZeZ2hYJdNtEAAv_wf2p5seIbRSCsA0PqZBsZRSMXy2MbDgTJ3MifC1AGiRITc1MgERwi6RrLZGtLIRE29hY_9tX66G4vXK77LabOfkEHzqaO5PB1rmQ7bJrL8nolODZuNbiRwB1z-gBNWFUiKhTObR_z8gzzExNjS_9l46MgDaCBcPF53zj3SEQ9yO4lneNjrcgbnw",
+    "e": "AQAB",
+    "kid": "student-alerts-2026",
+    "alg": "RS256",
+    "use": "sig"
+  },
   "redirect_uris": [
     "https://safety-training-platform-eight.vercel.app/api/lti/launch"
   ],
