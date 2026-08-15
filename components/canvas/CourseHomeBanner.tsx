@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import {
   HOME_EMBED_BANNER_HEIGHT_PX,
   HOME_EMBED_TEST_MESSAGE,
+  HOME_EMBED_TITLE,
 } from "@/lib/canvas/home-embed-constants";
 
 type TeacherMessage = {
@@ -99,12 +100,16 @@ export function CourseHomeBanner({
   return (
     <div className="course-home-embed-shell">
       <div className="course-home-banner-top-pixel" aria-hidden="true" />
-      <div className="course-home-banner" role="alert">
-        <strong>Reminder</strong>
+      <section className="course-home-banner" aria-labelledby="course-home-alerts-title">
+        <h2 id="course-home-alerts-title" className="course-home-banner-title">
+          {HOME_EMBED_TITLE}
+        </h2>
         {lines.map((line, index) => (
-          <p key={`${index}-${line}`}>{line}</p>
+          <p key={`${index}-${line}`} className="course-home-banner-message">
+            {line}
+          </p>
         ))}
-      </div>
+      </section>
     </div>
   );
 }

@@ -66,6 +66,17 @@ html.course-alerts-embed-root .course-alerts-page {
   font-size: 1rem;
 }
 
+.course-home-banner-title {
+  margin: 0 0 8px;
+  padding: 0;
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  color: #fff;
+}
+
 .course-home-banner strong {
   display: block;
   margin-bottom: 6px;
@@ -74,6 +85,7 @@ html.course-alerts-embed-root .course-alerts-page {
   text-transform: uppercase;
 }
 
+.course-home-banner-message,
 .course-home-banner p {
   margin: 0 0 8px;
   font-size: 1.05rem;
@@ -81,6 +93,7 @@ html.course-alerts-embed-root .course-alerts-page {
   line-height: 1.45;
 }
 
+.course-home-banner-message:last-child,
 .course-home-banner p:last-child {
   margin-bottom: 0;
 }
