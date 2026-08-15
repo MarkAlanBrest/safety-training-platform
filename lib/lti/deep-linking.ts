@@ -72,13 +72,23 @@ export async function buildDeepLinkingResponse(params: {
     payload[DATA_CLAIM] = params.data;
   }
 
+  const audience = canvasDeepLinkAudience(params.platformIssuer);
+
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "RS256", kid: getToolKid(), typ: "JWT" })
     .setIssuer(params.clientId)
-    .setAudience(params.platformIssuer)
+    .setAudience(audience)
     .setIssuedAt(now)
     .setExpirationTime(now + 300)
     .sign(key);
+}
+
+function canvasDeepLinkAudience(platformIssuer: string) {
+  const issuer = platformIssuer.replace(/\/+$/, "");
+  if (issuer.includes("instructure.com") && !issuer.includes("canvas.instructure.com")) {
+    return "https://canvas.instructure.com";
+  }
+  return issuer || "https://canvas.instructure.com";
 }
 
 export function buildDeepLinkingHtml(returnUrl: string, jwt: string) {

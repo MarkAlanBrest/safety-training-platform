@@ -1,6 +1,7 @@
 import { getCanvasServerConfig } from "@/lib/canvas/config";
 import { CANVAS_USER_AGENT, normalizeCanvasBaseUrl } from "@/lib/canvas/client";
 import { sanitizeFrontPageBody } from "@/lib/canvas/front-page-sanitize";
+import { getToolPublicJwk } from "@/lib/lti/tool-jwk";
 
 type CanvasExternalTool = {
   id: number;
@@ -43,6 +44,15 @@ function isAlreadyInstalledError(error: unknown) {
     message.includes("taken") ||
     message.includes("duplicate") ||
     message.includes("unique")
+  );
+}
+
+function isDirectStudentAlertsEmbed(body: string) {
+  return (
+    body.includes('data-student-alerts-embed="true"') &&
+    body.includes("/canvas/home-embed") &&
+    !body.includes("/external_tools/") &&
+    !body.includes("external_tools%2F")
   );
 }
 
@@ -441,7 +451,7 @@ export function createCanvasAdminClient() {
         }
       }
 
-      if (existingBody.includes('data-student-alerts-embed="true"')) {
+      if (isDirectStudentAlertsEmbed(existingBody)) {
         return { frontPageUrl: targetUrl, alreadyEmbedded: true as const };
       }
 
@@ -666,6 +676,40 @@ export function createCanvasAdminClient() {
         } catch {
           // Key may already be on, or the token cannot manage developer keys.
         }
+      }
+
+      await this.syncDeveloperKeyPublicJwk(clientId);
+    },
+
+    async syncDeveloperKeyPublicJwk(clientId: string) {
+      if (!clientId.trim()) return;
+      const publicJwk = getToolPublicJwk();
+      const payload = {
+        developer_key: {
+          public_jwk: publicJwk,
+          // Canvas fails deep-linking JWTs with KidNotFound when both a
+          // pasted JWK and a JWK URL are set. Keep only the matching JWK.
+          public_jwk_url: "",
+        },
+      };
+
+      try {
+        await canvasJson(`/developer_keys/${clientId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+        return;
+      } catch {
+        // Try the account-scoped endpoint used on some Canvas sites.
+      }
+
+      try {
+        await canvasJson(`/accounts/self/developer_keys/${clientId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        // Token may not be allowed to edit developer keys.
       }
     },
 

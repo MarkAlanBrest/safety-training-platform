@@ -1,4 +1,4 @@
-export const HOME_EMBED_VERSION = "13";
+export const HOME_EMBED_VERSION = "14";
 
 export const HOME_EMBED_TITLE = "Alerts";
 
