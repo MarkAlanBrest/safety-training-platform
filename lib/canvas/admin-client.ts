@@ -205,10 +205,64 @@ export function createCanvasAdminClient() {
       });
     },
 
+    async upsertCourseAnnouncement(
+      courseId: string,
+      announcement: { title: string; message: string },
+    ) {
+      const topics = await canvasJson<Array<{ id: number; title?: string }>>(
+        `/courses/${courseId}/discussion_topics`,
+        {
+          query: { only_announcements: "true", per_page: "50" },
+          allowNotFound: true,
+        },
+      );
+
+      const existing = topics?.find((topic) => topic.title === announcement.title);
+      const payload = {
+        title: announcement.title,
+        message: announcement.message,
+        is_announcement: true,
+        published: true,
+      };
+
+      if (existing) {
+        const updated = await canvasJson<{ id: number }>(
+          `/courses/${courseId}/discussion_topics/${existing.id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          },
+        );
+        return { id: updated.id };
+      }
+
+      const created = await canvasJson<{ id: number }>(`/courses/${courseId}/discussion_topics`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      return { id: created.id };
+    },
+
     async getCourseHomeStatus(courseId: string) {
       const course = await canvasJson<CanvasCourse>(`/courses/${courseId}`);
       let frontPageBody: string | null = null;
       let frontPageUrl: string | null = null;
+      let hasStudentAlertsAnnouncement = false;
+
+      try {
+        const topics = await canvasJson<Array<{ id: number; title?: string }>>(
+          `/courses/${courseId}/discussion_topics`,
+          {
+            query: { only_announcements: "true", per_page: "50" },
+            allowNotFound: true,
+          },
+        );
+        hasStudentAlertsAnnouncement = Boolean(
+          topics?.some((topic) => topic.title === "Student Alerts Reminder"),
+        );
+      } catch {
+        hasStudentAlertsAnnouncement = false;
+      }
 
       try {
         const page = await canvasJson<{ body?: string; url?: string }>(`/courses/${courseId}/front_page`);
@@ -221,9 +275,10 @@ export function createCanvasAdminClient() {
       return {
         defaultView: course.default_view || null,
         frontPageUrl,
+        hasStudentAlertsAnnouncement,
         hasStudentAlertsEmbed: Boolean(
-          frontPageBody?.includes("student-alerts-home") ||
-            frontPageBody?.includes("external_tools") ||
+          hasStudentAlertsAnnouncement ||
+            frontPageBody?.includes("student-alerts-home") ||
             frontPageBody?.includes("Student Alerts"),
         ),
       };

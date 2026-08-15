@@ -1,7 +1,10 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { buildTestHomePageBody } from "@/lib/canvas/course-home-page-html";
+import {
+  buildCourseAnnouncementBody,
+  COURSE_ALERT_ANNOUNCEMENT_TITLE,
+} from "@/lib/canvas/course-home-page-html";
 import { getCourseAlertConfig } from "@/lib/course-alerts/store";
 
 export async function GET(request: Request) {
@@ -12,17 +15,16 @@ export async function GET(request: Request) {
   }
 
   const config = await getCourseAlertConfig(courseId);
-  const html = buildTestHomePageBody(config.bannerMessage);
 
   return NextResponse.json({
     courseId,
-    html,
+    title: COURSE_ALERT_ANNOUNCEMENT_TITLE,
+    html: buildCourseAnnouncementBody(config.bannerMessage),
     instructions: [
-      "Canvas → your course → Pages",
-      "Open or create the course Front Page",
-      "Click Edit → HTML Editor",
-      "Paste the html value below → Save",
-      "Course Settings → set Home Page to Front Page (if needed)",
+      "Canvas → your course → Announcements → + Announcement",
+      `Title: ${COURSE_ALERT_ANNOUNCEMENT_TITLE}`,
+      "Switch to HTML view and paste the html value below",
+      "Publish the announcement",
     ],
   });
 }

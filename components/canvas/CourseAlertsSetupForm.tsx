@@ -109,18 +109,11 @@ export function CourseAlertsSetupForm() {
       if (data.canvasApi) setCanvasApi(data.canvasApi as CanvasApiStatus);
 
       if (data.homeEmbed?.ok) {
-        if (data.homeEmbed.verified === false) {
-          setSuccess("Alert settings saved for this course.");
-          setError(
-            "Canvas accepted the update but the home page may not be set correctly. Check Student View → Home, or use the manual paste below.",
-          );
-          setShowManualSteps(true);
-        } else {
-          setSuccess(
-            "Settings saved. A test message was posted to the course home page — switch to Student View and open Home to check.",
-          );
-          setShowManualSteps(false);
-        }
+        setSuccess(
+          data.homeEmbed.note ||
+            "Settings saved. A bold course announcement was posted. Your home page was not changed.",
+        );
+        setShowManualSteps(false);
       } else if (data.homeEmbed?.reason) {
         if (isServerConfigError(data.homeEmbed.reason)) {
           setSuccess("Alert settings saved for this course.");
@@ -131,7 +124,6 @@ export function CourseAlertsSetupForm() {
         } else if (data.homeEmbed.courseAccess === false) {
           setSuccess("Alert settings saved for this course.");
           setError(data.homeEmbed.reason);
-          if (data.homeEmbed.manualHtml) setManualHtml(data.homeEmbed.manualHtml);
           setShowManualSteps(true);
         } else {
           setSuccess("Alert settings saved for this course.");
@@ -161,7 +153,8 @@ export function CourseAlertsSetupForm() {
     <div className="course-alerts-shell course-alerts-setup">
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        Choose what students see automatically on the course home page.
+        Save a bold course announcement for students. Your existing home page is not changed.
+        Students also get a popup when they open Student Alerts from Modules.
       </p>
 
       {canvasApi && !canvasApi.ready ? (
@@ -273,14 +266,11 @@ export function CourseAlertsSetupForm() {
 
             {manualHtml ? (
               <>
-                <h2>Or paste this on the course Front Page manually</h2>
+                <h2>Or post this announcement manually</h2>
                 <ol>
-                  <li>Canvas → your course → <strong>Pages</strong></li>
-                  <li>Open the <strong>Front Page</strong> → <strong>Edit</strong> → <strong>HTML Editor</strong></li>
-                  <li>Paste the HTML below → <strong>Save</strong></li>
-                  <li>
-                    <strong>Settings</strong> → set <strong>Home Page</strong> to <strong>Front Page</strong>
-                  </li>
+                  <li>Canvas → your course → <strong>Announcements</strong> → <strong>+ Announcement</strong></li>
+                  <li>Title: <strong>Student Alerts Reminder</strong></li>
+                  <li>Open the <strong>HTML editor</strong>, paste the HTML below, and publish</li>
                 </ol>
                 <textarea className="course-alerts-manual-html" readOnly rows={6} value={manualHtml} />
               </>

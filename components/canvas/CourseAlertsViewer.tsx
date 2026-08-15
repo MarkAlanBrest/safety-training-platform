@@ -41,6 +41,7 @@ export function CourseAlertsViewer({
   const [autoAlerts, setAutoAlerts] = useState<AutoAlert[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [popupOpen, setPopupOpen] = useState(false);
 
   const loadStatus = useCallback(async () => {
     const response = await fetch("/api/canvas/status");
@@ -93,6 +94,13 @@ export function CourseAlertsViewer({
     return () => window.clearInterval(timer);
   }, [connected, loadAlerts]);
 
+  useEffect(() => {
+    if (connected !== true) return;
+    if (bannerMessage || teacherMessages.length > 0 || autoAlerts.length > 0) {
+      setPopupOpen(true);
+    }
+  }, [connected, bannerMessage, teacherMessages, autoAlerts]);
+
   if (connected === null) {
     return (
       <div className="course-alerts-shell">
@@ -130,9 +138,32 @@ export function CourseAlertsViewer({
   }
 
   const hasAlerts = teacherMessages.length > 0 || autoAlerts.length > 0;
+  const showPopup = popupOpen && Boolean(bannerMessage || hasAlerts);
 
   return (
     <div className="course-alerts-shell">
+      {showPopup ? (
+        <div className="course-alerts-popup-overlay" role="dialog" aria-modal="true">
+          <div className="course-alerts-popup">
+            <h2>Reminder</h2>
+            {bannerMessage ? <p className="course-alerts-popup-lead">{bannerMessage}</p> : null}
+            {teacherMessages.slice(0, 2).map((alert) => (
+              <p key={`popup-teacher-${alert.id}`} className="course-alerts-popup-item">
+                {alert.message}
+              </p>
+            ))}
+            {autoAlerts.slice(0, 3).map((alert) => (
+              <p key={`popup-${alert.id}`} className="course-alerts-popup-item">
+                <strong>{alert.title}:</strong> {alert.message}
+              </p>
+            ))}
+            <button type="button" className="course-alerts-popup-dismiss" onClick={() => setPopupOpen(false)}>
+              Got it
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="course-alerts-active">
         <div className="course-alerts-status">
           <BellRing size={20} />

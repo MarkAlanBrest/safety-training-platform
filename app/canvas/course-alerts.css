@@ -228,6 +228,51 @@
   color: #86efac;
 }
 
+.course-alerts-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 8, 18, 0.72);
+}
+
+.course-alerts-popup {
+  width: min(560px, 100%);
+  border-radius: 22px;
+  padding: 28px;
+  background: linear-gradient(180deg, #111f35 0%, #0a1424 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
+  color: #f8fbff;
+}
+
+.course-alerts-popup h2 {
+  margin: 0 0 12px;
+  font-family: var(--font-oswald), Oswald, sans-serif;
+  font-size: 2rem;
+  color: #f6d27b;
+}
+
+.course-alerts-popup-lead,
+.course-alerts-popup-item {
+  margin: 0 0 12px;
+  line-height: 1.55;
+  font-size: 1.05rem;
+}
+
+.course-alerts-popup-dismiss {
+  margin-top: 18px;
+  border: 0;
+  border-radius: 14px;
+  padding: 14px 22px;
+  background: linear-gradient(135deg, #ed1c24, #ff5a1f);
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .course-alerts-manual-steps textarea.course-alerts-manual-html {
   width: 100%;
   margin-top: 12px;

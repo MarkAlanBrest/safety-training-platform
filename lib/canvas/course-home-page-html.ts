@@ -1,3 +1,5 @@
+export const COURSE_ALERT_ANNOUNCEMENT_TITLE = "Student Alerts Reminder";
+
 export function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -6,14 +8,15 @@ export function escapeHtml(value: string) {
     .replace(/"/g, "&quot;");
 }
 
-export function buildTestHomePageBody(bannerMessage?: string | null) {
+export function buildCourseAnnouncementBody(bannerMessage?: string | null) {
   const message =
     bannerMessage?.trim() ||
-    "Student Alerts is connected. Missing work and grade reminders will show here soon.";
+    "Check your missing work and grades. Open Student Alerts in Modules for your personal reminders.";
 
   return [
-    `<p><strong style="font-size:1.4em;">Student Alerts — test message</strong></p>`,
-    `<p><strong>${escapeHtml(message)}</strong></p>`,
-    `<p>If you can read this on the course home page, the Canvas home-page connection is working.</p>`,
-  ].join("\n");
+    '<div style="padding:16px 18px;border-radius:12px;background:#b91c1c;color:#fff;">',
+    `<p style="margin:0 0 8px;font-size:1.15em;font-weight:800;">Reminder</p>`,
+    `<p style="margin:0;font-size:1.05em;font-weight:700;">${escapeHtml(message)}</p>`,
+    "</div>",
+  ].join("");
 }

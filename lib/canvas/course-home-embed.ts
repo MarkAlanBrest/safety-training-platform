@@ -1,8 +1,8 @@
 import { createCanvasAdminClient } from "@/lib/canvas/admin-client";
-import { buildTestHomePageBody } from "@/lib/canvas/course-home-page-html";
-
-const FRONT_PAGE_URL = "student-alerts-home";
-const FRONT_PAGE_TITLE = "Student Alerts";
+import {
+  buildCourseAnnouncementBody,
+  COURSE_ALERT_ANNOUNCEMENT_TITLE,
+} from "@/lib/canvas/course-home-page-html";
 
 export async function setupCourseHomeStudentAlerts(
   canvasCourseId: string,
@@ -15,27 +15,24 @@ export async function setupCourseHomeStudentAlerts(
       ok: false as const,
       reason: access.reason,
       courseAccess: false,
-      manualHtml: buildTestHomePageBody(options?.bannerMessage),
     };
   }
 
-  const body = buildTestHomePageBody(options?.bannerMessage);
-
-  await client.upsertCourseFrontPage(canvasCourseId, {
-    url: FRONT_PAGE_URL,
-    title: FRONT_PAGE_TITLE,
-    body,
+  const message = buildCourseAnnouncementBody(options?.bannerMessage);
+  const announcement = await client.upsertCourseAnnouncement(canvasCourseId, {
+    title: COURSE_ALERT_ANNOUNCEMENT_TITLE,
+    message,
   });
-  await client.setCourseHomeToFrontPage(canvasCourseId, FRONT_PAGE_URL);
-
-  const homeStatus = await client.getCourseHomeStatus(canvasCourseId);
 
   return {
     ok: true as const,
-    frontPageUrl: FRONT_PAGE_URL,
-    mode: "test_message" as const,
+    mode: "announcement" as const,
     courseAccess: true,
-    verified: homeStatus.hasStudentAlertsEmbed && homeStatus.defaultView === "wiki",
-    home: homeStatus,
+    announcementId: announcement.id,
+    defaultView: access.defaultView,
+    note:
+      access.defaultView === "wiki"
+        ? "Your course Home uses a Front Page. The announcement was posted, but students may need to open Announcements to see it. Open Student Alerts from Modules for the popup reminder."
+        : "A bold announcement was posted to the course Home feed. Your existing home page was not changed.",
   };
 }

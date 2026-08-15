@@ -36,10 +36,7 @@ export async function GET(request: Request) {
       configSaved: Boolean(config.updatedAt && config.updatedAt !== new Date(0).toISOString()),
       bannerMessage: config.bannerMessage,
       home: homeStatus,
-      ready:
-        homeStatus.defaultView === "wiki" &&
-        homeStatus.frontPageUrl === "student-alerts-home" &&
-        homeStatus.hasStudentAlertsEmbed,
+      ready: homeStatus.hasStudentAlertsAnnouncement,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not inspect course home.";
