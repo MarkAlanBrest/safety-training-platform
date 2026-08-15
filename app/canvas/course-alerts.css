@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,700&display=swap");
+
 .course-alerts-page {
   min-height: 100vh;
   background: #07111f;
@@ -51,21 +53,18 @@ html.course-alerts-embed-root .course-alerts-page {
 .course-home-banner-welcome {
   background: #fff;
   color: #111;
-  padding: 10px 14px;
+  padding: 12px 16px;
 }
 
-.course-home-banner-welcome-text {
-  font-family: var(--font-oswald), Oswald, sans-serif;
-  font-size: 1.85rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  line-height: 1.2;
-}
-
-.course-home-banner-name {
-  font-family: inherit;
-  font-size: 1.85rem;
+.course-home-banner-welcome-text,
+.course-home-banner-welcome-text .course-home-banner-name {
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  font-size: 2rem;
   font-weight: 700;
+  font-style: italic;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  color: #111;
 }
 
 .course-home-banner-welcome .course-home-banner-title,
