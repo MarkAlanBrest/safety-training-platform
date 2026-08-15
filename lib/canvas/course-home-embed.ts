@@ -1,10 +1,4 @@
-import {
-  getAppOrigin,
-  getCanvasServerConfig,
-  getConfiguredLtiClientId,
-  getLtiConfig,
-} from "@/lib/canvas/config";
-import { normalizeCanvasBaseUrl } from "@/lib/canvas/client";
+import { getAppOrigin, getConfiguredLtiClientId } from "@/lib/canvas/config";
 import { createCanvasAdminClient } from "@/lib/canvas/admin-client";
 import {
   HOME_EMBED_BANNER_HEIGHT_PX,
@@ -18,24 +12,16 @@ function escapeHtmlAttribute(value: string) {
 }
 
 export function buildFrontPageEmbedHtml(canvasCourseId: string) {
-  const { loginUrl } = getLtiConfig();
-  const clientId = getConfiguredLtiClientId();
-  const { baseUrl } = getCanvasServerConfig();
-  const canvasBase = normalizeCanvasBaseUrl(baseUrl);
-  const retrievePath =
-    `/courses/${canvasCourseId}/external_tools/retrieve` +
-    `?display=borderless&url=${encodeURIComponent(loginUrl)}` +
-    (clientId ? `&client_id=${encodeURIComponent(clientId)}` : "");
-  const retrieveUrl = `${canvasBase}${retrievePath}`;
+  const embedUrl = `${getAppOrigin()}/canvas/home-embed?course=${encodeURIComponent(canvasCourseId)}`;
   const height = HOME_EMBED_BANNER_HEIGHT_PX;
 
   return (
     `<div ${EMBED_MARKER} data-student-alerts-version="${HOME_EMBED_VERSION}" ` +
     `style="background:#fff;margin:0;padding:0;line-height:0;font-size:0;border:0;">` +
-    `<iframe src="${escapeHtmlAttribute(retrieveUrl)}" ` +
+    `<iframe src="${escapeHtmlAttribute(embedUrl)}" ` +
     `style="width:100%;height:${height}px;min-height:${height}px;max-height:240px;` +
     `border:0;outline:0;box-shadow:none;display:block;overflow:hidden;background:#fff;" ` +
-    `title="Student Alerts" loading="eager" scrolling="no"></iframe>` +
+    `title="Student Alerts" loading="eager" scrolling="no" referrerpolicy="no-referrer"></iframe>` +
     `</div>`
   );
 }

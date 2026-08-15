@@ -52,6 +52,19 @@ export function CourseHomeBanner({
   const [teacherMessages, setTeacherMessages] = useState<TeacherMessage[]>([]);
   const [autoAlerts, setAutoAlerts] = useState<AutoAlert[]>([]);
 
+  const loadGreeting = useCallback(async () => {
+    const handoffQuery = handoffToken ? `&handoff=${encodeURIComponent(handoffToken)}` : "";
+    const response = await fetch(
+      `/api/course-alerts/greeting?course=${encodeURIComponent(courseId)}${handoffQuery}`,
+      { credentials: "include" },
+    );
+    if (!response.ok) return;
+    const data = await response.json();
+    if (data.studentName) {
+      setDisplayName(getStudentDisplayName(data.studentName));
+    }
+  }, [courseId, handoffToken]);
+
   const loadAlerts = useCallback(async () => {
     const handoffQuery = handoffToken ? `&handoff=${encodeURIComponent(handoffToken)}` : "";
     const response = await fetch(
@@ -81,12 +94,13 @@ export function CourseHomeBanner({
   }, []);
 
   useEffect(() => {
+    void loadGreeting();
     void loadAlerts();
     const timer = window.setInterval(() => {
       void loadAlerts();
     }, 60_000);
     return () => window.clearInterval(timer);
-  }, [loadAlerts]);
+  }, [loadGreeting, loadAlerts]);
 
   const alertLines: string[] = [];
   if (bannerMessage?.trim()) alertLines.push(bannerMessage.trim());
@@ -97,16 +111,19 @@ export function CourseHomeBanner({
     alertLines.push(`${alert.title}: ${alert.message}`);
   }
 
-  const lines = alertLines.length ? alertLines : [buildWelcomeMessage(displayName)];
+  const isWelcome = alertLines.length === 0;
+  const lines = isWelcome ? [buildWelcomeMessage(displayName)] : alertLines;
 
   useLayoutEffect(() => {
     resizeEmbedFrame(HOME_EMBED_BANNER_HEIGHT_PX);
-  }, [lines.length]);
+  }, [lines.length, isWelcome]);
 
   return (
     <div className="course-home-embed-shell">
-      <div className="course-home-banner-top-pixel" aria-hidden="true" />
-      <section className="course-home-banner" aria-labelledby="course-home-alerts-title">
+      <section
+        className={`course-home-banner ${isWelcome ? "course-home-banner-welcome" : "course-home-banner-alert"}`}
+        aria-labelledby="course-home-alerts-title"
+      >
         <h2 id="course-home-alerts-title" className="course-home-banner-title">
           {HOME_EMBED_TITLE}
         </h2>
