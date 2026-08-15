@@ -26,6 +26,7 @@ function toConfigView(
     showAssignmentLowGrades?: boolean;
     showLoginInactivity?: boolean;
     showDueSoon?: boolean;
+    homeEmbedEnabled?: boolean;
     updatedAt: Date;
   },
 ): CourseAlertConfigView {
@@ -47,6 +48,7 @@ function toConfigView(
     showAssignmentLowGrades: record.showAssignmentLowGrades,
     showLoginInactivity: record.showLoginInactivity,
     showDueSoon: record.showDueSoon,
+    homeEmbedEnabled: record.homeEmbedEnabled,
   });
 
   return {
@@ -102,6 +104,7 @@ export async function saveCourseAlertConfig(
           showAssignmentLowGrades: existing.showAssignmentLowGrades,
           showLoginInactivity: existing.showLoginInactivity,
           showDueSoon: existing.showDueSoon,
+          homeEmbedEnabled: existing.homeEmbedEnabled,
         }
       : {}),
     ...input,
@@ -128,6 +131,7 @@ export async function saveCourseAlertConfig(
       showAssignmentLowGrades: normalized.showAssignmentLowGrades,
       showLoginInactivity: normalized.showLoginInactivity,
       showDueSoon: normalized.showDueSoon,
+      homeEmbedEnabled: normalized.homeEmbedEnabled === true,
       updatedBy: updatedBy || null,
     },
     update: {
@@ -148,9 +152,56 @@ export async function saveCourseAlertConfig(
       showAssignmentLowGrades: normalized.showAssignmentLowGrades,
       showLoginInactivity: normalized.showLoginInactivity,
       showDueSoon: normalized.showDueSoon,
+      homeEmbedEnabled: normalized.homeEmbedEnabled === true,
       updatedBy: updatedBy || null,
     },
   });
 
   return toConfigView(canvasCourseId, record);
 }
+
+function isRealCourseId(canvasCourseId: string) {
+  return Boolean(canvasCourseId) && !canvasCourseId.startsWith("__");
+}
+
+export async function isCourseHomeAlertsEnabled(canvasCourseId: string) {
+  if (!isRealCourseId(canvasCourseId)) return false;
+  const record = await prisma.courseAlertConfig.findUnique({
+    where: { canvasCourseId },
+    select: { homeEmbedEnabled: true },
+  });
+  return record?.homeEmbedEnabled === true;
+}
+
+export async function setCourseHomeAlertsEnabled(canvasCourseId: string, enabled: boolean) {
+  if (!isRealCourseId(canvasCourseId)) return;
+  await prisma.courseAlertConfig.upsert({
+    where: { canvasCourseId },
+    create: {
+      canvasCourseId,
+      homeEmbedEnabled: enabled,
+    },
+    update: {
+      homeEmbedEnabled: enabled,
+    },
+  });
+}
+
+export async function listHomeAlertsEnabledCourseIds() {
+  const records = await prisma.courseAlertConfig.findMany({
+    where: { homeEmbedEnabled: true },
+    select: { canvasCourseId: true },
+  });
+  return new Set(records.map((record) => record.canvasCourseId).filter(isRealCourseId));
+}
+
+export async function backfillExistingConfigsAsHomeEnabled() {
+  await prisma.courseAlertConfig.updateMany({
+    where: {
+      homeEmbedEnabled: false,
+      NOT: { canvasCourseId: { startsWith: "__" } },
+    },
+    data: { homeEmbedEnabled: true },
+  });
+}
+

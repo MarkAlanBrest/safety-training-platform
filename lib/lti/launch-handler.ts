@@ -140,9 +140,6 @@ export async function handleLtiLaunchPost(
       studentName: identity.name,
       courseName: identity.courseName,
     });
-    if (isInstructor) {
-      void embedStudentAlertsOnCourseHome(identity.courseId);
-    }
   }
 
   if (deepLinking) {

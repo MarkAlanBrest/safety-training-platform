@@ -17,6 +17,7 @@ export type CourseAlertConfigInput = {
   showAssignmentLowGrades: boolean;
   showLoginInactivity: boolean;
   showDueSoon: boolean;
+  homeEmbedEnabled?: boolean;
   courseName?: string | null;
 };
 
@@ -43,6 +44,7 @@ export const DEFAULT_COURSE_ALERT_CONFIG: CourseAlertConfigInput = {
   showAssignmentLowGrades: true,
   showLoginInactivity: true,
   showDueSoon: true,
+  homeEmbedEnabled: false,
   courseName: null,
 };
 
@@ -111,6 +113,7 @@ export function normalizeCourseAlertConfigInput(
     showAssignmentLowGrades: input.showAssignmentLowGrades !== false,
     showLoginInactivity: input.showLoginInactivity !== false,
     showDueSoon: input.showDueSoon !== false,
+    homeEmbedEnabled: input.homeEmbedEnabled === true,
     courseName:
       typeof input.courseName === "string" && input.courseName.trim()
         ? input.courseName.trim()

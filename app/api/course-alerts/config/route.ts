@@ -30,6 +30,7 @@ function configFromBody(body: ConfigBody, courseNameFallback?: string | null) {
     showAssignmentLowGrades: body.showAssignmentLowGrades,
     showLoginInactivity: body.showLoginInactivity,
     showDueSoon: body.showDueSoon,
+    homeEmbedEnabled: true,
   };
 }
 

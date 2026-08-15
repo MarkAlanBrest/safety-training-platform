@@ -208,6 +208,7 @@ model CourseAlertConfig {
   showAssignmentLowGrades    Boolean  @default(true)
   showLoginInactivity        Boolean  @default(true)
   showDueSoon                Boolean  @default(true)
+  homeEmbedEnabled           Boolean  @default(false)
   updatedBy                  String?
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt

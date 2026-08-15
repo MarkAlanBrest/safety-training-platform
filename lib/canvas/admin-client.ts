@@ -563,7 +563,14 @@ export function createCanvasAdminClient() {
         return { removed: false };
       }
 
-      const body = page.body ? sanitizeFrontPageBody(page.body) : "";
+      const existing = page.body || "";
+      const hasEmbed =
+        existing.includes("data-student-alerts-embed") || existing.includes("/canvas/home-embed");
+      if (!hasEmbed) {
+        return { removed: false };
+      }
+
+      const body = existing ? sanitizeFrontPageBody(existing) : "";
 
       await canvasJson(`/courses/${courseId}/pages/${page.url}`, {
         method: "PUT",

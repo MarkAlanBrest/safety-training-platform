@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { after } from "next/server";
 import { cookies } from "next/headers";
 import { CourseHomeBanner } from "@/components/canvas/CourseHomeBanner";
-import { scheduleSchoolWideEnable } from "@/lib/canvas/course-home-embed";
+import { CourseHomeBannerStatic } from "@/components/canvas/CourseHomeBannerStatic";
+import { scheduleUnauthorizedEmbedCleanup } from "@/lib/canvas/course-home-embed";
 import { CANVAS_SESSION_COOKIE, decodeCanvasStudentSession } from "@/lib/canvas/session";
 import { parseLaunchHandoff } from "@/lib/lti/launch-handoff";
+import { isCourseHomeAlertsEnabled } from "@/lib/course-alerts/store";
 import "../course-alerts.css";
 
 export const dynamic = "force-dynamic";
@@ -37,12 +39,16 @@ export default async function CourseHomeEmbedPage({ searchParams }: Props) {
   ).trim();
 
   if (!courseId) {
-    return <div className="course-home-banner-empty" aria-hidden="true" />;
+    return <CourseHomeBannerStatic />;
   }
 
   after(() => {
-    scheduleSchoolWideEnable();
+    scheduleUnauthorizedEmbedCleanup();
   });
+
+  if (!(await isCourseHomeAlertsEnabled(courseId))) {
+    return <CourseHomeBannerStatic />;
+  }
 
   return (
     <CourseHomeBanner
