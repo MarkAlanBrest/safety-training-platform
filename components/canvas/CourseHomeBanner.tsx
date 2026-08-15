@@ -17,6 +17,7 @@ type AutoAlert = {
 // Temporary — remove after verifying the home embed is visible in Canvas.
 const HOME_EMBED_TEST_MESSAGE = "Test: Student alerts are connected on your course home page.";
 
+type Props = {
   courseId: string;
   initialBannerMessage?: string | null;
   handoffToken?: string | null;
