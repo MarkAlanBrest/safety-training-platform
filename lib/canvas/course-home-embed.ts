@@ -6,6 +6,12 @@ import {
   HOME_EMBED_VERSION,
 } from "@/lib/canvas/home-embed-constants";
 import { prisma } from "@/lib/prisma";
+import {
+  backfillExistingConfigsAsHomeEnabled,
+  isCourseHomeAlertsEnabled,
+  listHomeAlertsEnabledCourseIds,
+  setCourseHomeAlertsEnabled,
+} from "@/lib/course-alerts/store";
 
 const EMBED_MARKER = 'data-student-alerts-embed="true"';
 
@@ -87,6 +93,10 @@ export async function setupCourseHomeStudentAlerts(
 
 export async function refreshHomeEmbedIfStale(canvasCourseId: string) {
   try {
+    if (!(await isCourseHomeAlertsEnabled(canvasCourseId))) {
+      return { refreshed: false as const };
+    }
+
     const client = createCanvasAdminClient();
     const access = await client.getCourseAccess(canvasCourseId);
     if (!access.ok) return { refreshed: false as const };
@@ -121,6 +131,7 @@ export async function removeCourseHomeStudentAlerts(canvasCourseId: string) {
   }
 
   await client.removeEmbedFromFrontPage(canvasCourseId);
+  await setCourseHomeAlertsEnabled(canvasCourseId, false);
   return { ok: true as const };
 }
 
@@ -198,24 +209,25 @@ export async function diagnoseStudentAlertsTool(canvasCourseId: string) {
   };
 }
 
-const ENABLE_JOB_ID = "__student_alerts_enable_all__";
-const ENABLE_DEADLINE_MS = 50_000;
+const CLEANUP_JOB_ID = "__student_alerts_remove_unauthorized__";
+const CLEANUP_DEADLINE_MS = 50_000;
 
-type EnableJob = {
+type CleanupJob = {
   courses: Array<{ id: number; name?: string }>;
   cursor: number;
   listedAt: number;
   usedFallback: boolean;
   accountErrors: string[];
+  backfilled: boolean;
 };
 
-async function loadEnableJob(): Promise<EnableJob | null> {
+async function loadCleanupJob(): Promise<CleanupJob | null> {
   try {
     const record = await prisma.courseAlertConfig.findUnique({
-      where: { canvasCourseId: ENABLE_JOB_ID },
+      where: { canvasCourseId: CLEANUP_JOB_ID },
     });
     if (!record?.bannerMessage) return null;
-    const parsed = JSON.parse(record.bannerMessage) as EnableJob;
+    const parsed = JSON.parse(record.bannerMessage) as CleanupJob;
     if (!Array.isArray(parsed.courses) || parsed.courses.length === 0) return null;
     return parsed;
   } catch {
@@ -223,52 +235,50 @@ async function loadEnableJob(): Promise<EnableJob | null> {
   }
 }
 
-async function saveEnableJob(job: EnableJob) {
+async function saveCleanupJob(job: CleanupJob) {
   try {
     await prisma.courseAlertConfig.upsert({
-      where: { canvasCourseId: ENABLE_JOB_ID },
+      where: { canvasCourseId: CLEANUP_JOB_ID },
       create: {
-        canvasCourseId: ENABLE_JOB_ID,
-        courseName: "School-wide enable progress",
+        canvasCourseId: CLEANUP_JOB_ID,
+        courseName: "Unauthorized Home embed cleanup",
         bannerMessage: JSON.stringify(job),
       },
       update: {
-        courseName: "School-wide enable progress",
+        courseName: "Unauthorized Home embed cleanup",
         bannerMessage: JSON.stringify(job),
       },
     });
   } catch (error) {
-    console.error("Could not persist Student Alerts enable progress:", error);
+    console.error("Could not persist Student Alerts cleanup progress:", error);
   }
 }
 
-export async function enableStudentAlertsInAllCourses(options?: {
+export async function removeUnauthorizedHomeEmbeds(options?: {
   offset?: number;
   generation?: number;
   reset?: boolean;
 }) {
   const startedAt = Date.now();
-  const deadline = startedAt + ENABLE_DEADLINE_MS;
+  const deadline = startedAt + CLEANUP_DEADLINE_MS;
   const generation = Math.max(0, Math.floor(options?.generation || 0));
   const requestedOffset = options?.offset;
 
-  const client = createCanvasAdminClient();
-  const clientId = await client.resolveStudentAlertsClientId(getConfiguredLtiClientId());
-  await client.ensureDeveloperKeyEnabled(clientId).catch(() => null);
-  const toolOptions = {
-    searchName: "Student Alerts",
-    clientId,
-    launchHost: new URL(getAppOrigin()).hostname,
-  };
-  await client.ensureAccountExternalTool(toolOptions).catch(() => null);
-  await client.removeDuplicateAccountStudentAlertsTools(toolOptions).catch(() => null);
-
-  let job = await loadEnableJob();
+  let job = await loadCleanupJob();
   if (options?.reset && job) {
     job.cursor = 0;
     job.listedAt = Date.now();
-    await saveEnableJob(job);
+    await saveCleanupJob(job);
   }
+
+  if (!job?.backfilled) {
+    await backfillExistingConfigsAsHomeEnabled();
+    if (job) {
+      job.backfilled = true;
+      await saveCleanupJob(job);
+    }
+  }
+
   const jobFresh = Boolean(job && Date.now() - (job?.listedAt || 0) < 6 * 60 * 60 * 1000);
   const jobInProgress = Boolean(jobFresh && job && job.cursor < job.courses.length);
   const jobJustFinished = Boolean(
@@ -278,9 +288,8 @@ export async function enableStudentAlertsInAllCourses(options?: {
   if (jobJustFinished && generation === 0 && (requestedOffset == null || requestedOffset === 0)) {
     return {
       ok: true as const,
-      enabled: 0,
-      installed: 0,
-      accounts: 1,
+      removed: 0,
+      kept: 0,
       total: job!.courses.length,
       processedThrough: job!.courses.length,
       nextOffset: null,
@@ -288,12 +297,11 @@ export async function enableStudentAlertsInAllCourses(options?: {
       failed: [] as Array<{ id: number; name?: string; reason: string }>,
       usedFallback: job!.usedFallback,
       accountErrors: job!.accountErrors,
-      note: `Student Alerts is on in ${job!.courses.length} live class${
-        job!.courses.length === 1 ? "" : "es"
-      }. Each class keeps its own settings.`,
+      note: "Home alerts stay only in classes teachers turned on. Other classes have been cleaned up.",
     };
   }
 
+  const client = createCanvasAdminClient();
   if (!job || !jobFresh || (!jobInProgress && generation === 0 && (requestedOffset == null || requestedOffset === 0))) {
     const listed = await client.listPublishedCourses();
     job = {
@@ -302,10 +310,12 @@ export async function enableStudentAlertsInAllCourses(options?: {
       listedAt: Date.now(),
       usedFallback: listed.usedFallback,
       accountErrors: listed.accountErrors,
+      backfilled: true,
     };
-    await saveEnableJob(job);
+    await saveCleanupJob(job);
   }
 
+  const enabledIds = await listHomeAlertsEnabledCourseIds();
   const courses = job.courses;
   const courseListErrors = [...job.accountErrors];
   const usedFallback = job.usedFallback;
@@ -322,12 +332,11 @@ export async function enableStudentAlertsInAllCourses(options?: {
 
   if (offset >= courses.length) {
     job.cursor = courses.length;
-    await saveEnableJob(job);
+    await saveCleanupJob(job);
     return {
       ok: true as const,
-      enabled: 0,
-      installed: 0,
-      accounts: 1,
+      removed: 0,
+      kept: enabledIds.size,
       total: courses.length,
       processedThrough: courses.length,
       nextOffset: null,
@@ -337,13 +346,14 @@ export async function enableStudentAlertsInAllCourses(options?: {
       accountErrors: courseListErrors,
       note:
         courses.length > 0
-          ? `Student Alerts is already enabled across ${courses.length} live class${courses.length === 1 ? "" : "es"}. Each class keeps its own settings.`
+          ? "Home alerts stay only in classes teachers turned on."
           : "No live Canvas courses were found.",
     };
   }
 
   const failed: Array<{ id: number; name?: string; reason: string }> = [];
-  let enabled = 0;
+  let removed = 0;
+  let kept = 0;
   let cursor = offset;
 
   if (Date.now() < deadline) {
@@ -354,18 +364,19 @@ export async function enableStudentAlertsInAllCourses(options?: {
         cursor += 1;
         const course = courses[current];
         if (!course) return;
+        const courseId = String(course.id);
+        if (enabledIds.has(courseId)) {
+          kept += 1;
+          continue;
+        }
         try {
-          const result = await setupCourseHomeStudentAlerts(String(course.id), { skipToolInstall: true });
-          if (result.ok) {
-            enabled += 1;
-          } else {
-            failed.push({ id: course.id, name: course.name, reason: result.reason });
-          }
+          const result = await client.removeEmbedFromFrontPage(courseId);
+          if (result.removed) removed += 1;
         } catch (error) {
           failed.push({
             id: course.id,
             name: course.name,
-            reason: error instanceof Error ? error.message : "Could not enable this course.",
+            reason: error instanceof Error ? error.message : "Could not remove the Home embed.",
           });
         }
       }
@@ -373,27 +384,20 @@ export async function enableStudentAlertsInAllCourses(options?: {
   }
 
   job.cursor = cursor;
-  await saveEnableJob(job);
+  await saveCleanupJob(job);
 
   const nextOffset = cursor < courses.length ? cursor : null;
   if (nextOffset != null && nextOffset > offset && generation < 200) {
-    continueSchoolWideEnable(nextOffset, generation + 1);
+    continueUnauthorizedEmbedCleanup(nextOffset, generation + 1);
   } else if (nextOffset != null && nextOffset === offset && generation < 200 && Date.now() >= deadline) {
-    continueSchoolWideEnable(nextOffset, generation + 1);
+    continueUnauthorizedEmbedCleanup(nextOffset, generation + 1);
   }
 
   const remaining = Math.max(0, courses.length - cursor);
-  const fallbackWarning = usedFallback
-    ? `Could not list every account course (${
-        courseListErrors[0] || "no accounts were readable"
-      }). Use a Canvas admin API token so every class is included.`
-    : null;
-
   return {
     ok: true as const,
-    enabled,
-    installed: enabled,
-    accounts: 1,
+    removed,
+    kept,
     total: courses.length,
     processedThrough: cursor,
     nextOffset,
@@ -402,22 +406,19 @@ export async function enableStudentAlertsInAllCourses(options?: {
     usedFallback,
     accountErrors: courseListErrors,
     note:
-      fallbackWarning ||
-      (remaining > 0
-        ? `Student Alerts is on in ${enabled} more class${enabled === 1 ? "" : "es"} (${cursor} of ${courses.length}). Continuing automatically. Each class keeps its own settings.`
-        : enabled > 0 || offset > 0
-          ? `Student Alerts is on in ${cursor} class${cursor === 1 ? "" : "es"}. Each class keeps its own settings.`
-          : "Could not turn on Student Alerts in other classes."),
+      remaining > 0
+        ? `Removed Student Alerts from ${removed} class${removed === 1 ? "" : "es"} that teachers did not turn on (${cursor} of ${courses.length}). Continuing automatically.`
+        : `Home alerts now stay only in classes teachers turned on. Removed leftover embeds from ${removed} class${removed === 1 ? "" : "es"}.`,
   };
 }
 
-function continueSchoolWideEnable(nextOffset: number, generation: number) {
+function continueUnauthorizedEmbedCleanup(nextOffset: number, generation: number) {
   const origin = getAppOrigin();
   if (!origin) return;
   const url = `${origin}/api/course-alerts/enable-all-courses?offset=${nextOffset}&generation=${generation}`;
   const kick = () =>
     void fetch(url, { method: "GET", cache: "no-store" }).catch((error) => {
-      console.error("Student Alerts enable continuation failed:", error);
+      console.error("Student Alerts cleanup continuation failed:", error);
     });
   try {
     after(kick);
@@ -426,27 +427,40 @@ function continueSchoolWideEnable(nextOffset: number, generation: number) {
   }
 }
 
-let lastSchoolWideEnableAt = 0;
-const SCHOOL_WIDE_COOLDOWN_MS = 2 * 60 * 1000;
+let lastCleanupAt = 0;
+const CLEANUP_COOLDOWN_MS = 2 * 60 * 1000;
 
-export function scheduleSchoolWideEnable() {
+export function scheduleUnauthorizedEmbedCleanup() {
   const now = Date.now();
-  if (now - lastSchoolWideEnableAt < SCHOOL_WIDE_COOLDOWN_MS) return;
-  lastSchoolWideEnableAt = now;
+  if (now - lastCleanupAt < CLEANUP_COOLDOWN_MS) return;
+  lastCleanupAt = now;
   const origin = getAppOrigin();
   if (origin) {
     void fetch(`${origin}/api/course-alerts/enable-all-courses`, {
       method: "GET",
       cache: "no-store",
     }).catch((error) => {
-      lastSchoolWideEnableAt = 0;
-      console.error("School-wide Student Alerts enable failed:", error);
+      lastCleanupAt = 0;
+      console.error("Unauthorized Home embed cleanup failed:", error);
     });
     return;
   }
-  void enableStudentAlertsInAllCourses().catch((error) => {
-    lastSchoolWideEnableAt = 0;
-    console.error("School-wide Student Alerts enable failed:", error);
+  void removeUnauthorizedHomeEmbeds().catch((error) => {
+    lastCleanupAt = 0;
+    console.error("Unauthorized Home embed cleanup failed:", error);
   });
+}
+
+/** @deprecated School-wide Home enable is no longer allowed. */
+export async function enableStudentAlertsInAllCourses(options?: {
+  offset?: number;
+  generation?: number;
+  reset?: boolean;
+}) {
+  return removeUnauthorizedHomeEmbeds(options);
+}
+
+export function scheduleSchoolWideEnable() {
+  scheduleUnauthorizedEmbedCleanup();
 }
 

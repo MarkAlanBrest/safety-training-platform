@@ -149,7 +149,7 @@ export function CourseAlertsSetupForm() {
       setSuccess(
         data.homeEmbed?.ok
           ? data.homeEmbed.note ||
-              "Settings saved for this course only. Students in this class will see reminders on Home."
+              "Settings saved. Students in this class will see reminders on Home. Other classes are unchanged."
           : "Settings saved for this course, but the home page embed could not be updated. See the error below.",
       );
       if (data.homeEmbed?.reason) {
@@ -175,8 +175,8 @@ export function CourseAlertsSetupForm() {
     <div className="course-alerts-shell course-alerts-setup">
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        These messages and thresholds apply only to this class. Open setup from another class to
-        change that class.
+        These messages and thresholds apply only to this class. Students see alerts on Home only
+        after you save. Other classes stay unchanged until a teacher turns Student Alerts on there.
       </p>
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>

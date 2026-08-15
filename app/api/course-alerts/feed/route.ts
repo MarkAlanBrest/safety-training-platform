@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { buildCourseScopedAlerts } from "@/lib/canvas/course-alerts-feed";
 import { createStudentCanvasClient, getCanvasStudentSession } from "@/lib/canvas/session";
-import { getCourseAlertConfig } from "@/lib/course-alerts/store";
+import { getCourseAlertConfig, isCourseHomeAlertsEnabled } from "@/lib/course-alerts/store";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
@@ -24,6 +24,18 @@ export async function GET(request: Request) {
   }
 
   const config = await getCourseAlertConfig(canvasCourseId);
+  if (!(await isCourseHomeAlertsEnabled(canvasCourseId))) {
+    return NextResponse.json({
+      courseId: canvasCourseId,
+      courseName: config.courseName || session.courseName,
+      studentName: session.name,
+      config,
+      bannerMessage: null,
+      alerts: [],
+      teacherMessages: [],
+      fetchedAt: new Date().toISOString(),
+    });
+  }
   const canvasUserId = String(session.userId);
   const now = new Date();
 

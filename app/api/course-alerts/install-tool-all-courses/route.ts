@@ -3,7 +3,7 @@ export const maxDuration = 60;
 
 import { NextResponse } from "next/server";
 import { getCanvasStudentSession } from "@/lib/canvas/session";
-import { enableStudentAlertsInAllCourses } from "@/lib/canvas/course-home-embed";
+import { installStudentAlertsToolSchoolWide } from "@/lib/canvas/course-home-embed";
 
 export async function POST(request: Request) {
   const session = getCanvasStudentSession(request);
@@ -11,6 +11,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Open this setup page from Canvas." }, { status: 401 });
   }
 
-  const result = await enableStudentAlertsInAllCourses();
+  const result = await installStudentAlertsToolSchoolWide();
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }
