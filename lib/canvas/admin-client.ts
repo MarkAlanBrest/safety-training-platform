@@ -208,20 +208,25 @@ export function createCanvasAdminClient() {
     },
 
     async setCourseHomeToFrontPage(courseId: string, frontPageUrl: string) {
+      // PUT .../front_page only edits the content of whichever page is
+      // *already* the front page — it has no way to reassign which page
+      // holds that role. Reassignment has to go through the page's own
+      // endpoint with front_page: true.
+      await canvasJson(`/courses/${courseId}/pages/${frontPageUrl}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          wiki_page: {
+            front_page: true,
+            published: true,
+          },
+        }),
+      });
+
       await canvasJson(`/courses/${courseId}`, {
         method: "PUT",
         body: JSON.stringify({
           course: {
             default_view: "wiki",
-          },
-        }),
-      });
-
-      await canvasJson(`/courses/${courseId}/front_page`, {
-        method: "PUT",
-        body: JSON.stringify({
-          wiki_page: {
-            url: frontPageUrl,
           },
         }),
       });
