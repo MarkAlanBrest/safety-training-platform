@@ -1,27 +1,23 @@
 import "server-only";
 
+import {
+  resolvePrismaDatabaseUrl,
+  sanitizeDatabaseUrl,
+} from "@/lib/database-url-core";
+
 const NEON_HOST =
   /^ep-[a-z0-9-]+\.(?:[a-z0-9-]+\.)?(?:aws\.neon\.tech|neon\.tech)$/i;
 
-export function resolveDatabaseUrl() {
-  const raw =
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_PRISMA_URL ||
-    process.env.POSTGRES_URL;
+export { sanitizeDatabaseUrl } from "@/lib/database-url-core";
 
-  if (!raw?.trim()) return null;
-  return normalizeNeonPoolerUrl(raw.trim());
+export function resolveDatabaseUrl() {
+  const resolved = resolvePrismaDatabaseUrl();
+  if (!resolved.url) return null;
+  return normalizeNeonPoolerUrl(resolved.url);
 }
 
 export function resolveDirectDatabaseUrl() {
-  const raw =
-    process.env.DIRECT_URL ||
-    process.env.DATABASE_URL_UNPOOLED ||
-    process.env.POSTGRES_URL_NON_POOLING ||
-    process.env.DATABASE_URL ||
-    process.env.POSTGRES_URL;
-
-  return raw?.trim() || null;
+  return resolvePrismaDatabaseUrl().url;
 }
 
 /** Route Neon direct hostnames through the pooler for serverless runtimes. */
