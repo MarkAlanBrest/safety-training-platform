@@ -43,7 +43,10 @@ export function buildFrontPageEmbedHtml(canvasCourseId: string) {
   );
 }
 
-export async function setupCourseHomeStudentAlerts(canvasCourseId: string) {
+export async function setupCourseHomeStudentAlerts(
+  canvasCourseId: string,
+  options?: { skipToolInstall?: boolean },
+) {
   const client = createCanvasAdminClient();
   const access = await client.getCourseAccess(canvasCourseId);
   if (!access.ok) {
@@ -53,17 +56,19 @@ export async function setupCourseHomeStudentAlerts(canvasCourseId: string) {
     };
   }
 
-  const clientId = await client.resolveStudentAlertsClientId(getConfiguredLtiClientId());
-  const toolOptions = {
-    searchName: "Student Alerts",
-    clientId,
-    launchHost: new URL(getAppOrigin()).hostname,
-  };
-  await client.ensureAccountExternalTool(toolOptions).catch(() => null);
-  if (access.accountId) {
-    await client.ensureAccountExternalTool({ ...toolOptions, accountId: access.accountId }).catch(() => null);
+  if (!options?.skipToolInstall) {
+    const clientId = await client.resolveStudentAlertsClientId(getConfiguredLtiClientId());
+    const toolOptions = {
+      searchName: "Student Alerts",
+      clientId,
+      launchHost: new URL(getAppOrigin()).hostname,
+    };
+    await client.ensureAccountExternalTool(toolOptions).catch(() => null);
+    if (access.accountId) {
+      await client.ensureAccountExternalTool({ ...toolOptions, accountId: access.accountId }).catch(() => null);
+    }
+    await client.ensureCourseExternalTool(canvasCourseId, toolOptions);
   }
-  await client.ensureCourseExternalTool(canvasCourseId, toolOptions);
 
   const { frontPageUrl } = await client.prependEmbedToFrontPage(
     canvasCourseId,
@@ -232,15 +237,24 @@ export async function diagnoseStudentAlertsTool(canvasCourseId: string) {
 }
 
 export async function enableStudentAlertsInAllCourses() {
-  const toolInstall = await installStudentAlertsToolSchoolWide();
   const client = createCanvasAdminClient();
+  const clientId = await client.resolveStudentAlertsClientId(getConfiguredLtiClientId());
+  await client.ensureDeveloperKeyEnabled(clientId).catch(() => null);
+  await client
+    .ensureAccountExternalTool({
+      searchName: "Student Alerts",
+      clientId,
+      launchHost: new URL(getAppOrigin()).hostname,
+    })
+    .catch(() => null);
+
   const { courses, accountErrors: courseListErrors, usedFallback } = await client.listPublishedCourses();
-  const failed: Array<{ id: number; name?: string; reason: string }> = [...toolInstall.failed];
+  const failed: Array<{ id: number; name?: string; reason: string }> = [];
   let enabled = 0;
 
-  await mapPool(courses, 4, async (course) => {
+  await mapPool(courses, 6, async (course) => {
     try {
-      const result = await setupCourseHomeStudentAlerts(String(course.id));
+      const result = await setupCourseHomeStudentAlerts(String(course.id), { skipToolInstall: true });
       if (result.ok) {
         enabled += 1;
       } else {
@@ -264,17 +278,17 @@ export async function enableStudentAlertsInAllCourses() {
   return {
     ok: true as const,
     enabled,
-    installed: toolInstall.installed,
-    accounts: toolInstall.accounts,
+    installed: enabled,
+    accounts: 1,
     total: courses.length,
     failed,
     usedFallback,
-    accountErrors: [...toolInstall.accountErrors, ...courseListErrors],
+    accountErrors: courseListErrors,
     note:
       fallbackWarning ||
       (enabled > 0
         ? `Student Alerts is on in ${enabled} class${enabled === 1 ? "" : "es"}. Each class keeps its own settings.`
-        : toolInstall.note || "Could not turn on Student Alerts in other classes."),
+        : "Could not turn on Student Alerts in other classes."),
   };
 }
 

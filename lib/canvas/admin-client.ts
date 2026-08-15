@@ -572,26 +572,46 @@ export function createCanvasAdminClient() {
     },
 
     async listPublishedCourses() {
-      const accountIds = await this.listAccountIdsIncludingSubaccounts();
       const courses: Array<{ id: number; name?: string; account_id?: number }> = [];
       const seen = new Set<number>();
       const accountErrors: string[] = [];
 
-      for (const accountId of accountIds) {
+      const addCourses = (batch: CanvasCourse[]) => {
+        for (const course of batch) {
+          if (!course.id || seen.has(course.id)) continue;
+          const state = course.workflow_state || "";
+          if (state === "deleted" || state === "completed") continue;
+          seen.add(course.id);
+          courses.push({ id: course.id, name: course.name, account_id: course.account_id });
+        }
+      };
+
+      let rootId = "self";
+      try {
+        const self = await canvasJson<{ id: number; root_account_id?: number | null }>("/accounts/self");
+        rootId = String(self.root_account_id || self.id || "self");
+      } catch (error) {
+        accountErrors.push(
+          `accounts/self: ${error instanceof Error ? error.message : "failed"}`,
+        );
+      }
+
+      try {
+        addCourses(await canvasGetAll<CanvasCourse>(`/accounts/${rootId}/courses`, { per_page: "100" }));
+      } catch (error) {
+        accountErrors.push(
+          `Cannot list courses on account ${rootId}: ${
+            error instanceof Error ? error.message : "unknown error"
+          }`,
+        );
+      }
+
+      if (courses.length === 0 && rootId !== "self") {
         try {
-          const batch = await canvasGetAll<CanvasCourse>(`/accounts/${accountId}/courses`, {
-            per_page: "100",
-          });
-          for (const course of batch) {
-            if (!course.id || seen.has(course.id)) continue;
-            const state = course.workflow_state || "";
-            if (state === "deleted" || state === "completed") continue;
-            seen.add(course.id);
-            courses.push({ id: course.id, name: course.name, account_id: course.account_id });
-          }
+          addCourses(await canvasGetAll<CanvasCourse>("/accounts/self/courses", { per_page: "100" }));
         } catch (error) {
           accountErrors.push(
-            `Cannot list courses on account ${accountId}: ${
+            `Cannot list courses on account self: ${
               error instanceof Error ? error.message : "unknown error"
             }`,
           );
@@ -602,14 +622,7 @@ export function createCanvasAdminClient() {
       if (courses.length === 0) {
         usedFallback = true;
         try {
-          const mine = await canvasGetAll<CanvasCourse>("/courses", { per_page: "100" });
-          for (const course of mine) {
-            if (!course.id || seen.has(course.id)) continue;
-            const state = course.workflow_state || "";
-            if (state === "deleted" || state === "completed") continue;
-            seen.add(course.id);
-            courses.push({ id: course.id, name: course.name, account_id: course.account_id });
-          }
+          addCourses(await canvasGetAll<CanvasCourse>("/courses", { per_page: "100" }));
         } catch (error) {
           accountErrors.push(
             `Fallback /courses lookup also failed: ${
@@ -740,19 +753,27 @@ export function createCanvasAdminClient() {
       }
 
       try {
-        const accounts = await canvasGetAll<{ id: number }>("/accounts", { per_page: "100" });
-        probe.manageableAccountCount = accounts.length;
+        const page = await canvasJson<{ id: number }[] | { id: number }[]>("/accounts", {
+          query: { per_page: "10" },
+        });
+        probe.manageableAccountCount = Array.isArray(page) ? page.length : 0;
       } catch (error) {
         probe.errors.push(
           `accounts: ${error instanceof Error ? error.message : "failed"}`,
         );
       }
 
-      const listed = await this.listPublishedCourses();
-      probe.courseCount = listed.courses.length;
-      probe.courseNames = listed.courses.slice(0, 20).map((course) => course.name || String(course.id));
-      probe.usedFallback = listed.usedFallback;
-      probe.errors.push(...listed.accountErrors.slice(0, 8));
+      try {
+        const listed = await this.listPublishedCourses();
+        probe.courseCount = listed.courses.length;
+        probe.courseNames = listed.courses.slice(0, 20).map((course) => course.name || String(course.id));
+        probe.usedFallback = listed.usedFallback;
+        probe.errors.push(...listed.accountErrors.slice(0, 8));
+      } catch (error) {
+        probe.errors.push(
+          `list courses: ${error instanceof Error ? error.message : "failed"}`,
+        );
+      }
       return probe;
     },
 
