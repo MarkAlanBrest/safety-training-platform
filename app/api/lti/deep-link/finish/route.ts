@@ -57,6 +57,7 @@ export async function POST(request: Request) {
     const jwt = await buildDeepLinkingResponse({
       clientId: deepLink.clientId,
       platformIssuer: deepLink.platformIssuer,
+      deploymentId: deepLink.deploymentId,
       nonce: deepLink.nonce,
       launchUrl,
       data: deepLink.data,

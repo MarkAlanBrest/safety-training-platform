@@ -150,6 +150,7 @@ export async function handleLtiLaunchPost(
         returnUrl: deepLinking.deep_link_return_url,
         clientId,
         platformIssuer: identity.platformIssuer,
+        deploymentId: identity.deploymentId,
         nonce: identity.nonce,
         courseId: identity.courseId,
         courseName: identity.courseName,

@@ -6,6 +6,7 @@ type DeepLinkSession = {
   returnUrl: string;
   clientId: string;
   platformIssuer: string;
+  deploymentId: string | null;
   nonce: string;
   courseId: string | null;
   courseName: string | null;

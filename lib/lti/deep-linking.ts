@@ -1,12 +1,14 @@
-import { importJWK, SignJWT, type JWTPayload } from "jose";
+import { SignJWT, type JWTPayload } from "jose";
 import {
   serializeCourseAlertCustomFields,
   type CourseAlertConfigInput,
 } from "@/lib/course-alerts/config";
+import { getToolKid, importToolPrivateKey } from "@/lib/lti/tool-jwk";
 
 const DEEP_LINKING_CLAIM = "https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings";
 const MESSAGE_TYPE_CLAIM = "https://purl.imsglobal.org/spec/lti/claim/message_type";
 const VERSION_CLAIM = "https://purl.imsglobal.org/spec/lti/claim/version";
+const DEPLOYMENT_CLAIM = "https://purl.imsglobal.org/spec/lti/claim/deployment_id";
 const CONTENT_ITEMS_CLAIM = "https://purl.imsglobal.org/spec/lti-dl/claim/content_items";
 const DATA_CLAIM = "https://purl.imsglobal.org/spec/lti-dl/claim/data";
 
@@ -30,29 +32,22 @@ export function readDeepLinkingSettings(payload: JWTPayload): DeepLinkingSetting
   };
 }
 
-async function getSigningKey() {
-  const raw = process.env.CANVAS_LTI_PRIVATE_KEY_JWK?.trim();
-  if (!raw) {
-    throw new Error("CANVAS_LTI_PRIVATE_KEY_JWK is not configured on the server.");
-  }
-  const jwk = JSON.parse(raw) as JsonWebKey;
-  return importJWK(jwk, "RS256");
-}
-
 export async function buildDeepLinkingResponse(params: {
   clientId: string;
   platformIssuer: string;
+  deploymentId?: string | null;
   nonce: string;
   launchUrl: string;
   data?: string;
   config?: CourseAlertConfigInput;
 }) {
-  const key = await getSigningKey();
+  const key = await importToolPrivateKey();
   const now = Math.floor(Date.now() / 1000);
   const custom = params.config ? serializeCourseAlertCustomFields(params.config) : undefined;
 
   const payload: JWTPayload = {
     nonce: params.nonce,
+    azp: params.clientId,
     [MESSAGE_TYPE_CLAIM]: "LtiDeepLinkingResponse",
     [VERSION_CLAIM]: "1.3.0",
     [CONTENT_ITEMS_CLAIM]: [
@@ -69,12 +64,16 @@ export async function buildDeepLinkingResponse(params: {
     ],
   };
 
+  if (params.deploymentId) {
+    payload[DEPLOYMENT_CLAIM] = params.deploymentId;
+  }
+
   if (params.data) {
     payload[DATA_CLAIM] = params.data;
   }
 
   return new SignJWT(payload)
-    .setProtectedHeader({ alg: "RS256", kid: process.env.CANVAS_LTI_KID || "student-alerts-2026" })
+    .setProtectedHeader({ alg: "RS256", kid: getToolKid(), typ: "JWT" })
     .setIssuer(params.clientId)
     .setAudience(params.platformIssuer)
     .setIssuedAt(now)
