@@ -740,16 +740,37 @@ export function createCanvasAdminClient() {
         throw new Error("CANVAS_LTI_CLIENT_ID is not configured.");
       }
 
-      try {
-        return await postClientIdTool(`/accounts/${accountId}/external_tools`, clientId.trim());
-      } catch (error) {
-        if (!isAlreadyInstalledError(error)) throw error;
-        const tools = await this.listAccountExternalTools(accountId);
-        return (
-          tools.find((tool) => tool.client_id === clientId.trim() || (tool.name || "").toLowerCase().includes("alert")) ||
-          null
-        );
+      const targets = [accountId];
+      if (accountId === "self") {
+        const self = await canvasJson<{ id?: number }>("/accounts/self").catch(() => null);
+        if (self?.id) targets.push(String(self.id));
       }
+
+      let lastError: Error | null = null;
+      for (const target of targets) {
+        try {
+          return await postClientIdTool(`/accounts/${target}/external_tools`, clientId.trim());
+        } catch (error) {
+          if (isAlreadyInstalledError(error)) {
+            const tools = await this.listAccountExternalTools(target);
+            return (
+              tools.find(
+                (tool) => tool.client_id === clientId.trim() || (tool.name || "").toLowerCase().includes("alert"),
+              ) || null
+            );
+          }
+          lastError = error instanceof Error ? error : new Error("Could not install the Canvas app.");
+        }
+      }
+
+      const tools = await this.listAccountExternalTools(accountId);
+      const existing =
+        tools.find(
+          (tool) => tool.client_id === clientId.trim() || (tool.name || "").toLowerCase().includes("alert"),
+        ) || null;
+      if (existing) return existing;
+      if (lastError) throw lastError;
+      return null;
     },
 
     async removeDuplicateAccountStudentAlertsTools(options: {
@@ -873,7 +894,13 @@ export function createCanvasAdminClient() {
 
     async findStudentAlertsDeveloperKey() {
       const keys = await this.listStudentAlertsDeveloperKeys();
-      return keys.find(isStudentAlertsDeveloperKey) || null;
+      const matches = keys.filter(isStudentAlertsDeveloperKey).sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+      return (
+        matches.find((key) => key.is_lti_key !== false && (key.workflow_state === "on" || key.workflow_state === "active")) ||
+        matches.find((key) => key.is_lti_key !== false) ||
+        matches[0] ||
+        null
+      );
     },
 
     async createStudentAlertsDeveloperKey() {
@@ -957,22 +984,40 @@ export function createCanvasAdminClient() {
     },
 
     async ensureDeveloperKeyEnabled(clientId: string) {
-      try {
-        await canvasJson(`/accounts/self/developer_keys/${clientId}/developer_key_account_bindings`, {
-          method: "POST",
-          body: JSON.stringify({
-            developer_key_account_binding: { workflow_state: "on" },
-          }),
-        });
-      } catch {
+      const bindingBody = JSON.stringify({
+        developer_key_account_binding: { workflow_state: "on" },
+      });
+
+      for (const [method, path] of [
+        ["PUT", `/accounts/self/developer_keys/${clientId}/developer_key_account_bindings`],
+        ["POST", `/accounts/self/developer_keys/${clientId}/developer_key_account_bindings`],
+        ["PUT", `/developer_keys/${clientId}`],
+      ] as const) {
         try {
-          await canvasJson(`/developer_keys/${clientId}`, {
-            method: "PUT",
-            body: JSON.stringify({ developer_key: { workflow_state: "on" } }),
+          await canvasJson(path, {
+            method,
+            body: method === "PUT" && path === `/developer_keys/${clientId}`
+              ? JSON.stringify({ developer_key: { workflow_state: "on" } })
+              : bindingBody,
           });
+          break;
         } catch {
-          // Key may already be on, or the token cannot manage developer keys.
+          // Try the next Canvas binding endpoint.
         }
+      }
+
+      try {
+        const registration = await canvasJson<{ id?: number }>(
+          `/accounts/self/lti_registration_by_client_id/${clientId}`,
+        );
+        if (registration?.id) {
+          await canvasJson(`/accounts/self/lti_registrations/${registration.id}/bind`, {
+            method: "POST",
+            body: JSON.stringify({ workflow_state: "on" }),
+          });
+        }
+      } catch {
+        // Older Canvas sites may not expose LTI registration bind.
       }
 
       await this.syncDeveloperKeyPublicJwk(clientId);
