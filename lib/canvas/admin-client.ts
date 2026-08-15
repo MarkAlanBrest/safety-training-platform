@@ -514,6 +514,7 @@ export function createCanvasAdminClient() {
       const accountIds = await this.listAccountIdsIncludingSubaccounts();
       const courses: Array<{ id: number; name?: string; account_id?: number }> = [];
       const seen = new Set<number>();
+      const accountErrors: string[] = [];
 
       for (const accountId of accountIds) {
         try {
@@ -527,12 +528,18 @@ export function createCanvasAdminClient() {
             seen.add(course.id);
             courses.push({ id: course.id, name: course.name, account_id: course.account_id });
           }
-        } catch {
-          // Skip accounts the token cannot read.
+        } catch (error) {
+          accountErrors.push(
+            `Cannot list courses on account ${accountId}: ${
+              error instanceof Error ? error.message : "unknown error"
+            }`,
+          );
         }
       }
 
+      let usedFallback = false;
       if (courses.length === 0) {
+        usedFallback = true;
         try {
           const mine = await canvasGetAll<CanvasCourse>("/courses", { per_page: "100" });
           for (const course of mine) {
@@ -542,12 +549,16 @@ export function createCanvasAdminClient() {
             seen.add(course.id);
             courses.push({ id: course.id, name: course.name, account_id: course.account_id });
           }
-        } catch {
-          // No fallback courses available.
+        } catch (error) {
+          accountErrors.push(
+            `Fallback /courses lookup also failed: ${
+              error instanceof Error ? error.message : "unknown error"
+            }`,
+          );
         }
       }
 
-      return courses;
+      return { courses, accountErrors, usedFallback };
     },
 
     async listLinkSelectionLaunchDefinitions(courseId: string) {
