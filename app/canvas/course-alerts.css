@@ -4,6 +4,12 @@
   padding: 20px;
 }
 
+.course-alerts-page-embed {
+  min-height: 0;
+  background: transparent;
+  padding: 0;
+}
+
 html.course-alerts-embed-root,
 body.course-alerts-embed-root,
 html.course-alerts-embed-root .course-alerts-page {

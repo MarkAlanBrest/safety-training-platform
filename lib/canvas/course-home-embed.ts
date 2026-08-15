@@ -1,14 +1,18 @@
-import { getAppOrigin, getCanvasServerConfig, getConfiguredLtiClientId } from "@/lib/canvas/config";
+import { getAppOrigin, getConfiguredLtiClientId, getLtiConfig } from "@/lib/canvas/config";
 import { createCanvasAdminClient } from "@/lib/canvas/admin-client";
 
 const EMBED_MARKER = 'data-student-alerts-embed="true"';
 
-function buildFrontPageEmbedHtml(canvasCourseId: string, toolId: number) {
-  const iframeSrc = `/courses/${canvasCourseId}/external_tools/${toolId}?display=borderless`;
+function buildFrontPageEmbedHtml(canvasCourseId: string) {
+  const { launchUrl } = getLtiConfig();
+  const retrieveUrl =
+    `/courses/${canvasCourseId}/external_tools/retrieve` +
+    `?display=borderless&url=${encodeURIComponent(launchUrl)}`;
+
   return (
     `<div ${EMBED_MARKER}>` +
-    `<iframe src="${iframeSrc}" ` +
-    `style="width:100%;min-height:48px;border:0;display:block;" ` +
+    `<iframe src="${retrieveUrl.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}" ` +
+    `style="width:100%;height:72px;border:0;display:block;overflow:hidden;" ` +
     `title="Student Alerts" loading="lazy"></iframe>` +
     `</div>`
   );
@@ -27,7 +31,7 @@ export async function setupCourseHomeStudentAlerts(canvasCourseId: string) {
   const tool = await client.findCourseExternalTool(canvasCourseId, {
     searchName: "Student Alerts",
     clientId: getConfiguredLtiClientId(),
-    launchHost: new URL(getAppOrigin() || getCanvasServerConfig().baseUrl).hostname,
+    launchHost: new URL(getAppOrigin()).hostname,
   });
 
   if (!tool) {
@@ -38,13 +42,12 @@ export async function setupCourseHomeStudentAlerts(canvasCourseId: string) {
     };
   }
 
-  await client.prependEmbedToFrontPage(canvasCourseId, buildFrontPageEmbedHtml(canvasCourseId, tool.id));
+  await client.prependEmbedToFrontPage(canvasCourseId, buildFrontPageEmbedHtml(canvasCourseId));
 
   return {
     ok: true as const,
     mode: "front_page_embed" as const,
-    externalToolId: tool.id,
     note:
-      "Settings saved. A slim alert strip was added to the top of your existing front page. It only shows for students when there is something to communicate.",
+      "Settings saved. The home page embed was refreshed. It only shows a bold strip when a student has something they need to see.",
   };
 }

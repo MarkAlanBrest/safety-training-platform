@@ -9,6 +9,7 @@ import {
   CANVAS_SESSION_COOKIE,
 } from "@/lib/canvas/session";
 import { readDeepLinkingSettings } from "@/lib/lti/deep-linking";
+import { isIframeLtiLaunch } from "@/lib/lti/launch-presentation";
 import { isInstructorLtiLaunch } from "@/lib/lti/roles";
 import { verifyLtiIdToken } from "@/lib/lti/verify";
 import { parseLtiState } from "@/lib/lti/state";
@@ -149,7 +150,11 @@ export async function handleLtiLaunchPost(
     );
   }
 
-  return finishLaunch(appOrigin, identity, "/canvas/alerts");
+  const studentPath = isIframeLtiLaunch(identity.payload)
+    ? "/canvas/home-embed"
+    : "/canvas/alerts";
+
+  return finishLaunch(appOrigin, identity, studentPath);
 }
 
 function launchErrorResponse(message: string) {

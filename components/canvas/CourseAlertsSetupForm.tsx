@@ -97,8 +97,8 @@ export function CourseAlertsSetupForm() {
     <div className="course-alerts-shell course-alerts-setup">
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        Save settings to embed a slim alert strip at the <strong>top of your existing front page</strong>.
-        It stays hidden until a student has something they need to see.
+        Save settings to refresh the slim alert strip at the top of your front page.
+        It will not duplicate your home page — only a bold message bar when needed.
       </p>
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>

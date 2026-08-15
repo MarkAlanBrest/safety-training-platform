@@ -253,7 +253,13 @@ export function createCanvasAdminClient() {
       }
 
       const cleanedBody = page.body
-        ? page.body.replace(/<div data-student-alerts-embed="true">[\s\S]*?<\/div>\s*/gi, "").trim()
+        ? page.body
+            .replace(/<div data-student-alerts-embed="true">[\s\S]*?<\/div>\s*/gi, "")
+            .replace(
+              /<iframe[^>]*\/courses\/\d+\/external_tools\/[^"'\s>]+[^>]*><\/iframe>\s*/gi,
+              "",
+            )
+            .trim()
         : "";
 
       const body = `${embedHtml}\n${cleanedBody}`.trim();
