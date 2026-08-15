@@ -339,29 +339,67 @@ export function createCanvasAdminClient() {
     },
 
     async prependEmbedToFrontPage(courseId: string, embedHtml: string) {
-      const page = await canvasJson<{ url?: string; body?: string }>(`/courses/${courseId}/front_page`);
+      const page = await canvasJson<{ url?: string; body?: string }>(`/courses/${courseId}/front_page`, {
+        allowNotFound: true,
+      });
 
-      if (!page?.url) {
-        throw new Error(
-          "This course has no front page yet. In Canvas, set a page as the Front Page, then save settings again.",
+      let targetUrl = page?.url || "";
+      let existingBody = page?.body || "";
+
+      if (!targetUrl) {
+        const pages = await canvasJson<Array<{ url?: string; title?: string }>>(
+          `/courses/${courseId}/pages`,
+          { query: { per_page: "50" }, allowNotFound: true },
         );
+        const listed =
+          pages?.find(
+            (item) => (item.title || "").toLowerCase() === "home" || item.url === "home",
+          ) || pages?.[0];
+        if (listed?.url) {
+          const full = await canvasJson<{ url?: string; body?: string }>(
+            `/courses/${courseId}/pages/${encodeURIComponent(listed.url)}`,
+            { allowNotFound: true },
+          );
+          targetUrl = listed.url;
+          existingBody = full?.body || "";
+        }
       }
 
-      const cleanedBody = page.body ? sanitizeFrontPageBody(page.body) : "";
+      if (!targetUrl) {
+        const created = await canvasJson<{ url?: string }>(`/courses/${courseId}/pages`, {
+          method: "POST",
+          body: JSON.stringify({
+            wiki_page: {
+              title: "Home",
+              body: embedHtml,
+              published: true,
+              front_page: true,
+              editing_roles: "teachers",
+            },
+          }),
+        });
+        return { frontPageUrl: created?.url || "home", alreadyEmbedded: false as const };
+      }
 
+      if (existingBody.includes('data-student-alerts-embed="true"')) {
+        return { frontPageUrl: targetUrl, alreadyEmbedded: true as const };
+      }
+
+      const cleanedBody = existingBody ? sanitizeFrontPageBody(existingBody) : "";
       const body = `${embedHtml}\n${cleanedBody}`.trim();
 
-      await canvasJson(`/courses/${courseId}/pages/${page.url}`, {
+      await canvasJson(`/courses/${courseId}/pages/${encodeURIComponent(targetUrl)}`, {
         method: "PUT",
         body: JSON.stringify({
           wiki_page: {
             body,
             published: true,
+            front_page: true,
           },
         }),
       });
 
-      return { frontPageUrl: page.url };
+      return { frontPageUrl: targetUrl, alreadyEmbedded: false as const };
     },
 
     async removeEmbedFromFrontPage(courseId: string) {
@@ -846,7 +884,7 @@ export function createCanvasAdminClient() {
       // *already* the front page — it has no way to reassign which page
       // holds that role. Reassignment has to go through the page's own
       // endpoint with front_page: true.
-      await canvasJson(`/courses/${courseId}/pages/${frontPageUrl}`, {
+      await canvasJson(`/courses/${courseId}/pages/${encodeURIComponent(frontPageUrl)}`, {
         method: "PUT",
         body: JSON.stringify({
           wiki_page: {
