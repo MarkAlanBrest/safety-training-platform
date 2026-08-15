@@ -32,6 +32,8 @@ export function CourseHomeBanner({
 }: Props) {
   const [teacherMessages, setTeacherMessages] = useState<TeacherMessage[]>([]);
   const [autoAlerts, setAutoAlerts] = useState<AutoAlert[]>([]);
+  const [studentName, setStudentName] = useState("Student");
+  const [bannerMessage, setBannerMessage] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const loadAlerts = useCallback(async () => {
@@ -48,6 +50,8 @@ export function CourseHomeBanner({
       }
 
       const data = await response.json();
+      setStudentName(data.studentName || "Student");
+      setBannerMessage(data.bannerMessage || data.config?.bannerMessage || null);
       setTeacherMessages(data.teacherMessages || []);
       setAutoAlerts(data.alerts || []);
     } finally {
@@ -74,16 +78,21 @@ export function CourseHomeBanner({
   const hasAlerts = teacherMessages.length > 0 || autoAlerts.length > 0;
 
   useEffect(() => {
-    publishEmbedHeight(hasAlerts ? undefined : 0);
-  }, [hasAlerts, autoAlerts, teacherMessages, loaded]);
+    publishEmbedHeight(loaded ? undefined : 0);
+  }, [hasAlerts, autoAlerts, teacherMessages, bannerMessage, loaded]);
 
-  if (!loaded || !hasAlerts) {
+  if (!loaded) {
     return <div className="course-home-banner-empty" aria-hidden="true" />;
   }
 
   return (
     <section className="course-home-banner course-home-banner-alert">
-      <h2 className="course-home-banner-title">{HOME_EMBED_TITLE}</h2>
+      <h2 className="course-home-banner-title">
+        {HOME_EMBED_TITLE} for {studentName.split(" ")[0] || "Student"}
+      </h2>
+      {bannerMessage ? (
+        <p className="course-home-banner-message">{bannerMessage}</p>
+      ) : null}
       {teacherMessages.map((message) => (
         <p key={message.id} className="course-home-banner-message">
           {message.message}
@@ -106,6 +115,9 @@ export function CourseHomeBanner({
           ) : null}
         </div>
       ))}
+      {!hasAlerts ? (
+        <p className="course-home-banner-message">No alerts right now. You&apos;re all caught up.</p>
+      ) : null}
     </section>
   );
 }

@@ -42,6 +42,16 @@
             "message_type": "LtiResourceLinkRequest",
             "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch?placement=alert_settings",
             "icon_url": "https://safety-training-platform-eight.vercel.app/student-alerts-icon.svg"
+          },
+          {
+            "placement": "course_navigation",
+            "enabled": true,
+            "default": "disabled",
+            "visibility": "members",
+            "text": "Student Alerts Display",
+            "message_type": "LtiResourceLinkRequest",
+            "target_link_uri": "https://safety-training-platform-eight.vercel.app/api/lti/launch?placement=home_embed",
+            "icon_url": "https://safety-training-platform-eight.vercel.app/student-alerts-icon.svg"
           }
         ]
       }

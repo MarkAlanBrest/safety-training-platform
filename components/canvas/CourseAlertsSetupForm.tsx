@@ -10,6 +10,7 @@ type Config = {
   assignmentLowGradePercent: number;
   loginInactivityDays: number;
   dueSoonHours: number;
+  bannerMessage: string | null;
   missingMessage: string | null;
   assignmentLowGradeMessage: string | null;
   loginInactivityMessage: string | null;
@@ -23,6 +24,8 @@ type Config = {
   courseName: string | null;
 };
 
+const DEFAULT_HOME_MESSAGE = "Welcome! Check here for important course alerts.";
+
 export function CourseAlertsSetupForm() {
   const searchParams = useSearchParams();
   const courseId = (searchParams?.get("course") || searchParams?.get("courseId") || "").trim();
@@ -33,6 +36,7 @@ export function CourseAlertsSetupForm() {
   const [assignmentLowGradePercent, setAssignmentLowGradePercent] = useState(60);
   const [loginInactivityDays, setLoginInactivityDays] = useState(6);
   const [dueSoonHours, setDueSoonHours] = useState(6);
+  const [bannerMessage, setBannerMessage] = useState(DEFAULT_HOME_MESSAGE);
   const [missingMessage, setMissingMessage] = useState(DEFAULT_ALERT_MESSAGES.missing);
   const [assignmentLowGradeMessage, setAssignmentLowGradeMessage] = useState(
     DEFAULT_ALERT_MESSAGES.assignmentLowGrade,
@@ -67,6 +71,7 @@ export function CourseAlertsSetupForm() {
       setAssignmentLowGradePercent(config.assignmentLowGradePercent ?? 60);
       setLoginInactivityDays(config.loginInactivityDays ?? 6);
       setDueSoonHours(config.dueSoonHours ?? 6);
+      setBannerMessage(config.bannerMessage || DEFAULT_HOME_MESSAGE);
       setMissingMessage(config.missingMessage || DEFAULT_ALERT_MESSAGES.missing);
       setAssignmentLowGradeMessage(
         config.assignmentLowGradeMessage || DEFAULT_ALERT_MESSAGES.assignmentLowGrade,
@@ -125,6 +130,7 @@ export function CourseAlertsSetupForm() {
           assignmentLowGradePercent,
           loginInactivityDays,
           dueSoonHours,
+          bannerMessage,
           missingMessage,
           assignmentLowGradeMessage,
           loginInactivityMessage,
@@ -192,6 +198,19 @@ export function CourseAlertsSetupForm() {
           Course name (optional)
           <input value={courseName} onChange={(event) => setCourseName(event.target.value)} />
         </label>
+
+        <fieldset className="course-alerts-setup-block">
+          <legend>Course Home message</legend>
+          <label>
+            Welcome or reminder shown to everyone in this course
+            <textarea
+              value={bannerMessage}
+              onChange={(event) => setBannerMessage(event.target.value)}
+              rows={3}
+              placeholder={DEFAULT_HOME_MESSAGE}
+            />
+          </label>
+        </fieldset>
 
         <fieldset className="course-alerts-setup-block">
           <legend>Missing assignments</legend>

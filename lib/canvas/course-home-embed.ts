@@ -40,9 +40,13 @@ export function buildFrontPageEmbedHtml(canvasCourseId: string) {
   const { launchUrl } = getLtiConfig();
   const homeLaunchUrl = new URL(launchUrl);
   homeLaunchUrl.searchParams.set("placement", "home_embed");
-  const embedUrl =
-    `/courses/${encodeURIComponent(canvasCourseId)}/external_tools/retrieve` +
-    `?display=borderless&url=${encodeURIComponent(homeLaunchUrl.toString())}`;
+  const retrieveParams = new URLSearchParams({
+    borderless: "true",
+    display: "borderless",
+    placement: "course_navigation",
+    url: homeLaunchUrl.toString(),
+  });
+  const embedUrl = `/courses/${encodeURIComponent(canvasCourseId)}/external_tools/retrieve?${retrieveParams.toString()}`;
   const height = HOME_EMBED_BANNER_HEIGHT_PX;
 
   return (

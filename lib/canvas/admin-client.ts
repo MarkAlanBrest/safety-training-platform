@@ -98,6 +98,16 @@ function buildStudentAlertsInternalConfiguration() {
         target_link_uri: `${targetLinkUri}?placement=alert_settings`,
         ...(iconUrl ? { icon_url: iconUrl } : {}),
       },
+      {
+        placement: "course_navigation",
+        enabled: true,
+        default: "disabled",
+        visibility: "members",
+        text: "Student Alerts Display",
+        message_type: "LtiResourceLinkRequest",
+        target_link_uri: `${targetLinkUri}?placement=home_embed`,
+        ...(iconUrl ? { icon_url: iconUrl } : {}),
+      },
     ],
   };
 }
