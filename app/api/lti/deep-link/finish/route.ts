@@ -1,9 +1,8 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { getLtiConfig } from "@/lib/canvas/config";
 import { getCanvasStudentSession } from "@/lib/canvas/session";
-import { buildDeepLinkingHtml, buildDeepLinkingResponse } from "@/lib/lti/deep-linking";
+import { embedStudentAlertsOnCourseHome } from "@/lib/canvas/course-home-embed-result";
 import {
   decodeDeepLinkSession,
   LTI_DEEP_LINK_COOKIE,
@@ -48,43 +47,16 @@ export async function POST(request: Request) {
     session.name,
   );
 
-  if (!deepLink) {
-    return NextResponse.json({ ok: true, config, imported: false });
-  }
+  await embedStudentAlertsOnCourseHome(courseId);
 
-  try {
-    const { launchUrl } = getLtiConfig();
-    const jwt = await buildDeepLinkingResponse({
-      clientId: deepLink.clientId,
-      platformIssuer: deepLink.platformIssuer,
-      deploymentId: deepLink.deploymentId,
-      nonce: deepLink.nonce,
-      launchUrl,
-      data: deepLink.data,
-      config,
-    });
-
-    const response = new NextResponse(
-      buildDeepLinkingHtml(deepLink.returnUrl, jwt),
-      { headers: { "Content-Type": "text/html; charset=utf-8" } },
-    );
+  const response = NextResponse.json({
+    ok: true,
+    config,
+    imported: false,
+    note: "Settings saved for this course. Students see Alerts on Home — nothing else to insert.",
+  });
+  if (deepLink) {
     response.cookies.set(LTI_DEEP_LINK_COOKIE, "", { path: "/", maxAge: 0 });
-    return response;
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Could not finish Canvas import.";
-    return NextResponse.json(
-      {
-        ok: true,
-        config,
-        imported: false,
-        warning:
-          message.includes("CANVAS_LTI_PRIVATE_KEY_JWK")
-            ? "Settings saved. Automatic Canvas import is not configured yet — add the tool manually (see steps below)."
-            : message,
-        manualImport: message.includes("CANVAS_LTI_PRIVATE_KEY_JWK"),
-      },
-      { status: 200 },
-    );
   }
+  return response;
 }

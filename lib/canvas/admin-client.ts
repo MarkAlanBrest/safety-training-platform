@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { getCanvasServerConfig } from "@/lib/canvas/config";
 import { CANVAS_USER_AGENT, normalizeCanvasBaseUrl } from "@/lib/canvas/client";
 import { sanitizeFrontPageBody } from "@/lib/canvas/front-page-sanitize";
@@ -679,6 +681,7 @@ export function createCanvasAdminClient() {
       }
 
       await this.syncDeveloperKeyPublicJwk(clientId);
+      await this.syncLtiToolConfiguration(clientId);
     },
 
     async syncDeveloperKeyPublicJwk(clientId: string) {
@@ -710,6 +713,51 @@ export function createCanvasAdminClient() {
         });
       } catch {
         // Token may not be allowed to edit developer keys.
+      }
+    },
+
+    async syncLtiToolConfiguration(clientId: string) {
+      if (!clientId.trim()) return;
+      let settings: unknown;
+      try {
+        settings = JSON.parse(
+          readFileSync(join(process.cwd(), "public", "canvas-lti-key.json"), "utf8"),
+        );
+      } catch {
+        return;
+      }
+
+      const payload = JSON.stringify({
+        tool_configuration: {
+          settings,
+          privacy_level: "public",
+        },
+      });
+
+      for (const path of [
+        `/api/lti/developer_keys/${clientId}/tool_configuration`,
+        `/api/lti/accounts/self/developer_keys/${clientId}/tool_configuration`,
+      ]) {
+        try {
+          const response = await fetch(`${baseUrl}${path}`, {
+            method: "PUT",
+            headers: canvasAdminHeaders(apiToken),
+            body: payload,
+            cache: "no-store",
+          });
+          if (response.ok) return;
+          if (response.status === 404) {
+            const created = await fetch(`${baseUrl}${path}`, {
+              method: "POST",
+              headers: canvasAdminHeaders(apiToken),
+              body: payload,
+              cache: "no-store",
+            });
+            if (created.ok) return;
+          }
+        } catch {
+          // Try the next endpoint.
+        }
       }
     },
 
