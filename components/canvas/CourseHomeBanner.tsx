@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import {
   HOME_EMBED_BANNER_HEIGHT_PX,
-  HOME_EMBED_TEST_MESSAGE,
   HOME_EMBED_TITLE,
 } from "@/lib/canvas/home-embed-constants";
+import { buildWelcomeMessage, getStudentDisplayName } from "@/lib/canvas/home-embed-messages";
 
 type TeacherMessage = {
   id: number;
@@ -21,6 +21,7 @@ type AutoAlert = {
 
 type Props = {
   courseId: string;
+  studentName?: string;
   initialBannerMessage?: string | null;
   handoffToken?: string | null;
 };
@@ -42,9 +43,11 @@ function resizeEmbedFrame(heightPx: number) {
 
 export function CourseHomeBanner({
   courseId,
+  studentName = "Student",
   initialBannerMessage = null,
   handoffToken = null,
 }: Props) {
+  const [displayName, setDisplayName] = useState(() => getStudentDisplayName(studentName));
   const [bannerMessage, setBannerMessage] = useState<string | null>(initialBannerMessage);
   const [teacherMessages, setTeacherMessages] = useState<TeacherMessage[]>([]);
   const [autoAlerts, setAutoAlerts] = useState<AutoAlert[]>([]);
@@ -59,6 +62,9 @@ export function CourseHomeBanner({
     if (!response.ok) return;
 
     const data = await response.json();
+    if (data.studentName) {
+      setDisplayName(getStudentDisplayName(data.studentName));
+    }
     setBannerMessage(data.bannerMessage || data.config?.bannerMessage || null);
     setTeacherMessages(data.teacherMessages || []);
     setAutoAlerts(data.alerts || []);
@@ -82,16 +88,16 @@ export function CourseHomeBanner({
     return () => window.clearInterval(timer);
   }, [loadAlerts]);
 
-  const lines: string[] = [HOME_EMBED_TEST_MESSAGE];
-  if (bannerMessage?.trim() && bannerMessage.trim() !== HOME_EMBED_TEST_MESSAGE) {
-    lines.unshift(bannerMessage.trim());
-  }
+  const alertLines: string[] = [];
+  if (bannerMessage?.trim()) alertLines.push(bannerMessage.trim());
   for (const message of teacherMessages) {
-    if (message.message?.trim()) lines.push(message.message.trim());
+    if (message.message?.trim()) alertLines.push(message.message.trim());
   }
   for (const alert of autoAlerts.slice(0, 3)) {
-    lines.push(`${alert.title}: ${alert.message}`);
+    alertLines.push(`${alert.title}: ${alert.message}`);
   }
+
+  const lines = alertLines.length ? alertLines : [buildWelcomeMessage(displayName)];
 
   useLayoutEffect(() => {
     resizeEmbedFrame(HOME_EMBED_BANNER_HEIGHT_PX);

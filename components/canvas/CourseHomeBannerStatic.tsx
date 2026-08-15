@@ -1,14 +1,20 @@
-import { HOME_EMBED_TEST_MESSAGE, HOME_EMBED_TITLE } from "@/lib/canvas/home-embed-constants";
+import { HOME_EMBED_TITLE } from "@/lib/canvas/home-embed-constants";
+import { buildWelcomeMessage, getStudentDisplayName } from "@/lib/canvas/home-embed-messages";
 
 type Props = {
   title?: string;
+  studentName?: string;
   message?: string;
 };
 
 export function CourseHomeBannerStatic({
   title = HOME_EMBED_TITLE,
-  message = HOME_EMBED_TEST_MESSAGE,
+  studentName = "Student",
+  message,
 }: Props) {
+  const displayName = getStudentDisplayName(studentName);
+  const bannerMessage = message || buildWelcomeMessage(displayName);
+
   return (
     <div className="course-home-embed-shell">
       <div className="course-home-banner-top-pixel" aria-hidden="true" />
@@ -16,7 +22,7 @@ export function CourseHomeBannerStatic({
         <h2 id="course-home-alerts-title" className="course-home-banner-title">
           {title}
         </h2>
-        <p className="course-home-banner-message">{message}</p>
+        <p className="course-home-banner-message">{bannerMessage}</p>
       </section>
     </div>
   );

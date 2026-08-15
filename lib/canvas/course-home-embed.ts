@@ -1,4 +1,10 @@
-import { getAppOrigin, getConfiguredLtiClientId } from "@/lib/canvas/config";
+import {
+  getAppOrigin,
+  getCanvasServerConfig,
+  getConfiguredLtiClientId,
+  getLtiConfig,
+} from "@/lib/canvas/config";
+import { normalizeCanvasBaseUrl } from "@/lib/canvas/client";
 import { createCanvasAdminClient } from "@/lib/canvas/admin-client";
 import {
   HOME_EMBED_BANNER_HEIGHT_PX,
@@ -12,16 +18,24 @@ function escapeHtmlAttribute(value: string) {
 }
 
 export function buildFrontPageEmbedHtml(canvasCourseId: string) {
-  const embedUrl = `${getAppOrigin()}/canvas/home-embed?course=${encodeURIComponent(canvasCourseId)}`;
+  const { loginUrl } = getLtiConfig();
+  const clientId = getConfiguredLtiClientId();
+  const { baseUrl } = getCanvasServerConfig();
+  const canvasBase = normalizeCanvasBaseUrl(baseUrl);
+  const retrievePath =
+    `/courses/${canvasCourseId}/external_tools/retrieve` +
+    `?display=borderless&url=${encodeURIComponent(loginUrl)}` +
+    (clientId ? `&client_id=${encodeURIComponent(clientId)}` : "");
+  const retrieveUrl = `${canvasBase}${retrievePath}`;
   const height = HOME_EMBED_BANNER_HEIGHT_PX;
 
   return (
     `<div ${EMBED_MARKER} data-student-alerts-version="${HOME_EMBED_VERSION}" ` +
     `style="background:#fff;margin:0;padding:0;line-height:0;font-size:0;border:0;">` +
-    `<iframe src="${escapeHtmlAttribute(embedUrl)}" ` +
+    `<iframe src="${escapeHtmlAttribute(retrieveUrl)}" ` +
     `style="width:100%;height:${height}px;min-height:${height}px;max-height:240px;` +
     `border:0;outline:0;box-shadow:none;display:block;overflow:hidden;background:#fff;" ` +
-    `title="Student Alerts" loading="eager" scrolling="no" referrerpolicy="no-referrer"></iframe>` +
+    `title="Student Alerts" loading="eager" scrolling="no"></iframe>` +
     `</div>`
   );
 }
@@ -64,7 +78,7 @@ export async function setupCourseHomeStudentAlerts(canvasCourseId: string) {
     ok: true as const,
     mode: "front_page_embed" as const,
     note:
-      "Settings saved. Students will see a bold reminder at the top of Home automatically when they have missing work, low grades, or a message from you.",
+      "Settings saved. Students will see a welcome or alert message at the top of Home automatically.",
   };
 }
 
