@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { CourseAlertsViewer } from "@/components/canvas/CourseAlertsViewer";
+import { CourseAlertsShell } from "@/components/canvas/CourseAlertsShell";
 import { CANVAS_SESSION_COOKIE, decodeCanvasStudentSession } from "@/lib/canvas/session";
 import { getCourseAlertConfig } from "@/lib/course-alerts/store";
 import { parseLaunchHandoff } from "@/lib/lti/launch-handoff";
@@ -39,7 +39,7 @@ export default async function CourseAlertsPage({ searchParams }: Props) {
   return (
     <main className="course-alerts-page">
       {courseId ? (
-        <CourseAlertsViewer
+        <CourseAlertsShell
           courseId={courseId}
           initialCourseName={courseName || initialConfig?.courseName || null}
           initialStudentName={studentName}

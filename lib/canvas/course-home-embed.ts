@@ -1,15 +1,50 @@
-import { getAppOrigin } from "@/lib/canvas/config";
+import { getAppOrigin, getCanvasServerConfig, getConfiguredLtiClientId } from "@/lib/canvas/config";
+import { createCanvasAdminClient } from "@/lib/canvas/admin-client";
 
-export async function setupCourseHomeStudentAlerts(
-  _canvasCourseId: string,
-  _options?: { bannerMessage?: string | null },
-) {
-  const appOrigin = getAppOrigin();
+const EMBED_MARKER = 'data-student-alerts-embed="true"';
+
+function buildFrontPageEmbedHtml(canvasCourseId: string, toolId: number) {
+  const iframeSrc = `/courses/${canvasCourseId}/external_tools/${toolId}?display=borderless`;
+  return (
+    `<div ${EMBED_MARKER}>` +
+    `<iframe src="${iframeSrc}" ` +
+    `style="width:100%;min-height:48px;border:0;display:block;" ` +
+    `title="Student Alerts" loading="lazy"></iframe>` +
+    `</div>`
+  );
+}
+
+export async function setupCourseHomeStudentAlerts(canvasCourseId: string) {
+  const client = createCanvasAdminClient();
+  const access = await client.getCourseAccess(canvasCourseId);
+  if (!access.ok) {
+    return {
+      ok: false as const,
+      reason: access.reason,
+    };
+  }
+
+  const tool = await client.findCourseExternalTool(canvasCourseId, {
+    searchName: "Student Alerts",
+    clientId: getConfiguredLtiClientId(),
+    launchHost: new URL(getAppOrigin() || getCanvasServerConfig().baseUrl).hostname,
+  });
+
+  if (!tool) {
+    return {
+      ok: false as const,
+      reason:
+        "Add Student Alerts from Modules → External Tool first, then save settings again.",
+    };
+  }
+
+  await client.prependEmbedToFrontPage(canvasCourseId, buildFrontPageEmbedHtml(canvasCourseId, tool.id));
+
   return {
     ok: true as const,
-    mode: "theme_popup" as const,
-    themeSnippetUrl: appOrigin ? `${appOrigin}/canvas/theme-snippet.txt` : null,
+    mode: "front_page_embed" as const,
+    externalToolId: tool.id,
     note:
-      "Settings saved. Your popup message is ready. Paste the one-time Canvas theme script (link below) so students see a bold popup on the course home page.",
+      "Settings saved. A slim alert strip was added to the top of your existing front page. It only shows for students when there is something to communicate.",
   };
 }

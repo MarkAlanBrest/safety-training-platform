@@ -69,8 +69,14 @@ export function CourseAlertsSetupForm() {
       }
 
       setSuccess(
-        "Settings saved. Students get a bold popup when they open Student Alerts from Modules.",
+        data.homeEmbed?.ok
+          ? data.homeEmbed.note ||
+              "Settings saved. The alert strip was added to the top of your front page."
+          : "Settings saved. Students also get a bold popup when they open Student Alerts from Modules.",
       );
+      if (data.homeEmbed?.reason) {
+        setError(data.homeEmbed.reason);
+      }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Could not save settings.");
     } finally {
@@ -91,7 +97,8 @@ export function CourseAlertsSetupForm() {
     <div className="course-alerts-shell course-alerts-setup">
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        Students see a bold popup when they open <strong>Student Alerts</strong> from Modules.
+        Save settings to embed a slim alert strip at the <strong>top of your existing front page</strong>.
+        It stays hidden until a student has something they need to see.
       </p>
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>

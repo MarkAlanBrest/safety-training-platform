@@ -4,6 +4,51 @@
   padding: 20px;
 }
 
+html.course-alerts-embed-root,
+body.course-alerts-embed-root,
+html.course-alerts-embed-root .course-alerts-page {
+  min-height: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+}
+
+.course-home-banner-empty {
+  height: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+.course-home-banner {
+  margin: 0;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #ed1c24, #ff5a1f);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(237, 28, 36, 0.28);
+  font-family: system-ui, sans-serif;
+}
+
+.course-home-banner strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.course-home-banner p {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.course-home-banner p:last-child {
+  margin-bottom: 0;
+}
+
 .course-alerts-shell {
   max-width: 900px;
   margin: 0 auto;

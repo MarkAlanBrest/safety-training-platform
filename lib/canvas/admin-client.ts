@@ -243,6 +243,34 @@ export function createCanvasAdminClient() {
       return { id: created.id };
     },
 
+    async prependEmbedToFrontPage(courseId: string, embedHtml: string) {
+      const page = await canvasJson<{ url?: string; body?: string }>(`/courses/${courseId}/front_page`);
+
+      if (!page?.url) {
+        throw new Error(
+          "This course has no front page yet. In Canvas, set a page as the Front Page, then save settings again.",
+        );
+      }
+
+      const cleanedBody = page.body
+        ? page.body.replace(/<div data-student-alerts-embed="true">[\s\S]*?<\/div>\s*/gi, "").trim()
+        : "";
+
+      const body = `${embedHtml}\n${cleanedBody}`.trim();
+
+      await canvasJson(`/courses/${courseId}/pages/${page.url}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          wiki_page: {
+            body,
+            published: true,
+          },
+        }),
+      });
+
+      return { frontPageUrl: page.url };
+    },
+
     async getCourseHomeStatus(courseId: string) {
       const course = await canvasJson<CanvasCourse>(`/courses/${courseId}`);
       let frontPageBody: string | null = null;
@@ -277,7 +305,7 @@ export function createCanvasAdminClient() {
         frontPageUrl,
         hasStudentAlertsAnnouncement,
         hasStudentAlertsEmbed: Boolean(
-          hasStudentAlertsAnnouncement ||
+          frontPageBody?.includes('data-student-alerts-embed="true"') ||
             frontPageBody?.includes("student-alerts-home") ||
             frontPageBody?.includes("Student Alerts"),
         ),
