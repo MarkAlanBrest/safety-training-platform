@@ -903,6 +903,51 @@ export function createCanvasAdminClient() {
       );
     },
 
+    async inspectStudentAlertsLtiKey(clientId?: string) {
+      const keys = await this.listStudentAlertsDeveloperKeys().catch((error) => error);
+      const summarizedKeys = Array.isArray(keys)
+        ? keys
+            .filter((key) => isStudentAlertsDeveloperKey(key) || String(key.id) === clientId)
+            .map((key) => ({
+              id: key.id != null ? String(key.id) : null,
+              name: key.name || null,
+              isLtiKey: key.is_lti_key !== false,
+              workflowState: key.workflow_state || null,
+            }))
+        : [];
+      const id = clientId || summarizedKeys[0]?.id || "";
+      let key: unknown = null;
+      let registration: unknown = null;
+      let toolConfiguration: unknown = null;
+      if (id) {
+        try {
+          key = await canvasJson(`/developer_keys/${id}`);
+        } catch (error) {
+          key = { error: error instanceof Error ? error.message : "Could not read developer key." };
+        }
+        try {
+          registration = await canvasJson(`/accounts/self/lti_registration_by_client_id/${id}`);
+        } catch (error) {
+          registration = { error: error instanceof Error ? error.message : "Could not read LTI registration." };
+        }
+        try {
+          toolConfiguration = await canvasLtiJson(`/api/lti/developer_keys/${id}/tool_configuration`);
+        } catch (error) {
+          toolConfiguration = {
+            error: error instanceof Error ? error.message : "Could not read LTI tool configuration.",
+          };
+        }
+      }
+      return {
+        clientId: id || null,
+        keys: summarizedKeys,
+        keyListError: keys instanceof Error ? keys.message : null,
+        key,
+        registration,
+        toolConfiguration,
+      };
+    },
+
     async createStudentAlertsDeveloperKey() {
       const settings = readStudentAlertsToolSettings();
       const launchUrl =
@@ -929,7 +974,7 @@ export function createCanvasAdminClient() {
           }),
         });
         const clientId = extractDeveloperKeyId(created);
-        if (clientId) return { clientId, created };
+        if (clientId) return { clientId, created, errors: [] };
         errors.push("Canvas created an LTI key but did not return its client id.");
       } catch (error) {
         errors.push(error instanceof Error ? error.message : "Could not create the LTI developer key.");
@@ -971,14 +1016,14 @@ export function createCanvasAdminClient() {
           }),
         });
         const clientId = extractDeveloperKeyId(created);
-        if (clientId) return { clientId, created };
+        if (clientId) return { clientId, created, errors: [] };
         errors.push("Canvas created an LTI registration but did not return its client id.");
       } catch (error) {
         errors.push(error instanceof Error ? error.message : "Could not create the LTI registration.");
       }
 
       const found = await this.findStudentAlertsDeveloperKey().catch(() => null);
-      if (found?.id) return { clientId: String(found.id), created: found };
+      if (found?.id && errors.length === 0) return { clientId: String(found.id), created: found, errors };
 
       throw new Error(errors.filter(Boolean).join(" ") || "Could not recreate the Student Alerts LTI key.");
     },
