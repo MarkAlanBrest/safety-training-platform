@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getConfiguredLtiClientId, getLtiConfig } from "@/lib/canvas/config";
+import { getConfiguredLtiClientId, getAppOrigin, getLtiConfig } from "@/lib/canvas/config";
+import { createCanvasAdminClient } from "@/lib/canvas/admin-client";
 import { parseCourseAlertCustomFields } from "@/lib/course-alerts/config";
 import { recordCourseAlertSignup } from "@/lib/course-alerts/db";
 import { saveCourseAlertConfig } from "@/lib/course-alerts/store";
@@ -10,8 +11,7 @@ import {
   CANVAS_SESSION_COOKIE,
 } from "@/lib/canvas/session";
 import {
-  buildDeepLinkingHtml,
-  buildDeepLinkingResponse,
+  parseDeepLinkModuleId,
   readDeepLinkingSettings,
 } from "@/lib/lti/deep-linking";
 import { isIframeLtiLaunch } from "@/lib/lti/launch-presentation";
@@ -146,31 +146,38 @@ export async function handleLtiLaunchPost(
   }
 
   if (deepLinking) {
-    if (identity.courseId && isInstructor) {
-      await embedStudentAlertsOnCourseHome(identity.courseId);
+    if (identity.courseId) {
+      if (isInstructor) {
+        await embedStudentAlertsOnCourseHome(identity.courseId);
+      }
+      try {
+        const client = createCanvasAdminClient();
+        const clientIdForTool = getConfiguredLtiClientId();
+        await client.insertStudentAlertsModuleItem(identity.courseId, {
+          searchName: "Student Alerts",
+          clientId: clientIdForTool,
+          launchHost: new URL(getAppOrigin()).hostname,
+          moduleId: parseDeepLinkModuleId(deepLinking, identity.payload),
+          embedUrl: `${getAppOrigin()}/canvas/home-embed?course=${encodeURIComponent(identity.courseId)}`,
+        });
+      } catch (error) {
+        console.error("Could not add Student Alerts to Modules:", error);
+      }
     }
-    try {
-      const { launchUrl } = getLtiConfig();
-      const jwt = await buildDeepLinkingResponse({
-        clientId,
-        platformIssuer: identity.platformIssuer,
-        deploymentId: identity.deploymentId,
-        nonce: identity.nonce,
-        launchUrl,
-        data: deepLinking.data,
-      });
-      const response = new NextResponse(buildDeepLinkingHtml(deepLinking.deep_link_return_url, jwt), {
-        status: 200,
-        headers: { "Content-Type": "text/html; charset=utf-8" },
-      });
-      return attachSessionCookie(response, identity);
-    } catch (error) {
-      console.error("Deep linking return failed:", error);
-      const setupPath = `/canvas/alerts/setup${
-        identity.courseId ? `?course=${encodeURIComponent(identity.courseId)}` : ""
-      }`;
-      return finishLaunch(appOrigin, identity, setupPath);
-    }
+
+    const html = `<!DOCTYPE html>
+<html>
+  <head><meta charset="utf-8"><title>Student Alerts</title></head>
+  <body style="font-family:sans-serif;padding:24px;max-width:560px">
+    <h1 style="font-size:1.25rem">Student Alerts was added</h1>
+    <p>Close this window and refresh Modules. Students also see Alerts on the course Home page.</p>
+  </body>
+</html>`;
+    const response = new NextResponse(html, {
+      status: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
+    return attachSessionCookie(response, identity);
   }
 
   if (isInstructor && identity.courseId) {

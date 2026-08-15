@@ -302,11 +302,93 @@ export function createCanvasAdminClient() {
       courseId: string,
       options: { searchName: string; clientId?: string; launchHost?: string },
     ) {
-      const tools = await listCourseExternalTools(courseId);
+      const tools = await listCourseExternalTools(courseId, true);
       const directMatch = tools.find((tool) => matchesExternalTool(tool, options));
       if (directMatch) return directMatch;
 
+      const accountTool = (await this.listAccountExternalTools("self")).find((tool) =>
+        matchesExternalTool(tool, options),
+      );
+      if (accountTool) return accountTool;
+
       return findExternalToolInModules(courseId, options);
+    },
+
+    async insertStudentAlertsModuleItem(
+      courseId: string,
+      options: {
+        searchName: string;
+        clientId?: string;
+        launchHost?: string;
+        moduleId?: string | null;
+        embedUrl: string;
+      },
+    ) {
+      let moduleId = options.moduleId || "";
+      if (!moduleId) {
+        const modules = await canvasJson<Array<{ id?: number; name?: string }>>(
+          `/courses/${courseId}/modules`,
+          { query: { per_page: "100" }, allowNotFound: true },
+        );
+        const existing =
+          modules?.find((item) => (item.name || "").toLowerCase() === "student alerts") ||
+          modules?.[0];
+        if (existing?.id) {
+          moduleId = String(existing.id);
+        } else {
+          const created = await canvasJson<{ id?: number }>(`/courses/${courseId}/modules`, {
+            method: "POST",
+            body: JSON.stringify({
+              module: { name: "Student Alerts", published: true },
+            }),
+          });
+          moduleId = created?.id ? String(created.id) : "";
+        }
+      }
+      if (!moduleId) {
+        throw new Error("Could not find or create a Canvas module.");
+      }
+
+      const items = await canvasJson<Array<{ title?: string; type?: string }>>(
+        `/courses/${courseId}/modules/${moduleId}/items`,
+        { query: { per_page: "100" }, allowNotFound: true },
+      );
+      const already = items?.some((item) => {
+        const title = (item.title || "").toLowerCase();
+        return title.includes("student alert") || title === "alerts";
+      });
+      if (already) {
+        return { ok: true as const, moduleId, created: false };
+      }
+
+      const tool = await this.findCourseExternalTool(courseId, {
+        searchName: options.searchName,
+        clientId: options.clientId,
+        launchHost: options.launchHost,
+      });
+
+      const moduleItem = tool?.id
+        ? {
+            title: "Student Alerts",
+            type: "ExternalTool",
+            content_id: tool.id,
+            published: true,
+            new_tab: false,
+          }
+        : {
+            title: "Student Alerts",
+            type: "ExternalUrl",
+            external_url: options.embedUrl,
+            published: true,
+            new_tab: false,
+          };
+
+      await canvasJson(`/courses/${courseId}/modules/${moduleId}/items`, {
+        method: "POST",
+        body: JSON.stringify({ module_item: moduleItem }),
+      });
+
+      return { ok: true as const, moduleId, created: true };
     },
 
     async upsertCourseFrontPage(

@@ -91,7 +91,52 @@ function canvasDeepLinkAudience(platformIssuer: string) {
   return issuer || "https://canvas.instructure.com";
 }
 
-export function buildDeepLinkingHtml(returnUrl: string, jwt: string) {
+export function parseDeepLinkModuleId(
+  settings: DeepLinkingSettings,
+  payload?: JWTPayload,
+): string | null {
+  const candidates: string[] = [];
+
+  try {
+    const url = new URL(settings.deep_link_return_url);
+    for (const key of ["module_id", "context_module_id", "moduleId"]) {
+      const value = url.searchParams.get(key);
+      if (value) candidates.push(value);
+    }
+    const pathMatch = url.pathname.match(/\/modules\/(\d+)/);
+    if (pathMatch?.[1]) candidates.push(pathMatch[1]);
+  } catch {
+    // Ignore malformed return URLs.
+  }
+
+  if (settings.data) {
+    try {
+      const parsed = JSON.parse(settings.data) as Record<string, unknown>;
+      for (const key of ["module_id", "context_module_id", "moduleId"]) {
+        const value = parsed[key];
+        if (typeof value === "string" || typeof value === "number") {
+          candidates.push(String(value));
+        }
+      }
+    } catch {
+      const match = settings.data.match(/module_id["':=\s]+(\d+)/i);
+      if (match?.[1]) candidates.push(match[1]);
+    }
+  }
+
+  const custom = payload?.["https://purl.imsglobal.org/spec/lti/claim/custom"];
+  if (custom && typeof custom === "object") {
+    const record = custom as Record<string, unknown>;
+    for (const key of ["module_id", "canvas_module_id", "context_module_id"]) {
+      const value = record[key];
+      if (typeof value === "string" || typeof value === "number") {
+        candidates.push(String(value));
+      }
+    }
+  }
+
+  return candidates.find((id) => /^\d+$/.test(id)) || null;
+}
   const escapedUrl = returnUrl.replace(/"/g, "&quot;");
   const escapedJwt = jwt.replace(/"/g, "&quot;");
   return `<!DOCTYPE html>
