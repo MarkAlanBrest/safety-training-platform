@@ -25,6 +25,7 @@ export function CourseAlertsSetupForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [cleaning, setCleaning] = useState(false);
 
   useEffect(() => {
     if (!courseId) return;
@@ -41,6 +42,28 @@ export function CourseAlertsSetupForm() {
       if (config.courseName) setCourseName(config.courseName);
     })();
   }, [courseId]);
+
+  async function handleRemoveEmbed() {
+    setCleaning(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch("/api/course-alerts/remove-home-embed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseId }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Could not remove the home page embed.");
+      }
+      setSuccess("Removed all alert embeds from the front page. Your home page content is restored.");
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : "Could not remove embed.");
+    } finally {
+      setCleaning(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -164,6 +187,15 @@ export function CourseAlertsSetupForm() {
 
         <button type="submit" disabled={loading}>
           {loading ? "Saving..." : "Save settings"}
+        </button>
+
+        <button
+          type="button"
+          className="course-alerts-remove-embed"
+          disabled={cleaning}
+          onClick={() => void handleRemoveEmbed()}
+        >
+          {cleaning ? "Removing..." : "Remove home page embed"}
         </button>
       </form>
     </div>

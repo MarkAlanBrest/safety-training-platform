@@ -256,6 +256,17 @@ html.course-alerts-embed-root .course-alerts-page {
   cursor: pointer;
 }
 
+.course-alerts-remove-embed {
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #b8c9df !important;
+}
+
+.course-alerts-remove-embed:hover {
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
 .course-alerts-manual-steps {
   margin-top: 8px;
   padding: 16px 18px;

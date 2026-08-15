@@ -34,18 +34,30 @@ export function CourseHomeBanner({
     const handoffQuery = handoffToken ? `&handoff=${encodeURIComponent(handoffToken)}` : "";
     const response = await fetch(
       `/api/course-alerts/feed?course=${encodeURIComponent(courseId)}${handoffQuery}`,
+      { credentials: "include" },
     );
-    const data = await response.json();
-    if (!response.ok) {
+
+    if (response.ok) {
+      const data = await response.json();
+      setBannerMessage(data.bannerMessage || data.config?.bannerMessage || null);
+      setTeacherMessages(data.teacherMessages || []);
+      setAutoAlerts(data.alerts || []);
       setReady(true);
       return;
     }
 
-    setBannerMessage(data.bannerMessage || data.config?.bannerMessage || null);
-    setTeacherMessages(data.teacherMessages || []);
-    setAutoAlerts(data.alerts || []);
+    const publicResponse = await fetch(
+      `/api/course-alerts/public-config?courseId=${encodeURIComponent(courseId)}`,
+    );
+    if (publicResponse.ok) {
+      const publicData = await publicResponse.json();
+      setBannerMessage(publicData.bannerMessage || initialBannerMessage || null);
+      setTeacherMessages([]);
+      setAutoAlerts([]);
+    }
+
     setReady(true);
-  }, [courseId, handoffToken]);
+  }, [courseId, handoffToken, initialBannerMessage]);
 
   useEffect(() => {
     document.documentElement.classList.add("course-alerts-embed-root");
@@ -64,10 +76,6 @@ export function CourseHomeBanner({
     return () => window.clearInterval(timer);
   }, [loadAlerts]);
 
-  if (!ready) {
-    return <div className="course-home-banner-empty" aria-hidden="true" />;
-  }
-
   const lines: string[] = [];
   if (bannerMessage?.trim()) lines.push(bannerMessage.trim());
   for (const message of teacherMessages) {
@@ -75,6 +83,20 @@ export function CourseHomeBanner({
   }
   for (const alert of autoAlerts.slice(0, 3)) {
     lines.push(`${alert.title}: ${alert.message}`);
+  }
+
+  useEffect(() => {
+    try {
+      if (window.frameElement instanceof HTMLIFrameElement) {
+        window.frameElement.style.height = ready && lines.length ? "160px" : "1px";
+      }
+    } catch {
+      // Cross-origin parent — ignore.
+    }
+  }, [ready, lines.length]);
+
+  if (!ready) {
+    return <div className="course-home-banner-empty" aria-hidden="true" />;
   }
 
   if (!lines.length) {

@@ -1,5 +1,6 @@
 import { getCanvasServerConfig } from "@/lib/canvas/config";
 import { normalizeCanvasBaseUrl } from "@/lib/canvas/client";
+import { sanitizeFrontPageBody } from "@/lib/canvas/front-page-sanitize";
 
 type CanvasExternalTool = {
   id: number;
@@ -252,15 +253,7 @@ export function createCanvasAdminClient() {
         );
       }
 
-      const cleanedBody = page.body
-        ? page.body
-            .replace(/<div data-student-alerts-embed="true">[\s\S]*?<\/div>\s*/gi, "")
-            .replace(
-              /<iframe[^>]*\/courses\/\d+\/external_tools\/[^"'\s>]+[^>]*><\/iframe>\s*/gi,
-              "",
-            )
-            .trim()
-        : "";
+      const cleanedBody = page.body ? sanitizeFrontPageBody(page.body) : "";
 
       const body = `${embedHtml}\n${cleanedBody}`.trim();
 
@@ -275,6 +268,28 @@ export function createCanvasAdminClient() {
       });
 
       return { frontPageUrl: page.url };
+    },
+
+    async removeEmbedFromFrontPage(courseId: string) {
+      const page = await canvasJson<{ url?: string; body?: string }>(`/courses/${courseId}/front_page`);
+
+      if (!page?.url) {
+        return { removed: false };
+      }
+
+      const body = page.body ? sanitizeFrontPageBody(page.body) : "";
+
+      await canvasJson(`/courses/${courseId}/pages/${page.url}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          wiki_page: {
+            body,
+            published: true,
+          },
+        }),
+      });
+
+      return { removed: true, frontPageUrl: page.url };
     },
 
     async getCourseHomeStatus(courseId: string) {
