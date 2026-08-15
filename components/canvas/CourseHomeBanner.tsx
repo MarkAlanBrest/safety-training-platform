@@ -46,16 +46,9 @@ export function CourseHomeBanner({
       return;
     }
 
-    const publicResponse = await fetch(
-      `/api/course-alerts/public-config?courseId=${encodeURIComponent(courseId)}`,
-    );
-    if (publicResponse.ok) {
-      const publicData = await publicResponse.json();
-      setBannerMessage(publicData.bannerMessage || initialBannerMessage || null);
-      setTeacherMessages([]);
-      setAutoAlerts([]);
-    }
-
+    setBannerMessage(null);
+    setTeacherMessages([]);
+    setAutoAlerts([]);
     setReady(true);
   }, [courseId, handoffToken, initialBannerMessage]);
 

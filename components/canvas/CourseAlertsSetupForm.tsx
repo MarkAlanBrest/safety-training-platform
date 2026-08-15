@@ -18,7 +18,7 @@ export function CourseAlertsSetupForm() {
 
   const [missingWorkDays, setMissingWorkDays] = useState(14);
   const [lowGradeThreshold, setLowGradeThreshold] = useState(70);
-  const [bannerMessage, setBannerMessage] = useState("Check your missing work and grades below.");
+  const [bannerMessage, setBannerMessage] = useState("");
   const [showMissing, setShowMissing] = useState(true);
   const [showLowGrades, setShowLowGrades] = useState(true);
   const [courseName, setCourseName] = useState("");
@@ -36,7 +36,7 @@ export function CourseAlertsSetupForm() {
       const config = data.config as Config;
       setMissingWorkDays(config.missingWorkDays);
       setLowGradeThreshold(config.lowGradeThreshold);
-      setBannerMessage(config.bannerMessage || "Check your missing work and grades below.");
+      setBannerMessage(config.bannerMessage || "");
       setShowMissing(config.showMissing);
       setShowLowGrades(config.showLowGrades);
       if (config.courseName) setCourseName(config.courseName);
@@ -94,8 +94,8 @@ export function CourseAlertsSetupForm() {
       setSuccess(
         data.homeEmbed?.ok
           ? data.homeEmbed.note ||
-              "Settings saved. The alert strip was added to the top of your front page."
-          : "Settings saved. Students also get a bold popup when they open Student Alerts from Modules.",
+              "Settings saved. Students will see reminders automatically when they open Home."
+          : "Settings saved, but the home page embed could not be updated. See the error below.",
       );
       if (data.homeEmbed?.reason) {
         setError(data.homeEmbed.reason);
@@ -120,8 +120,9 @@ export function CourseAlertsSetupForm() {
     <div className="course-alerts-shell course-alerts-setup">
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        Save settings to refresh the slim alert strip at the top of your front page.
-        It will not duplicate your home page — only a bold message bar when needed.
+        Save once. Students see a bold reminder at the top of Home automatically — no module
+        click required. Your existing home page content stays below. The bar hides when there is
+        nothing to communicate.
       </p>
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>
@@ -155,12 +156,12 @@ export function CourseAlertsSetupForm() {
         </label>
 
         <label>
-          Popup message shown to students
+          Optional message for all students (leave blank to only show missing work / low grades)
           <textarea
             value={bannerMessage}
             onChange={(event) => setBannerMessage(event.target.value)}
             rows={4}
-            required
+            placeholder="e.g. Check your missing assignments this week."
           />
         </label>
 

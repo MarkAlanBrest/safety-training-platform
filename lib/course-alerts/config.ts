@@ -16,7 +16,7 @@ export type CourseAlertConfigView = CourseAlertConfigInput & {
 export const DEFAULT_COURSE_ALERT_CONFIG: CourseAlertConfigInput = {
   missingWorkDays: 14,
   lowGradeThreshold: 70,
-  bannerMessage: "Check your missing work and grades below.",
+  bannerMessage: null,
   showMissing: true,
   showLowGrades: true,
   courseName: null,

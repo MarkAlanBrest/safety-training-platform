@@ -333,6 +333,41 @@ export function createCanvasAdminClient() {
       };
     },
 
+    async installExternalToolByClientId(courseId: string, clientId: string) {
+      if (!clientId.trim()) {
+        throw new Error("CANVAS_LTI_CLIENT_ID is not configured.");
+      }
+
+      const created = await canvasJson<CanvasExternalTool>(`/courses/${courseId}/external_tools`, {
+        method: "POST",
+        body: JSON.stringify({ client_id: clientId.trim() }),
+        allowNotFound: true,
+      });
+
+      if (created?.id) return created;
+
+      return findExternalToolInModules(courseId, {
+        searchName: "Student Alerts",
+        clientId,
+      });
+    },
+
+    async ensureCourseExternalTool(
+      courseId: string,
+      options: { searchName: string; clientId?: string; launchHost?: string },
+    ) {
+      const existing = await this.findCourseExternalTool(courseId, options);
+      if (existing) return existing;
+
+      if (!options.clientId?.trim()) return null;
+
+      try {
+        return await this.installExternalToolByClientId(courseId, options.clientId);
+      } catch {
+        return this.findCourseExternalTool(courseId, options);
+      }
+    },
+
     async setCourseHomeToFrontPage(courseId: string, frontPageUrl: string) {
       // PUT .../front_page only edits the content of whichever page is
       // *already* the front page — it has no way to reassign which page
