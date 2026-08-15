@@ -1,5 +1,5 @@
 import { getCanvasServerConfig } from "@/lib/canvas/config";
-import { normalizeCanvasBaseUrl } from "@/lib/canvas/client";
+import { CANVAS_USER_AGENT, normalizeCanvasBaseUrl } from "@/lib/canvas/client";
 import { sanitizeFrontPageBody } from "@/lib/canvas/front-page-sanitize";
 
 type CanvasExternalTool = {
@@ -59,6 +59,7 @@ function canvasAdminHeaders(token: string) {
     Authorization: `Bearer ${token}`,
     Accept: "application/json",
     "Content-Type": "application/json",
+    "User-Agent": CANVAS_USER_AGENT,
   };
 }
 
@@ -508,6 +509,44 @@ export function createCanvasAdminClient() {
         // Token may not be able to list subaccounts; still install on self.
       }
       return [...ids];
+    },
+
+    async resolveStudentAlertsClientId(preferred?: string) {
+      const configured = preferred?.trim();
+      if (configured) return configured;
+      try {
+        const keys = await canvasGetAll<{ id: number; name?: string }>("/accounts/self/developer_keys", {
+          per_page: "100",
+        });
+        const match = keys.find((key) => {
+          const name = (key.name || "").toLowerCase();
+          return name.includes("student alert") || name === "student alerts" || name.includes("alert");
+        });
+        if (match?.id) return String(match.id);
+      } catch {
+        // Fall back to the known MyTrades Student Alerts client id.
+      }
+      return "149450000000000305";
+    },
+
+    async ensureDeveloperKeyEnabled(clientId: string) {
+      try {
+        await canvasJson(`/accounts/self/developer_keys/${clientId}/developer_key_account_bindings`, {
+          method: "POST",
+          body: JSON.stringify({
+            developer_key_account_binding: { workflow_state: "on" },
+          }),
+        });
+      } catch {
+        try {
+          await canvasJson(`/developer_keys/${clientId}`, {
+            method: "PUT",
+            body: JSON.stringify({ developer_key: { workflow_state: "on" } }),
+          });
+        } catch {
+          // Key may already be on, or the token cannot manage developer keys.
+        }
+      }
     },
 
     async listPublishedCourses() {

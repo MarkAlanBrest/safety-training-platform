@@ -11,6 +11,22 @@ function escapeHtmlAttribute(value: string) {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
+async function mapPool<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<void>,
+) {
+  let index = 0;
+  async function worker() {
+    while (index < items.length) {
+      const current = items[index];
+      index += 1;
+      await fn(current);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) || 1 }, () => worker()));
+}
+
 export function buildFrontPageEmbedHtml(canvasCourseId: string) {
   const embedUrl = `${getAppOrigin()}/canvas/home-embed?course=${encodeURIComponent(canvasCourseId)}`;
   const height = HOME_EMBED_BANNER_HEIGHT_PX;
@@ -37,19 +53,17 @@ export async function setupCourseHomeStudentAlerts(canvasCourseId: string) {
     };
   }
 
-  const clientId = getConfiguredLtiClientId();
-  if (clientId) {
-    const toolOptions = {
-      searchName: "Student Alerts",
-      clientId,
-      launchHost: new URL(getAppOrigin()).hostname,
-    };
-    await client.ensureAccountExternalTool(toolOptions).catch(() => null);
-    if (access.accountId) {
-      await client.ensureAccountExternalTool({ ...toolOptions, accountId: access.accountId }).catch(() => null);
-    }
-    await client.ensureCourseExternalTool(canvasCourseId, toolOptions);
+  const clientId = await client.resolveStudentAlertsClientId(getConfiguredLtiClientId());
+  const toolOptions = {
+    searchName: "Student Alerts",
+    clientId,
+    launchHost: new URL(getAppOrigin()).hostname,
+  };
+  await client.ensureAccountExternalTool(toolOptions).catch(() => null);
+  if (access.accountId) {
+    await client.ensureAccountExternalTool({ ...toolOptions, accountId: access.accountId }).catch(() => null);
   }
+  await client.ensureCourseExternalTool(canvasCourseId, toolOptions);
 
   const { frontPageUrl } = await client.prependEmbedToFrontPage(
     canvasCourseId,
@@ -106,17 +120,8 @@ export async function removeCourseHomeStudentAlerts(canvasCourseId: string) {
 
 export async function installStudentAlertsToolSchoolWide() {
   const client = createCanvasAdminClient();
-  const clientId = getConfiguredLtiClientId();
-  if (!clientId) {
-    return {
-      ok: false as const,
-      reason: "CANVAS_LTI_CLIENT_ID is not set in Vercel.",
-      accounts: 0,
-      courses: 0,
-      installed: 0,
-      failed: [] as Array<{ id: number; name?: string; reason: string }>,
-    };
-  }
+  const clientId = await client.resolveStudentAlertsClientId(getConfiguredLtiClientId());
+  await client.ensureDeveloperKeyEnabled(clientId).catch(() => null);
 
   const toolOptions = {
     searchName: "Student Alerts",
@@ -192,8 +197,8 @@ export async function installStudentAlertsToolSchoolWide() {
 
 export async function diagnoseStudentAlertsTool(canvasCourseId: string) {
   const origin = getAppOrigin();
-  const clientId = getConfiguredLtiClientId();
   const client = createCanvasAdminClient();
+  const clientId = await client.resolveStudentAlertsClientId(getConfiguredLtiClientId());
 
   const definitions = await client
     .listLinkSelectionLaunchDefinitions(canvasCourseId)
@@ -223,6 +228,53 @@ export async function diagnoseStudentAlertsTool(canvasCourseId: string) {
       const name = (tool.name || "").toLowerCase();
       return Boolean(clientId && tool.client_id === clientId) || name.includes("alert");
     }),
+  };
+}
+
+export async function enableStudentAlertsInAllCourses() {
+  const toolInstall = await installStudentAlertsToolSchoolWide();
+  const client = createCanvasAdminClient();
+  const { courses, accountErrors: courseListErrors, usedFallback } = await client.listPublishedCourses();
+  const failed: Array<{ id: number; name?: string; reason: string }> = [...toolInstall.failed];
+  let enabled = 0;
+
+  await mapPool(courses, 4, async (course) => {
+    try {
+      const result = await setupCourseHomeStudentAlerts(String(course.id));
+      if (result.ok) {
+        enabled += 1;
+      } else {
+        failed.push({ id: course.id, name: course.name, reason: result.reason });
+      }
+    } catch (error) {
+      failed.push({
+        id: course.id,
+        name: course.name,
+        reason: error instanceof Error ? error.message : "Could not enable this course.",
+      });
+    }
+  });
+
+  const fallbackWarning = usedFallback
+    ? `Could not list every account course (${
+        courseListErrors[0] || "no accounts were readable"
+      }). Use a Canvas admin API token so every class is included.`
+    : null;
+
+  return {
+    ok: true as const,
+    enabled,
+    installed: toolInstall.installed,
+    accounts: toolInstall.accounts,
+    total: courses.length,
+    failed,
+    usedFallback,
+    accountErrors: [...toolInstall.accountErrors, ...courseListErrors],
+    note:
+      fallbackWarning ||
+      (enabled > 0
+        ? `Student Alerts is on in ${enabled} class${enabled === 1 ? "" : "es"}. Each class keeps its own settings.`
+        : toolInstall.note || "Could not turn on Student Alerts in other classes."),
   };
 }
 
