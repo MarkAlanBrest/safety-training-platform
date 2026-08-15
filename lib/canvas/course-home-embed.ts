@@ -278,3 +278,16 @@ export async function enableStudentAlertsInAllCourses() {
   };
 }
 
+let lastSchoolWideEnableAt = 0;
+const SCHOOL_WIDE_COOLDOWN_MS = 2 * 60 * 1000;
+
+export function scheduleSchoolWideEnable() {
+  const now = Date.now();
+  if (now - lastSchoolWideEnableAt < SCHOOL_WIDE_COOLDOWN_MS) return;
+  lastSchoolWideEnableAt = now;
+  void enableStudentAlertsInAllCourses().catch((error) => {
+    lastSchoolWideEnableAt = 0;
+    console.error("School-wide Student Alerts enable failed:", error);
+  });
+}
+

@@ -498,7 +498,19 @@ export function createCanvasAdminClient() {
     async listAccountIdsIncludingSubaccounts() {
       const ids = new Set<string>(["self"]);
       try {
-        const subs = await canvasGetAll<{ id: number }>("/accounts/self/sub_accounts", {
+        const manageable = await canvasGetAll<{ id: number }>("/accounts", { per_page: "100" });
+        for (const account of manageable) {
+          if (account.id) ids.add(String(account.id));
+        }
+      } catch {
+        // Token may not be able to list accounts.
+      }
+      try {
+        const self = await canvasJson<{ id: number; root_account_id?: number | null }>("/accounts/self");
+        if (self.id) ids.add(String(self.id));
+        const rootId = String(self.root_account_id || self.id);
+        ids.add(rootId);
+        const subs = await canvasGetAll<{ id: number }>(`/accounts/${rootId}/sub_accounts`, {
           recursive: "true",
           per_page: "100",
         });
@@ -506,7 +518,17 @@ export function createCanvasAdminClient() {
           if (sub.id) ids.add(String(sub.id));
         }
       } catch {
-        // Token may not be able to list subaccounts; still install on self.
+        try {
+          const subs = await canvasGetAll<{ id: number }>("/accounts/self/sub_accounts", {
+            recursive: "true",
+            per_page: "100",
+          });
+          for (const sub of subs) {
+            if (sub.id) ids.add(String(sub.id));
+          }
+        } catch {
+          // Still install on self.
+        }
       }
       return [...ids];
     },
@@ -674,6 +696,64 @@ export function createCanvasAdminClient() {
           ) || this.findCourseExternalTool(courseId, options)
         );
       }
+    },
+
+    async probeAccess() {
+      const probe: {
+        tokenUser: string | null;
+        selfAccount: string | null;
+        manageableAccountCount: number;
+        courseCount: number;
+        courseNames: string[];
+        usedFallback: boolean;
+        errors: string[];
+      } = {
+        tokenUser: null,
+        selfAccount: null,
+        manageableAccountCount: 0,
+        courseCount: 0,
+        courseNames: [],
+        usedFallback: false,
+        errors: [],
+      };
+
+      try {
+        const me = await canvasJson<{ id: number; name?: string }>("/users/self");
+        probe.tokenUser = me.name ? `${me.name} (${me.id})` : String(me.id);
+      } catch (error) {
+        probe.errors.push(
+          `users/self: ${error instanceof Error ? error.message : "failed"}`,
+        );
+      }
+
+      try {
+        const self = await canvasJson<{ id: number; name?: string; root_account_id?: number }>(
+          "/accounts/self",
+        );
+        probe.selfAccount = `${self.name || "account"} ${self.id}${
+          self.root_account_id ? ` root=${self.root_account_id}` : ""
+        }`;
+      } catch (error) {
+        probe.errors.push(
+          `accounts/self: ${error instanceof Error ? error.message : "failed"}`,
+        );
+      }
+
+      try {
+        const accounts = await canvasGetAll<{ id: number }>("/accounts", { per_page: "100" });
+        probe.manageableAccountCount = accounts.length;
+      } catch (error) {
+        probe.errors.push(
+          `accounts: ${error instanceof Error ? error.message : "failed"}`,
+        );
+      }
+
+      const listed = await this.listPublishedCourses();
+      probe.courseCount = listed.courses.length;
+      probe.courseNames = listed.courses.slice(0, 20).map((course) => course.name || String(course.id));
+      probe.usedFallback = listed.usedFallback;
+      probe.errors.push(...listed.accountErrors.slice(0, 8));
+      return probe;
     },
 
     async setCourseHomeToFrontPage(courseId: string, frontPageUrl: string) {
