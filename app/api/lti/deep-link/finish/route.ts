@@ -56,6 +56,9 @@ export async function POST(request: Request) {
   if (deepLink.courseId && courseId !== deepLink.courseId) {
     return NextResponse.json({ error: "The course did not match this Canvas launch." }, { status: 403 });
   }
+  if (session.courseId && courseId !== session.courseId) {
+    return NextResponse.json({ error: "The course did not match the instructor session." }, { status: 403 });
+  }
 
   await saveCourseAlertConfig(
     courseId,
