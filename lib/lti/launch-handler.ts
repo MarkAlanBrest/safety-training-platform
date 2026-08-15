@@ -27,6 +27,7 @@ function attachSessionCookie(
     email: string | null;
     courseId: string | null;
     courseName: string | null;
+    isInstructor: boolean;
   },
 ) {
   const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
@@ -38,6 +39,7 @@ function attachSessionCookie(
       email: identity.email,
       courseId: identity.courseId,
       courseName: identity.courseName,
+      isInstructor: identity.isInstructor,
       source: "lti",
     }),
     {
@@ -56,6 +58,7 @@ function finishLaunch(
     email: string | null;
     courseId: string | null;
     courseName: string | null;
+    isInstructor: boolean;
   },
   path: string,
 ) {
@@ -70,6 +73,7 @@ function finishLaunch(
     email: identity.email,
     courseId: identity.courseId,
     courseName: identity.courseName,
+    isInstructor: identity.isInstructor,
   });
   url.searchParams.set("handoff", handoff);
 
@@ -112,6 +116,14 @@ export async function handleLtiLaunchPost(
   const { appOrigin } = getLtiConfig();
   const deepLinking = readDeepLinkingSettings(identity.payload);
   const isInstructor = isInstructorLtiLaunch(identity.payload);
+  const launchIdentity = {
+    userId: identity.userId,
+    name: identity.name,
+    email: identity.email,
+    courseId: identity.courseId,
+    courseName: identity.courseName,
+    isInstructor,
+  };
 
   const customClaim = identity.payload["https://purl.imsglobal.org/spec/lti/claim/custom"];
   if (identity.courseId && customClaim && typeof customClaim === "object") {
@@ -143,7 +155,7 @@ export async function handleLtiLaunchPost(
 
   if (deepLinking) {
     const setupPath = `/canvas/alerts/setup?mode=import${identity.courseId ? `&course=${encodeURIComponent(identity.courseId)}` : ""}`;
-    const response = finishLaunch(appOrigin, identity, setupPath);
+    const response = finishLaunch(appOrigin, launchIdentity, setupPath);
     response.cookies.set(
       LTI_DEEP_LINK_COOKIE,
       encodeDeepLinkSession({
@@ -164,18 +176,18 @@ export async function handleLtiLaunchPost(
         partitioned: true,
       },
     );
-    return attachSessionCookie(response, identity);
+    return response;
   }
 
   if (isInstructor && identity.courseId) {
     return finishLaunch(
       appOrigin,
-      identity,
+      launchIdentity,
       `/canvas/alerts/setup?course=${encodeURIComponent(identity.courseId)}`,
     );
   }
 
-  return finishLaunch(appOrigin, identity, "/canvas/alerts");
+  return finishLaunch(appOrigin, launchIdentity, "/canvas/alerts");
 }
 
 function launchErrorResponse(message: string) {
