@@ -894,13 +894,21 @@ export function createCanvasAdminClient() {
 
     async findStudentAlertsDeveloperKey() {
       const keys = await this.listStudentAlertsDeveloperKeys();
-      const matches = keys.filter(isStudentAlertsDeveloperKey).sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
-      return (
-        matches.find((key) => key.is_lti_key !== false && (key.workflow_state === "on" || key.workflow_state === "active")) ||
-        matches.find((key) => key.is_lti_key !== false) ||
-        matches[0] ||
-        null
-      );
+      const matches = keys
+        .filter(isStudentAlertsDeveloperKey)
+        .sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+      for (const key of matches) {
+        if (!key.id) continue;
+        try {
+          const registration = await canvasJson<{ id?: number; workflow_state?: string }>(
+            `/accounts/self/lti_registration_by_client_id/${key.id}`,
+          );
+          if (registration?.id) return key;
+        } catch {
+          // Listed developer keys can remain after the LTI registration/app is deleted.
+        }
+      }
+      return null;
     },
 
     async inspectStudentAlertsLtiKey(clientId?: string) {
@@ -921,9 +929,15 @@ export function createCanvasAdminClient() {
       let toolConfiguration: unknown = null;
       if (id) {
         try {
-          key = await canvasJson(`/developer_keys/${id}`);
+          key = await canvasJson(`/accounts/self/developer_keys/${id}`);
         } catch (error) {
-          key = { error: error instanceof Error ? error.message : "Could not read developer key." };
+          try {
+            key = await canvasJson(`/developer_keys/${id}`);
+          } catch (innerError) {
+            key = {
+              error: innerError instanceof Error ? innerError.message : "Could not read developer key.",
+            };
+          }
         }
         try {
           registration = await canvasJson(`/accounts/self/lti_registration_by_client_id/${id}`);
@@ -938,6 +952,16 @@ export function createCanvasAdminClient() {
           };
         }
       }
+      let registrations: unknown = null;
+      try {
+        registrations = await canvasJson(`/accounts/self/lti_registrations`, {
+          query: { per_page: "20" },
+        });
+      } catch (error) {
+        registrations = {
+          error: error instanceof Error ? error.message : "Could not list LTI registrations.",
+        };
+      }
       return {
         clientId: id || null,
         keys: summarizedKeys,
@@ -945,6 +969,7 @@ export function createCanvasAdminClient() {
         key,
         registration,
         toolConfiguration,
+        registrations,
       };
     },
 
