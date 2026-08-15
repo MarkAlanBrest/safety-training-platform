@@ -53,17 +53,6 @@ export function CourseAlertsSetupForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [cleaning, setCleaning] = useState(false);
-  const [enablingAll, setEnablingAll] = useState(false);
-  const [toolInstallNote, setToolInstallNote] = useState("");
-  const [toolStatus, setToolStatus] = useState<{
-    clientId: string | null;
-    targetLinkUri: string | null;
-    jsonUrl: string | null;
-    inModulePicker: boolean;
-    modulePickerTools: string[];
-    courseHasTool: boolean;
-    accountHasTool: boolean;
-  } | null>(null);
 
   useEffect(() => {
     if (!courseId) return;
@@ -72,43 +61,6 @@ export function CourseAlertsSetupForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ courseId }),
-      });
-
-      void fetch(`/api/course-alerts/tool-status?courseId=${encodeURIComponent(courseId)}`).then(
-        async (statusResponse) => {
-          if (statusResponse.ok) setToolStatus(await statusResponse.json());
-        },
-      );
-
-      void fetch("/api/course-alerts/install-tool-all-courses", {
-        method: "POST",
-      }).then(async (installResponse) => {
-        const data = (await installResponse.json()) as {
-          ok?: boolean;
-          installed?: number;
-          courses?: number;
-          note?: string;
-          reason?: string;
-          accountErrors?: string[];
-        };
-        if (!installResponse.ok) {
-          setToolInstallNote(
-            data.reason ||
-              "Could not add Student Alerts to other courses. Use a Canvas admin API token, then open this page again.",
-          );
-        } else if (data.note) {
-          setToolInstallNote(
-            data.accountErrors?.length
-              ? `${data.note} ${data.accountErrors[0]}`
-              : data.note,
-          );
-        }
-        const statusResponse = await fetch(
-          `/api/course-alerts/tool-status?courseId=${encodeURIComponent(courseId)}`,
-        );
-        if (statusResponse.ok) {
-          setToolStatus(await statusResponse.json());
-        }
       });
 
       const response = await fetch(`/api/course-alerts/config?courseId=${encodeURIComponent(courseId)}`);
@@ -135,31 +87,6 @@ export function CourseAlertsSetupForm() {
       if (config.courseName) setCourseName(config.courseName);
     })();
   }, [courseId]);
-
-  async function handleEnableAllCourses() {
-    setEnablingAll(true);
-    setError("");
-    setSuccess("");
-    try {
-      const response = await fetch("/api/course-alerts/enable-all-courses", {
-        method: "POST",
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.reason || data.error || "Could not enable Student Alerts in all courses.");
-      }
-      const failedCount = Array.isArray(data.failed) ? data.failed.length : 0;
-      setSuccess(
-        data.note ||
-          `Student Alerts is on in ${data.enabled ?? data.installed ?? 0} class${(data.enabled ?? data.installed ?? 0) === 1 ? "" : "es"}. Each class keeps its own settings.` +
-            (failedCount ? ` ${failedCount} class${failedCount === 1 ? "" : "es"} could not be updated.` : ""),
-      );
-    } catch (enableError) {
-      setError(enableError instanceof Error ? enableError.message : "Could not enable all courses.");
-    } finally {
-      setEnablingAll(false);
-    }
-  }
 
   async function handleRemoveEmbed() {
     setCleaning(true);
@@ -248,18 +175,9 @@ export function CourseAlertsSetupForm() {
     <div className="course-alerts-shell course-alerts-setup">
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        Opening this page turns Student Alerts on for every class Home page. These messages and
-        thresholds apply only to this class. Open setup from another class to change that class.
+        These messages and thresholds apply only to this class. Open setup from another class to
+        change that class.
       </p>
-
-      <div className="course-alerts-setup-help">
-        <p>
-          {toolInstallNote ||
-            (toolStatus
-              ? `Client ID ${toolStatus.clientId || "149450000000000305"}. Students see alerts on Home — you do not need to add an External Tool in Modules.`
-              : "Turning Student Alerts on in every class…")}
-        </p>
-      </div>
 
       <form className="course-alerts-setup-form" onSubmit={handleSubmit}>
         <label>
@@ -424,18 +342,9 @@ export function CourseAlertsSetupForm() {
 
         {error ? <p className="course-alerts-error">{error}</p> : null}
         {success ? <p className="course-alerts-success">{success}</p> : null}
-        {toolInstallNote ? <p className="course-alerts-success">{toolInstallNote}</p> : null}
 
         <button type="submit" disabled={loading}>
           {loading ? "Saving this course..." : "Save this course"}
-        </button>
-
-        <button
-          type="button"
-          disabled={enablingAll}
-          onClick={() => void handleEnableAllCourses()}
-        >
-          {enablingAll ? "Turning on every class..." : "Turn on in every class"}
         </button>
 
         <button
