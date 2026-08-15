@@ -63,7 +63,7 @@ export async function setupCourseHomeStudentAlerts(canvasCourseId: string) {
   return {
     ok: true as const,
     mode: "front_page_embed" as const,
-    note: "Settings saved. Students will see Alerts at the top of Home automatically.",
+    note: "Settings saved for this course only. Students in this class will see Alerts at the top of Home.",
   };
 }
 
@@ -172,7 +172,7 @@ export async function installStudentAlertsToolSchoolWide() {
     failed,
     note:
       installed > 0
-        ? `Student Alerts is available under Modules → Add → External Tool in ${installed} course${installed === 1 ? "" : "s"}.`
+        ? `The Student Alerts tool is available in ${installed} course${installed === 1 ? "" : "s"}. Settings are not copied — each class still needs its own setup.`
         : accountErrors[0] ||
           (accounts > 0
             ? "The account app was installed, but Canvas did not add it to individual courses yet."
@@ -217,60 +217,3 @@ export async function diagnoseStudentAlertsTool(canvasCourseId: string) {
   };
 }
 
-export async function enableStudentAlertsSchoolWide() {
-  const client = createCanvasAdminClient();
-  const clientId = getConfiguredLtiClientId();
-  if (!clientId) {
-    return {
-      ok: false as const,
-      reason: "CANVAS_LTI_CLIENT_ID is not set in Vercel.",
-      enabled: 0,
-      installed: 0,
-      failed: [] as Array<{ id: number; name?: string; reason: string }>,
-    };
-  }
-
-  const toolInstall = await installStudentAlertsToolSchoolWide();
-  if (!toolInstall.ok) {
-    return {
-      ok: false as const,
-      reason: toolInstall.reason,
-      enabled: 0,
-      installed: 0,
-      failed: toolInstall.failed,
-    };
-  }
-
-  const courses = await client.listPublishedCourses();
-  const failed: Array<{ id: number; name?: string; reason: string }> = [...toolInstall.failed];
-  let enabled = 0;
-
-  for (const course of courses) {
-    try {
-      const result = await setupCourseHomeStudentAlerts(String(course.id));
-      if (result.ok) {
-        enabled += 1;
-      } else {
-        failed.push({ id: course.id, name: course.name, reason: result.reason });
-      }
-    } catch (error) {
-      failed.push({
-        id: course.id,
-        name: course.name,
-        reason: error instanceof Error ? error.message : "Could not enable this course.",
-      });
-    }
-  }
-
-  return {
-    ok: true as const,
-    enabled,
-    installed: toolInstall.installed,
-    total: courses.length,
-    failed,
-    note:
-      toolInstall.installed > 0
-        ? `Student Alerts is in the External Tool list for ${toolInstall.installed} course${toolInstall.installed === 1 ? "" : "s"}. Home alerts are on in ${enabled} course${enabled === 1 ? "" : "s"}.`
-        : "The account app was installed, but no courses could be updated.",
-  };
-}

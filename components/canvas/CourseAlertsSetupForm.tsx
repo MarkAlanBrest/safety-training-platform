@@ -151,7 +151,7 @@ export function CourseAlertsSetupForm() {
       const failedCount = Array.isArray(data.failed) ? data.failed.length : 0;
       setSuccess(
         data.note ||
-          `Student Alerts is in the External Tool list for ${data.installed ?? data.enabled} course${(data.installed ?? data.enabled) === 1 ? "" : "s"}.` +
+          `The tool is available in ${data.installed ?? 0} course${(data.installed ?? 0) === 1 ? "" : "s"}. This does not copy settings. Open Student Alerts in each class to configure that class.` +
             (failedCount ? ` ${failedCount} course${failedCount === 1 ? "" : "s"} could not be updated.` : ""),
       );
     } catch (enableError) {
@@ -222,8 +222,8 @@ export function CourseAlertsSetupForm() {
       setSuccess(
         data.homeEmbed?.ok
           ? data.homeEmbed.note ||
-              "Settings saved. Students will see reminders automatically when they open Home."
-          : "Settings saved, but the home page embed could not be updated. See the error below.",
+              "Settings saved for this course only. Students in this class will see reminders on Home."
+          : "Settings saved for this course, but the home page embed could not be updated. See the error below.",
       );
       if (data.homeEmbed?.reason) {
         setError(data.homeEmbed.reason);
@@ -248,8 +248,8 @@ export function CourseAlertsSetupForm() {
     <div className="course-alerts-shell course-alerts-setup">
       <h1>Course alert settings</h1>
       <p className="course-alerts-setup-lead">
-        Canvas only lists Student Alerts in a class after the app is installed there. Selecting a
-        message type on the developer key is not enough.
+        These settings apply only to this class. Open Student Alerts from another course to set that
+        class up separately. Making the tool visible in Canvas does not copy messages or thresholds.
       </p>
 
       <div className="course-alerts-setup-help">
@@ -264,7 +264,7 @@ export function CourseAlertsSetupForm() {
           </li>
         </ul>
         <p>
-          <strong>2. Install the app for the whole school</strong> (not just one course):
+          <strong>2. Make the tool available in other classes</strong> (this does not copy settings):
           Admin → Settings → Apps → + App → By Client ID
           {toolStatus?.clientId ? (
             <>
@@ -274,7 +274,7 @@ export function CourseAlertsSetupForm() {
           ) : (
             " → paste the Student Alerts client ID from the developer key"
           )}
-          .
+          . Then open Student Alerts in each class and save that class’s own settings.
         </p>
         <p>
           {toolStatus
@@ -455,7 +455,7 @@ export function CourseAlertsSetupForm() {
         {toolInstallNote ? <p className="course-alerts-success">{toolInstallNote}</p> : null}
 
         <button type="submit" disabled={loading}>
-          {loading ? "Saving..." : "Save settings"}
+          {loading ? "Saving this course..." : "Save this course"}
         </button>
 
         <button
@@ -463,7 +463,7 @@ export function CourseAlertsSetupForm() {
           disabled={enablingAll}
           onClick={() => void handleEnableAllCourses()}
         >
-          {enablingAll ? "Adding to all courses..." : "Add Student Alerts to all courses"}
+          {enablingAll ? "Making the tool available..." : "Make tool available in other classes"}
         </button>
 
         <button
