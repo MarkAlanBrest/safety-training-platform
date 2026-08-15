@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { CourseAlertsViewer } from "@/components/canvas/CourseAlertsViewer";
 import { CANVAS_SESSION_COOKIE, decodeCanvasStudentSession } from "@/lib/canvas/session";
+import { getCourseAlertConfig } from "@/lib/course-alerts/store";
 import { parseLaunchHandoff } from "@/lib/lti/launch-handoff";
 import "../course-alerts.css";
 
@@ -33,14 +34,16 @@ export default async function CourseAlertsPage({ searchParams }: Props) {
   const courseName = handoff?.courseName || cookieSession?.courseName || null;
   const studentName = handoff?.name || cookieSession?.name || null;
   const hasIdentity = Boolean(cookieSession || handoff);
+  const initialConfig = courseId ? await getCourseAlertConfig(courseId) : null;
 
   return (
     <main className="course-alerts-page">
       {courseId ? (
         <CourseAlertsViewer
           courseId={courseId}
-          initialCourseName={courseName}
+          initialCourseName={courseName || initialConfig?.courseName || null}
           initialStudentName={studentName}
+          initialBannerMessage={initialConfig?.bannerMessage || null}
           handoffToken={params.handoff || null}
         />
       ) : (

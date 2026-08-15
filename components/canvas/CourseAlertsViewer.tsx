@@ -22,6 +22,7 @@ type Props = {
   courseId: string;
   initialCourseName?: string | null;
   initialStudentName?: string | null;
+  initialBannerMessage?: string | null;
   handoffToken?: string | null;
 };
 
@@ -29,12 +30,13 @@ export function CourseAlertsViewer({
   courseId,
   initialCourseName = null,
   initialStudentName = null,
+  initialBannerMessage = null,
   handoffToken = null,
 }: Props) {
   const [connected, setConnected] = useState<boolean | null>(handoffToken ? true : null);
   const [studentName, setStudentName] = useState(initialStudentName || "");
   const [courseName, setCourseName] = useState<string | null>(initialCourseName);
-  const [bannerMessage, setBannerMessage] = useState<string | null>(null);
+  const [bannerMessage, setBannerMessage] = useState<string | null>(initialBannerMessage);
   const [teacherMessages, setTeacherMessages] = useState<TeacherMessage[]>([]);
   const [autoAlerts, setAutoAlerts] = useState<AutoAlert[]>([]);
   const [loading, setLoading] = useState(false);
@@ -92,12 +94,32 @@ export function CourseAlertsViewer({
   }, [connected, loadAlerts]);
 
   if (connected === null) {
-    return <div className="course-alerts-loading">Loading alerts...</div>;
+    return (
+      <div className="course-alerts-shell">
+        {bannerMessage ? (
+          <div className="course-alerts-active">
+            <div className="course-alerts-banner course-alerts-banner-info" role="note">
+              <strong>Reminder</strong>
+              <p>{bannerMessage}</p>
+            </div>
+          </div>
+        ) : null}
+        <div className="course-alerts-loading">Loading alerts...</div>
+      </div>
+    );
   }
 
   if (!connected) {
     return (
       <div className="course-alerts-shell">
+        {bannerMessage ? (
+          <div className="course-alerts-active">
+            <div className="course-alerts-banner course-alerts-banner-info" role="note">
+              <strong>Reminder</strong>
+              <p>{bannerMessage}</p>
+            </div>
+          </div>
+        ) : null}
         <div className="course-alerts-cta">
           <ShieldAlert size={36} />
           <h1>Open this from Canvas</h1>

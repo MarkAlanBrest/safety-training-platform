@@ -73,7 +73,7 @@ export function CourseAlertsSetupForm() {
 
       if (data.homeEmbed?.ok) {
         setSuccess(
-          "Settings saved. Student Alerts will open automatically on the course home page.",
+          "Settings saved. Student Alerts will open automatically on the course home page. If students still see a blank home page, click Save again after confirming the tool is in Modules.",
         );
         setShowManualSteps(false);
       } else if (data.homeEmbed?.reason) {
