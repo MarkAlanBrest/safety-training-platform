@@ -911,14 +911,29 @@ export function createCanvasAdminClient() {
           method: "PUT",
           body: JSON.stringify({ lock_deploying: false, workflow_state: "on" }),
         }).catch(() => null);
-        await canvasJson(`/accounts/self/apps/${registrationId}`, {
-          method: "PUT",
-          body: JSON.stringify({ lock_deploying: false, workflow_state: "on" }),
-        }).catch(() => null);
         await canvasJson(`/accounts/self/lti_registrations/${registrationId}/bind`, {
           method: "POST",
           body: JSON.stringify({ workflow_state: "on" }),
         }).catch(() => null);
+
+        const existingDeployments = await canvasJson<Array<{ id?: number }>>(
+          `/accounts/self/lti_registrations/${registrationId}/deployments`,
+        ).catch(() => [] as Array<{ id?: number }>);
+        if (existingDeployments.length > 0) {
+          return {
+            id: Number(existingDeployments[0]?.id) || 0,
+            name: "Student Alerts",
+            client_id: clientId,
+          };
+        }
+
+        const created = await canvasJson<{ id?: number }>(
+          `/accounts/self/lti_registrations/${registrationId}/deployments`,
+          { method: "POST", body: JSON.stringify({ available: true }) },
+        );
+        if (created?.id) {
+          return { id: created.id, name: "Student Alerts", client_id: clientId };
+        }
       }
 
       return this.installAccountExternalToolByClientId(clientId);
