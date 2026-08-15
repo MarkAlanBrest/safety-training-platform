@@ -886,6 +886,44 @@ export function createCanvasAdminClient() {
       return configured || "149450000000000305";
     },
 
+    async listLtiRegistrations() {
+      const listed = await canvasJson<{ data?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>>(
+        "/accounts/self/lti_registrations",
+        { query: { per_page: "100" } },
+      );
+      if (Array.isArray(listed)) return listed;
+      if (listed && Array.isArray(listed.data)) return listed.data;
+      return [];
+    },
+
+    async findStudentAlertsRegistration() {
+      const rows = await this.listLtiRegistrations();
+      return (
+        rows.find((row) => String(row.name || "").toLowerCase().includes("student alert")) || null
+      );
+    },
+
+    async unlockAndInstallStudentAlertsApp(clientId: string) {
+      const registration = await this.findStudentAlertsRegistration().catch(() => null);
+      const registrationId = registration?.id != null ? String(registration.id) : "";
+      if (registrationId) {
+        await canvasJson(`/accounts/self/lti_registrations/${registrationId}`, {
+          method: "PUT",
+          body: JSON.stringify({ lock_deploying: false, workflow_state: "on" }),
+        }).catch(() => null);
+        await canvasJson(`/accounts/self/apps/${registrationId}`, {
+          method: "PUT",
+          body: JSON.stringify({ lock_deploying: false, workflow_state: "on" }),
+        }).catch(() => null);
+        await canvasJson(`/accounts/self/lti_registrations/${registrationId}/bind`, {
+          method: "POST",
+          body: JSON.stringify({ workflow_state: "on" }),
+        }).catch(() => null);
+      }
+
+      return this.installAccountExternalToolByClientId(clientId);
+    },
+
     async listStudentAlertsDeveloperKeys() {
       return canvasGetAll<CanvasDeveloperKey>("/accounts/self/developer_keys", {
         per_page: "100",
@@ -1011,6 +1049,7 @@ export function createCanvasAdminClient() {
           body: JSON.stringify({
             name: "Student Alerts",
             workflow_state: "on",
+            lock_deploying: false,
             configuration: {
               title: "Student Alerts",
               description: settings.description || "Bold course alerts from your teacher",

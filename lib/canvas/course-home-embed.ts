@@ -130,8 +130,13 @@ export async function installStudentAlertsToolSchoolWide() {
 
 export async function ensureStudentAlertsLtiApp() {
   const client = createCanvasAdminClient();
-  const existing = await client.findStudentAlertsDeveloperKey().catch(() => null);
-  let clientId = existing?.id ? String(existing.id) : "";
+  const existingRegistration = await client.findStudentAlertsRegistration().catch(() => null);
+  const existingKeyId = existingRegistration?.developer_key_id ?? existingRegistration?.developer_keyId;
+  let clientId = existingKeyId != null ? String(existingKeyId) : "";
+  if (!clientId) {
+    const existing = await client.findStudentAlertsDeveloperKey().catch(() => null);
+    clientId = existing?.id ? String(existing.id) : "";
+  }
   let created = false;
   const accountErrors: string[] = [];
 
@@ -173,7 +178,7 @@ export async function ensureStudentAlertsLtiApp() {
 
   let accounts = 0;
   try {
-    const accountTool = await client.ensureAccountExternalTool(toolOptions);
+    const accountTool = await client.unlockAndInstallStudentAlertsApp(clientId);
     if (accountTool) accounts = 1;
     else accountErrors.push("Canvas did not install Student Alerts on the account.");
   } catch (error) {
@@ -186,10 +191,7 @@ export async function ensureStudentAlertsLtiApp() {
         created = true;
         await persistLtiClientId(clientId).catch(() => null);
         await client.ensureDeveloperKeyEnabled(clientId).catch(() => null);
-        const retried = await client.ensureAccountExternalTool({
-          ...toolOptions,
-          clientId,
-        });
+        const retried = await client.unlockAndInstallStudentAlertsApp(clientId);
         if (retried) {
           accounts = 1;
         }
