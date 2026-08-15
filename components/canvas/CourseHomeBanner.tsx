@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 
 type TeacherMessage = {
   id: number;
@@ -22,6 +22,19 @@ type Props = {
   initialBannerMessage?: string | null;
   handoffToken?: string | null;
 };
+
+function resizeEmbedFrame(heightPx: number) {
+  try {
+    if (window.frameElement instanceof HTMLIFrameElement) {
+      window.frameElement.style.height = `${heightPx}px`;
+      window.frameElement.style.background = "#fff";
+      window.frameElement.style.border = "0";
+      window.frameElement.style.boxShadow = "none";
+    }
+  } catch {
+    // Cross-origin parent — ignore.
+  }
+}
 
 export function CourseHomeBanner({
   courseId,
@@ -53,11 +66,12 @@ export function CourseHomeBanner({
     setTeacherMessages([]);
     setAutoAlerts([]);
     setReady(true);
-  }, [courseId, handoffToken, initialBannerMessage]);
+  }, [courseId, handoffToken]);
 
   useEffect(() => {
     document.documentElement.classList.add("course-alerts-embed-root");
     document.body.classList.add("course-alerts-embed-root");
+    resizeEmbedFrame(1);
     return () => {
       document.documentElement.classList.remove("course-alerts-embed-root");
       document.body.classList.remove("course-alerts-embed-root");
@@ -84,27 +98,25 @@ export function CourseHomeBanner({
     lines.push(HOME_EMBED_TEST_MESSAGE);
   }
 
-  useEffect(() => {
-    try {
-      if (window.frameElement instanceof HTMLIFrameElement) {
-        window.frameElement.style.height = ready && lines.length ? "160px" : "1px";
-        window.frameElement.style.background = "#fff";
-      }
-    } catch {
-      // Cross-origin parent — ignore.
-    }
-  }, [ready, lines.length]);
+  const showBanner = ready && lines.length > 0;
 
-  if (!ready) {
-    return <div className="course-home-banner-empty" aria-hidden="true" />;
-  }
+  useLayoutEffect(() => {
+    resizeEmbedFrame(showBanner ? 120 : 1);
+  }, [showBanner, lines.length]);
 
   return (
-    <div className="course-home-banner" role="alert">
-      <strong>Reminder</strong>
-      {lines.map((line, index) => (
-        <p key={`${index}-${line}`}>{line}</p>
-      ))}
+    <div className="course-home-embed-shell">
+      <div className="course-home-banner-top-pixel" aria-hidden="true" />
+      {showBanner ? (
+        <div className="course-home-banner" role="alert">
+          <strong>Reminder</strong>
+          {lines.map((line, index) => (
+            <p key={`${index}-${line}`}>{line}</p>
+          ))}
+        </div>
+      ) : (
+        <div className="course-home-banner-empty" aria-hidden="true" />
+      )}
     </div>
   );
 }

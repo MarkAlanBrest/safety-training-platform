@@ -19,23 +19,44 @@ html.course-alerts-embed-root .course-alerts-page {
   margin: 0;
 }
 
-.course-home-banner-empty {
+.course-home-embed-shell {
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  line-height: 0;
+  font-size: 0;
+}
+
+.course-home-banner-top-pixel {
   height: 1px;
   min-height: 1px;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  border: 0;
+  display: block;
+}
+
+.course-home-banner-empty {
+  height: 0;
+  min-height: 0;
   overflow: hidden;
   margin: 0;
   padding: 0;
   background: #fff;
+  border: 0;
 }
 
 .course-home-banner {
   margin: 0;
   padding: 16px 18px;
-  border-radius: 12px;
+  border-radius: 0 0 12px 12px;
   background: linear-gradient(90deg, #ed1c24, #ff5a1f);
   color: #fff;
-  box-shadow: 0 8px 24px rgba(237, 28, 36, 0.28);
+  box-shadow: none;
   font-family: system-ui, sans-serif;
+  line-height: 1.45;
+  font-size: 1rem;
 }
 
 .course-home-banner strong {
