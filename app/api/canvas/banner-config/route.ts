@@ -1,7 +1,7 @@
 export const runtime = "nodejs";
 
 function parseShowOn() {
-  const raw = (process.env.CANVAS_BANNER_SHOW_ON || "all").trim().toLowerCase();
+  const raw = (process.env.CANVAS_BANNER_SHOW_ON || "course_home").trim().toLowerCase();
   if (raw === "all" || raw === "everywhere") return "all";
   if (raw === "course_home" || raw === "course") return "course_home";
   return "dashboard";

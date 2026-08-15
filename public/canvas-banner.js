@@ -1,12 +1,13 @@
 (function () {
   if (!window.ENV?.current_user_id) return;
-  if (document.getElementById("ncst-student-alerts-banner")) return;
+  if (document.getElementById("ncst-student-alerts-popup")) return;
 
   var script = document.currentScript;
   var appOrigin = script && script.src
     ? script.src.replace(/\/canvas-banner\.js(?:\?.*)?$/, "")
     : "";
   var configUrl = appOrigin ? appOrigin + "/api/canvas/banner-config" : "/api/canvas/banner-config";
+  var storagePrefix = "ncst-student-alerts-dismissed:";
 
   function isDashboardPage() {
     var path = window.location.pathname || "/";
@@ -18,13 +19,29 @@
     return match ? match[1] : null;
   }
 
-  function shouldShowBanner(config) {
+  function shouldShowPopup(config) {
     if (!config.enabled) return false;
-    var showOn = config.showOn || "all";
+    var showOn = config.showOn || "course_home";
     if (showOn === "all") return isDashboardPage() || Boolean(getCourseHomeId());
     if (showOn === "course_home") return Boolean(getCourseHomeId());
     if (showOn === "dashboard") return isDashboardPage();
     return false;
+  }
+
+  function wasDismissed(courseId) {
+    try {
+      return window.sessionStorage.getItem(storagePrefix + courseId) === "1";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function markDismissed(courseId) {
+    try {
+      window.sessionStorage.setItem(storagePrefix + courseId, "1");
+    } catch (error) {
+      // Ignore storage failures.
+    }
   }
 
   function loadAll(path) {
@@ -62,37 +79,71 @@
     return due >= cutoff;
   }
 
-  function renderBanner(parts, link, teacherMessage) {
-    var banner = document.createElement("div");
-    banner.id = "ncst-student-alerts-banner";
-    banner.setAttribute("role", "alert");
-    banner.style.cssText =
-      "position:fixed;top:0;left:0;right:0;z-index:999999;" +
-      "background:linear-gradient(90deg,#ed1c24,#ff5a1f);color:#fff;" +
-      "padding:18px 24px;font-size:20px;font-weight:800;text-align:center;" +
-      "box-shadow:0 6px 24px rgba(0,0,0,.35);font-family:system-ui,sans-serif;" +
-      "animation:ncst-banner-pulse 1.4s ease-in-out infinite;";
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
 
-    var style = document.createElement("style");
-    style.textContent =
-      "@keyframes ncst-banner-pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.08)}}" +
-      "#ncst-student-alerts-banner a{color:#fff;text-decoration:underline;font-weight:900}";
-    document.head.appendChild(style);
+  function renderPopup(options) {
+    var overlay = document.createElement("div");
+    overlay.id = "ncst-student-alerts-popup";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.style.cssText =
+      "position:fixed;inset:0;z-index:999999;background:rgba(3,8,18,.72);" +
+      "display:flex;align-items:center;justify-content:center;padding:24px;" +
+      "font-family:system-ui,sans-serif;";
 
-    var html = "";
-    if (teacherMessage) {
-      html += '<div style="margin-bottom:6px">' + teacherMessage + "</div>";
+    var modal = document.createElement("div");
+    modal.style.cssText =
+      "width:min(560px,100%);border-radius:22px;padding:28px;color:#fff;" +
+      "background:linear-gradient(180deg,#111f35 0%,#0a1424 100%);" +
+      "border:1px solid rgba(255,255,255,.12);box-shadow:0 28px 80px rgba(0,0,0,.45);";
+
+    var html = '<h2 style="margin:0 0 12px;font-size:2rem;color:#f6d27b;">Reminder</h2>';
+
+    if (options.teacherMessage) {
+      html +=
+        '<p style="margin:0 0 14px;font-size:1.15rem;font-weight:800;line-height:1.5;">' +
+        escapeHtml(options.teacherMessage) +
+        "</p>";
     }
-    if (parts.length) {
-      html += parts.join(" &nbsp;|&nbsp; ");
-      if (link) {
-        html += ' &nbsp;—&nbsp; <a href="' + link + '">VIEW NOW</a>';
-      }
+
+    if (options.parts.length) {
+      html +=
+        '<div style="margin:0 0 14px;padding:16px 18px;border-radius:12px;background:linear-gradient(90deg,#ed1c24,#ff5a1f);font-size:1.05rem;font-weight:800;line-height:1.5;">' +
+        escapeHtml(options.parts.join(" · ")) +
+        "</div>";
     }
 
-    banner.innerHTML = html;
-    document.body.prepend(banner);
-    document.body.style.marginTop = teacherMessage && parts.length ? "88px" : "64px";
+    if (options.link) {
+      html +=
+        '<p style="margin:0 0 18px;"><a href="' +
+        options.link +
+        '" style="color:#f6d27b;font-weight:800;">View grades</a></p>';
+    }
+
+    html +=
+      '<button type="button" id="ncst-student-alerts-dismiss" style="border:0;border-radius:14px;padding:14px 22px;background:linear-gradient(135deg,#ed1c24,#ff5a1f);color:#fff;font-weight:800;cursor:pointer;">Got it</button>';
+
+    modal.innerHTML = html;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    function dismiss() {
+      if (options.courseId) markDismissed(options.courseId);
+      overlay.remove();
+    }
+
+    overlay.addEventListener("click", function (event) {
+      if (event.target === overlay) dismiss();
+    });
+
+    var button = document.getElementById("ncst-student-alerts-dismiss");
+    if (button) button.addEventListener("click", dismiss);
   }
 
   fetch(configUrl)
@@ -102,16 +153,18 @@
     .then(function (config) {
       config = config || {
         enabled: true,
-        showOn: "all",
+        showOn: "course_home",
         lowGradeThreshold: 70,
         showMissing: true,
         showLowGrades: true,
         missingWorkDays: 14,
       };
 
-      if (!shouldShowBanner(config)) return;
+      if (!shouldShowPopup(config)) return;
 
       var courseId = getCourseHomeId();
+      if (courseId && wasDismissed(courseId)) return;
+
       var courseConfigPromise = courseId && appOrigin
         ? fetch(appOrigin + "/api/course-alerts/public-config?courseId=" + encodeURIComponent(courseId))
             .then(function (response) {
@@ -174,11 +227,11 @@
           var parts = [];
           if (missing.length) {
             parts.push(
-              "⚠️ " + missing.length + " MISSING ASSIGNMENT" + (missing.length === 1 ? "" : "S"),
+              missing.length + " missing assignment" + (missing.length === 1 ? "" : "s"),
             );
           }
           if (lowGrades.length) {
-            parts.push("📉 " + lowGrades.length + " LOW GRADE" + (lowGrades.length === 1 ? "" : "S"));
+            parts.push(lowGrades.length + " low grade" + (lowGrades.length === 1 ? "" : "s"));
           }
 
           if (!teacherMessage && !parts.length) return;
@@ -190,7 +243,12 @@
             "";
           var link = linkCourseId ? "/courses/" + linkCourseId + "/grades" : "";
 
-          renderBanner(parts, link, teacherMessage);
+          renderPopup({
+            teacherMessage: teacherMessage,
+            parts: parts,
+            link: link,
+            courseId: courseId || "",
+          });
         });
       });
     });

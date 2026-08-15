@@ -1,38 +1,15 @@
-import { createCanvasAdminClient } from "@/lib/canvas/admin-client";
-import {
-  buildCourseAnnouncementBody,
-  COURSE_ALERT_ANNOUNCEMENT_TITLE,
-} from "@/lib/canvas/course-home-page-html";
+import { getAppOrigin } from "@/lib/canvas/config";
 
 export async function setupCourseHomeStudentAlerts(
-  canvasCourseId: string,
-  options?: { bannerMessage?: string | null },
+  _canvasCourseId: string,
+  _options?: { bannerMessage?: string | null },
 ) {
-  const client = createCanvasAdminClient();
-  const access = await client.getCourseAccess(canvasCourseId);
-  if (!access.ok) {
-    return {
-      ok: false as const,
-      reason: access.reason,
-      courseAccess: false,
-    };
-  }
-
-  const message = buildCourseAnnouncementBody(options?.bannerMessage);
-  const announcement = await client.upsertCourseAnnouncement(canvasCourseId, {
-    title: COURSE_ALERT_ANNOUNCEMENT_TITLE,
-    message,
-  });
-
+  const appOrigin = getAppOrigin();
   return {
     ok: true as const,
-    mode: "announcement" as const,
-    courseAccess: true,
-    announcementId: announcement.id,
-    defaultView: access.defaultView,
+    mode: "theme_popup" as const,
+    themeSnippetUrl: appOrigin ? `${appOrigin}/canvas/theme-snippet.txt` : null,
     note:
-      access.defaultView === "wiki"
-        ? "Your course Home uses a Front Page. The announcement was posted, but students may need to open Announcements to see it. Open Student Alerts from Modules for the popup reminder."
-        : "A bold announcement was posted to the course Home feed. Your existing home page was not changed.",
+      "Settings saved. Your popup message is ready. Paste the one-time Canvas theme script (link below) so students see a bold popup on the course home page.",
   };
 }

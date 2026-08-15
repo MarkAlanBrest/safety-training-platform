@@ -9,8 +9,8 @@ export async function GET() {
   const filePath = path.join(process.cwd(), "public", "canvas-banner.js");
   const script = await readFile(filePath, "utf8");
   const snippet =
-    "<!-- Paste into Canvas: Admin → Themes → Login / Global → Custom JavaScript -->\n" +
-    "<!-- Auto-shows alerts on Canvas dashboard AND course home (no student click) -->\n" +
+    "<!-- One-time setup: Canvas Admin → Themes → Edit → Global/Login → JavaScript -->\n" +
+    "<!-- Bold popup on course home. Does not change your home page content. -->\n" +
     `<script src="${origin}/canvas-banner.js"></script>\n\n` +
     "<!-- Or paste the full script inline if external scripts are blocked -->\n" +
     "<script>\n" +
