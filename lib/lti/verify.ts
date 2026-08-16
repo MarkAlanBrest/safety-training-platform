@@ -154,6 +154,16 @@ const CANVAS_LTI_JWKS_URLS = [
   "https://canvas.instructure.com/api/lti/security/jwks",
 ];
 
+const remoteJwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+
+function getRemoteJwks(url: string) {
+  const cached = remoteJwksCache.get(url);
+  if (cached) return cached;
+  const jwks = createRemoteJWKSet(new URL(url));
+  remoteJwksCache.set(url, jwks);
+  return jwks;
+}
+
 function getCanvasLtiJwksUrls() {
   const urls = [...CANVAS_LTI_JWKS_URLS];
   const baseUrl = getCanvasBaseUrl();
@@ -187,7 +197,7 @@ async function verifyCanvasLtiJwt(
   let lastError: Error | null = null;
 
   for (const jwksUrl of getCanvasLtiJwksUrls()) {
-    const jwks = createRemoteJWKSet(new URL(jwksUrl));
+    const jwks = getRemoteJwks(jwksUrl);
     for (const issuer of issuerCandidates) {
       try {
         return await jwtVerify(idToken, jwks, {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import { getConfiguredLtiClientId, getLtiConfig } from "@/lib/canvas/config";
 import { recordCourseAlertSignup } from "@/lib/course-alerts/db";
 import {
@@ -13,6 +14,27 @@ import { verifyLtiIdToken } from "@/lib/lti/verify";
 import { parseLtiState } from "@/lib/lti/state";
 import { buildLaunchRedirectHtml, createLaunchHandoff } from "@/lib/lti/launch-handoff";
 import { ensureStudentAlertsLtiApp } from "@/lib/canvas/course-home-embed";
+
+let lastPlacementSyncAt = 0;
+const PLACEMENT_SYNC_COOLDOWN_MS = 10 * 60 * 1000;
+
+function scheduleStudentAlertsPlacementSync() {
+  const now = Date.now();
+  if (now - lastPlacementSyncAt < PLACEMENT_SYNC_COOLDOWN_MS) return;
+  lastPlacementSyncAt = now;
+
+  const sync = async () => {
+    await ensureStudentAlertsLtiApp().catch((error) => {
+      console.error("Could not synchronize the Student Alerts Canvas placements:", error);
+    });
+  };
+
+  try {
+    after(sync);
+  } catch {
+    void sync();
+  }
+}
 
 function attachSessionCookie(
   response: NextResponse,
@@ -140,9 +162,7 @@ export async function handleLtiLaunchPost(
   }
 
   if (isInstructor && identity.courseId && !isHomeEmbedLaunch) {
-    await ensureStudentAlertsLtiApp().catch((error) => {
-      console.error("Could not synchronize the Student Alerts Canvas placements:", error);
-    });
+    scheduleStudentAlertsPlacementSync();
     return finishLaunch(
       appOrigin,
       identity,
