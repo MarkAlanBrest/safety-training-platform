@@ -91,7 +91,7 @@ function buildStudentAlertsInternalConfiguration() {
       {
         placement: "course_home_sub_navigation",
         enabled: true,
-        visibility: "members",
+        visibility: "admins",
         required_permissions: "manage_course_content_edit",
         text: "Set Student Alerts",
         message_type: "LtiResourceLinkRequest",
