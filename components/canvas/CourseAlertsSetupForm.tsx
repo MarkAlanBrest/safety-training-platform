@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState } from "react";
 import { DEFAULT_ALERT_MESSAGES } from "@/lib/course-alerts/messages";
 
-type Config = {
+export type CourseAlertsSetupConfig = {
   missingWorkDays: number;
   lowGradeThreshold: number;
   assignmentLowGradePercent: number;
@@ -23,65 +22,51 @@ type Config = {
   courseName: string | null;
 };
 
-export function CourseAlertsSetupForm() {
-  const searchParams = useSearchParams();
-  const courseId = (searchParams?.get("course") || searchParams?.get("courseId") || "").trim();
-  const importMode = searchParams?.get("mode") === "import";
+type Props = {
+  courseId: string;
+  importMode: boolean;
+  initialConfig: CourseAlertsSetupConfig | null;
+};
 
-  const [missingWorkDays, setMissingWorkDays] = useState(14);
-  const [lowGradeThreshold, setLowGradeThreshold] = useState(70);
-  const [assignmentLowGradePercent, setAssignmentLowGradePercent] = useState(60);
-  const [loginInactivityDays, setLoginInactivityDays] = useState(6);
-  const [dueSoonHours, setDueSoonHours] = useState(6);
-  const [missingMessage, setMissingMessage] = useState(DEFAULT_ALERT_MESSAGES.missing);
+export function CourseAlertsSetupForm({ courseId, importMode, initialConfig }: Props) {
+  const [missingWorkDays, setMissingWorkDays] = useState(initialConfig?.missingWorkDays ?? 14);
+  const [lowGradeThreshold, setLowGradeThreshold] = useState(initialConfig?.lowGradeThreshold ?? 70);
+  const [assignmentLowGradePercent, setAssignmentLowGradePercent] = useState(
+    initialConfig?.assignmentLowGradePercent ?? 60,
+  );
+  const [loginInactivityDays, setLoginInactivityDays] = useState(
+    initialConfig?.loginInactivityDays ?? 6,
+  );
+  const [dueSoonHours, setDueSoonHours] = useState(initialConfig?.dueSoonHours ?? 6);
+  const [missingMessage, setMissingMessage] = useState(
+    initialConfig?.missingMessage || DEFAULT_ALERT_MESSAGES.missing,
+  );
   const [assignmentLowGradeMessage, setAssignmentLowGradeMessage] = useState(
-    DEFAULT_ALERT_MESSAGES.assignmentLowGrade,
+    initialConfig?.assignmentLowGradeMessage || DEFAULT_ALERT_MESSAGES.assignmentLowGrade,
   );
   const [loginInactivityMessage, setLoginInactivityMessage] = useState(
-    DEFAULT_ALERT_MESSAGES.loginInactivity,
+    initialConfig?.loginInactivityMessage || DEFAULT_ALERT_MESSAGES.loginInactivity,
   );
   const [overallLowGradeMessage, setOverallLowGradeMessage] = useState(
-    DEFAULT_ALERT_MESSAGES.overallLowGrade,
+    initialConfig?.overallLowGradeMessage || DEFAULT_ALERT_MESSAGES.overallLowGrade,
   );
-  const [dueSoonMessage, setDueSoonMessage] = useState(DEFAULT_ALERT_MESSAGES.dueSoon);
-  const [showMissing, setShowMissing] = useState(true);
-  const [showLowGrades, setShowLowGrades] = useState(true);
-  const [showAssignmentLowGrades, setShowAssignmentLowGrades] = useState(true);
-  const [showLoginInactivity, setShowLoginInactivity] = useState(true);
-  const [showDueSoon, setShowDueSoon] = useState(true);
-  const [courseName, setCourseName] = useState("");
+  const [dueSoonMessage, setDueSoonMessage] = useState(
+    initialConfig?.dueSoonMessage || DEFAULT_ALERT_MESSAGES.dueSoon,
+  );
+  const [showMissing, setShowMissing] = useState(initialConfig?.showMissing ?? true);
+  const [showLowGrades, setShowLowGrades] = useState(initialConfig?.showLowGrades ?? true);
+  const [showAssignmentLowGrades, setShowAssignmentLowGrades] = useState(
+    initialConfig?.showAssignmentLowGrades ?? true,
+  );
+  const [showLoginInactivity, setShowLoginInactivity] = useState(
+    initialConfig?.showLoginInactivity ?? true,
+  );
+  const [showDueSoon, setShowDueSoon] = useState(initialConfig?.showDueSoon ?? true);
+  const [courseName, setCourseName] = useState(initialConfig?.courseName || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [cleaning, setCleaning] = useState(false);
-
-  useEffect(() => {
-    if (!courseId) return;
-    void (async () => {
-      const response = await fetch(`/api/course-alerts/config?courseId=${encodeURIComponent(courseId)}`);
-      const data = await response.json();
-      if (!response.ok) return;
-      const config = data.config as Config;
-      setMissingWorkDays(config.missingWorkDays);
-      setLowGradeThreshold(config.lowGradeThreshold);
-      setAssignmentLowGradePercent(config.assignmentLowGradePercent ?? 60);
-      setLoginInactivityDays(config.loginInactivityDays ?? 6);
-      setDueSoonHours(config.dueSoonHours ?? 6);
-      setMissingMessage(config.missingMessage || DEFAULT_ALERT_MESSAGES.missing);
-      setAssignmentLowGradeMessage(
-        config.assignmentLowGradeMessage || DEFAULT_ALERT_MESSAGES.assignmentLowGrade,
-      );
-      setLoginInactivityMessage(config.loginInactivityMessage || DEFAULT_ALERT_MESSAGES.loginInactivity);
-      setOverallLowGradeMessage(config.overallLowGradeMessage || DEFAULT_ALERT_MESSAGES.overallLowGrade);
-      setDueSoonMessage(config.dueSoonMessage || DEFAULT_ALERT_MESSAGES.dueSoon);
-      setShowMissing(config.showMissing);
-      setShowLowGrades(config.showLowGrades);
-      setShowAssignmentLowGrades(config.showAssignmentLowGrades !== false);
-      setShowLoginInactivity(config.showLoginInactivity !== false);
-      setShowDueSoon(config.showDueSoon !== false);
-      if (config.courseName) setCourseName(config.courseName);
-    })();
-  }, [courseId]);
 
   async function handleRemoveEmbed() {
     setCleaning(true);

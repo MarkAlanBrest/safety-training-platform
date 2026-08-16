@@ -475,6 +475,56 @@ html.course-alerts-embed-root .course-alerts-page {
   color: #5f6b75;
 }
 
+.course-alerts-setup-loading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 540px;
+  margin: 48px auto;
+  border: 1px solid #c7cdd1;
+  border-radius: 3px;
+  background: #fff;
+  padding: 20px;
+  color: #2d3b45;
+  box-shadow: 0 2px 6px rgba(45, 59, 69, 0.12);
+}
+
+.course-alerts-setup-loading strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.course-alerts-setup-loading p {
+  margin: 0;
+  color: #5f6b75;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.course-alerts-setup-spinner {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border: 3px solid #d8dadd;
+  border-top-color: #0374b5;
+  border-radius: 50%;
+  animation: course-alerts-spin 0.8s linear infinite;
+}
+
+@keyframes course-alerts-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .course-alerts-setup-spinner {
+    animation-duration: 1.8s;
+  }
+}
+
 @media (max-width: 640px) {
   .course-alerts-page-setup {
     padding: 16px 12px;
