@@ -253,3 +253,17 @@
       });
     });
 })();
+
+// Teacher-only saved message templates and personalized Canvas Inbox mail merge.
+(function () {
+  if (window.__ncstCanvasMailMergeLoaderAdded) return;
+  window.__ncstCanvasMailMergeLoaderAdded = true;
+  var current = document.currentScript && document.currentScript.src || "";
+  var origin = current
+    ? current.replace(/\/canvas-banner\.js(?:\?.*)?$/, "")
+    : "https://safety-training-platform-eight.vercel.app";
+  var script = document.createElement("script");
+  script.src = origin + "/canvas-message-mailmerge.js?v=1";
+  script.async = true;
+  document.head.appendChild(script);
+})();
