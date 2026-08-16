@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function CourseAlertsSetupPage() {
   return (
-    <main className="course-alerts-page">
+    <main className="course-alerts-page course-alerts-page-setup">
       <Suspense fallback={<div className="course-alerts-loading">Loading setup...</div>}>
         <CourseAlertsSetupForm />
       </Suspense>
