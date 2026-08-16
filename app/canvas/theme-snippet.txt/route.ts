@@ -10,7 +10,7 @@ export async function GET() {
   const script = await readFile(filePath, "utf8");
   const snippet =
     "<!-- One-time setup: Canvas Admin → Themes → Edit → Global/Login → JavaScript -->\n" +
-    "<!-- Student Alerts plus teacher-only local message templates and personalized mail merge. -->\n" +
+    "<!-- Bold popup on course home. Does not change your home page content. -->\n" +
     `<script src="${origin}/canvas-banner.js"></script>\n\n` +
     "<!-- Or paste the full script inline if external scripts are blocked -->\n" +
     "<script>\n" +
