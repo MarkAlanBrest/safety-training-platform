@@ -20,6 +20,22 @@ export type CourseAlertsSetupConfig = {
   showLoginInactivity: boolean;
   showDueSoon: boolean;
   courseName: string | null;
+  emailFrequencyDays?: number;
+  showMissingEmail?: boolean;
+  missingEmailSubject?: string | null;
+  missingEmailBody?: string | null;
+  showAssignmentLowGradesEmail?: boolean;
+  assignmentLowGradeEmailSubject?: string | null;
+  assignmentLowGradeEmailBody?: string | null;
+  showLowGradesEmail?: boolean;
+  lowGradesEmailSubject?: string | null;
+  lowGradesEmailBody?: string | null;
+  showLoginInactivityEmail?: boolean;
+  loginInactivityEmailSubject?: string | null;
+  loginInactivityEmailBody?: string | null;
+  showDueSoonEmail?: boolean;
+  dueSoonEmailSubject?: string | null;
+  dueSoonEmailBody?: string | null;
 };
 
 type Props = {
@@ -53,6 +69,22 @@ export function CourseAlertsSetupForm({ courseId, importMode, initialConfig }: P
   const [dueSoonMessage, setDueSoonMessage] = useState(
     initialConfig?.dueSoonMessage || DEFAULT_ALERT_MESSAGES.dueSoon,
   );
+  const [showMissingEmail, setShowMissingEmail] = useState(initialConfig?.showMissingEmail ?? false);
+  const [missingEmailSubject, setMissingEmailSubject] = useState(initialConfig?.missingEmailSubject || "");
+  const [missingEmailBody, setMissingEmailBody] = useState(initialConfig?.missingEmailBody || "");
+  const [showAssignmentLowGradesEmail, setShowAssignmentLowGradesEmail] = useState(initialConfig?.showAssignmentLowGradesEmail ?? false);
+  const [assignmentLowGradeEmailSubject, setAssignmentLowGradeEmailSubject] = useState(initialConfig?.assignmentLowGradeEmailSubject || "");
+  const [assignmentLowGradeEmailBody, setAssignmentLowGradeEmailBody] = useState(initialConfig?.assignmentLowGradeEmailBody || "");
+  const [showLowGradesEmail, setShowLowGradesEmail] = useState(initialConfig?.showLowGradesEmail ?? false);
+  const [lowGradesEmailSubject, setLowGradesEmailSubject] = useState(initialConfig?.lowGradesEmailSubject || "");
+  const [lowGradesEmailBody, setLowGradesEmailBody] = useState(initialConfig?.lowGradesEmailBody || "");
+  const [showLoginInactivityEmail, setShowLoginInactivityEmail] = useState(initialConfig?.showLoginInactivityEmail ?? false);
+  const [loginInactivityEmailSubject, setLoginInactivityEmailSubject] = useState(initialConfig?.loginInactivityEmailSubject || "");
+  const [loginInactivityEmailBody, setLoginInactivityEmailBody] = useState(initialConfig?.loginInactivityEmailBody || "");
+  const [showDueSoonEmail, setShowDueSoonEmail] = useState(initialConfig?.showDueSoonEmail ?? false);
+  const [dueSoonEmailSubject, setDueSoonEmailSubject] = useState(initialConfig?.dueSoonEmailSubject || "");
+  const [dueSoonEmailBody, setDueSoonEmailBody] = useState(initialConfig?.dueSoonEmailBody || "");
+  const [emailFrequencyDays, setEmailFrequencyDays] = useState<number>(initialConfig?.emailFrequencyDays ?? 1);
   const [showMissing, setShowMissing] = useState(initialConfig?.showMissing ?? true);
   const [showLowGrades, setShowLowGrades] = useState(initialConfig?.showLowGrades ?? true);
   const [showAssignmentLowGrades, setShowAssignmentLowGrades] = useState(
@@ -120,6 +152,22 @@ export function CourseAlertsSetupForm({ courseId, importMode, initialConfig }: P
           showAssignmentLowGrades,
           showLoginInactivity,
           showDueSoon,
+          emailFrequencyDays,
+          showMissingEmail,
+          missingEmailSubject,
+          missingEmailBody,
+          showAssignmentLowGradesEmail,
+          assignmentLowGradeEmailSubject,
+          assignmentLowGradeEmailBody,
+          showLowGradesEmail,
+          lowGradesEmailSubject,
+          lowGradesEmailBody,
+          showLoginInactivityEmail,
+          loginInactivityEmailSubject,
+          loginInactivityEmailBody,
+          showDueSoonEmail,
+          dueSoonEmailSubject,
+          dueSoonEmailBody,
         }),
         },
       );
@@ -188,6 +236,26 @@ export function CourseAlertsSetupForm({ courseId, importMode, initialConfig }: P
             />
             Turn on this alert
           </label>
+          <label className="course-alerts-setup-check">
+            <input
+              type="checkbox"
+              checked={showMissingEmail}
+              onChange={(event) => setShowMissingEmail(event.target.checked)}
+            />
+            Send this alert by email to students
+          </label>
+          {showMissingEmail ? (
+            <>
+              <label>
+                Email subject
+                <input value={missingEmailSubject} onChange={(e) => setMissingEmailSubject(e.target.value)} />
+              </label>
+              <label>
+                Email body
+                <textarea value={missingEmailBody} onChange={(e) => setMissingEmailBody(e.target.value)} rows={4} />
+              </label>
+            </>
+          ) : null}
           <label>
             Look back this many days
             <input
@@ -219,6 +287,26 @@ export function CourseAlertsSetupForm({ courseId, importMode, initialConfig }: P
             />
             Turn on this alert
           </label>
+          <label className="course-alerts-setup-check">
+            <input
+              type="checkbox"
+              checked={showAssignmentLowGradesEmail}
+              onChange={(event) => setShowAssignmentLowGradesEmail(event.target.checked)}
+            />
+            Send this alert by email to students
+          </label>
+          {showAssignmentLowGradesEmail ? (
+            <>
+              <label>
+                Email subject
+                <input value={assignmentLowGradeEmailSubject} onChange={(e) => setAssignmentLowGradeEmailSubject(e.target.value)} />
+              </label>
+              <label>
+                Email body
+                <textarea value={assignmentLowGradeEmailBody} onChange={(e) => setAssignmentLowGradeEmailBody(e.target.value)} rows={4} />
+              </label>
+            </>
+          ) : null}
           <label>
             Flag an assignment if the score is 0 or below this percent
             <input
@@ -250,6 +338,26 @@ export function CourseAlertsSetupForm({ courseId, importMode, initialConfig }: P
             />
             Turn on this alert
           </label>
+          <label className="course-alerts-setup-check">
+            <input
+              type="checkbox"
+              checked={showLowGradesEmail}
+              onChange={(event) => setShowLowGradesEmail(event.target.checked)}
+            />
+            Send this alert by email to students
+          </label>
+          {showLowGradesEmail ? (
+            <>
+              <label>
+                Email subject
+                <input value={lowGradesEmailSubject} onChange={(e) => setLowGradesEmailSubject(e.target.value)} />
+              </label>
+              <label>
+                Email body
+                <textarea value={lowGradesEmailBody} onChange={(e) => setLowGradesEmailBody(e.target.value)} rows={4} />
+              </label>
+            </>
+          ) : null}
           <label>
             Alert if overall grade falls below this percent
             <input
@@ -281,6 +389,26 @@ export function CourseAlertsSetupForm({ courseId, importMode, initialConfig }: P
             />
             Turn on this alert
           </label>
+          <label className="course-alerts-setup-check">
+            <input
+              type="checkbox"
+              checked={showLoginInactivityEmail}
+              onChange={(event) => setShowLoginInactivityEmail(event.target.checked)}
+            />
+            Send this alert by email to students
+          </label>
+          {showLoginInactivityEmail ? (
+            <>
+              <label>
+                Email subject
+                <input value={loginInactivityEmailSubject} onChange={(e) => setLoginInactivityEmailSubject(e.target.value)} />
+              </label>
+              <label>
+                Email body
+                <textarea value={loginInactivityEmailBody} onChange={(e) => setLoginInactivityEmailBody(e.target.value)} rows={4} />
+              </label>
+            </>
+          ) : null}
           <label>
             Days without activity before alerting
             <input
@@ -312,6 +440,26 @@ export function CourseAlertsSetupForm({ courseId, importMode, initialConfig }: P
             />
             Turn on this alert
           </label>
+          <label className="course-alerts-setup-check">
+            <input
+              type="checkbox"
+              checked={showDueSoonEmail}
+              onChange={(event) => setShowDueSoonEmail(event.target.checked)}
+            />
+            Send this alert by email to students
+          </label>
+          {showDueSoonEmail ? (
+            <>
+              <label>
+                Email subject
+                <input value={dueSoonEmailSubject} onChange={(e) => setDueSoonEmailSubject(e.target.value)} />
+              </label>
+              <label>
+                Email body
+                <textarea value={dueSoonEmailBody} onChange={(e) => setDueSoonEmailBody(e.target.value)} rows={4} />
+              </label>
+            </>
+          ) : null}
           <label>
             Hours before the due time (not days)
             <input
@@ -333,6 +481,18 @@ export function CourseAlertsSetupForm({ courseId, importMode, initialConfig }: P
           </label>
         </fieldset>
 
+        <fieldset className="course-alerts-setup-block">
+          <legend>Email delivery</legend>
+          <label>
+            Delivery frequency
+            <select value={emailFrequencyDays} onChange={(e) => setEmailFrequencyDays(Number(e.target.value))}>
+              <option value={1}>Once a day</option>
+              <option value={2}>Once every 2 days</option>
+              <option value={7}>Once a week</option>
+            </select>
+          </label>
+        </fieldset>
+
         {error ? <p className="course-alerts-error">{error}</p> : null}
         {success ? <p className="course-alerts-success">{success}</p> : null}
 
@@ -342,6 +502,33 @@ export function CourseAlertsSetupForm({ courseId, importMode, initialConfig }: P
             : importMode
               ? "Save settings and add to module"
               : "Save this course"}
+        </button>
+
+        <button
+          type="button"
+          className="course-alerts-send-now"
+          disabled={loading}
+          onClick={async () => {
+            setLoading(true);
+            setError("");
+            setSuccess("");
+            try {
+              const resp = await fetch("/api/course-alerts/send-now", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ courseId }),
+              });
+              const data = await resp.json();
+              if (!resp.ok) throw new Error(data.error || "Send failed");
+              setSuccess(`Sent ${data.result?.sent || 0} message(s).`);
+            } catch (err) {
+              setError(err instanceof Error ? err.message : String(err));
+            } finally {
+              setLoading(false);
+            }
+          }}
+        >
+          Send now
         </button>
 
         <button

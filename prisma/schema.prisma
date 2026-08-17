@@ -208,6 +208,23 @@ model CourseAlertConfig {
   showAssignmentLowGrades    Boolean  @default(true)
   showLoginInactivity        Boolean  @default(true)
   showDueSoon                Boolean  @default(true)
+  showMissingEmail           Boolean  @default(false)
+  missingEmailSubject        String?  @db.Text
+  missingEmailBody           String?  @db.Text
+  showAssignmentLowGradesEmail Boolean @default(false)
+  assignmentLowGradeEmailSubject String? @db.Text
+  assignmentLowGradeEmailBody    String? @db.Text
+  showLowGradesEmail         Boolean  @default(false)
+  lowGradesEmailSubject      String?  @db.Text
+  lowGradesEmailBody         String?  @db.Text
+  showLoginInactivityEmail   Boolean  @default(false)
+  loginInactivityEmailSubject String? @db.Text
+  loginInactivityEmailBody   String?  @db.Text
+  showDueSoonEmail           Boolean  @default(false)
+  dueSoonEmailSubject        String?  @db.Text
+  dueSoonEmailBody           String?  @db.Text
+  emailFrequencyDays         Int      @default(1)
+  lastEmailSentAt            DateTime?
   homeEmbedEnabled           Boolean  @default(false)
   updatedBy                  String?
   createdAt                  DateTime @default(now())

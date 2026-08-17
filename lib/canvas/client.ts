@@ -167,5 +167,40 @@ export function createCanvasClient(options: CanvasClientOptions) {
         enrollment_state: ["active"],
       }).catch(() => [] as CanvasUser[]);
     },
+    async sendConversation(params: {
+      recipients: Array<number | string>;
+      subject: string;
+      body: string;
+      contextCode?: string | null;
+    }) {
+      const url = `${baseUrl}/api/v1/conversations`;
+      const bodyParams = new URLSearchParams();
+      for (const r of params.recipients) bodyParams.append("recipients[]", String(r));
+      if (params.contextCode) bodyParams.set("context_code", params.contextCode);
+      bodyParams.set("subject", params.subject);
+      bodyParams.set("body", params.body);
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          ...canvasRequestHeaders(token),
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: bodyParams.toString(),
+      });
+
+      if (!response.ok) {
+        let detail = "";
+        try {
+          const json = await response.json();
+          detail = json?.errors?.[0]?.message || json?.message || JSON.stringify(json);
+        } catch {
+          detail = await response.text();
+        }
+        throw new Error(`Canvas API error (${response.status}): ${detail || response.statusText}`);
+      }
+
+      return response.json();
+    },
   };
 }

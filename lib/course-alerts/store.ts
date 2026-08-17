@@ -26,8 +26,25 @@ function toConfigView(
     showAssignmentLowGrades?: boolean;
     showLoginInactivity?: boolean;
     showDueSoon?: boolean;
-    homeEmbedEnabled?: boolean;
-    updatedAt: Date;
+    showMissingEmail?: boolean;
+    missingEmailSubject?: string | null;
+    missingEmailBody?: string | null;
+    showAssignmentLowGradesEmail?: boolean;
+    assignmentLowGradeEmailSubject?: string | null;
+    assignmentLowGradeEmailBody?: string | null;
+    showLowGradesEmail?: boolean;
+    lowGradesEmailSubject?: string | null;
+    lowGradesEmailBody?: string | null;
+    showLoginInactivityEmail?: boolean;
+    loginInactivityEmailSubject?: string | null;
+    loginInactivityEmailBody?: string | null;
+    showDueSoonEmail?: boolean;
+    dueSoonEmailSubject?: string | null;
+    dueSoonEmailBody?: string | null;
+      homeEmbedEnabled?: boolean;
+      emailFrequencyDays?: number;
+      lastEmailSentAt?: Date | null;
+      updatedAt: Date;
   },
 ): CourseAlertConfigView {
   const normalized = normalizeCourseAlertConfigInput({
@@ -48,6 +65,22 @@ function toConfigView(
     showAssignmentLowGrades: record.showAssignmentLowGrades,
     showLoginInactivity: record.showLoginInactivity,
     showDueSoon: record.showDueSoon,
+    showMissingEmail: record.showMissingEmail,
+    missingEmailSubject: record.missingEmailSubject,
+    missingEmailBody: record.missingEmailBody,
+    showAssignmentLowGradesEmail: record.showAssignmentLowGradesEmail,
+    assignmentLowGradeEmailSubject: record.assignmentLowGradeEmailSubject,
+    assignmentLowGradeEmailBody: record.assignmentLowGradeEmailBody,
+    showLowGradesEmail: record.showLowGradesEmail,
+    lowGradesEmailSubject: record.lowGradesEmailSubject,
+    lowGradesEmailBody: record.lowGradesEmailBody,
+    showLoginInactivityEmail: record.showLoginInactivityEmail,
+    loginInactivityEmailSubject: record.loginInactivityEmailSubject,
+    loginInactivityEmailBody: record.loginInactivityEmailBody,
+    showDueSoonEmail: record.showDueSoonEmail,
+    dueSoonEmailSubject: record.dueSoonEmailSubject,
+    dueSoonEmailBody: record.dueSoonEmailBody,
+    emailFrequencyDays: record.emailFrequencyDays,
     homeEmbedEnabled: record.homeEmbedEnabled,
   });
 
@@ -56,6 +89,7 @@ function toConfigView(
     ...normalized,
     courseName: normalized.courseName ?? record.courseName,
     updatedAt: record.updatedAt.toISOString(),
+    lastEmailSentAt: record.lastEmailSentAt ? record.lastEmailSentAt.toISOString() : null,
   };
 }
 
@@ -72,7 +106,6 @@ export async function getCourseAlertConfig(canvasCourseId: string): Promise<Cour
       updatedAt: new Date(0).toISOString(),
     };
   }
-
   return toConfigView(canvasCourseId, record);
 }
 
@@ -131,6 +164,22 @@ export async function saveCourseAlertConfig(
       showAssignmentLowGrades: normalized.showAssignmentLowGrades,
       showLoginInactivity: normalized.showLoginInactivity,
       showDueSoon: normalized.showDueSoon,
+      showMissingEmail: normalized.showMissingEmail,
+      missingEmailSubject: normalized.missingEmailSubject,
+      missingEmailBody: normalized.missingEmailBody,
+      showAssignmentLowGradesEmail: normalized.showAssignmentLowGradesEmail,
+      assignmentLowGradeEmailSubject: normalized.assignmentLowGradeEmailSubject,
+      assignmentLowGradeEmailBody: normalized.assignmentLowGradeEmailBody,
+      showLowGradesEmail: normalized.showLowGradesEmail,
+      lowGradesEmailSubject: normalized.lowGradesEmailSubject,
+      lowGradesEmailBody: normalized.lowGradesEmailBody,
+      showLoginInactivityEmail: normalized.showLoginInactivityEmail,
+      loginInactivityEmailSubject: normalized.loginInactivityEmailSubject,
+      loginInactivityEmailBody: normalized.loginInactivityEmailBody,
+      showDueSoonEmail: normalized.showDueSoonEmail,
+      dueSoonEmailSubject: normalized.dueSoonEmailSubject,
+      dueSoonEmailBody: normalized.dueSoonEmailBody,
+      emailFrequencyDays: normalized.emailFrequencyDays,
       homeEmbedEnabled: normalized.homeEmbedEnabled === true,
       updatedBy: updatedBy || null,
     },
@@ -152,6 +201,22 @@ export async function saveCourseAlertConfig(
       showAssignmentLowGrades: normalized.showAssignmentLowGrades,
       showLoginInactivity: normalized.showLoginInactivity,
       showDueSoon: normalized.showDueSoon,
+      showMissingEmail: normalized.showMissingEmail,
+      missingEmailSubject: normalized.missingEmailSubject,
+      missingEmailBody: normalized.missingEmailBody,
+      showAssignmentLowGradesEmail: normalized.showAssignmentLowGradesEmail,
+      assignmentLowGradeEmailSubject: normalized.assignmentLowGradeEmailSubject,
+      assignmentLowGradeEmailBody: normalized.assignmentLowGradeEmailBody,
+      showLowGradesEmail: normalized.showLowGradesEmail,
+      lowGradesEmailSubject: normalized.lowGradesEmailSubject,
+      lowGradesEmailBody: normalized.lowGradesEmailBody,
+      showLoginInactivityEmail: normalized.showLoginInactivityEmail,
+      loginInactivityEmailSubject: normalized.loginInactivityEmailSubject,
+      loginInactivityEmailBody: normalized.loginInactivityEmailBody,
+      showDueSoonEmail: normalized.showDueSoonEmail,
+      dueSoonEmailSubject: normalized.dueSoonEmailSubject,
+      dueSoonEmailBody: normalized.dueSoonEmailBody,
+      emailFrequencyDays: normalized.emailFrequencyDays,
       homeEmbedEnabled: normalized.homeEmbedEnabled === true,
       updatedBy: updatedBy || null,
     },
@@ -193,6 +258,22 @@ export async function listHomeAlertsEnabledCourseIds() {
     select: { canvasCourseId: true },
   });
   return new Set(records.map((record) => record.canvasCourseId).filter(isRealCourseId));
+}
+
+export async function listCoursesWithEmailAlertsEnabled() {
+  const records = await prisma.courseAlertConfig.findMany({
+    where: {
+      OR: [
+        { showMissingEmail: true },
+        { showAssignmentLowGradesEmail: true },
+        { showLowGradesEmail: true },
+        { showLoginInactivityEmail: true },
+        { showDueSoonEmail: true },
+      ],
+    },
+    select: { canvasCourseId: true },
+  });
+  return records.map((r) => r.canvasCourseId).filter(isRealCourseId);
 }
 
 export async function backfillExistingConfigsAsHomeEnabled() {

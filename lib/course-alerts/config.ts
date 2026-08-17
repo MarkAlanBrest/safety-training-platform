@@ -19,12 +19,29 @@ export type CourseAlertConfigInput = {
   showDueSoon: boolean;
   homeEmbedEnabled?: boolean;
   courseName?: string | null;
+  showMissingEmail?: boolean;
+  missingEmailSubject?: string | null;
+  missingEmailBody?: string | null;
+  showAssignmentLowGradesEmail?: boolean;
+  assignmentLowGradeEmailSubject?: string | null;
+  assignmentLowGradeEmailBody?: string | null;
+  showLowGradesEmail?: boolean;
+  lowGradesEmailSubject?: string | null;
+  lowGradesEmailBody?: string | null;
+  showLoginInactivityEmail?: boolean;
+  loginInactivityEmailSubject?: string | null;
+  loginInactivityEmailBody?: string | null;
+  showDueSoonEmail?: boolean;
+  dueSoonEmailSubject?: string | null;
+  dueSoonEmailBody?: string | null;
+  emailFrequencyDays?: number;
 };
 
 export type CourseAlertConfigView = CourseAlertConfigInput & {
   canvasCourseId: string;
   courseName: string | null;
   updatedAt: string;
+  lastEmailSentAt?: string | null;
 };
 
 export const DEFAULT_COURSE_ALERT_CONFIG: CourseAlertConfigInput = {
@@ -46,6 +63,22 @@ export const DEFAULT_COURSE_ALERT_CONFIG: CourseAlertConfigInput = {
   showDueSoon: true,
   homeEmbedEnabled: false,
   courseName: null,
+  showMissingEmail: false,
+  missingEmailSubject: null,
+  missingEmailBody: null,
+  showAssignmentLowGradesEmail: false,
+  assignmentLowGradeEmailSubject: null,
+  assignmentLowGradeEmailBody: null,
+  showLowGradesEmail: false,
+  lowGradesEmailSubject: null,
+  lowGradesEmailBody: null,
+  showLoginInactivityEmail: false,
+  loginInactivityEmailSubject: null,
+  loginInactivityEmailBody: null,
+  showDueSoonEmail: false,
+  dueSoonEmailSubject: null,
+  dueSoonEmailBody: null,
+  emailFrequencyDays: 1,
 };
 
 function clampInt(value: unknown, fallback: number, min: number, max: number) {
@@ -59,6 +92,13 @@ function optionalMessage(value: unknown, fallback: string | null) {
   const trimmed = value.trim();
   if (!trimmed) return fallback;
   return currentAlertMessage(trimmed, fallback || trimmed);
+}
+
+function optionalText(value: unknown, fallback: string | null) {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  if (!trimmed) return fallback;
+  return trimmed;
 }
 
 export function normalizeCourseAlertConfigInput(
@@ -113,6 +153,22 @@ export function normalizeCourseAlertConfigInput(
     showAssignmentLowGrades: input.showAssignmentLowGrades !== false,
     showLoginInactivity: input.showLoginInactivity !== false,
     showDueSoon: input.showDueSoon !== false,
+    showMissingEmail: input.showMissingEmail === true,
+    missingEmailSubject: optionalText(input.missingEmailSubject, DEFAULT_COURSE_ALERT_CONFIG.missingEmailSubject),
+    missingEmailBody: optionalText(input.missingEmailBody, DEFAULT_COURSE_ALERT_CONFIG.missingEmailBody),
+    showAssignmentLowGradesEmail: input.showAssignmentLowGradesEmail === true,
+    assignmentLowGradeEmailSubject: optionalText(input.assignmentLowGradeEmailSubject, DEFAULT_COURSE_ALERT_CONFIG.assignmentLowGradeEmailSubject),
+    assignmentLowGradeEmailBody: optionalText(input.assignmentLowGradeEmailBody, DEFAULT_COURSE_ALERT_CONFIG.assignmentLowGradeEmailBody),
+    showLowGradesEmail: input.showLowGradesEmail === true,
+    lowGradesEmailSubject: optionalText(input.lowGradesEmailSubject, DEFAULT_COURSE_ALERT_CONFIG.lowGradesEmailSubject),
+    lowGradesEmailBody: optionalText(input.lowGradesEmailBody, DEFAULT_COURSE_ALERT_CONFIG.lowGradesEmailBody),
+    showLoginInactivityEmail: input.showLoginInactivityEmail === true,
+    loginInactivityEmailSubject: optionalText(input.loginInactivityEmailSubject, DEFAULT_COURSE_ALERT_CONFIG.loginInactivityEmailSubject),
+    loginInactivityEmailBody: optionalText(input.loginInactivityEmailBody, DEFAULT_COURSE_ALERT_CONFIG.loginInactivityEmailBody),
+    showDueSoonEmail: input.showDueSoonEmail === true,
+    dueSoonEmailSubject: optionalText(input.dueSoonEmailSubject, DEFAULT_COURSE_ALERT_CONFIG.dueSoonEmailSubject),
+    dueSoonEmailBody: optionalText(input.dueSoonEmailBody, DEFAULT_COURSE_ALERT_CONFIG.dueSoonEmailBody),
+    emailFrequencyDays: clampInt(input.emailFrequencyDays, DEFAULT_COURSE_ALERT_CONFIG.emailFrequencyDays, 1, 30),
     homeEmbedEnabled: input.homeEmbedEnabled === true,
     courseName:
       typeof input.courseName === "string" && input.courseName.trim()
