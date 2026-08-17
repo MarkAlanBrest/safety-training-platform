@@ -44,7 +44,7 @@ export type CourseAlertConfigView = CourseAlertConfigInput & {
   lastEmailSentAt?: string | null;
 };
 
-export const DEFAULT_COURSE_ALERT_CONFIG: CourseAlertConfigInput = {
+export const DEFAULT_COURSE_ALERT_CONFIG: Required<CourseAlertConfigInput> = {
   missingWorkDays: 14,
   lowGradeThreshold: 70,
   assignmentLowGradePercent: 60,
@@ -94,10 +94,10 @@ function optionalMessage(value: unknown, fallback: string | null) {
   return currentAlertMessage(trimmed, fallback || trimmed);
 }
 
-function optionalText(value: unknown, fallback: string | null) {
-  if (typeof value !== "string") return fallback;
+function optionalText(value: unknown, fallback: string | null | undefined): string | null {
+  if (typeof value !== "string") return fallback ?? null;
   const trimmed = value.trim();
-  if (!trimmed) return fallback;
+  if (!trimmed) return fallback ?? null;
   return trimmed;
 }
 

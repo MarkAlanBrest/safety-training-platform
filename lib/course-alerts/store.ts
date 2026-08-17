@@ -101,7 +101,6 @@ export async function getCourseAlertConfig(canvasCourseId: string): Promise<Cour
   if (!record) {
     return {
       canvasCourseId,
-      courseName: null,
       ...DEFAULT_COURSE_ALERT_CONFIG,
       updatedAt: new Date(0).toISOString(),
     };
