@@ -108,6 +108,17 @@ function buildStudentAlertsInternalConfiguration() {
         target_link_uri: `${targetLinkUri}?placement=home_embed`,
         ...(iconUrl ? { icon_url: iconUrl } : {}),
       },
+      {
+        placement: "course_navigation",
+        enabled: true,
+        default: "disabled",
+        visibility: "admins",
+        required_permissions: "manage_course_content_edit",
+        text: "Email Alerts",
+        message_type: "LtiResourceLinkRequest",
+        target_link_uri: `${targetLinkUri}?placement=email_alerts`,
+        ...(iconUrl ? { icon_url: iconUrl } : {}),
+      },
     ],
   };
 }

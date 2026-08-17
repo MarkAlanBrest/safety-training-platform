@@ -116,13 +116,15 @@ export async function handleLtiLaunchPost(
   }
 
   const parsedState = parseLtiState(state);
-  const isHomeEmbedLaunch = (() => {
+  const launchPlacement = (() => {
     try {
-      return new URL(parsedState.targetLinkUri || "").searchParams.get("placement") === "home_embed";
+      return new URL(parsedState.targetLinkUri || "").searchParams.get("placement");
     } catch {
-      return false;
+      return null;
     }
   })();
+  const isHomeEmbedLaunch = launchPlacement === "home_embed";
+  const isEmailAlertsLaunch = launchPlacement === "email_alerts";
   const clientId = parsedState.clientId || getConfiguredLtiClientId();
   if (!clientId) {
     return launchErrorResponse(
@@ -159,6 +161,22 @@ export async function handleLtiLaunchPost(
       identity.courseId ? `course=${encodeURIComponent(identity.courseId)}` : ""
     }`;
     return finishLaunch(appOrigin, identity, setupPath, true);
+  }
+
+  if (isEmailAlertsLaunch) {
+    if (!isInstructor) {
+      return launchErrorResponse("Only a course instructor can open Email Alerts.");
+    }
+    if (!identity.courseId) {
+      return launchErrorResponse("Open Email Alerts from a Canvas course.");
+    }
+    scheduleStudentAlertsPlacementSync();
+    return finishLaunch(
+      appOrigin,
+      identity,
+      `/canvas/email-alerts?course=${encodeURIComponent(identity.courseId)}`,
+      true,
+    );
   }
 
   if (isInstructor && identity.courseId && !isHomeEmbedLaunch) {
