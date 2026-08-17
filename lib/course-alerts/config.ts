@@ -19,22 +19,22 @@ export type CourseAlertConfigInput = {
   showDueSoon: boolean;
   homeEmbedEnabled?: boolean;
   courseName?: string | null;
-  showMissingEmail?: boolean;
-  missingEmailSubject?: string | null;
-  missingEmailBody?: string | null;
-  showAssignmentLowGradesEmail?: boolean;
-  assignmentLowGradeEmailSubject?: string | null;
-  assignmentLowGradeEmailBody?: string | null;
-  showLowGradesEmail?: boolean;
-  lowGradesEmailSubject?: string | null;
-  lowGradesEmailBody?: string | null;
-  showLoginInactivityEmail?: boolean;
-  loginInactivityEmailSubject?: string | null;
-  loginInactivityEmailBody?: string | null;
-  showDueSoonEmail?: boolean;
-  dueSoonEmailSubject?: string | null;
-  dueSoonEmailBody?: string | null;
-  emailFrequencyDays?: number;
+  showMissingEmail: boolean;
+  missingEmailSubject: string | null;
+  missingEmailBody: string | null;
+  showAssignmentLowGradesEmail: boolean;
+  assignmentLowGradeEmailSubject: string | null;
+  assignmentLowGradeEmailBody: string | null;
+  showLowGradesEmail: boolean;
+  lowGradesEmailSubject: string | null;
+  lowGradesEmailBody: string | null;
+  showLoginInactivityEmail: boolean;
+  loginInactivityEmailSubject: string | null;
+  loginInactivityEmailBody: string | null;
+  showDueSoonEmail: boolean;
+  dueSoonEmailSubject: string | null;
+  dueSoonEmailBody: string | null;
+  emailFrequencyDays: number;
 };
 
 export type CourseAlertConfigView = CourseAlertConfigInput & {
