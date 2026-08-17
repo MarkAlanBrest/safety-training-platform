@@ -99,16 +99,6 @@ function buildStudentAlertsInternalConfiguration() {
         ...(iconUrl ? { icon_url: iconUrl } : {}),
       },
       {
-        placement: "course_home_sub_navigation",
-        enabled: true,
-        visibility: "admins",
-        required_permissions: "manage_course_content_edit",
-        text: "Email Alerts",
-        message_type: "LtiResourceLinkRequest",
-        target_link_uri: `${targetLinkUri}?placement=email_alerts`,
-        ...(iconUrl ? { icon_url: iconUrl } : {}),
-      },
-      {
         placement: "course_navigation",
         enabled: true,
         default: "disabled",
@@ -909,6 +899,44 @@ export function createCanvasAdminClient() {
       }
     },
 
+    async ensureAccountEmailAlertsTool(configUrl: string, accountId = "self") {
+      const tools = await this.listAccountExternalTools(accountId);
+      const existing = tools.find((tool) => {
+        const name = (tool.name || "").trim().toLowerCase();
+        if (name === "email alerts") return true;
+        const subNav = tool.course_home_sub_navigation as { url?: string } | null | undefined;
+        return Boolean(subNav?.url?.includes("placement=email_alerts"));
+      });
+      if (existing) {
+        return { ok: true as const, tool: existing, created: false };
+      }
+
+      try {
+        const created = await canvasJson<CanvasExternalTool>(`/accounts/${accountId}/external_tools`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            config_type: "by_url",
+            config_url: configUrl,
+          }).toString(),
+        });
+        return { ok: true as const, tool: created, created: true };
+      } catch (error) {
+        if (isAlreadyInstalledError(error)) {
+          const retry = await this.listAccountExternalTools(accountId);
+          const found = retry.find((tool) => (tool.name || "").trim().toLowerCase() === "email alerts");
+          if (found) return { ok: true as const, tool: found, created: false };
+        }
+        return {
+          ok: false as const,
+          created: false,
+          reason: error instanceof Error ? error.message : "Could not install Email Alerts on the Canvas account.",
+        };
+      }
+    },
+
     async listAccountIdsIncludingSubaccounts() {
       const ids = new Set<string>(["self"]);
       try {
@@ -1657,39 +1685,6 @@ export function createCanvasAdminClient() {
             matchesExternalTool(tool, options),
           ) || this.findCourseExternalTool(courseId, options)
         );
-      }
-    },
-
-    async ensureCourseEmailAlertsHomeButton(courseId: string, configUrl: string) {
-      const tools = await listCourseExternalTools(courseId, true);
-      const existing = tools.find((tool) => {
-        const name = (tool.name || "").trim().toLowerCase();
-        if (name === "email alerts") return true;
-        const subNav = tool.course_home_sub_navigation as { url?: string } | null | undefined;
-        return Boolean(subNav?.url?.includes("placement=email_alerts"));
-      });
-      if (existing) {
-        return { ok: true as const, tool: existing, created: false };
-      }
-
-      try {
-        const created = await canvasJson<CanvasExternalTool>(`/courses/${courseId}/external_tools`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: new URLSearchParams({
-            config_type: "by_url",
-            config_url: configUrl,
-          }).toString(),
-        });
-        return { ok: true as const, tool: created, created: true };
-      } catch (error) {
-        return {
-          ok: false as const,
-          created: false,
-          reason: error instanceof Error ? error.message : "Could not install Email Alerts on course Home.",
-        };
       }
     },
 

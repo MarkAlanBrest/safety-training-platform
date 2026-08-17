@@ -13,12 +13,12 @@ import { isInstructorLtiLaunch } from "@/lib/lti/roles";
 import { verifyLtiIdToken } from "@/lib/lti/verify";
 import { parseLtiState } from "@/lib/lti/state";
 import { buildLaunchRedirectHtml, createLaunchHandoff } from "@/lib/lti/launch-handoff";
-import { ensureStudentAlertsLtiApp, ensureCourseEmailAlertsHomeButton } from "@/lib/canvas/course-home-embed";
+import { ensureStudentAlertsLtiApp } from "@/lib/canvas/course-home-embed";
 
 let lastPlacementSyncAt = 0;
 const PLACEMENT_SYNC_COOLDOWN_MS = 10 * 60 * 1000;
 
-function scheduleInstructorCourseSetup(courseId: string | null) {
+function scheduleStudentAlertsPlacementSync() {
   const now = Date.now();
   if (now - lastPlacementSyncAt < PLACEMENT_SYNC_COOLDOWN_MS) return;
   lastPlacementSyncAt = now;
@@ -27,11 +27,6 @@ function scheduleInstructorCourseSetup(courseId: string | null) {
     await ensureStudentAlertsLtiApp().catch((error) => {
       console.error("Could not synchronize the Student Alerts Canvas placements:", error);
     });
-    if (courseId) {
-      await ensureCourseEmailAlertsHomeButton(courseId).catch((error) => {
-        console.error("Could not install the Email Alerts course Home button:", error);
-      });
-    }
   };
 
   try {
@@ -148,6 +143,10 @@ export async function handleLtiLaunchPost(
   const deepLinking = readDeepLinkingSettings(identity.payload);
   const isInstructor = isInstructorLtiLaunch(identity.payload);
 
+  if (identity.courseId) {
+    scheduleStudentAlertsPlacementSync();
+  }
+
   if (identity.courseId && !isInstructor) {
     await recordCourseAlertSignup({
       canvasCourseId: identity.courseId,
@@ -175,7 +174,7 @@ export async function handleLtiLaunchPost(
     if (!identity.courseId) {
       return launchErrorResponse("Open Email Alerts from a Canvas course.");
     }
-    scheduleInstructorCourseSetup(identity.courseId);
+    scheduleStudentAlertsPlacementSync();
     return finishLaunch(
       appOrigin,
       identity,
@@ -185,7 +184,6 @@ export async function handleLtiLaunchPost(
   }
 
   if (isInstructor && identity.courseId && !isHomeEmbedLaunch) {
-    scheduleInstructorCourseSetup(identity.courseId);
     return finishLaunch(
       appOrigin,
       identity,

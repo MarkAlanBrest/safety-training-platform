@@ -128,13 +128,6 @@ export async function removeCourseHomeStudentAlerts(canvasCourseId: string) {
   return { ok: true as const };
 }
 
-export async function ensureCourseEmailAlertsHomeButton(canvasCourseId: string) {
-  const client = createCanvasAdminClient();
-  const appOrigin = getAppOrigin().replace(/\/+$/, "");
-  const configUrl = `${appOrigin}/email-alerts-lti-key.json`;
-  return client.ensureCourseEmailAlertsHomeButton(canvasCourseId, configUrl);
-}
-
 export async function installStudentAlertsToolSchoolWide() {
   return ensureStudentAlertsLtiApp();
 }
@@ -214,6 +207,13 @@ export async function ensureStudentAlertsLtiApp() {
     }
   }
   await client.removeDuplicateAccountStudentAlertsTools(toolOptions).catch(() => null);
+
+  const emailAlertsConfigUrl = `${getAppOrigin().replace(/\/+$/, "")}/email-alerts-lti-key.json`;
+  await client.ensureAccountEmailAlertsTool(emailAlertsConfigUrl).catch((error) => {
+    accountErrors.push(
+      error instanceof Error ? error.message : "Could not install Email Alerts on the Canvas account.",
+    );
+  });
 
   return {
     ok: accounts > 0,
