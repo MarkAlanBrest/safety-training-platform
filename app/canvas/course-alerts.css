@@ -426,6 +426,33 @@ html.course-alerts-embed-root .course-alerts-page {
   opacity: 0.55;
 }
 
+.course-alerts-setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.course-alerts-setup-actions a.course-alerts-setup-link {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  min-height: 38px;
+  border: 1px solid #c7cdd1;
+  border-radius: 3px;
+  padding: 8px 14px;
+  background: #f5f5f5;
+  color: #2d3b45;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.course-alerts-setup-actions a.course-alerts-setup-link:hover {
+  background: #e8eaec;
+  border-color: #8b969e;
+  color: #2d3b45;
+}
+
 .course-alerts-remove-embed {
   background: #f5f5f5 !important;
   border: 1px solid #c7cdd1 !important;

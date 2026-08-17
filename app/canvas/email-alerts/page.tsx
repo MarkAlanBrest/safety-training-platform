@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { CANVAS_SESSION_COOKIE, decodeCanvasStudentSession } from "@/lib/canvas/session";
 import { getCourseAlertConfig } from "@/lib/course-alerts/store";
@@ -34,6 +35,11 @@ export default async function EmailAlertsPage({ searchParams }: Props) {
   const courseName =
     handoff?.courseName || cookieSession?.courseName || (courseId ? (await getCourseAlertConfig(courseId))?.courseName : null) || null;
   const instructorName = handoff?.name || cookieSession?.name || null;
+  const setupHref = courseId
+    ? `/canvas/alerts/setup?course=${encodeURIComponent(courseId)}${
+        params.handoff ? `&handoff=${encodeURIComponent(params.handoff)}` : ""
+      }`
+    : "/canvas/alerts/setup";
 
   if (role === "student") {
     return (
@@ -51,7 +57,7 @@ export default async function EmailAlertsPage({ searchParams }: Props) {
       <main className="course-alerts-page course-alerts-page-setup">
         <div className="course-alerts-shell">
           <h1>Email Alerts</h1>
-          <p>Open this page from your Canvas course navigation menu.</p>
+          <p>Open this page from the teacher alert settings screen in Canvas.</p>
         </div>
       </main>
     );
@@ -62,8 +68,8 @@ export default async function EmailAlertsPage({ searchParams }: Props) {
       <div className="course-alerts-shell course-alerts-setup">
         <h1>Email Alerts</h1>
         <p className="course-alerts-setup-lead">
-          This is a test page for the teacher-only <strong>Email Alerts</strong> course navigation
-          button. Email alert settings will live here in a future update.
+          This is a test page for teacher email alerts. Full email configuration will live here in a
+          future update.
         </p>
 
         <fieldset className="course-alerts-setup-block">
@@ -81,9 +87,11 @@ export default async function EmailAlertsPage({ searchParams }: Props) {
           ) : null}
         </fieldset>
 
-        <p className="course-alerts-quiet">
-          Teachers see this link in the course navigation menu. Students do not.
-        </p>
+        <div className="course-alerts-setup-actions">
+          <Link href={setupHref} className="course-alerts-setup-link">
+            Back to alert settings
+          </Link>
+        </div>
       </div>
     </main>
   );
