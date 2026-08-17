@@ -13,12 +13,12 @@ import { isInstructorLtiLaunch } from "@/lib/lti/roles";
 import { verifyLtiIdToken } from "@/lib/lti/verify";
 import { parseLtiState } from "@/lib/lti/state";
 import { buildLaunchRedirectHtml, createLaunchHandoff } from "@/lib/lti/launch-handoff";
-import { ensureStudentAlertsLtiApp } from "@/lib/canvas/course-home-embed";
+import { ensureStudentAlertsLtiApp, ensureCourseEmailAlertsHomeButton } from "@/lib/canvas/course-home-embed";
 
 let lastPlacementSyncAt = 0;
 const PLACEMENT_SYNC_COOLDOWN_MS = 10 * 60 * 1000;
 
-function scheduleStudentAlertsPlacementSync() {
+function scheduleInstructorCourseSetup(courseId: string | null) {
   const now = Date.now();
   if (now - lastPlacementSyncAt < PLACEMENT_SYNC_COOLDOWN_MS) return;
   lastPlacementSyncAt = now;
@@ -27,6 +27,11 @@ function scheduleStudentAlertsPlacementSync() {
     await ensureStudentAlertsLtiApp().catch((error) => {
       console.error("Could not synchronize the Student Alerts Canvas placements:", error);
     });
+    if (courseId) {
+      await ensureCourseEmailAlertsHomeButton(courseId).catch((error) => {
+        console.error("Could not install the Email Alerts course Home button:", error);
+      });
+    }
   };
 
   try {
@@ -170,7 +175,7 @@ export async function handleLtiLaunchPost(
     if (!identity.courseId) {
       return launchErrorResponse("Open Email Alerts from a Canvas course.");
     }
-    scheduleStudentAlertsPlacementSync();
+    scheduleInstructorCourseSetup(identity.courseId);
     return finishLaunch(
       appOrigin,
       identity,
@@ -180,7 +185,7 @@ export async function handleLtiLaunchPost(
   }
 
   if (isInstructor && identity.courseId && !isHomeEmbedLaunch) {
-    scheduleStudentAlertsPlacementSync();
+    scheduleInstructorCourseSetup(identity.courseId);
     return finishLaunch(
       appOrigin,
       identity,

@@ -128,6 +128,13 @@ export async function removeCourseHomeStudentAlerts(canvasCourseId: string) {
   return { ok: true as const };
 }
 
+export async function ensureCourseEmailAlertsHomeButton(canvasCourseId: string) {
+  const client = createCanvasAdminClient();
+  const appOrigin = getAppOrigin().replace(/\/+$/, "");
+  const configUrl = `${appOrigin}/email-alerts-lti-key.json`;
+  return client.ensureCourseEmailAlertsHomeButton(canvasCourseId, configUrl);
+}
+
 export async function installStudentAlertsToolSchoolWide() {
   return ensureStudentAlertsLtiApp();
 }

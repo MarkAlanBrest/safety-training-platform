@@ -57,7 +57,7 @@ export default async function EmailAlertsPage({ searchParams }: Props) {
       <main className="course-alerts-page course-alerts-page-setup">
         <div className="course-alerts-shell">
           <h1>Email Alerts</h1>
-          <p>Open this page from the teacher alert settings screen in Canvas.</p>
+          <p>Open this page from the Email Alerts button below Set Student Alerts on your course Home page.</p>
         </div>
       </main>
     );
@@ -68,8 +68,8 @@ export default async function EmailAlertsPage({ searchParams }: Props) {
       <div className="course-alerts-shell course-alerts-setup">
         <h1>Email Alerts</h1>
         <p className="course-alerts-setup-lead">
-          This is a test page for teacher email alerts. Full email configuration will live here in a
-          future update.
+          This is a test page for teacher email alerts on the course Home page. Full email
+          configuration will live here in a future update.
         </p>
 
         <fieldset className="course-alerts-setup-block">
@@ -92,6 +92,10 @@ export default async function EmailAlertsPage({ searchParams }: Props) {
             Back to alert settings
           </Link>
         </div>
+
+        <p className="course-alerts-quiet">
+          This button appears on your course Home page directly below Set Student Alerts.
+        </p>
       </div>
     </main>
   );

@@ -1660,6 +1660,39 @@ export function createCanvasAdminClient() {
       }
     },
 
+    async ensureCourseEmailAlertsHomeButton(courseId: string, configUrl: string) {
+      const tools = await listCourseExternalTools(courseId, true);
+      const existing = tools.find((tool) => {
+        const name = (tool.name || "").trim().toLowerCase();
+        if (name === "email alerts") return true;
+        const subNav = tool.course_home_sub_navigation as { url?: string } | null | undefined;
+        return Boolean(subNav?.url?.includes("placement=email_alerts"));
+      });
+      if (existing) {
+        return { ok: true as const, tool: existing, created: false };
+      }
+
+      try {
+        const created = await canvasJson<CanvasExternalTool>(`/courses/${courseId}/external_tools`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            config_type: "by_url",
+            config_url: configUrl,
+          }).toString(),
+        });
+        return { ok: true as const, tool: created, created: true };
+      } catch (error) {
+        return {
+          ok: false as const,
+          created: false,
+          reason: error instanceof Error ? error.message : "Could not install Email Alerts on course Home.",
+        };
+      }
+    },
+
     async probeAccess() {
       const probe: {
         tokenUser: string | null;

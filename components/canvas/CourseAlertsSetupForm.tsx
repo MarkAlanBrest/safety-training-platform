@@ -509,17 +509,6 @@ export function CourseAlertsSetupForm({ courseId, importMode, initialConfig }: P
             type="button"
             className="course-alerts-send-now"
             disabled={loading}
-            onClick={() => {
-              window.location.href = `/canvas/email-alerts?course=${encodeURIComponent(courseId)}`;
-            }}
-          >
-            Email Alerts
-          </button>
-
-          <button
-            type="button"
-            className="course-alerts-send-now"
-            disabled={loading}
             onClick={async () => {
               setLoading(true);
               setError("");
