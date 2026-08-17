@@ -208,13 +208,6 @@ export async function ensureStudentAlertsLtiApp() {
   }
   await client.removeDuplicateAccountStudentAlertsTools(toolOptions).catch(() => null);
 
-  const emailAlertsConfigUrl = `${getAppOrigin().replace(/\/+$/, "")}/email-alerts-lti-key.json`;
-  await client.ensureAccountEmailAlertsTool(emailAlertsConfigUrl).catch((error) => {
-    accountErrors.push(
-      error instanceof Error ? error.message : "Could not install Email Alerts on the Canvas account.",
-    );
-  });
-
   return {
     ok: accounts > 0,
     created,
