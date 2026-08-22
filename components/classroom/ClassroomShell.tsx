@@ -23,6 +23,7 @@ import {
   speakerNotesHaveEmbeddedNarration,
   speechChunks,
   speechTextForTurn,
+  spokenTextFromSpeakerNotes,
 } from "@/lib/classroom-speech";
 import ClassroomTopBar from "@/components/classroom/ClassroomTopBar";
 import PresentationArea from "@/components/classroom/PresentationArea";
@@ -123,6 +124,8 @@ export default function ClassroomShell({
   const [assessmentQuestionIndex, setAssessmentQuestionIndex] = useState(0);
   const [expectsResponse, setExpectsResponse] = useState(false);
   const [checkQuestion, setCheckQuestion] = useState<ClassroomCheckQuestion | null>(null);
+  const [liveNarration, setLiveNarration] = useState("");
+  const [narrationHistory, setNarrationHistory] = useState<string[]>([]);
   const [answeredCheckPrompts, setAnsweredCheckPrompts] = useState<string[]>([]);
   const [completedTestKeys, setCompletedTestKeys] = useState<string[]>([]);
   const [streak, setStreak] = useState<AnswerStreak>({ correctInRow: 0, incorrectInRow: 0 });
@@ -147,6 +150,18 @@ export default function ClassroomShell({
   const beatSettledAtRef = useRef(Date.now());
   const prefetchedTurnRef = useRef<Map<number, PrefetchedTeacherTurn>>(new Map());
   const embeddedAudioHoldUntilRef = useRef(0);
+  const immediateNarrationBeatRef = useRef<number | null>(null);
+
+  const setSyncedNarration = useCallback((text: string) => {
+    const cleaned = filterPrivateSpeechDirections(text).trim();
+    if (!cleaned) return;
+    setLiveNarration((current) => {
+      if (current.trim()) {
+        setNarrationHistory((history) => [...history, current.trim()]);
+      }
+      return cleaned;
+    });
+  }, []);
 
   function markSlideTaught(slideIndex: number) {
     setTaughtSlideIndices((current) =>
@@ -610,6 +625,8 @@ export default function ClassroomShell({
       const speakerNotes = plan.slides[slideIndex]?.speakerNotes;
       const embeddedNarration =
         speakerNotesHaveEmbeddedNarration(speakerNotes) && !grading && !nextCheckQuestion;
+      const narrationText = speechTextForTurn(displayReply, nextCheckQuestion);
+      setSyncedNarration(narrationText);
 
       if (embeddedNarration) {
         embeddedAudioHoldUntilRef.current =
@@ -626,7 +643,19 @@ export default function ClassroomShell({
           reply: displayReply,
         })
       ) {
-        speakNatural(speechTextForTurn(displayReply, nextCheckQuestion));
+        const alreadySpokeNotes =
+          immediateNarrationBeatRef.current === activeBeatIndex && !nextCheckQuestion;
+        const notesText = spokenTextFromSpeakerNotes(speakerNotes || "");
+        const skipDuplicate =
+          alreadySpokeNotes &&
+          !nextCheckQuestion &&
+          Boolean(notesText) &&
+          (narrationText === notesText ||
+            narrationText.toLowerCase().startsWith(notesText.toLowerCase().slice(0, 48)));
+        if (!skipDuplicate) {
+          speakNatural(narrationText);
+        }
+        immediateNarrationBeatRef.current = null;
       } else {
         cancelSpeech();
       }
@@ -792,11 +821,24 @@ export default function ClassroomShell({
 
       setBeatIndex(nextBeatIndex);
       setPresentation(view);
-      setCheckQuestion(authoredCheck);
-      setExpectsResponse(Boolean(authoredCheck));
       if (beat.kind === "slide" || view.type === "slide") {
         setCurrentSlideIndex(nextSlideIndex);
         markSlideTaught(nextSlideIndex);
+      }
+
+      if (beat.kind === "slide") {
+        const notes = plan.slides[beat.slideIndex]?.speakerNotes;
+        const notesText = spokenTextFromSpeakerNotes(notes || "");
+        if (
+          notesText &&
+          !authoredCheck &&
+          !speakerNotesHaveEmbeddedNarration(notes) &&
+          voiceSettings.enabled
+        ) {
+          setSyncedNarration(notesText);
+          speakNatural(notesText);
+          immediateNarrationBeatRef.current = nextBeatIndex;
+        }
       }
 
       // The Final Test is a standalone exam mode, not part of the AI chat loop.
@@ -1016,6 +1058,8 @@ export default function ClassroomShell({
             messages={messages}
             thinking={thinking}
             checkQuestion={checkQuestion}
+            liveNarration={liveNarration}
+            narrationHistory={narrationHistory}
             onSelectOption={(option) => void handleSend(option)}
             needsAudioUnlock={needsAudioUnlock}
             speechToTextEnabled={builderConfig?.settings.speechText ?? true}
