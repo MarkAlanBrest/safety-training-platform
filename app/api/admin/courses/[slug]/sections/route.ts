@@ -4,6 +4,11 @@ export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-session";
 
+function normalizeSectionIds(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((id: unknown) => Number(id));
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ slug: string }> },
@@ -13,10 +18,8 @@ export async function PATCH(
 
   try {
     const { slug } = await params;
-    const body = await request.json();
-    const sectionIds: number[] = Array.isArray(body.sectionIds)
-      ? body.sectionIds.map((id: unknown) => Number(id))
-      : [];
+    const body = (await request.json()) as { sectionIds?: unknown };
+    const sectionIds = normalizeSectionIds(body.sectionIds);
     const course = await prisma.masonCourse.findUnique({
       where: { slug },
       include: { sections: { select: { id: true } } },
@@ -26,13 +29,15 @@ export async function PATCH(
     }
     if (
       sectionIds.length !== course.sections.length ||
-      !sectionIds.every((id) => course.sections.some((section) => section.id === id))
+      !sectionIds.every((id: number) =>
+        course.sections.some((section) => section.id === id),
+      )
     ) {
       return Response.json({ error: "Invalid section order." }, { status: 400 });
     }
 
     await prisma.$transaction(
-      sectionIds.map((id, index) =>
+      sectionIds.map((id: number, index: number) =>
         prisma.masonSection.update({
           where: { id },
           data: { position: index + 1 },
