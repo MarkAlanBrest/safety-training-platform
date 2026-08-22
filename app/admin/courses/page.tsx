@@ -8,11 +8,8 @@ import {
   Clock3,
   KeyRound,
   LoaderCircle,
-  Package,
-  PlayCircle,
   Plus,
   Presentation,
-  Sparkles,
   Trash2,
   Users,
 } from "lucide-react";
@@ -96,7 +93,7 @@ export default function CoursesPage() {
       eyebrow="Course library"
       actions={
         <Link
-          href="/admin/courses/new"
+          href="/admin/courses/new/classroom"
           className="flex items-center gap-2 rounded-xl bg-[#10283f] px-4 py-3 text-sm font-bold text-white"
         >
           <Plus size={17} /> New program
@@ -123,32 +120,15 @@ export default function CoursesPage() {
             Build your first training program
           </h2>
           <p className="mx-auto mt-3 max-w-xl leading-7 text-[#63707a]">
-            Build with AI, upload PowerPoint slides for narration, import SCORM, or create a video lesson with timed knowledge checks.
+            Upload a PowerPoint deck and exported slide images. The AI instructor narrates from speaker notes
+            while learners see your exact slide visuals.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <Link
-              href="/admin/courses/new/ai"
+              href="/admin/courses/new/classroom"
               className="inline-flex items-center gap-2 rounded-xl bg-[#10283f] px-5 py-3 font-bold text-white"
             >
-              <Sparkles size={18} /> Create with AI
-            </Link>
-            <Link
-              href="/admin/courses/new/classroom"
-              className="inline-flex items-center gap-2 rounded-xl border border-[#10283f]/15 bg-white px-5 py-3 font-bold text-[#10283f]"
-            >
-              <Presentation size={18} /> Slides + PPT
-            </Link>
-            <Link
-              href="/admin/courses/new/scorm"
-              className="inline-flex items-center gap-2 rounded-xl border border-[#10283f]/15 bg-white px-5 py-3 font-bold text-[#10283f]"
-            >
-              <Package size={18} /> Upload SCORM
-            </Link>
-            <Link
-              href="/admin/courses/new/video"
-              className="inline-flex items-center gap-2 rounded-xl border border-[#10283f]/15 bg-white px-5 py-3 font-bold text-[#10283f]"
-            >
-              <PlayCircle size={18} /> Video course
+              <Presentation size={18} /> Create from PowerPoint
             </Link>
           </div>
         </div>
