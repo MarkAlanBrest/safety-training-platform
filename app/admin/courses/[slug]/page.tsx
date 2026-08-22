@@ -8,17 +8,12 @@ import {
   BookOpen,
   Check,
   Clipboard,
-  Clock3,
-  FilePlus2,
   GripVertical,
   KeyRound,
   LoaderCircle,
   ImagePlus,
-  PackageCheck,
-  Presentation,
-  PlayCircle,
   Plus,
-  RefreshCw,
+  Presentation,
   Save,
   Settings2,
   Trash2,
@@ -29,7 +24,6 @@ import AdminShell from "@/components/AdminShell";
 import { courseIntensities, courseThemes } from "@/lib/course-options";
 import { learnerCoursePath } from "@/lib/course-routes";
 import { parseJsonResponse } from "@/lib/parse-response";
-import { normalizePlayerSettings, type PlayerSettings } from "@/lib/mason";
 import {
   VOICE_OPTIONS,
   VOICE_PROVIDER_OPTIONS,
@@ -53,7 +47,6 @@ type Section = {
       teaching?: { voiceProvider?: "browser" | "premium"; voice?: string; voiceSpeed?: number };
       settings?: { speechVoice?: boolean };
     };
-    playerSettings?: PlayerSettings;
   };
 };
 
@@ -128,14 +121,12 @@ export default function CourseEditorPage() {
   const [tab, setTab] = useState<Tab>("content");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
   const [draggedSectionId, setDraggedSectionId] = useState<number | null>(null);
   const [deletingSectionId, setDeletingSectionId] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [logoData, setLogoData] = useState<string | null>(null);
   const [accentColor, setAccentColor] = useState<string | null>(null);
-  const [scormNarrationMode, setScormNarrationMode] = useState<"package" | "premium" | "browser">("package");
 
   async function load() {
     if (!slug) return;
@@ -145,9 +136,6 @@ export default function CourseEditorPage() {
     setCourse(data);
     setLogoData(data.logoData || null);
     setAccentColor(data.accentColor || null);
-    if (data.courseType === "scorm") {
-      setScormNarrationMode("package");
-    }
   }
 
   useEffect(() => {
@@ -167,10 +155,6 @@ export default function CourseEditorPage() {
       claimed: course.enrollmentCodes.filter((code) => code.status === "claimed").length,
     };
   }, [course]);
-  const playerSettings = useMemo(
-    () => normalizePlayerSettings(course?.sections[0]?.lessonPlan.playerSettings),
-    [course],
-  );
 
   async function saveSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -196,11 +180,6 @@ export default function CourseEditorPage() {
         published: form.get("published") === "on",
         classroomVoiceProvider: form.get("classroomVoiceProvider"),
         classroomVoice: form.get("classroomVoice"),
-        scormNarrationMode: form.get("scormNarrationMode"),
-        appearance: form.get("appearance"),
-        toolbarStyle: form.get("toolbarStyle"),
-        aiCoach: form.get("aiCoach"),
-        knowledgeScope: form.get("knowledgeScope"),
       }),
     });
     const data = await response.json();
@@ -234,49 +213,6 @@ export default function CourseEditorPage() {
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The course could not be deleted.");
-      setBusy(false);
-    }
-  }
-
-  async function addSection(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!course) return;
-    setBusy(true);
-    setError("");
-    setMessage("");
-    const form = event.currentTarget;
-    const response = await fetch(`/api/admin/courses/${course.slug}/sections`, {
-      method: "POST",
-      body: new FormData(form),
-    });
-    const data = await response.json();
-    if (!response.ok) setError(data.error || "The section could not be created.");
-    else {
-      form.reset();
-      await load();
-      setMessage("Section created from the PDF.");
-    }
-    setBusy(false);
-  }
-
-  async function addBlankSection() {
-    if (!course || busy) return;
-    setBusy(true);
-    setError("");
-    setMessage("");
-    try {
-      const response = await fetch(`/api/admin/courses/${course.slug}/sections`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "New section", estimatedMinutes: 15 }),
-      });
-      const data = await parseJsonResponse<{ error?: string }>(response);
-      if (!response.ok) throw new Error(data.error || "The section could not be created.");
-      await load();
-      setMessage("Blank section added. Open it to add content blocks.");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The section could not be created.");
-    } finally {
       setBusy(false);
     }
   }
@@ -369,26 +305,6 @@ export default function CourseEditorPage() {
       setError(caught instanceof Error ? caught.message : "Codes could not be generated.");
     }
     setBusy(false);
-  }
-
-  async function regenerateSection(sectionId: number, pdf: File) {
-    if (!course) return;
-    setRegeneratingId(sectionId);
-    setError("");
-    setMessage("");
-    const form = new FormData();
-    form.set("pdf", pdf);
-    const response = await fetch(
-      `/api/admin/courses/${course.slug}/sections/${sectionId}/regenerate`,
-      { method: "POST", body: form },
-    );
-    const data = await response.json();
-    if (!response.ok) setError(data.error || "The section could not be regenerated.");
-    else {
-      await load();
-      setMessage("Section rebuilt as a continuous webpage from the source PDF.");
-    }
-    setRegeneratingId(null);
   }
 
   if (loading) {
@@ -554,242 +470,34 @@ export default function CourseEditorPage() {
             with the updated deck and slide-image ZIP. Course settings below control the AI voice and publishing.
           </div>
         </section>
-      ) : course.courseType === "scorm" ? (
-        <section className="rounded-3xl border border-[#10283f]/10 bg-white p-10 text-center shadow-sm">
-          <PackageCheck className="mx-auto text-[#c68b1b]" size={46} />
-          <p className="mt-5 text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">Imported package</p>
-          <h2 className="mt-2 font-serif text-3xl font-semibold text-[#10283f]">SCORM {course.scormVersion} course</h2>
-          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#69757e]">
-            The side panel shows the lesson text as learners move through the SCORM package.
-            Put a <code className="rounded bg-slate-100 px-1">narration-script.txt</code> in the ZIP
-            (auto-imported), or edit the script below. Choose one narration mode in Settings.
-          </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <Link href={`/admin/courses/${course.slug}/narration`} className="inline-flex rounded-xl bg-[#c68b1b] px-5 py-3 font-bold text-[#10283f]">
-              Edit narration script
-            </Link>
-            <Link href={`/admin/scorm-preview/${course.slug}`} target="_blank" className="inline-flex rounded-xl bg-[#10283f] px-5 py-3 font-bold text-white">
-              Preview with instructor chat
-            </Link>
-            <Link href={`/training/${course.slug}`} target="_blank" className="inline-flex rounded-xl border border-[#10283f]/15 px-5 py-3 font-bold text-[#10283f]">
-              Open learner route
-            </Link>
-          </div>
-          <p className="mt-4 text-xs text-[#69757e]">Preview mode does not alter learner progress or issue a certificate.</p>
-        </section>
-      ) : course.courseType === "video" ? (
-        <section className="rounded-3xl border border-[#10283f]/10 bg-white p-10 text-center shadow-sm">
-          <PlayCircle className="mx-auto text-[#c68b1b]" size={46} />
-          <p className="mt-5 text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">Video lesson</p>
-          <h2 className="mt-2 font-serif text-3xl font-semibold text-[#10283f]">YouTube video course</h2>
-          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#69757e]">
-            Learners watch the linked video full-screen. Add stopping points with knowledge checks and activities that pause playback until they respond correctly.
-          </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <Link href={`/admin/courses/${course.slug}/video`} className="inline-flex rounded-xl bg-[#c68b1b] px-5 py-3 font-bold text-[#10283f]">
-              Edit video and stopping points
-            </Link>
-            <Link href={`${learnerCoursePath(course.slug, course.courseType)}?preview=1`} target="_blank" className="inline-flex rounded-xl bg-[#10283f] px-5 py-3 font-bold text-white">
-              Preview learner view
-            </Link>
-          </div>
-        </section>
       ) : (
-        <div className="grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
-          <section>
-            <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">
-                  {course.courseType === "native" ? "AI-generated course" : "Program structure"}
-                </p>
-                <h2 className="mt-1 font-serif text-3xl font-semibold text-[#10283f]">
-                  {course.courseType === "native" ? "Course chapters" : "Sections and source material"}
-                </h2>
-              </div>
-              <div className="flex items-center gap-3">
-                <p className="text-sm font-semibold text-[#6e7981]">
-                  {course.sections.reduce((total, item) => total + item.estimatedMinutes, 0)} minutes
-                </p>
-                <button
-                  type="button"
-                  onClick={addBlankSection}
-                  disabled={busy}
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#10283f]/15 bg-white px-4 py-2.5 text-sm font-bold text-[#10283f] disabled:opacity-50"
-                >
-                  <Plus size={16} /> Blank section
-                </button>
-              </div>
-            </div>
-
-            {course.sections.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-[#10283f]/20 bg-white p-10 text-center">
-                <FilePlus2 className="mx-auto text-[#d09a31]" size={38} />
-                <h3 className="mt-4 text-xl font-bold text-[#10283f]">Add the first section</h3>
-                <p className="mt-2 text-sm text-[#6c7881]">
-                  {course.courseType === "native"
-                    ? "Add a chapter, then shape its teaching blocks in the visual editor."
-                    : "Each section begins with a source PDF. The AI creates a structured draft that you can review."}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {course.sections.map((section) => (
-                  <article
-                    key={section.id}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={() => void reorderSections(section.id)}
-                    className="grid min-w-0 gap-4 rounded-2xl border border-[#10283f]/10 bg-white p-5 shadow-sm sm:grid-cols-[56px_minmax(0,1fr)_auto] sm:items-center"
-                  >
-                    <div
-                      draggable
-                      onDragStart={(event: DragEvent<HTMLDivElement>) => {
-                        setDraggedSectionId(section.id);
-                        event.dataTransfer.effectAllowed = "move";
-                      }}
-                      onDragEnd={() => setDraggedSectionId(null)}
-                      className="grid h-12 w-12 cursor-grab place-items-center rounded-2xl bg-[#10283f] text-white active:cursor-grabbing"
-                      title="Drag to reorder section"
-                    >
-                      <GripVertical size={19} />
-                      <span className="sr-only">Section {section.position}</span>
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-[#10283f]">{section.title}</h3>
-                      <p className="mt-1 text-xs text-[#7b858c]">{section.fileName}</p>
-                      <p className="mt-2 text-xs font-semibold text-[#5d6973]">
-                        {section.lessonPlan?.objectives?.length || 0} objectives ·{" "}
-                        {section.lessonPlan?.moments?.length || 0} generated teaching moments
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-3">
-                      <span className="flex items-center gap-1.5 text-xs font-bold text-[#6e7981]">
-                        <Clock3 size={14} /> {section.estimatedMinutes} min
-                      </span>
-                      {course.courseType !== "native" ? <label
-                        className={`inline-flex items-center gap-2 rounded-lg border border-[#10283f]/15 px-3 py-2 text-xs font-bold text-[#10283f] transition hover:bg-[#edf1f2] ${
-                          regeneratingId !== null ? "pointer-events-none opacity-50" : "cursor-pointer"
-                        }`}
-                      >
-                        <RefreshCw
-                          size={14}
-                          className={regeneratingId === section.id ? "animate-spin" : ""}
-                        />
-                        {regeneratingId === section.id ? "Rebuilding…" : "Rebuild with new PDF"}
-                        <input
-                          type="file"
-                          accept="application/pdf"
-                          className="sr-only"
-                          disabled={regeneratingId !== null}
-                          onChange={(event) => {
-                            const pdf = event.target.files?.[0];
-                            if (pdf) regenerateSection(section.id, pdf);
-                            event.target.value = "";
-                          }}
-                        />
-                      </label> : null}
-                      <Link
-                        href={`/admin/courses/${course.slug}/sections/${section.id}`}
-                        className="inline-flex items-center gap-2 rounded-lg bg-[#10283f] px-3 py-2 text-xs font-bold text-white"
-                      >
-                        Edit content
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => deleteSection(section)}
-                        disabled={deletingSectionId !== null}
-                        className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
-                      >
-                        {deletingSectionId === section.id ? (
-                          <LoaderCircle className="animate-spin" size={14} />
-                        ) : (
-                          <Trash2 size={14} />
-                        )}
-                        Delete section
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {course.courseType === "native" ? (
-            <aside className="space-y-5">
-              <section className="sticky top-6 rounded-3xl bg-[#10283f] p-6 text-white shadow-xl">
-                <p className="text-xs font-black uppercase tracking-[.17em] text-[#f2c568]">Review and refine</p>
-                <h2 className="mt-2 font-serif text-2xl font-semibold">Your course is fully editable</h2>
-                <p className="mt-3 text-sm leading-6 text-slate-300">
-                  Open any chapter to edit its explanations, activities, questions, feedback, order, and learning objectives.
-                </p>
-                <a
-                  href={`/training/${course.slug}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-[#f2b744] px-4 py-3 font-bold text-[#10283f]"
-                >
-                  Preview learner experience
-                </a>
-              </section>
-            </aside>
-          ) : <aside>
-            <form
-              onSubmit={addSection}
-              className="sticky top-6 space-y-4 rounded-3xl bg-[#10283f] p-6 text-white shadow-xl"
-            >
-              <div>
-                <p className="text-xs font-black uppercase tracking-[.17em] text-[#f2c568]">
-                  Add content
-                </p>
-                <h2 className="mt-2 text-xl font-bold">Create a section from PDF</h2>
-                <p className="mt-2 text-xs leading-5 text-slate-300">
-                  The PDF is used once to create the page, then discarded. The generated
-                  lesson becomes the saved course content.
-                </p>
-              </div>
-              <input
-                name="sectionTitle"
-                required
-                placeholder="Section title"
-                className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 outline-none focus:border-[#f2b744]"
-              />
-              <label className="block">
-                <span className="mb-2 block text-xs font-bold text-slate-300">Estimated minutes</span>
-                <input
-                  name="estimatedMinutes"
-                  type="number"
-                  min={5}
-                  defaultValue={20}
-                  className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 outline-none"
-                />
-              </label>
-              <label className="block rounded-2xl border-2 border-dashed border-white/20 p-5 text-center">
-                <FilePlus2 className="mx-auto mb-2 text-[#f2c568]" />
-                <span className="block text-sm font-bold">Choose source PDF</span>
-                <span className="mb-3 block text-xs text-slate-400">Up to 25 MB</span>
-                <input name="pdf" type="file" accept="application/pdf" required className="text-xs" />
-              </label>
-              <button
-                disabled={busy}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#f2b744] px-4 py-3 font-bold text-[#10283f] disabled:opacity-60"
-              >
-                {busy ? <LoaderCircle className="animate-spin" size={18} /> : <Plus size={18} />}
-                {busy ? "Building section…" : "Add section"}
-              </button>
-            </form>
-          </aside>}
-        </div>
+        <section className="rounded-3xl border border-[#10283f]/10 bg-white p-10 text-center shadow-sm">
+          <Presentation className="mx-auto text-[#c68b1b]" size={46} />
+          <p className="mt-5 text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">Legacy course</p>
+          <h2 className="mt-2 font-serif text-3xl font-semibold text-[#10283f]">
+            This course type is no longer supported
+          </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-[#69757e]">
+            Only PowerPoint narration courses can be created now. Build a replacement program from your
+            PowerPoint deck and exported slide images.
+          </p>
+          <Link
+            href="/admin/courses/new/classroom"
+            className="mt-6 inline-flex rounded-xl bg-[#10283f] px-5 py-3 font-bold text-white"
+          >
+            Create narration course
+          </Link>
+        </section>
       ))}
 
-      {tab === "settings" && (course.courseType === "classroom" || course.courseType === "scorm" ? (
+      {tab === "settings" && (course.courseType === "classroom" ? (
         <form onSubmit={saveSettings} className="grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1fr)_minmax(0,.8fr)]">
           <section className="min-w-0 space-y-6 rounded-3xl border border-[#10283f]/10 bg-white p-7">
             <div>
               <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">AI course settings</p>
               <h2 className="mt-2 font-serif text-2xl font-semibold text-[#10283f]">Course and instructor</h2>
               <p className="mt-2 text-sm leading-6 text-[#69757e]">
-                {course.courseType === "scorm"
-                  ? "The SCORM package supplies its own audio, video, navigation, and interactions."
-                  : "The PowerPoints supply all visual content. These settings control the course name and AI voice."}
+                The PowerPoints supply all visual content. These settings control the course name and AI voice.
               </p>
             </div>
 
@@ -799,32 +507,17 @@ export default function CourseEditorPage() {
             </label>
 
             <div>
-              <p className="mb-3 text-sm font-bold">
-                {course.courseType === "scorm" ? "Narration mode" : "Voice quality"}
-              </p>
+              <p className="mb-3 text-sm font-bold">Voice quality</p>
               <div className="grid gap-3 sm:grid-cols-2">
-                {(course.courseType === "scorm"
-                  ? [
-                      {
-                        id: "package",
-                        label: "Package audio only",
-                        description: "The viewer plays only the narration and sound embedded in the SCORM package.",
-                      },
-                    ]
-                  : VOICE_PROVIDER_OPTIONS
-                ).map((option) => (
+                {VOICE_PROVIDER_OPTIONS.map((option) => (
                   <label key={option.id} className="cursor-pointer">
                     <input
                       type="radio"
-                      name={course.courseType === "scorm" ? "scormNarrationMode" : "classroomVoiceProvider"}
+                      name="classroomVoiceProvider"
                       value={option.id}
-                      checked={course.courseType === "scorm" ? scormNarrationMode === option.id : undefined}
-                      defaultChecked={course.courseType !== "scorm"
-                        ? (course.sections[0]?.lessonPlan.config?.teaching?.voiceProvider || "premium") === option.id
-                        : undefined}
-                      onChange={course.courseType === "scorm"
-                        ? () => setScormNarrationMode(option.id as "package" | "premium" | "browser")
-                        : undefined}
+                      defaultChecked={
+                        (course.sections[0]?.lessonPlan.config?.teaching?.voiceProvider || "premium") === option.id
+                      }
                       className="peer sr-only"
                     />
                     <span className="block h-full rounded-2xl border border-[#10283f]/10 p-4 peer-checked:border-[#c68b1b] peer-checked:bg-[#fff9eb] peer-checked:ring-2 peer-checked:ring-[#e8c273]/25">
@@ -836,7 +529,7 @@ export default function CourseEditorPage() {
               </div>
             </div>
 
-            {course.courseType !== "scorm" ? <label className="block">
+            <label className="block">
               <span className="mb-2 block text-sm font-bold">AI voice</span>
               <select
                 name="classroomVoice"
@@ -852,12 +545,7 @@ export default function CourseEditorPage() {
               <span className="mt-2 block text-xs leading-5 text-[#69757e]">
                 This selected premium voice will be used throughout the course.
               </span>
-            </label> : (
-              <>
-                <input type="hidden" name="scormNarrationMode" value="package" />
-                <input type="hidden" name="classroomVoice" value="cedar" />
-              </>
-            )}
+            </label>
 
             <input type="hidden" name="description" value="" />
             <input type="hidden" name="audience" value="" />
@@ -885,15 +573,13 @@ export default function CourseEditorPage() {
                 name="published"
                 type="checkbox"
                 defaultChecked={course.published}
-                disabled={course.courseType !== "scorm" && !course.sections.length}
+                disabled={!course.sections.length}
                 className="mt-1 h-4 w-4"
               />
               <span>
                 <span className="block font-bold text-[#10283f]">Published and available for enrollment</span>
                 <span className="mt-1 block text-xs leading-5 text-[#6c7881]">
-                  {course.courseType === "scorm"
-                    ? `Learners with valid codes can open the SCORM lesson with the AI instructor panel.`
-                    : "Learners with valid enrollment codes can take this AI-led PowerPoint course."}
+                  Learners with valid enrollment codes can take this AI-led PowerPoint course.
                 </span>
               </span>
             </label>
@@ -936,110 +622,6 @@ export default function CourseEditorPage() {
           </section>
 
           <aside className="space-y-6">
-            <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6">
-              <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">
-                Course format
-              </p>
-              <p className="mt-2 text-sm leading-6 text-[#6c7881]">
-                Change how the same course content is presented to learners.
-              </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {[
-                  {
-                    id: "webpage",
-                    name: "Webpage",
-                    description: "A continuous editorial lesson with activities embedded in the reading.",
-                  },
-                  {
-                    id: "slideshow",
-                    name: "Slideshow",
-                    description: "One topic or activity at a time with Previous and Next controls.",
-                  },
-                ].map((option) => (
-                  <label key={option.id} className="cursor-pointer">
-                    <input
-                      type="radio"
-                      name="displayMode"
-                      value={option.id}
-                      defaultChecked={(course.displayMode || "webpage") === option.id}
-                      className="peer sr-only"
-                    />
-                    <span className="block h-full rounded-2xl border border-[#10283f]/10 p-4 peer-checked:border-[#c68b1b] peer-checked:bg-[#fff9eb] peer-checked:ring-2 peer-checked:ring-[#e8c273]/25">
-                      <span className="font-bold text-[#10283f]">{option.name}</span>
-                      <span className="mt-2 block text-xs leading-5 text-[#6c7881]">
-                        {option.description}
-                      </span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </section>
-
-            {course.courseType === "native" && (
-              <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6">
-                <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">Learner toolbar</p>
-                <p className="mt-2 text-sm leading-6 text-[#6c7881]">Choose the starting appearance, toolbar layout, and AI instructor behavior.</p>
-
-                <fieldset className="mt-5">
-                  <legend className="text-sm font-bold">Starting appearance</legend>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    {[
-                      { id: "light", name: "Light" },
-                      { id: "dark", name: "Dark" },
-                    ].map((option) => (
-                      <label key={option.id} className="cursor-pointer">
-                        <input type="radio" name="appearance" value={option.id} defaultChecked={playerSettings.appearance === option.id} className="peer sr-only" />
-                        <span className="block rounded-xl border border-[#10283f]/10 p-3 text-center text-sm font-bold peer-checked:border-[#10283f] peer-checked:bg-[#10283f] peer-checked:text-white">{option.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-
-                <fieldset className="mt-5">
-                  <legend className="text-sm font-bold">Toolbar design</legend>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    {[
-                      { id: "minimal", name: "Minimal" },
-                      { id: "guided", name: "Guided" },
-                    ].map((option) => (
-                      <label key={option.id} className="cursor-pointer">
-                        <input type="radio" name="toolbarStyle" value={option.id} defaultChecked={playerSettings.toolbarStyle === option.id} className="peer sr-only" />
-                        <span className="block rounded-xl border border-[#10283f]/10 p-3 text-center text-sm font-bold peer-checked:border-[#10283f] peer-checked:bg-[#10283f] peer-checked:text-white">{option.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-
-                <fieldset className="mt-5">
-                  <legend className="text-sm font-bold">AI instructor</legend>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                    {[
-                      { id: "off", name: "Off" },
-                      { id: "ask", name: "Ask only" },
-                      { id: "guided", name: "Guided" },
-                    ].map((option) => (
-                      <label key={option.id} className="cursor-pointer">
-                        <input type="radio" name="aiCoach" value={option.id} defaultChecked={playerSettings.aiCoach === option.id} className="peer sr-only" />
-                        <span className="block rounded-xl border border-[#10283f]/10 p-3 text-center text-sm font-bold peer-checked:border-[#10283f] peer-checked:bg-[#eef3f6]">{option.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-
-                <fieldset className="mt-5">
-                  <legend className="text-sm font-bold">Answer boundary</legend>
-                  <div className="mt-2 space-y-2 text-sm">
-                    <label className="flex cursor-pointer items-center gap-2">
-                      <input type="radio" name="knowledgeScope" value="course" defaultChecked={playerSettings.knowledgeScope === "course"} /> Course material only
-                    </label>
-                    <label className="flex cursor-pointer items-center gap-2">
-                      <input type="radio" name="knowledgeScope" value="expanded" defaultChecked={playerSettings.knowledgeScope === "expanded"} /> Course plus labeled general knowledge
-                    </label>
-                  </div>
-                </fieldset>
-              </section>
-            )}
-
             <section className="rounded-3xl border border-[#10283f]/10 bg-white p-6">
               <p className="text-xs font-black uppercase tracking-[.17em] text-[#9a6812]">
                 Company branding

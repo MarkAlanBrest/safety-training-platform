@@ -8,7 +8,6 @@ import {
   ExternalLink,
   Plus,
   ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 
 type Props = {
@@ -21,8 +20,7 @@ type Props = {
 const navItems = [
   { href: "/admin/courses", label: "Training programs", icon: BookOpen },
   { href: "/admin/course-alerts", label: "Course alerts", icon: ShieldCheck },
-  { href: "/admin/courses/new", label: "New program", icon: Plus },
-  { href: "/admin/courses/new/ai", label: "Create with AI", icon: Sparkles },
+  { href: "/admin/courses/new/classroom", label: "New program", icon: Plus },
 ];
 
 function NavLink({
@@ -40,8 +38,8 @@ function NavLink({
     (item.href === "/admin/courses" &&
       currentPath.startsWith("/admin/courses/") &&
       !currentPath.startsWith("/admin/courses/new")) ||
-    (item.href === "/admin/courses/new" && currentPath === "/admin/courses/new") ||
-    (item.href === "/admin/courses/new/ai" && currentPath.startsWith("/admin/courses/new/ai"));
+    (item.href === "/admin/courses/new/classroom" &&
+      currentPath.startsWith("/admin/courses/new"));
 
   return (
     <Link
