@@ -81,9 +81,10 @@ export const DEFAULT_COURSE_ALERT_CONFIG: CourseAlertConfigInput = {
   emailFrequencyDays: 1,
 };
 
-function clampInt(value: unknown, fallback: number, min: number, max: number) {
+function clampInt(value: unknown, fallback: number | undefined, min: number, max: number) {
+  const defaultValue = fallback ?? min;
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return fallback;
+  if (!Number.isFinite(parsed)) return defaultValue;
   return Math.min(max, Math.max(min, Math.round(parsed)));
 }
 
