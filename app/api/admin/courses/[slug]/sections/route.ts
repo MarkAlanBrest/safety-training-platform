@@ -14,8 +14,8 @@ export async function PATCH(
   try {
     const { slug } = await params;
     const body = await request.json();
-    const sectionIds = Array.isArray(body.sectionIds)
-      ? body.sectionIds.map(Number)
+    const sectionIds: number[] = Array.isArray(body.sectionIds)
+      ? body.sectionIds.map((id: unknown) => Number(id))
       : [];
     const course = await prisma.masonCourse.findUnique({
       where: { slug },
