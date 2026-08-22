@@ -87,17 +87,19 @@ function clampInt(value: unknown, fallback: number, min: number, max: number) {
   return Math.min(max, Math.max(min, Math.round(parsed)));
 }
 
-function optionalMessage(value: unknown, fallback: string | null) {
-  if (typeof value !== "string") return fallback;
+function optionalMessage(value: unknown, fallback: string | null | undefined) {
+  const defaultValue = fallback ?? null;
+  if (typeof value !== "string") return defaultValue;
   const trimmed = value.trim();
-  if (!trimmed) return fallback;
-  return currentAlertMessage(trimmed, fallback || trimmed);
+  if (!trimmed) return defaultValue;
+  return currentAlertMessage(trimmed, defaultValue || trimmed);
 }
 
-function optionalText(value: unknown, fallback: string | null) {
-  if (typeof value !== "string") return fallback;
+function optionalText(value: unknown, fallback: string | null | undefined) {
+  const defaultValue = fallback ?? null;
+  if (typeof value !== "string") return defaultValue;
   const trimmed = value.trim();
-  if (!trimmed) return fallback;
+  if (!trimmed) return defaultValue;
   return trimmed;
 }
 
