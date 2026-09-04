@@ -1,0 +1,2571 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      :root {
+        --primary: #1a73e8;
+        --bg: #f8f9fa;
+        --card: #ffffff;
+        --border: #dadce0;
+        --amber: #f59e0b;
+        --amber-bg: #fef3e0;
+        --amber-dark: #b45309;
+      }
+      body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #202124; }
+      .container { max-width: 760px; margin: 0 auto; background: var(--card); padding: 25px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+      h2 { margin-top: 0; color: #174ea6; font-size: 22px; }
+      h3 { font-size: 15px; margin: 0 0 4px 0; }
+      .form-group { margin-bottom: 18px; }
+      label { font-weight: 600; display: block; margin-bottom: 6px; font-size: 14px; }
+      input[type="text"], select, textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; font-size: 14px; font-family: inherit; }
+      textarea { resize: vertical; }
+
+      /* Tabs */
+      .tab-nav { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid var(--border); }
+      .tab-btn { flex: none; width: auto; background: none; color: #5f6368; border: none; border-bottom: 3px solid transparent; border-radius: 0; padding: 10px 18px; font-size: 15px; font-weight: 600; cursor: pointer; }
+      .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
+
+      /* HQSD workspace tabs */
+      .subtab-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 5px; margin: 0 0 18px; background: #e9eef6; border-radius: 10px; }
+      .subtab-btn { width: 100%; padding: 10px 12px; border-radius: 7px; background: transparent; color: #506078; font-size: 14px; box-shadow: none; }
+      .subtab-btn:hover { background: rgba(255,255,255,0.65); }
+      .subtab-btn.active { background: white; color: #174ea6; box-shadow: 0 1px 4px rgba(16,27,51,0.16); }
+      .subtab-panel { display: none; }
+      .subtab-panel.active { display: block; }
+
+      .card-section { background: #f1f3f4; padding: 15px; border-radius: 6px; margin-bottom: 15px; }
+      .card-title { font-weight: bold; margin-bottom: 10px; display: block; color: #3c4043; }
+      .card-subtext { font-size: 12px; color: #5f6368; margin: -6px 0 10px 0; }
+      .field-hint { font-size: 12px; color: #5f6368; margin: 6px 0 0 0; }
+      .protocol-help { margin: 8px 0 12px; padding: 9px 11px; background: #fff; border: 1px solid #d8e2f0; border-radius: 6px; font-size: 12px; color: #4f5f73; }
+      .protocol-help summary { cursor: pointer; font-weight: 600; color: #174ea6; }
+      .protocol-example { margin-top: 9px; padding-top: 9px; border-top: 1px solid #e4e9f0; line-height: 1.45; }
+
+      .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+      .grid-3 div { text-align: center; }
+      .grid-3 input { text-align: center; }
+
+      /* File attach area */
+      .file-row { display: flex; gap: 8px; margin-bottom: 8px; }
+      .file-row input[type="text"] { flex: 1; }
+      .file-row button { width: auto; padding: 8px 14px; font-size: 13px; }
+      .search-results { max-height: 140px; overflow-y: auto; margin-top: 6px; }
+      .search-result-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: white; border-radius: 4px; margin-bottom: 4px; font-size: 13px; border: 1px solid var(--border); }
+      .search-result-item button { width: auto; padding: 4px 10px; font-size: 12px; background: #137333; }
+      .chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+      .chip { background: white; border: 1px solid var(--border); border-radius: 16px; padding: 4px 10px 4px 12px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+      .chip .remove { cursor: pointer; color: #c5221f; font-weight: bold; }
+
+      /* Module items */
+      .item-block { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 14px; margin-bottom: 12px; position: relative; }
+      .item-header { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+      .item-header select { flex: 0 0 200px; }
+      .item-header input[type="text"] { flex: 1; }
+      .remove-item { background: #fce8e6; color: #c5221f; width: auto; padding: 8px 12px; font-size: 13px; }
+      .item-content { display: none; }
+      .item-content.visible { display: block; }
+      .item-content textarea { margin-top: 8px; }
+      .item-content .grid-3 { margin-top: 8px; }
+      .add-item-btn { background: white; color: var(--primary); border: 1px dashed var(--primary); margin-bottom: 15px; }
+      .add-item-btn:hover { background: #e8f0fe; }
+
+      .checkbox-item { display: flex; align-items: center; gap: 8px; font-weight: normal; font-size: 13px; }
+      .checkbox-item input { margin: 0; width: 16px; height: 16px; }
+
+      .criteria-box { border-top: 1px dashed var(--border); margin-top: 12px; padding-top: 10px; display: none; }
+      .criteria-box.visible { display: block; }
+      .criteria-box label.checkbox-item { margin-bottom: 8px; }
+
+      button { width: 100%; background-color: var(--primary); color: white; border: none; padding: 12px; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: background 0.2s; }
+      button:hover { background-color: #1557b0; }
+      button:disabled { opacity: 0.6; cursor: default; }
+
+      #status, #gradeStatus { margin-top: 15px; padding: 10px; border-radius: 4px; font-weight: 500; text-align: center; }
+      #gradeStatus:empty { display: none; }
+      .status-loading { background: #e8f0fe; color: #1a73e8; }
+      .status-success { background: #e6f4ea; color: #137333; }
+      .status-error { background: #fce8e6; color: #c5221f; }
+
+      .btn-row { display: flex; gap: 10px; margin-top: 10px; }
+      .btn-row button { font-size: 13px; padding: 10px; }
+      .btn-secondary { background: white; color: var(--primary); border: 1px solid var(--primary); }
+      .badge-resubmitted { display: inline-block; background: #fce8e6; color: #c5221f; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 10px; margin-bottom: 8px; }
+      .review-card { display: none; margin-top: 14px; background: white; border: 1px solid var(--border); border-radius: 6px; padding: 14px; }
+      .review-card.visible { display: block; }
+      .review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+      .review-counter { font-size: 12px; color: #5f6368; }
+      .review-excerpt { max-height: 280px; overflow-y: auto; background: #f8f9fa; padding: 8px; border-radius: 4px; font-size: 13px; margin-bottom: 10px; white-space: pre-wrap; }
+
+      /* Grading workspace */
+      body.grade-active { padding: 12px; }
+      body.grade-active .container { max-width: 1380px; }
+      .grader-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) auto; gap: 12px; align-items: end; margin-bottom: 14px; }
+      .grader-toolbar .form-group { margin: 0; }
+      .grader-refresh { width: auto; height: 40px; padding: 8px 18px; }
+      .grader-summary { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+      .grader-stat { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 9px 13px; font-size: 12px; color: #5f6368; }
+      .grader-stat strong { display: block; color: #202124; font-size: 18px; line-height: 1.1; }
+      .grader-shell { display: grid; grid-template-columns: 280px minmax(360px, 1fr) 330px; min-height: 650px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: white; }
+      .grader-queue { border-right: 1px solid var(--border); background: #f8f9fa; min-width: 0; }
+      .grader-pane-title { padding: 14px 16px 10px; font-size: 13px; font-weight: 700; color: #3c4043; border-bottom: 1px solid var(--border); background: white; }
+      .grader-queue-list { max-height: 610px; overflow-y: auto; }
+      .queue-item { width: 100%; text-align: left; border: 0; border-bottom: 1px solid #e7e9ec; border-radius: 0; background: transparent; color: #202124; padding: 13px 14px; font-weight: normal; }
+      .queue-item:hover { background: #eef3fb; }
+      .queue-item.active { background: #e8f0fe; box-shadow: inset 4px 0 #1a73e8; }
+      .queue-student { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+      .queue-assignment { font-size: 12px; color: #5f6368; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .queue-meta { display: flex; gap: 6px; align-items: center; margin-top: 7px; font-size: 11px; color: #6f7782; }
+      .grader-badge { display: inline-block; border-radius: 999px; padding: 3px 8px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+      .grader-badge.new { background: #e6f4ea; color: #137333; }
+      .grader-badge.regrade { background: #fce8e6; color: #b3261e; }
+      .grader-submission { min-width: 0; display: flex; flex-direction: column; }
+      .submission-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+      .submission-title { font-size: 18px; font-weight: 700; }
+      .submission-subtitle { color: #5f6368; font-size: 12px; margin-top: 3px; }
+      .submission-nav { display: flex; gap: 6px; }
+      .submission-nav button { width: auto; padding: 7px 11px; font-size: 12px; }
+      .submission-body { padding: 18px; overflow-y: auto; max-height: 570px; }
+      .submission-empty { color: #6f7782; text-align: center; padding: 90px 25px; }
+      .submission-preview { white-space: pre-wrap; font-size: 14px; line-height: 1.55; color: #2b3036; }
+      .attachment-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+      .attachment-link { display: inline-flex; align-items: center; gap: 5px; border: 1px solid #b7c8e7; border-radius: 6px; padding: 7px 10px; color: #174ea6; text-decoration: none; font-size: 12px; font-weight: 600; background: #f7faff; }
+      .grader-score { border-left: 1px solid var(--border); background: #fbfcfe; min-width: 0; }
+      .score-body { padding: 16px; }
+      .score-context { font-size: 12px; color: #5f6368; padding: 10px; border: 1px solid var(--border); background: white; border-radius: 6px; max-height: 110px; overflow-y: auto; white-space: pre-wrap; margin-bottom: 14px; }
+      .score-line { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+      .score-line input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; font-size: 20px; font-weight: 700; }
+      .points-possible { padding-bottom: 10px; color: #5f6368; font-weight: 600; }
+      .grader-actions { display: grid; gap: 8px; margin-top: 12px; }
+      .grader-actions button { font-size: 13px; padding: 10px; }
+      .ai-action { background: #6f42c1; }
+      .ai-action:hover { background: #59359b; }
+      .save-grade { background: #137333; }
+      .save-grade:hover { background: #0d5d28; }
+      .grader-message { min-height: 18px; margin-top: 10px; font-size: 12px; }
+      .grader-message.error { color: #b3261e; }
+      .grader-message.success { color: #137333; }
+      .queue-empty { padding: 25px 16px; color: #6f7782; font-size: 13px; text-align: center; }
+      .rubric-score-panel { display: none; margin: 0 0 14px; }
+      .rubric-score-panel.visible { display: block; }
+      .rubric-score-row { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 9px; margin-bottom: 7px; }
+      .rubric-score-name { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+      .rubric-score-inputs { display: grid; grid-template-columns: 62px 1fr; gap: 6px; }
+      .rubric-score-inputs input { padding: 7px; font-size: 12px; box-sizing: border-box; width: 100%; }
+
+      @media (max-width: 1050px) {
+        .grader-shell { grid-template-columns: 235px 1fr; }
+        .grader-score { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--border); }
+      }
+      @media (max-width: 720px) {
+        .grader-toolbar { grid-template-columns: 1fr; }
+        .grader-shell { display: block; }
+        .grader-queue-list { max-height: 240px; }
+        .grader-queue { border-right: 0; border-bottom: 1px solid var(--border); }
+      }
+
+      /* Build wizard */
+      .step-nav { display: flex; gap: 6px; margin-bottom: 20px; }
+      .step-pill { flex: 1; text-align: center; padding: 8px 4px; border-radius: 16px; background: #f1f3f4; color: #5f6368; font-size: 12px; font-weight: 600; }
+      .step-pill.current { background: var(--primary); color: white; }
+      .step-pill.done { background: #e6f4ea; color: #137333; }
+      .wizard-screen { display: none; }
+      .wizard-screen.active { display: block; }
+      .wizard-nav-row { display: flex; gap: 10px; margin-top: 18px; }
+      .wizard-nav-row button { width: auto; flex: 1; }
+      .wizard-nav-row .btn-secondary { flex: 0 0 100px; }
+
+      .build-item-card { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 14px; margin-bottom: 12px; }
+      .build-item-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+      .build-item-title { font-weight: 600; font-size: 14px; }
+      .build-item-type { font-size: 12px; color: #5f6368; }
+      .build-item-head button { width: auto; padding: 8px 14px; font-size: 13px; }
+      .build-status { font-size: 12px; margin: 6px 0; }
+      .build-status.status-loading { color: #1a73e8; }
+      .build-status.status-success { color: #137333; }
+      .build-status.status-error { color: #c5221f; }
+      .build-preview { background: #f8f9fa; border-radius: 4px; padding: 10px; font-size: 13px; max-height: 220px; overflow-y: auto; white-space: pre-wrap; display: none; }
+      .build-preview.visible { display: block; }
+      .build-preview-editor { width:100%; min-height:260px; margin-top:8px; font-family:Consolas,monospace; font-size:12px; display:none; }
+      .build-preview-editor.visible { display:block; }
+
+      .insert-item-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: white; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 6px; font-size: 13px; }
+      .insert-item-row .result-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+      .insert-item-main { flex: 1; min-width: 0; }
+      .insert-order-controls { display: flex; align-items: center; gap: 5px; margin-left: 10px; }
+      .insert-order-controls button { width: auto; padding: 5px 8px; font-size: 12px; }
+      .existing-file-options { display: grid; grid-template-columns: minmax(180px, 1fr) 180px 90px; gap: 7px; margin-top: 7px; }
+      .existing-file-options input, .existing-file-options select { padding: 7px; font-size: 12px; }
+      .result-badge.pending { background: #f1f3f4; color: #5f6368; }
+      .result-badge.inserted { background: #e6f4ea; color: #137333; }
+      .result-badge.error { background: #fce8e6; color: #c5221f; }
+
+      /* Settings */
+      .settings-row { margin-bottom: 18px; }
+      .radio-row { display: flex; gap: 16px; }
+      .radio-item { display: flex; align-items: center; gap: 6px; font-weight: normal; font-size: 14px; }
+      .radio-item input { margin: 0; }
+      input[type="color"] { width: 60px; height: 38px; padding: 2px; }
+    </style>
+  </head>
+  <body>
+
+    <div class="container">
+      <h2>Teacher Portal</h2>
+
+      <div class="tab-nav">
+        <button type="button" class="tab-btn active" id="tabBtnBuild" onclick="showTab('build')">Build</button>
+        <button type="button" class="tab-btn" id="tabBtnGrade" onclick="showTab('grade')">Grade</button>
+        <button type="button" class="tab-btn" id="tabBtnHQSD" onclick="showTab('hqsd')">HQSD</button>
+        <button type="button" class="tab-btn" id="tabBtnSettings" onclick="showTab('settings')">Settings</button>
+      </div>
+
+      <!-- ============ BUILD TAB (wizard: Setup -> Layout -> Build -> Insert) ============ -->
+      <div class="tab-panel active" id="buildPanel">
+
+        <div class="step-nav">
+          <div class="step-pill" id="stepPillSetup">1. Setup</div>
+          <div class="step-pill" id="stepPillLayout">2. Layout</div>
+          <div class="step-pill" id="stepPillBuild">3. Build</div>
+          <div class="step-pill" id="stepPillInsert">4. Insert</div>
+        </div>
+
+        <!-- STEP 1: SETUP -->
+        <div class="wizard-screen" id="screenSetup">
+          <div class="form-group">
+            <label for="courseSelect">Target Google Classroom</label>
+            <select id="courseSelect"><option>Loading classes...</option></select>
+          </div>
+
+          <div class="form-group">
+            <label for="topicName">Topic / Unit Name</label>
+            <input type="text" id="topicName" placeholder="e.g., Table Saw Safety & Operation">
+          </div>
+
+          <div class="form-group">
+            <label for="sharedContent">Source Material (default content, used by any item that doesn't have its own)</label>
+            <textarea id="sharedContent" rows="4" placeholder="Paste study notes, rules, or reference text here... (optional if you attach a file below)"></textarea>
+          </div>
+
+          <!-- FILE ATTACH -->
+          <div class="card-section">
+            <span class="card-title">Attach Files</span>
+            <div class="card-subtext">Attached files are read for their content only — used as source material for every content item below. They are NOT posted to Classroom, NOT linked in the generated docs, and are never seen by students. A PPT, PDF, or Doc here can stand in for the Source Material box above.</div>
+
+            <label style="font-size:13px;">Upload from your computer</label>
+            <input type="file" id="fileUploadInput" multiple onchange="handleFileUpload(event)">
+
+            <div style="margin-top:12px;">
+              <label style="font-size:13px;">Or find a file already in Drive</label>
+              <div class="file-row">
+                <input type="text" id="driveSearchBox" placeholder="Search your Drive by file name...">
+                <button onclick="searchDrive()" style="background:#3c4043;">Search</button>
+              </div>
+              <div class="search-results" id="driveSearchResults"></div>
+            </div>
+
+            <div class="chip-list" id="attachedFilesChips"></div>
+          </div>
+
+          <div class="wizard-nav-row">
+            <button type="button" onclick="goToLayoutStep()">Next: Layout &rarr;</button>
+          </div>
+        </div>
+
+        <!-- STEP 2: LAYOUT -->
+        <div class="wizard-screen" id="screenLayout">
+          <!-- MODULE ITEMS -->
+          <div class="card-section">
+            <span class="card-title">Topic Content &amp; Assignments</span>
+            <div class="card-subtext">Add one or more pieces of coursework to build for this topic.</div>
+            <div id="itemsContainer"></div>
+            <button class="add-item-btn" onclick="addItem()" type="button">+ Add Content Item</button>
+          </div>
+
+          <!-- PARSE & PREPOPULATE -->
+          <div class="card-section">
+            <span class="card-title">Parse Attached Files</span>
+            <div class="card-subtext">Reads your attached file(s) and drops the extracted text into every item's content box above, so you can see exactly what will be used — and edit it — before building anything.</div>
+            <button type="button" class="btn-secondary" onclick="parseAndPrepopulate()">Parse Files & Fill In Boxes</button>
+            <div id="parseStatus" style="font-size:13px; margin-top:8px;"></div>
+          </div>
+
+          <div class="wizard-nav-row">
+            <button type="button" class="btn-secondary" onclick="goToStep('setup')">&larr; Back</button>
+            <button type="button" onclick="goToBuildStep()">Next: Build &rarr;</button>
+          </div>
+          <div id="layoutStatus" style="font-size:13px; margin-top:8px;"></div>
+        </div>
+
+        <!-- STEP 3: BUILD -->
+        <div class="wizard-screen" id="screenBuild">
+          <div class="card-section">
+            <span class="card-title">Generate Content</span>
+            <div class="card-subtext">Generate each item with AI and preview exactly what it produced. Nothing is posted to Classroom yet.</div>
+            <button type="button" class="btn-secondary" onclick="buildAllItems()">Build All</button>
+          </div>
+
+          <div id="buildItemsContainer"></div>
+
+          <div class="wizard-nav-row">
+            <button type="button" class="btn-secondary" onclick="goToStep('layout')">&larr; Back</button>
+            <button type="button" id="btnToInsert" onclick="goToStep('insert')" disabled>Next: Insert &rarr;</button>
+          </div>
+        </div>
+
+        <!-- STEP 4: INSERT -->
+        <div class="wizard-screen" id="screenInsert">
+          <div class="card-section">
+            <span class="card-title">Add Existing Classroom Files</span>
+            <div class="card-subtext">Add project guides or other files you already created. These files will be posted to students, unlike the source-material files from Setup.</div>
+            <div class="file-row">
+              <input type="text" id="insertDriveSearchBox" placeholder="Search your Drive for a project guide...">
+              <button type="button" class="btn-secondary" onclick="searchInsertDriveFiles()">Search Drive</button>
+            </div>
+            <div class="search-results" id="insertDriveSearchResults"></div>
+          </div>
+
+          <div class="card-section">
+            <span class="card-title">Ready to Insert</span>
+            <div class="card-subtext">Student visibility is off. Review the inserted content in Classroom, then publish it when ready.</div>
+            <div class="card-subtext">Arrange the insertion order. Existing files can be view-only resources or individual student copies to complete and submit.</div>
+            <div id="insertItemsContainer"></div>
+          </div>
+
+          <button id="btnInsert" onclick="runInsertProcess()">Insert Content into Classroom</button>
+          <div id="status"></div>
+
+          <div class="wizard-nav-row">
+            <button type="button" class="btn-secondary" onclick="goToStep('build')">&larr; Back</button>
+            <button type="button" class="btn-secondary" onclick="resetWizard()">Start New Topic</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ============ GRADE TAB ============ -->
+      <div class="tab-panel" id="gradePanel">
+
+        <div class="grader-toolbar">
+          <div class="form-group">
+            <label for="gradeCourseSelect">Class</label>
+            <select id="gradeCourseSelect" onchange="onGradeCourseChange()"><option>Loading classes...</option></select>
+          </div>
+          <div class="form-group">
+            <label for="gradeAssignmentFilter">Assignment</label>
+            <select id="gradeAssignmentFilter" onchange="onGradeAssignmentFilterChange()"><option value="">All assignments</option></select>
+          </div>
+          <button type="button" class="btn-secondary grader-refresh" id="graderRefreshBtn" onclick="refreshGradingQueue()">Refresh queue</button>
+        </div>
+
+        <div class="grader-summary" id="graderSummary">
+          <div class="grader-stat"><strong id="graderNeedsCount">0</strong>Needs grading</div>
+          <div class="grader-stat"><strong id="graderRegradeCount">0</strong>Needs regrading</div>
+          <div class="grader-stat"><strong id="graderTotalCount">0</strong>Total in queue</div>
+        </div>
+
+        <div id="gradeStatus"></div>
+
+        <div class="grader-shell">
+          <aside class="grader-queue">
+            <div class="grader-pane-title">Grading queue</div>
+            <div class="grader-queue-list" id="graderQueueList">
+              <div class="queue-empty">Choose a class to load submitted work.</div>
+            </div>
+          </aside>
+
+          <section class="grader-submission">
+            <div class="submission-header">
+              <div>
+                <div class="submission-title" id="graderStudentName">No submission selected</div>
+                <div class="submission-subtitle" id="graderSubmissionMeta"></div>
+              </div>
+              <div class="submission-nav">
+                <button type="button" class="btn-secondary" onclick="moveGrader(-1)">&larr; Previous</button>
+                <button type="button" class="btn-secondary" onclick="moveGrader(1)">Next &rarr;</button>
+              </div>
+            </div>
+            <div class="submission-body" id="graderSubmissionBody">
+              <div class="submission-empty">Submitted documents, reflections, and project rubrics will appear here.</div>
+            </div>
+          </section>
+
+          <aside class="grader-score">
+            <div class="grader-pane-title">Grade &amp; feedback</div>
+            <div class="score-body">
+              <label for="graderCriteria">Grading criteria</label>
+              <textarea class="score-context" id="graderCriteria" rows="5" readonly oninput="markCriteriaEdited()">No grading criteria are stored for this assignment. Manual grading is still available.</textarea>
+              <button type="button" class="btn-secondary" id="graderCriteriaBtn" style="font-size:11px;padding:7px;margin:-7px 0 12px;" onclick="toggleGraderCriteriaEdit()">Edit criteria</button>
+
+              <div class="rubric-score-panel" id="graderRubricPanel">
+                <label>Teacher rubric scores</label>
+                <div class="field-hint" style="margin-bottom:7px;">Enter a score from 1–4 for every criterion. These structured scores feed the HQSD Evaluation and are also written into the submitted rubric Doc.</div>
+                <div id="graderRubricRows"></div>
+                <button type="button" class="btn-secondary" style="font-size:11px;padding:7px;" onclick="applyRubricOverallGrade()">Calculate overall grade</button>
+              </div>
+
+              <div class="score-line">
+                <div>
+                  <label for="graderGradeInput">Grade</label>
+                  <input type="number" id="graderGradeInput" min="0" step="0.01" oninput="markGraderEdited()">
+                </div>
+                <div class="points-possible" id="graderPointsPossible">/ 100</div>
+              </div>
+
+              <label for="graderFeedbackInput" style="margin-top:14px;">Comments</label>
+              <textarea id="graderFeedbackInput" rows="7" placeholder="Enter feedback for this student..." oninput="markGraderEdited()"></textarea>
+              <div class="field-hint">When the submission is an editable Google Doc, saved comments are added to that document.</div>
+              <div class="field-hint">AI suggestions send readable submission text to Claude after known student-identifying details are removed. Teacher review is always required.</div>
+
+              <div class="grader-actions">
+                <button type="button" class="ai-action" id="graderAiBtn" onclick="requestAiGradingSuggestion()">Use AI suggestion</button>
+                <button type="button" class="btn-secondary" id="graderDraftBtn" onclick="saveCurrentGrade(false)">Save draft</button>
+                <button type="button" class="save-grade" id="graderSaveBtn" onclick="saveCurrentGrade(true)">Save &amp; return</button>
+              </div>
+              <div class="grader-message" id="graderMessage"></div>
+            </div>
+          </aside>
+        </div>
+
+      </div>
+
+      <!-- ============ HQSD TAB ============ -->
+      <div class="tab-panel" id="hqsdPanel">
+
+        <div class="form-group">
+          <label for="hqsdCourseSelect">Class</label>
+          <select id="hqsdCourseSelect" onchange="onHqsdCourseChange()"><option>Loading classes...</option></select>
+        </div>
+
+        <div class="subtab-nav" role="tablist" aria-label="HQSD domain workspace">
+          <button type="button" class="subtab-btn active" id="hqsdCreateTab" onclick="showHqsdSection('create')">Create a Domain</button>
+          <button type="button" class="subtab-btn" id="hqsdRunTab" onclick="showHqsdSection('run')">Generate Reports</button>
+        </div>
+
+        <div class="subtab-panel active" id="hqsdCreateSection">
+        <div class="card-section">
+          <span class="card-title">Set Up an HQSD Domain</span>
+          <div class="card-subtext">Choose how growth will be measured, then select the assignments that belong in that comparison.</div>
+          <label for="hqsdTrackingType" style="margin-top:14px;">Tracking type</label>
+          <select id="hqsdTrackingType" onchange="renderHqsdAssignmentPicker()">
+            <option value="">Choose a tracking type...</option>
+            <option value="checkpoints">Baseline / Midpoint / Final</option>
+            <option value="ongoing">Ongoing evidence series</option>
+          </select>
+          <div class="field-hint">Checkpoint tracking compares one Baseline with one Final and an optional Midpoint. Ongoing tracking links two or more comparable assignments into one chronological series.</div>
+          <label style="margin-top:14px;">Assignments to track</label>
+          <div id="hqsdAssignmentPicker" style="margin-top:8px;"><span style="font-size:13px;color:#5f6368;">Pick a class first</span></div>
+          <label for="hqsdGroupName" style="margin-top:14px;">Domain name</label>
+          <input type="text" id="hqsdGroupName" placeholder="Domain name (e.g. Woods 1: Safety and Craftsmanship)">
+          <details style="margin-top:14px;">
+            <summary style="cursor:pointer;font-weight:600;">Review HQSD verification details</summary>
+            <div class="card-subtext" style="margin:8px 0;">Optional. Teacher Portal supplies professional defaults for blank fields. Enter exact standards here only when you want them named in the Plan.</div>
+            <label for="hqsdTeacherName">Teacher / course attribution</label>
+            <input type="text" id="hqsdTeacherName" placeholder="Filled automatically from Classroom">
+            <label for="hqsdStandards">Standards alignment</label>
+            <textarea id="hqsdStandards" placeholder="Optional exact state/local standards or skill targets"></textarea>
+            <button type="button" class="btn-secondary" id="hqsdStandardsSuggestBtn" style="margin-top:7px;" onclick="suggestOhioStandards()">Suggest Ohio Standards with AI</button>
+            <div id="hqsdStandardsStatus" class="card-subtext" style="margin-top:7px;"></div>
+            <div id="hqsdStandardsSuggestions" style="margin-top:7px;"></div>
+            <label for="hqsdMeasurePurpose">What the evidence is intended to measure</label>
+            <textarea id="hqsdMeasurePurpose" placeholder="Filled automatically from the selected evidence"></textarea>
+            <label for="hqsdProtocol">Administration and scoring protocol</label>
+            <textarea id="hqsdProtocol" placeholder="A reusable scoring protocol will be supplied"></textarea>
+            <div class="field-hint">Explain how students complete the evidence and how it is scored consistently. Include where or when it is given, who scores it, the answer key or rubric used, accommodations, and how retakes or resubmissions are handled. You do not need to describe the lesson itself.</div>
+            <details class="protocol-help">
+              <summary>See test and shop-project examples</summary>
+              <div class="protocol-example"><strong>Test example:</strong> Students complete the same Chapter Safety Test in Google Classroom after instruction. The teacher scores all responses with the same answer key. Required accommodations are provided. Retakes assess the same learning targets using the same scoring scale, and earlier and later scores are retained to measure growth.</div>
+              <div class="protocol-example"><strong>Shop-project example:</strong> Students complete the same project guide and submit the rubric document in Google Classroom. Students complete the reflection sections; the teacher scores safety, measurement and precision, craftsmanship, and completion using the same four-level rubric. Physical performance is observed and scored by the teacher. Resubmitted projects use the same rubric, and both results are retained.</div>
+            </details>
+            <label for="hqsdTrustworthiness">Trustworthiness and bias safeguards</label>
+            <div class="field-hint">This explains why the results are fair and dependable. Choose the option that best matches this domain. The statement it creates remains editable.</div>
+            <select id="hqsdTrustworthinessPreset" onchange="applyHqsdTrustworthinessPreset('hqsd')">
+              <option value="mixed" selected>Mixed tests and shop projects (recommended)</option>
+              <option value="tests">Primarily tests or written assignments</option>
+              <option value="projects">Primarily rubric-scored shop projects</option>
+              <option value="custom">Write my own safeguards</option>
+            </select>
+            <textarea id="hqsdTrustworthiness" oninput="markHqsdTrustworthinessCustom('hqsd')" placeholder="Choose an option above or enter custom safeguards"></textarea>
+            <label for="hqsdValueAdded">Value-added data</label>
+            <select id="hqsdValueAdded"><option value="Not available">Not available</option><option value="Included">Included</option><option value="Available but not used">Available but not used</option></select>
+          </details>
+          <button type="button" onclick="createHqsdGroup()" style="margin-top:10px;">Save Domain</button>
+        </div>
+
+        <div class="card-section">
+          <span class="card-title">Update an Existing Domain</span>
+          <div class="card-subtext">Review the assignments included in this domain. Newly created assignments appear for your approval.</div>
+          <label for="hqsdEditGroupSelect">HQSD Domain</label>
+          <select id="hqsdEditGroupSelect" onchange="onHqsdEditGroupChange()"><option>Pick a class first</option></select>
+          <button type="button" class="btn-secondary" style="margin-top:8px;" onclick="reviewHqsdReportAssignments()">Review / Update Assignments</button>
+          <div id="hqsdManageAssignmentPicker" style="margin-top:10px;"></div>
+        </div>
+        </div>
+
+        <div class="subtab-panel" id="hqsdRunSection">
+        <div class="card-section">
+          <span class="card-title">Generate Reports for an HQSD Domain</span>
+          <label for="hqsdGroupSelect">HQSD Domain</label>
+          <select id="hqsdGroupSelect" onchange="onHqsdGroupChange()"><option>Pick a class first</option></select>
+
+          <div class="btn-row">
+            <button type="button" class="btn-secondary" onclick="generateHqsdPlan()">Generate The Plan</button>
+            <button type="button" class="btn-secondary" onclick="generateHqsdEvaluation()">Evaluate the Plan</button>
+          </div>
+
+          <label for="hqsdReflectionLog" style="margin-top:16px;">Reflections and Actions Taken Log</label>
+          <div class="card-subtext">Keep one ongoing, teacher-authored record for this HQSD Domain. Add dated observations, instructional decisions, student needs, actions taken, and next steps throughout the year. The saved log becomes part of the final Evaluation report.</div>
+          <textarea id="hqsdReflectionLog" rows="14" disabled
+            placeholder="Select an HQSD Domain to open its log.&#10;&#10;Example:&#10;10/15/2026 — Several students struggled to read the framing plan accurately. I modeled the layout process again in a small group and added a measurement check before cutting. I will compare accuracy on the next shop project."
+            oninput="markHqsdReflectionLogDirty()"></textarea>
+          <div class="btn-row">
+            <button type="button" class="btn-secondary" id="hqsdSaveReflectionBtn" disabled onclick="saveHqsdReflectionLog()">Save Log</button>
+            <span id="hqsdReflectionLogStatus" style="font-size:13px; align-self:center;"></span>
+          </div>
+
+          <div id="hqsdStatus" style="font-size:13px; margin-top:8px;"></div>
+
+          <button type="button" class="btn-secondary" style="margin-top:8px; color:#c5221f; border-color:#c5221f;" onclick="deleteHqsdGroup()">Delete This Domain</button>
+
+        </div>
+        </div>
+
+      </div>
+
+      <!-- ============ SETTINGS TAB ============ -->
+      <div class="tab-panel" id="settingsPanel">
+        <div class="card-section">
+          <span class="card-title">AI Speed</span>
+          <div class="card-subtext">"Detailed" gives higher-quality content generation. "Fast" trades some quality for speed — useful when building a lot of items at once.</div>
+          <div class="radio-row">
+            <label class="radio-item"><input type="radio" name="aiSpeed" value="detailed" id="settingsSpeedDetailed"> Detailed</label>
+            <label class="radio-item"><input type="radio" name="aiSpeed" value="fast" id="settingsSpeedFast"> Fast</label>
+          </div>
+        </div>
+
+        <div class="settings-row card-section">
+          <span class="card-title">Grading Criteria</span>
+          <label class="checkbox-item"><input type="checkbox" id="settingsAutoCriteria"> Auto-generate grading criteria by default for new gradable items</label>
+        </div>
+
+        <div class="settings-row card-section">
+          <span class="card-title">Doc Accent Color</span>
+          <div class="card-subtext">Used for callout boxes, key facts, and table headers in generated Google Docs.</div>
+          <input type="color" id="settingsAccentColor" value="#f59e0b">
+        </div>
+
+        <button id="btnSaveSettings" onclick="saveBuilderSettings()">Save Settings</button>
+        <div id="settingsStatus" style="font-size:13px; margin-top:8px;"></div>
+      </div>
+
+    </div>
+
+    <script>
+      var uploadedFiles = [];      // {name, mimeType, data (base64)}
+      var attachedDriveFiles = []; // {id, name}
+      var itemCounter = 0;
+
+      var GRADABLE_TYPES = ['assignment', 'writing', 'research', 'customassignment', 'project', 'discussion', 'quiz'];
+      var HQSD_CONTEXT_NOTE = 'This is based on Classroom data alone. Before drawing conclusions, consider checking context this ' +
+        'tool doesn’t have access to — attendance, IEP/504 accommodations, recent life changes, or engagement in other classes.';
+
+      // ---------- Build wizard state ----------
+      var STEPS = ['setup', 'layout', 'build', 'insert'];
+      var buildState = {
+        step: 'setup',
+        items: [],            // collected from Layout via collectItems()
+        extractedContent: '', // text pulled from attached files, resolved once entering Build
+        results: {},          // itemId -> { type, data, status: 'pending'|'built'|'error', error }
+        insertItems: [],      // final ordered mix of generated items and existing Drive files
+        insertionRunId: Date.now() + '-' + Math.floor(Math.random() * 1000000)
+      };
+      var currentSettings = null; // cached copy of getSettings(), loaded at startup
+
+      // ---------- Tabs ----------
+      function showTab(name) {
+        if (name !== 'grade' && document.getElementById('gradePanel').classList.contains('active') && !confirmDiscardGraderChanges()) return;
+        document.getElementById('buildPanel').classList.toggle('active', name === 'build');
+        document.getElementById('gradePanel').classList.toggle('active', name === 'grade');
+        document.getElementById('hqsdPanel').classList.toggle('active', name === 'hqsd');
+        document.getElementById('settingsPanel').classList.toggle('active', name === 'settings');
+        document.getElementById('tabBtnBuild').classList.toggle('active', name === 'build');
+        document.getElementById('tabBtnGrade').classList.toggle('active', name === 'grade');
+        document.getElementById('tabBtnHQSD').classList.toggle('active', name === 'hqsd');
+        document.getElementById('tabBtnSettings').classList.toggle('active', name === 'settings');
+        document.body.classList.toggle('grade-active', name === 'grade');
+      }
+
+      function showHqsdSection(name) {
+        document.getElementById('hqsdCreateSection').classList.toggle('active', name === 'create');
+        document.getElementById('hqsdRunSection').classList.toggle('active', name === 'run');
+        document.getElementById('hqsdCreateTab').classList.toggle('active', name === 'create');
+        document.getElementById('hqsdRunTab').classList.toggle('active', name === 'run');
+      }
+
+      // ---------- Startup ----------
+      window.onload = function() {
+        google.script.run
+          .withSuccessHandler(populateClasses)
+          .withFailureHandler(showError)
+          .getCourses();
+        google.script.run
+          .withSuccessHandler(populateGradeClasses)
+          .withFailureHandler(showError)
+          .getCourses();
+        google.script.run
+          .withSuccessHandler(populateHqsdClasses)
+          .withFailureHandler(function(err) { console.error(err); })
+          .getCourses();
+        google.script.run
+          .withSuccessHandler(applySettingsToForm)
+          .withFailureHandler(function(err) { console.error(err); })
+          .getSettings();
+        addItem(); // start with one item block
+        applyHqsdTrustworthinessPreset('hqsd');
+        goToStep('setup');
+      };
+
+      function populateClasses(courses) {
+        var select = document.getElementById('courseSelect');
+        select.innerHTML = '';
+        if (!courses || courses.length === 0) {
+          select.innerHTML = '<option>No active classes found</option>';
+          return;
+        }
+        courses.forEach(function(c) {
+          var opt = document.createElement('option');
+          opt.value = c.id;
+          opt.text = c.name;
+          select.appendChild(opt);
+        });
+      }
+
+      function populateGradeClasses(courses) {
+        var select = document.getElementById('gradeCourseSelect');
+        select.innerHTML = '';
+        if (!courses || courses.length === 0) {
+          select.innerHTML = '<option>No active classes found</option>';
+          return;
+        }
+        courses.forEach(function(c) {
+          var opt = document.createElement('option');
+          opt.value = c.id;
+          opt.text = c.name;
+          select.appendChild(opt);
+        });
+        onGradeCourseChange();
+      }
+
+      var gradingQueue = [];
+      var gradingFilteredQueue = [];
+      var gradingIndex = -1;
+      var gradingDetail = null;
+      var gradingInputSource = 'manual';
+      var gradingDirty = false;
+      var criteriaDirty = false;
+      var graderRubricDefinition = null;
+      var lastGradeCourseId = '';
+      var lastGradeAssignmentFilter = '';
+
+      window.addEventListener('beforeunload', function(event) {
+        if (!gradingDirty && !criteriaDirty && !hqsdReflectionLogDirty) return;
+        event.preventDefault();
+        event.returnValue = '';
+      });
+
+      function confirmDiscardGraderChanges() {
+        if (!gradingDirty && !criteriaDirty) return true;
+        if (!confirm('You have unsaved grading changes. Discard them?')) return false;
+        gradingDirty = false;
+        criteriaDirty = false;
+        return true;
+      }
+
+      function onGradeCourseChange() {
+        var select = document.getElementById('gradeCourseSelect');
+        if (lastGradeCourseId && select.value !== lastGradeCourseId && !confirmDiscardGraderChanges()) {
+          select.value = lastGradeCourseId;
+          return;
+        }
+        lastGradeCourseId = select.value;
+        lastGradeAssignmentFilter = '';
+        document.getElementById('gradeAssignmentFilter').value = '';
+        gradingQueue = [];
+        gradingFilteredQueue = [];
+        gradingIndex = -1;
+        gradingDetail = null;
+        resetGraderDisplay();
+        loadGradingQueue();
+      }
+
+      function loadGradingQueue() {
+        var courseId = document.getElementById('gradeCourseSelect').value;
+        if (!courseId) return;
+        var refresh = document.getElementById('graderRefreshBtn');
+        refresh.disabled = true;
+        setGradeStatus('Loading submitted work...', 'loading');
+        google.script.run
+          .withSuccessHandler(function(result) {
+            refresh.disabled = false;
+            gradingQueue = (result && result.items) || [];
+            populateGradingAssignmentFilter((result && result.assignments) || []);
+            updateGraderCounts();
+            applyGradingQueueFilter();
+            setGradeStatus(gradingQueue.length ? '' : 'Everything submitted in this class is currently graded.', 'success');
+          })
+          .withFailureHandler(function(err) {
+            refresh.disabled = false;
+            setGradeStatus('Could not load the grading queue: ' + err.message, 'error');
+            document.getElementById('graderQueueList').innerHTML = '<div class="queue-empty">The queue could not be loaded.</div>';
+          })
+          .getGradingQueue(courseId);
+      }
+
+      function refreshGradingQueue() {
+        if (!confirmDiscardGraderChanges()) return;
+        loadGradingQueue();
+      }
+
+      function populateGradingAssignmentFilter(assignments) {
+        var select = document.getElementById('gradeAssignmentFilter');
+        var previous = select.value;
+        select.innerHTML = '<option value="">All assignments</option>';
+        (assignments || []).forEach(function(it) {
+              var opt = document.createElement('option');
+              opt.value = it.courseworkId;
+              opt.text = it.title;
+              select.appendChild(opt);
+        });
+        if (previous && Array.prototype.some.call(select.options, function(o) { return o.value === previous; })) {
+          select.value = previous;
+        }
+      }
+
+      function updateGraderCounts() {
+        var needs = gradingQueue.filter(function(item) { return !item.resubmitted; }).length;
+        var regrades = gradingQueue.filter(function(item) { return item.resubmitted; }).length;
+        document.getElementById('graderNeedsCount').textContent = needs;
+        document.getElementById('graderRegradeCount').textContent = regrades;
+        document.getElementById('graderTotalCount').textContent = gradingQueue.length;
+      }
+
+      function onGradeAssignmentFilterChange() {
+        var select = document.getElementById('gradeAssignmentFilter');
+        if (select.value !== lastGradeAssignmentFilter && !confirmDiscardGraderChanges()) {
+          select.value = lastGradeAssignmentFilter;
+          return;
+        }
+        lastGradeAssignmentFilter = select.value;
+        applyGradingQueueFilter();
+      }
+
+      function applyGradingQueueFilter(preferredIndex) {
+        var courseworkId = document.getElementById('gradeAssignmentFilter').value;
+        gradingFilteredQueue = gradingQueue.filter(function(item) {
+          return !courseworkId || String(item.courseworkId) === String(courseworkId);
+        });
+        gradingIndex = gradingFilteredQueue.length
+          ? Math.min(typeof preferredIndex === 'number' ? preferredIndex : 0, gradingFilteredQueue.length - 1)
+          : -1;
+        renderGradingQueue();
+        if (gradingIndex >= 0) selectGradingItem(gradingIndex);
+        else if (courseworkId) loadAssignmentGradingSetup(courseworkId);
+        else resetGraderDisplay('Select an assignment to review its grading criteria.');
+      }
+
+      function loadAssignmentGradingSetup(courseworkId) {
+        gradingDetail = null;
+        resetGraderDisplay('Loading assignment grading criteria...');
+        document.getElementById('graderStudentName').textContent = 'Assignment grading setup';
+        google.script.run
+          .withSuccessHandler(function(detail) {
+            if (String(document.getElementById('gradeAssignmentFilter').value) !== String(detail.courseworkId)) return;
+            gradingDetail = detail;
+            renderAssignmentGradingSetup(detail);
+          })
+          .withFailureHandler(function(err) {
+            showGraderMessage('Could not load grading criteria: ' + err.message, 'error');
+          })
+          .getAssignmentGradingSetup(document.getElementById('gradeCourseSelect').value, courseworkId);
+      }
+
+      function setGradingDecisionControlsDisabled(disabled) {
+        document.getElementById('graderGradeInput').disabled = disabled;
+        document.getElementById('graderFeedbackInput').disabled = disabled;
+        document.getElementById('graderDraftBtn').disabled = disabled;
+        document.getElementById('graderSaveBtn').disabled = disabled;
+      }
+
+      function renderAssignmentGradingSetup(detail) {
+        gradingDirty = false;
+        criteriaDirty = false;
+        document.getElementById('graderStudentName').textContent = 'Assignment grading setup';
+        document.getElementById('graderSubmissionMeta').textContent = detail.assignmentTitle;
+        document.getElementById('graderSubmissionBody').innerHTML =
+          '<div class="submission-empty">No submission is selected. You can review, create, or edit this assignment’s grading criteria now.</div>';
+        var criteria = document.getElementById('graderCriteria');
+        criteria.value = detail.criteria || '';
+        criteria.placeholder = 'Enter the grading criteria the teacher or AI grader should use.';
+        criteria.readOnly = true;
+        var criteriaButton = document.getElementById('graderCriteriaBtn');
+        criteriaButton.disabled = false;
+        criteriaButton.textContent = detail.criteria ? 'Edit criteria' : 'Create criteria';
+        document.getElementById('graderPointsPossible').textContent = '/ ' + detail.maxPoints;
+        document.getElementById('graderAiBtn').disabled = true;
+        setGradingDecisionControlsDisabled(true);
+      }
+
+      function renderGradingQueue() {
+        var list = document.getElementById('graderQueueList');
+        if (!gradingFilteredQueue.length) {
+          list.innerHTML = '<div class="queue-empty">No submissions need grading for this selection.</div>';
+          return;
+        }
+        list.innerHTML = gradingFilteredQueue.map(function(item, index) {
+          var badgeClass = item.resubmitted ? 'regrade' : 'new';
+          var badgeText = item.resubmitted ? 'Regrade' : 'Needs grade';
+          return '<button type="button" class="queue-item' + (index === gradingIndex ? ' active' : '') + '" onclick="selectGradingItem(' + index + ')">' +
+            '<div class="queue-student">' + escapeHtml(item.studentName) + '</div>' +
+            '<div class="queue-assignment">' + escapeHtml(item.assignmentTitle) + '</div>' +
+            '<div class="queue-meta"><span class="grader-badge ' + badgeClass + '">' + badgeText + '</span>' +
+            (item.late ? '<span>Late</span>' : '') + '</div></button>';
+        }).join('');
+      }
+
+      function selectGradingItem(index) {
+        if (index < 0 || index >= gradingFilteredQueue.length) return;
+        if (gradingIndex !== index && !confirmDiscardGraderChanges()) return;
+        gradingIndex = index;
+        gradingDetail = null;
+        renderGradingQueue();
+        var item = gradingFilteredQueue[index];
+        document.getElementById('graderStudentName').textContent = item.studentName;
+        document.getElementById('graderSubmissionMeta').textContent = item.assignmentTitle + ' • loading submission...';
+        document.getElementById('graderSubmissionBody').innerHTML = '<div class="submission-empty">Loading submitted work...</div>';
+        document.getElementById('graderGradeInput').value = item.currentGrade === null ? '' : item.currentGrade;
+        document.getElementById('graderFeedbackInput').value = '';
+        document.getElementById('graderMessage').textContent = '';
+        google.script.run
+          .withSuccessHandler(function(detail) {
+            var selected = gradingFilteredQueue[gradingIndex];
+            if (!selected || String(selected.submissionId) !== String(detail.submissionId)) return;
+            gradingDetail = detail;
+            renderGradingDetail(detail);
+          })
+          .withFailureHandler(function(err) {
+            document.getElementById('graderSubmissionBody').innerHTML = '<div class="submission-empty">Could not load this submission.</div>';
+            showGraderMessage('Error: ' + err.message, 'error');
+          })
+          .getGradingSubmissionDetail(document.getElementById('gradeCourseSelect').value, item.courseworkId, item.submissionId);
+      }
+
+      function renderGradingDetail(detail) {
+        gradingInputSource = 'manual';
+        gradingDirty = false;
+        criteriaDirty = false;
+        setGradingDecisionControlsDisabled(false);
+        var meta = detail.assignmentTitle + ' • ' + (gradingIndex + 1) + ' of ' + gradingFilteredQueue.length;
+        if (detail.resubmitted) meta += ' • resubmitted';
+        document.getElementById('graderStudentName').textContent = detail.studentName;
+        document.getElementById('graderSubmissionMeta').textContent = meta;
+        document.getElementById('graderGradeInput').max = detail.maxPoints;
+        document.getElementById('graderGradeInput').value = detail.currentGrade === null ? '' : detail.currentGrade;
+        document.getElementById('graderPointsPossible').textContent = '/ ' + detail.maxPoints;
+        document.getElementById('graderFeedbackInput').value = detail.savedFeedback || '';
+        var criteria = document.getElementById('graderCriteria');
+        criteria.value = detail.criteria || 'No grading criteria are stored for this assignment. Manual grading is still available.';
+        criteria.placeholder = '';
+        criteria.readOnly = true;
+        var criteriaButton = document.getElementById('graderCriteriaBtn');
+        criteriaButton.textContent = detail.criteria ? 'Edit criteria' : 'Create criteria';
+        criteriaButton.disabled = !detail.criteriaEditable;
+        document.getElementById('graderAiBtn').disabled = !detail.canUseAi;
+        document.getElementById('graderAiBtn').title = detail.canUseAi ? '' : 'AI requires stored grading criteria and readable submitted text.';
+        renderGraderRubric(detail.rubric, detail.rubricScores || []);
+
+        var attachments = (detail.attachments || []).map(function(file) {
+          if (!file.url) return '';
+          return '<a class="attachment-link" target="_blank" rel="noopener" href="' + escapeHtml(file.url) + '">Open ' + escapeHtml(file.title || 'submitted file') + ' ↗</a>';
+        }).join('');
+        var content = detail.submissionText
+          ? '<div class="submission-preview">' + escapeHtml(detail.submissionText) + '</div>'
+          : '<div class="submission-empty">There is no readable text preview. Open the submitted file, or grade the physical project manually.</div>';
+        document.getElementById('graderSubmissionBody').innerHTML =
+          (attachments ? '<div class="attachment-list">' + attachments + '</div>' : '') + content;
+      }
+
+      function moveGrader(direction) {
+        if (!gradingFilteredQueue.length) return;
+        var next = gradingIndex + direction;
+        if (next < 0) next = gradingFilteredQueue.length - 1;
+        if (next >= gradingFilteredQueue.length) next = 0;
+        selectGradingItem(next);
+      }
+
+      function renderGraderRubric(rubric, existingScores) {
+        graderRubricDefinition = rubric && rubric.criteria && rubric.criteria.length ? rubric : null;
+        var panel = document.getElementById('graderRubricPanel');
+        var rows = document.getElementById('graderRubricRows');
+        rows.innerHTML = '';
+        panel.classList.toggle('visible', !!graderRubricDefinition);
+        if (!graderRubricDefinition) return;
+        var scoreMap = {};
+        (existingScores || []).forEach(function(score) { scoreMap[String(score.criterionKey)] = score; });
+        graderRubricDefinition.criteria.forEach(function(criterion, index) {
+          var key = String(criterion.criterion || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          var existing = scoreMap[key] || {};
+          var row = document.createElement('div');
+          row.className = 'rubric-score-row';
+          row.innerHTML = '<div class="rubric-score-name">' + escapeHtml(criterion.criterion || 'Criterion') + '</div>' +
+            '<div class="rubric-score-inputs">' +
+              '<input type="number" min="1" max="4" step="1" id="grader-rubric-score-' + index + '" value="' +
+                (existing.score === undefined || existing.score === null ? '' : existing.score) + '" placeholder="1–4" oninput="markGraderEdited()">' +
+              '<input type="text" id="grader-rubric-comment-' + index + '" value="' + escapeHtml(existing.comment || '') +
+                '" placeholder="Teacher evidence or comment" oninput="markGraderEdited()">' +
+            '</div>';
+          rows.appendChild(row);
+        });
+      }
+
+      function collectGraderRubricScores(requireComplete) {
+        if (!graderRubricDefinition) return [];
+        var scores = [];
+        for (var i = 0; i < graderRubricDefinition.criteria.length; i++) {
+          var criterion = graderRubricDefinition.criteria[i];
+          var input = document.getElementById('grader-rubric-score-' + i);
+          var comment = document.getElementById('grader-rubric-comment-' + i);
+          var value = input.value === '' ? null : Number(input.value);
+          if (requireComplete && (value === null || !Number.isInteger(value) || value < 1 || value > 4)) {
+            throw new Error('Enter a 1–4 score for ' + (criterion.criterion || 'every rubric criterion') + '.');
+          }
+          if (value !== null && (!Number.isInteger(value) || value < 1 || value > 4)) {
+            throw new Error('Rubric scores must be whole numbers from 1–4.');
+          }
+          if (value !== null) {
+            scores.push({
+              criterionKey: String(criterion.criterion || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+              criterionName: criterion.criterion || 'Criterion', score: value, comment: comment.value || ''
+            });
+          }
+        }
+        return scores;
+      }
+
+      function applyRubricOverallGrade() {
+        try {
+          var scores = collectGraderRubricScores(true);
+          var average = scores.reduce(function(sum, item) { return sum + item.score; }, 0) / scores.length;
+          document.getElementById('graderGradeInput').value = Math.round((average / 4) * gradingDetail.maxPoints * 100) / 100;
+          markGraderEdited();
+          showGraderMessage('Overall grade calculated from the rubric. You can still adjust it before saving.', 'success');
+        } catch (err) {
+          showGraderMessage(err.message, 'error');
+        }
+      }
+
+      function requestAiGradingSuggestion() {
+        if (!gradingDetail) return;
+        var button = document.getElementById('graderAiBtn');
+        button.disabled = true;
+        showGraderMessage('AI is reviewing this submission...', '');
+        var courseId = document.getElementById('gradeCourseSelect').value;
+        google.script.run
+          .withSuccessHandler(function(result) {
+            button.disabled = false;
+            gradingInputSource = 'ai-assisted';
+            gradingDirty = true;
+            document.getElementById('graderGradeInput').value = result.grade;
+            document.getElementById('graderFeedbackInput').value = result.feedback || '';
+            showGraderMessage('AI suggestion added. Review and edit it before saving.', 'success');
+          })
+          .withFailureHandler(function(err) {
+            button.disabled = false;
+            showGraderMessage('AI could not grade this submission: ' + err.message, 'error');
+          })
+          .suggestGradeForSubmission(courseId, gradingDetail.courseworkId, gradingDetail.submissionId);
+      }
+
+      function markGraderEdited() {
+        if (gradingInputSource === 'ai-assisted') gradingInputSource = 'ai-assisted-edited';
+        gradingDirty = true;
+      }
+
+      function markCriteriaEdited() {
+        var criteria = document.getElementById('graderCriteria');
+        if (!criteria.readOnly) criteriaDirty = true;
+      }
+
+      function toggleGraderCriteriaEdit() {
+        if (!gradingDetail || !gradingDetail.criteriaEditable) return;
+        var criteria = document.getElementById('graderCriteria');
+        var button = document.getElementById('graderCriteriaBtn');
+        if (criteria.readOnly) {
+          criteria.readOnly = false;
+          criteria.focus();
+          button.textContent = 'Save criteria';
+          return;
+        }
+        button.disabled = true;
+        google.script.run
+          .withSuccessHandler(function() {
+            criteria.readOnly = true;
+            button.disabled = false;
+            button.textContent = 'Edit criteria';
+            gradingDetail.criteria = criteria.value;
+            criteriaDirty = false;
+            if (!gradingDetail.setupOnly && gradingDetail.itemType !== 'project' && gradingDetail.submissionText) {
+              gradingDetail.canUseAi = true;
+              document.getElementById('graderAiBtn').disabled = false;
+              document.getElementById('graderAiBtn').title = '';
+            }
+            showGraderMessage('Grading criteria saved.', 'success');
+          })
+          .withFailureHandler(function(err) {
+            button.disabled = false;
+            showGraderMessage('Could not save criteria: ' + err.message, 'error');
+          })
+          .saveOrUpdateAssignmentGradingCriteria(
+            document.getElementById('gradeCourseSelect').value,
+            gradingDetail.courseworkId,
+            gradingDetail.assignmentTitle,
+            gradingDetail.itemType || 'assignment',
+            criteria.value
+          );
+      }
+
+      function saveCurrentGrade(returnToStudent) {
+        if (!gradingDetail) return;
+        var gradeText = document.getElementById('graderGradeInput').value;
+        var grade = Number(gradeText);
+        if (gradeText === '' || isNaN(grade) || grade < 0 || grade > Number(gradingDetail.maxPoints)) {
+          showGraderMessage('Enter a grade from 0 to ' + gradingDetail.maxPoints + '.', 'error');
+          return;
+        }
+        var feedback = document.getElementById('graderFeedbackInput').value;
+        var rubricScores;
+        try {
+          rubricScores = collectGraderRubricScores(!!returnToStudent);
+        } catch (rubricError) {
+          showGraderMessage(rubricError.message, 'error');
+          return;
+        }
+        var saveButton = document.getElementById('graderSaveBtn');
+        var draftButton = document.getElementById('graderDraftBtn');
+        saveButton.disabled = true;
+        draftButton.disabled = true;
+        showGraderMessage(returnToStudent ? 'Saving and returning work...' : 'Saving draft...', '');
+        google.script.run
+          .withSuccessHandler(function(result) {
+            saveButton.disabled = false;
+            draftButton.disabled = false;
+            gradingDirty = false;
+            if (!returnToStudent) {
+              gradingDetail.currentGrade = grade;
+              gradingDetail.savedFeedback = feedback;
+              if (result && result.writeBackBlocked) {
+                copyTextToClipboard(String(grade));
+                if (result.submissionLink) window.open(result.submissionLink, '_blank');
+                showGraderMessage(result.warning || 'Draft saved in Teacher Portal only; Classroom blocked the write-back.', 'error');
+                return;
+              }
+              showGraderMessage('Draft saved. The submission remains in your queue until you return it.', 'success');
+              return;
+            }
+            var nextIndex = gradingIndex;
+            var savedSubmissionId = gradingDetail.submissionId;
+            var savedCourseworkId = gradingDetail.courseworkId;
+            gradingQueue = gradingQueue.filter(function(item) {
+              return String(item.submissionId) !== String(savedSubmissionId) || String(item.courseworkId) !== String(savedCourseworkId);
+            });
+            updateGraderCounts();
+            if (result && result.writeBackBlocked) {
+              copyTextToClipboard(String(grade));
+              if (result.submissionLink) window.open(result.submissionLink, '_blank');
+              setGradeStatus('Grade copied (' + grade + ') and feedback added for ' + gradingDetail.studentName +
+                '. Classroom blocked automatic write-back for this assignment — paste the grade into the tab ' +
+                'that just opened and click Return.', 'error');
+            } else {
+              setGradeStatus('Grade saved and work returned for ' + gradingDetail.studentName + '.', 'success');
+              if (result && result.warning) setGradeStatus(result.warning, 'error');
+            }
+            applyGradingQueueFilter(nextIndex);
+          })
+          .withFailureHandler(function(err) {
+            saveButton.disabled = false;
+            draftButton.disabled = false;
+            showGraderMessage('Could not save the grade: ' + err.message, 'error');
+          })
+          .saveGradingDecision(document.getElementById('gradeCourseSelect').value, gradingDetail.courseworkId,
+            gradingDetail.submissionId, grade, feedback, gradingInputSource, !!returnToStudent, rubricScores);
+      }
+
+      function resetGraderDisplay(message) {
+        document.getElementById('graderStudentName').textContent = 'No submission selected';
+        document.getElementById('graderSubmissionMeta').textContent = '';
+        document.getElementById('graderSubmissionBody').innerHTML = '<div class="submission-empty">' +
+          escapeHtml(message || 'Submitted documents, reflections, and project rubrics will appear here.') + '</div>';
+        var criteria = document.getElementById('graderCriteria');
+        criteria.value = 'No grading criteria are stored for this assignment. Manual grading is still available.';
+        criteria.readOnly = true;
+        document.getElementById('graderCriteriaBtn').disabled = true;
+        document.getElementById('graderCriteriaBtn').textContent = 'Edit criteria';
+        document.getElementById('graderGradeInput').value = '';
+        document.getElementById('graderFeedbackInput').value = '';
+        document.getElementById('graderAiBtn').disabled = true;
+        document.getElementById('graderRubricPanel').classList.remove('visible');
+        document.getElementById('graderRubricRows').innerHTML = '';
+        graderRubricDefinition = null;
+        document.getElementById('graderMessage').textContent = '';
+        gradingDirty = false;
+        criteriaDirty = false;
+        setGradingDecisionControlsDisabled(true);
+      }
+
+      function showGraderMessage(message, type) {
+        var element = document.getElementById('graderMessage');
+        element.textContent = message || '';
+        element.className = 'grader-message' + (type ? ' ' + type : '');
+      }
+
+      // ---------- File handling ----------
+      function handleFileUpload(event) {
+        var files = Array.prototype.slice.call(event.target.files);
+        files.forEach(function(file) {
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            var base64 = e.target.result.split(',')[1];
+            uploadedFiles.push({ name: file.name, mimeType: file.type || 'application/octet-stream', data: base64 });
+            renderAttachedChips();
+          };
+          reader.readAsDataURL(file);
+        });
+        event.target.value = ''; // allow re-selecting same file
+      }
+
+      function searchDrive() {
+        var query = document.getElementById('driveSearchBox').value.trim();
+        if (!query) return;
+        var resultsDiv = document.getElementById('driveSearchResults');
+        resultsDiv.innerHTML = '<div style="font-size:12px;color:#5f6368;">Searching...</div>';
+        google.script.run
+          .withSuccessHandler(function(results) {
+            resultsDiv.innerHTML = '';
+            if (!results || results.length === 0) {
+              resultsDiv.innerHTML = '<div style="font-size:12px;color:#5f6368;">No matches found.</div>';
+              return;
+            }
+            results.forEach(function(f) {
+              var row = document.createElement('div');
+              row.className = 'search-result-item';
+              row.innerHTML = '<span>' + escapeHtml(f.name) + '</span>';
+              var btn = document.createElement('button');
+              btn.textContent = 'Attach';
+              btn.type = 'button';
+              btn.onclick = function() {
+                if (!attachedDriveFiles.some(function(a) { return a.id === f.id; })) {
+                  attachedDriveFiles.push(f);
+                  renderAttachedChips();
+                }
+              };
+              row.appendChild(btn);
+              resultsDiv.appendChild(row);
+            });
+          })
+          .withFailureHandler(function(err) {
+            resultsDiv.innerHTML = '<div style="font-size:12px;color:#c5221f;">Search failed: ' + err.message + '</div>';
+          })
+          .searchDriveFiles(query);
+      }
+
+      function renderAttachedChips() {
+        var container = document.getElementById('attachedFilesChips');
+        container.innerHTML = '';
+        uploadedFiles.forEach(function(f, i) {
+          container.appendChild(makeChip(f.name, function() {
+            uploadedFiles.splice(i, 1);
+            renderAttachedChips();
+          }));
+        });
+        attachedDriveFiles.forEach(function(f, i) {
+          container.appendChild(makeChip(f.name, function() {
+            attachedDriveFiles.splice(i, 1);
+            renderAttachedChips();
+          }));
+        });
+      }
+
+      function makeChip(name, onRemove) {
+        var chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.innerHTML = '<span>' + escapeHtml(name) + '</span>';
+        var x = document.createElement('span');
+        x.className = 'remove';
+        x.textContent = '\u2715';
+        x.onclick = onRemove;
+        chip.appendChild(x);
+        return chip;
+      }
+
+      // ---------- Module items ----------
+      var ITEM_TYPES = [
+        { value: 'studyguide', label: 'Study Guide (doc)' },
+        { value: 'contentpage', label: 'Visual Content Page (styled doc)' },
+        { value: 'customcontent', label: 'Custom Content Page (you describe it)' },
+        { value: 'assignment', label: 'Short Answer Assignment (doc)' },
+        { value: 'writing', label: 'Writing Assignment (essay)' },
+        { value: 'research', label: 'Research Assignment' },
+        { value: 'customassignment', label: 'Custom Assignment (you describe it)' },
+        { value: 'project', label: 'Shop Project + Rubric (student doc)' },
+        { value: 'quiz', label: 'Auto-Graded Quiz (Google Form)' },
+        { value: 'discussion', label: 'Discussion Prompt' }
+      ];
+
+      function addItem() {
+        itemCounter++;
+        var id = itemCounter;
+        var block = document.createElement('div');
+        block.className = 'item-block';
+        block.id = 'item-' + id;
+
+        var typeOptions = ITEM_TYPES.map(function(t) {
+          return '<option value="' + t.value + '">' + t.label + '</option>';
+        }).join('');
+
+        block.innerHTML =
+          '<div class="item-header">' +
+            '<select onchange="onItemTypeChange(' + id + ')" id="item-type-' + id + '">' + typeOptions + '</select>' +
+            '<input type="text" id="item-title-' + id + '" placeholder="Item title (e.g., Chapter 3 Vocabulary)">' +
+            '<button type="button" class="remove-item" onclick="removeItem(' + id + ')">Remove</button>' +
+          '</div>' +
+          '<textarea id="item-content-' + id + '" rows="3" placeholder="Optional: content specific to this item (leave blank to use the shared source material and/or attached files)"></textarea>' +
+          '<div class="item-content" id="item-quiz-specs-' + id + '">' +
+            '<div class="grid-3">' +
+              '<div><label>Multiple Choice</label><input type="number" id="item-mc-' + id + '" value="5" min="0"></div>' +
+              '<div><label>True / False</label><input type="number" id="item-tf-' + id + '" value="5" min="0"></div>' +
+              '<div><label>Short Answer</label><input type="number" id="item-sa-' + id + '" value="2" min="0"></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="item-content" id="item-sa-count-' + id + '">' +
+            '<div style="max-width:150px;margin-top:8px;"><label>Number of prompts</label><input type="number" id="item-sacount-' + id + '" value="2" min="1"></div>' +
+          '</div>' +
+          '<div class="item-content" id="item-sections-' + id + '">' +
+            '<div style="max-width:150px;margin-top:8px;"><label>Number of sections</label><input type="number" id="item-sectioncount-' + id + '" value="3" min="1"></div>' +
+          '</div>' +
+          '<div class="item-content" id="item-writing-' + id + '">' +
+            '<div class="grid-3" style="grid-template-columns: 1fr 1fr;">' +
+              '<div><label>Target length (words)</label><input type="number" id="item-wordcount-' + id + '" value="300" min="50"></div>' +
+              '<div style="display:flex;align-items:flex-end;padding-bottom:10px;">' +
+                '<label class="checkbox-item"><input type="checkbox" id="item-rubric-' + id + '" checked disabled> Student-facing 100-point rubric (required)</label>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="item-content" id="item-research-' + id + '">' +
+            '<div style="max-width:180px;margin-top:8px;"><label>Number of research prompts</label><input type="number" id="item-subq-' + id + '" value="4" min="1"></div>' +
+          '</div>' +
+          '<div class="item-content" id="item-project-' + id + '">' +
+            '<div class="grid-3" style="grid-template-columns: 140px 160px 1fr; margin-top:10px; text-align:left;">' +
+              '<div><label>Points</label><input type="number" id="item-projectpoints-' + id + '" value="100" min="1"></div>' +
+              '<div><label>Rubric criteria</label><input type="number" id="item-projectcriteria-' + id + '" value="4" min="1" max="8"></div>' +
+              '<div><label>Student sections</label><input type="text" id="item-projectsections-' + id + '" value="Project plan, Safety plan, Self-assessment, Reflection"></div>' +
+            '</div>' +
+            '<div class="field-hint">The finished Doc separates student work from the teacher-only rubric and feedback area.</div>' +
+          '</div>' +
+          '<div class="criteria-box" id="item-criteria-' + id + '">' +
+            '<label class="checkbox-item"><input type="checkbox" id="item-autocriteria-' + id + '"' +
+              ((!currentSettings || currentSettings.defaultAutoCriteria) ? ' checked' : '') + '> Create a private AI grading guide aligned to the student rubric</label>' +
+            '<textarea id="item-criterianotes-' + id + '" rows="2" placeholder="Optional teacher-only notes for grading; these are never shown to students"></textarea>' +
+          '</div>';
+
+        document.getElementById('itemsContainer').appendChild(block);
+        onItemTypeChange(id); // set initial visibility
+      }
+
+      function onItemTypeChange(id) {
+        var type = document.getElementById('item-type-' + id).value;
+        document.getElementById('item-quiz-specs-' + id).classList.toggle('visible', type === 'quiz');
+        document.getElementById('item-sa-count-' + id).classList.toggle('visible', type === 'assignment');
+        document.getElementById('item-sections-' + id).classList.toggle('visible', type === 'contentpage');
+        document.getElementById('item-writing-' + id).classList.toggle('visible', type === 'writing');
+        document.getElementById('item-research-' + id).classList.toggle('visible', type === 'research');
+        document.getElementById('item-project-' + id).classList.toggle('visible', type === 'project');
+        document.getElementById('item-criteria-' + id).classList.toggle('visible', GRADABLE_TYPES.indexOf(type) !== -1 && type !== 'project');
+
+        var contentBox = document.getElementById('item-content-' + id);
+        if (type === 'customcontent' || type === 'customassignment' || type === 'project') {
+          contentBox.placeholder = 'Describe exactly what you want this ' +
+            (type === 'customcontent' ? 'content page' : type === 'project' ? 'shop project and rubric' : 'assignment') +
+            ' to include \u2014 be as specific as you like (sections, tone, question types, format, etc.)';
+        } else {
+          contentBox.placeholder = 'Optional: content specific to this item (leave blank to use the shared source material and/or attached files)';
+        }
+      }
+
+      function removeItem(id) {
+        var el = document.getElementById('item-' + id);
+        if (el) el.remove();
+      }
+
+      // ---------- Parse & Prepopulate ----------
+      function parseAndPrepopulate() {
+        var hasFiles = (uploadedFiles.length > 0) || (attachedDriveFiles.length > 0);
+        if (!hasFiles) {
+          alert('Attach a file first (upload one or pick one from Drive above).');
+          return;
+        }
+
+        var blocks = document.querySelectorAll('.item-block');
+        if (blocks.length === 0) {
+          alert('Add at least one content item first — this fills in each item\'s content box.');
+          return;
+        }
+
+        var alreadyHasContent = Array.prototype.some.call(blocks, function(block) {
+          var id = block.id.replace('item-', '');
+          return document.getElementById('item-content-' + id).value.trim() !== '';
+        });
+        if (alreadyHasContent) {
+          var proceed = confirm('Some item boxes already have content in them. Parsing will overwrite it. Continue?');
+          if (!proceed) return;
+        }
+
+        var statusEl = document.getElementById('parseStatus');
+        statusEl.textContent = 'Reading attached file(s)...';
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (!result.content) {
+              statusEl.textContent = 'Nothing readable came out of the attached file(s).' +
+                (result.warnings.length ? ' ' + result.warnings.join(' | ') : '');
+              return;
+            }
+            blocks.forEach(function(block) {
+              var id = block.id.replace('item-', '');
+              document.getElementById('item-content-' + id).value = result.content;
+            });
+            statusEl.textContent = 'Filled in ' + blocks.length + ' item box(es) with the extracted content.' +
+              (result.warnings.length ? ' Note: ' + result.warnings.join(' | ') : '');
+          })
+          .withFailureHandler(function(err) {
+            statusEl.textContent = 'Error: ' + err.message;
+          })
+          .extractContentForPreview({ uploadedFiles: uploadedFiles, driveFiles: attachedDriveFiles });
+      }
+
+      function collectItems() {
+        var items = [];
+        var blocks = document.querySelectorAll('.item-block');
+        blocks.forEach(function(block) {
+          var id = block.id.replace('item-', '');
+          var type = document.getElementById('item-type-' + id).value;
+          var title = document.getElementById('item-title-' + id).value.trim();
+          var content = document.getElementById('item-content-' + id).value.trim();
+          var item = { id: id, type: type, title: title, content: content };
+
+          if (type === 'quiz') {
+            item.specs = {
+              mc: parseInt(document.getElementById('item-mc-' + id).value) || 0,
+              tf: parseInt(document.getElementById('item-tf-' + id).value) || 0,
+              sa: parseInt(document.getElementById('item-sa-' + id).value) || 0
+            };
+          } else if (type === 'assignment') {
+            item.promptCount = parseInt(document.getElementById('item-sacount-' + id).value) || 1;
+          } else if (type === 'contentpage') {
+            item.sectionCount = parseInt(document.getElementById('item-sectioncount-' + id).value) || 3;
+          } else if (type === 'writing') {
+            item.targetWords = parseInt(document.getElementById('item-wordcount-' + id).value) || 300;
+            item.includeRubric = document.getElementById('item-rubric-' + id).checked;
+          } else if (type === 'research') {
+            item.subQuestionCount = parseInt(document.getElementById('item-subq-' + id).value) || 4;
+          } else if (type === 'project') {
+            item.maxPoints = parseInt(document.getElementById('item-projectpoints-' + id).value) || 100;
+            item.rubricCriteriaCount = parseInt(document.getElementById('item-projectcriteria-' + id).value) || 4;
+            item.studentSections = document.getElementById('item-projectsections-' + id).value.trim();
+          }
+
+          if (GRADABLE_TYPES.indexOf(type) !== -1) {
+            item.autoGenCriteria = document.getElementById('item-autocriteria-' + id).checked;
+            item.criteriaNotes = document.getElementById('item-criterianotes-' + id).value.trim();
+          }
+
+          items.push(item);
+        });
+        return items;
+      }
+
+      // ---------- Wizard navigation ----------
+      function goToStep(name) {
+        buildState.step = name;
+        STEPS.forEach(function(s) {
+          document.getElementById('screen' + capitalize(s)).classList.toggle('active', s === name);
+          var pill = document.getElementById('stepPill' + capitalize(s));
+          pill.classList.toggle('current', s === name);
+          pill.classList.toggle('done', STEPS.indexOf(s) < STEPS.indexOf(name));
+        });
+        if (name === 'build') renderBuildScreen();
+        if (name === 'insert') renderInsertScreen();
+      }
+
+      function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+      function goToLayoutStep() {
+        var courseId = document.getElementById('courseSelect').value;
+        var topicName = document.getElementById('topicName').value.trim();
+        if (!courseId || !topicName) {
+          alert('Please pick a class and enter a Topic Name.');
+          return;
+        }
+        goToStep('layout');
+      }
+
+      // Leaving Layout: validate items, then resolve attached-file text ONCE (same
+      // extraction the "Parse Files" button uses) so every item's Generate call on the
+      // Build screen has real content to work from without re-reading files each time.
+      function goToBuildStep() {
+        var sharedContent = document.getElementById('sharedContent').value.trim();
+        var items = collectItems();
+        var hasAttachedFiles = (uploadedFiles.length > 0) || (attachedDriveFiles.length > 0);
+
+        if (items.length === 0) {
+          alert('Add at least one content item.');
+          return;
+        }
+        for (var i = 0; i < items.length; i++) {
+          if (!items[i].title) {
+            alert('Every content item needs a title.');
+            return;
+          }
+          if ((items[i].type === 'customcontent' || items[i].type === 'customassignment' || items[i].type === 'project') && !items[i].content) {
+            alert('Item "' + items[i].title + '" needs instructions describing what you want it to include.');
+            return;
+          }
+          if (!items[i].content && !sharedContent && !hasAttachedFiles) {
+            alert('Item "' + items[i].title + '" has no content, no shared source material, and no attached file to fall back on.');
+            return;
+          }
+        }
+
+        buildState.items = items;
+        buildState.results = {};
+        buildState.insertItems = [];
+
+        var statusEl = document.getElementById('layoutStatus');
+
+        // Only re-read the attached file(s) if some item would actually need the
+        // fallback. If "Parse Files & Fill In Boxes" already ran, every item's content
+        // box is already filled in — re-extracting here would just re-upload/re-convert
+        // the same file a second time for no reason.
+        var needsExtraction = hasAttachedFiles && items.some(function(item) {
+          return !item.content && !sharedContent;
+        });
+
+        if (!needsExtraction) {
+          buildState.extractedContent = '';
+          statusEl.textContent = '';
+          goToStep('build');
+          return;
+        }
+
+        statusEl.textContent = 'Reading attached file(s)...';
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (!result.content) {
+              statusEl.textContent = 'Could not read any content from the attached file(s), so nothing was resolved ' +
+                '(better that than generating content unrelated to what you uploaded). Details: ' + result.warnings.join(' | ');
+              return;
+            }
+            buildState.extractedContent = result.content || '';
+            statusEl.textContent = result.warnings.length ? ('Note: ' + result.warnings.join(' | ')) : '';
+            goToStep('build');
+          })
+          .withFailureHandler(function(err) {
+            statusEl.textContent = 'Error reading attached file(s): ' + err.message;
+          })
+          .extractContentForPreview({ uploadedFiles: uploadedFiles, driveFiles: attachedDriveFiles });
+      }
+
+      function resetWizard() {
+        if (!confirm('Start a new topic? This clears the current items and any generated content.')) return;
+        document.getElementById('topicName').value = '';
+        document.getElementById('sharedContent').value = '';
+        uploadedFiles = [];
+        attachedDriveFiles = [];
+        renderAttachedChips();
+        document.getElementById('itemsContainer').innerHTML = '';
+        itemCounter = 0;
+        addItem();
+        buildState = { step: 'setup', items: [], extractedContent: '', results: {}, insertItems: [], insertionRunId: Date.now() + '-' + Math.floor(Math.random() * 1000000) };
+        document.getElementById('status').innerHTML = '';
+        goToStep('setup');
+      }
+
+      // ---------- Build screen ----------
+      function resolveItemContent(item) {
+        var sharedContent = document.getElementById('sharedContent').value.trim();
+        return item.content || sharedContent || buildState.extractedContent;
+      }
+
+      function itemLabel(type) {
+        var match = ITEM_TYPES.filter(function(t) { return t.value === type; })[0];
+        return match ? match.label : type;
+      }
+
+      function renderBuildScreen() {
+        var container = document.getElementById('buildItemsContainer');
+        container.innerHTML = '';
+        buildState.items.forEach(function(item) {
+          var result = buildState.results[item.id];
+          var card = document.createElement('div');
+          card.className = 'build-item-card';
+          card.id = 'build-card-' + item.id;
+
+          var statusText = '', statusClass = '';
+          if (result && result.status === 'built') { statusText = 'Built.'; statusClass = 'status-success'; }
+          else if (result && result.status === 'error') { statusText = 'Error: ' + result.error; statusClass = 'status-error'; }
+
+          card.innerHTML =
+            '<div class="build-item-head">' +
+              '<div><div class="build-item-title">' + escapeHtml(item.title || '(untitled)') + '</div>' +
+              '<div class="build-item-type">' + escapeHtml(itemLabel(item.type)) + '</div></div>' +
+              '<button type="button" class="btn-secondary" onclick="generateOneBuildItem(' + item.id + ')">' +
+              (result && result.status === 'built' ? 'Regenerate' : 'Generate') + '</button>' +
+            '</div>' +
+            '<div class="build-status ' + statusClass + '" id="build-status-' + item.id + '">' + statusText + '</div>' +
+            '<div class="build-preview' + (result && result.status === 'built' ? ' visible' : '') + '" id="build-preview-' + item.id + '">' +
+              (result && result.status === 'built' ? escapeHtml(renderItemPreviewText(result.type, result.data)) : '') +
+            '</div>' +
+            (result && result.status === 'built' ?
+              '<button type="button" class="btn-secondary" style="margin-top:8px;" onclick="toggleBuildEditor(' + item.id + ')">Edit generated content</button>' +
+              '<textarea class="build-preview-editor" id="build-editor-' + item.id + '">' + escapeHtml(JSON.stringify(result.data, null, 2)) + '</textarea>' +
+              '<button type="button" class="btn-secondary" id="build-apply-' + item.id + '" style="display:none;margin-top:6px;" onclick="applyBuildEditor(' + item.id + ')">Apply edits</button>' : '');
+
+          container.appendChild(card);
+        });
+        updateInsertReadiness();
+      }
+
+      function renderItemPreviewText(type, data) {
+        if (typeof data === 'string') return data;
+        if (Array.isArray(data)) return data.map(function(value, index) {
+          if (typeof value === 'string') return value.replace(/^(MC|TF|SA):\s*/, (index + 1) + '. ');
+          return value.heading ? value.heading + '\n' + (value.content || value.text || value.description || '') : JSON.stringify(value, null, 2);
+        }).join('\n\n') || '(no content)';
+        function previewCriteria(criteria) {
+          return (criteria || []).map(function(row) {
+            return '• ' + row.criterion + ' — ' + row.expectation + ' (' + row.points + ' points)';
+          }).join('\n');
+        }
+        if (type === 'assignment' || type === 'customassignment') {
+          return 'DIRECTIONS\n' + (data.instructions || '') + '\n\n' +
+            (type === 'assignment' ? 'ASSIGNMENT PROMPTS' : 'TASKS') + '\n' +
+            (data.questions || []).map(function(question, index) { return (index + 1) + '. ' + question; }).join('\n\n') +
+            '\n\nHOW THIS WILL BE GRADED\n' + previewCriteria(data.gradingCriteria);
+        }
+        if (type === 'research') {
+          return 'DIRECTIONS\n' + (data.instructions || '') + '\n\nRESEARCH TOPIC\n' + (data.topic || '') +
+            '\n\nRESEARCH PROMPTS\n' + (data.researchPrompts || []).map(function(researchPrompt, index) { return (index + 1) + '. ' + researchPrompt; }).join('\n\n') +
+            '\n\nSOURCES USED\nStudents will list each source used.\n\nHOW THIS WILL BE GRADED\n' + previewCriteria(data.gradingCriteria);
+        }
+        if (type === 'writing') {
+          return 'DIRECTIONS\n' + (data.instructions || '') + '\n\nWRITING PROMPT\n' + (data.prompt || '') +
+            '\n\nSUBMISSION REQUIREMENTS\n' + (data.requirements || []).map(function(requirement) { return '• ' + requirement; }).join('\n') +
+            '\n\nHOW THIS WILL BE GRADED\n' + previewCriteria(data.gradingCriteria);
+        }
+        if (type === 'discussion') {
+          return 'DIRECTIONS\n' + (data.instructions || '') + '\n\nDISCUSSION PROMPT\n' + (data.prompt || '') +
+            '\n\nHOW THIS WILL BE GRADED\n' + previewCriteria(data.gradingCriteria);
+        }
+        if (type === 'project') {
+          var project = [data.overview || ''];
+          if (data.safetyGate) project.push('SAFETY REQUIREMENT\n' + data.safetyGate);
+          (data.studentSections || []).forEach(function(section) { project.push((section.heading || 'Student section') + '\n' + (section.instructions || section.prompt || section.content || '')); });
+          if (data.rubric && data.rubric.length) project.push('RUBRIC\n' + data.rubric.map(function(row) {
+            return (row.criterion || 'Criterion') + '\n1 — ' + (row.beginning || '') + '\n2 — ' + (row.developing || '') + '\n3 — ' + (row.proficient || '') + '\n4 — ' + (row.mastery || '');
+          }).join('\n\n'));
+          return project.filter(Boolean).join('\n\n');
+        }
+        return Object.keys(data || {}).map(function(key) {
+          var value = data[key];
+          return key.replace(/([A-Z])/g, ' $1').toUpperCase() + '\n' + (typeof value === 'string' ? value : JSON.stringify(value, null, 2));
+        }).join('\n\n');
+      }
+
+      function toggleBuildEditor(itemId) {
+        var editor = document.getElementById('build-editor-' + itemId);
+        var apply = document.getElementById('build-apply-' + itemId);
+        if (!editor) return;
+        editor.classList.toggle('visible');
+        apply.style.display = editor.classList.contains('visible') ? 'inline-block' : 'none';
+      }
+
+      function applyBuildEditor(itemId) {
+        var editor = document.getElementById('build-editor-' + itemId);
+        try {
+          buildState.results[itemId].data = JSON.parse(editor.value);
+          buildState.insertItems = [];
+          renderBuildScreen();
+        } catch (error) {
+          alert('The edited content is not valid JSON: ' + error.message);
+        }
+      }
+
+      function generateOneBuildItem(itemId) {
+        var item = buildState.items.filter(function(i) { return i.id === itemId; })[0];
+        if (!item) return;
+        var statusEl = document.getElementById('build-status-' + itemId);
+        statusEl.className = 'build-status status-loading';
+        statusEl.textContent = 'Generating...';
+
+        google.script.run
+          .withSuccessHandler(function(res) {
+            buildState.results[itemId] = { type: res.type, data: res.data, status: 'built' };
+            renderBuildScreen();
+          })
+          .withFailureHandler(function(err) {
+            buildState.results[itemId] = { status: 'error', error: err.message };
+            renderBuildScreen();
+          })
+          .generateItemContent(item, resolveItemContent(item), currentSettings);
+      }
+
+      // Builds every not-yet-built item one at a time (sequential — safer than firing
+      // many google.script.run calls at once against Apps Script's per-user quotas).
+      function buildAllItems() {
+        var pending = buildState.items.filter(function(item) {
+          var r = buildState.results[item.id];
+          return !r || r.status !== 'built';
+        });
+        runBuildQueue(pending, 0);
+      }
+
+      function runBuildQueue(pending, index) {
+        if (index >= pending.length) return;
+        var item = pending[index];
+        var statusEl = document.getElementById('build-status-' + item.id);
+        if (statusEl) { statusEl.className = 'build-status status-loading'; statusEl.textContent = 'Generating...'; }
+
+        google.script.run
+          .withSuccessHandler(function(res) {
+            buildState.results[item.id] = { type: res.type, data: res.data, status: 'built' };
+            renderBuildScreen();
+            runBuildQueue(pending, index + 1);
+          })
+          .withFailureHandler(function(err) {
+            buildState.results[item.id] = { status: 'error', error: err.message };
+            renderBuildScreen();
+            runBuildQueue(pending, index + 1);
+          })
+          .generateItemContent(item, resolveItemContent(item), currentSettings);
+      }
+
+      function updateInsertReadiness() {
+        var allBuilt = buildState.items.length > 0 && buildState.items.every(function(item) {
+          var r = buildState.results[item.id];
+          return r && r.status === 'built';
+        });
+        document.getElementById('btnToInsert').disabled = !allBuilt;
+      }
+
+      // ---------- Insert screen ----------
+      function ensureInsertItems() {
+        if (!buildState.insertItems) buildState.insertItems = [];
+        if (buildState.insertItems.length === 0) {
+          buildState.insertItems = buildState.items.map(function(item) {
+            return { key: 'built-' + item.id, kind: 'built', item: item };
+          });
+        }
+      }
+
+      function searchInsertDriveFiles() {
+        var query = document.getElementById('insertDriveSearchBox').value.trim();
+        if (!query) return;
+        var resultsDiv = document.getElementById('insertDriveSearchResults');
+        resultsDiv.innerHTML = '<div style="font-size:12px;color:#5f6368;">Searching...</div>';
+        google.script.run
+          .withSuccessHandler(function(results) {
+            resultsDiv.innerHTML = '';
+            if (!results || !results.length) {
+              resultsDiv.innerHTML = '<div style="font-size:12px;color:#5f6368;">No matches found.</div>';
+              return;
+            }
+            results.forEach(function(file) {
+              var row = document.createElement('div');
+              row.className = 'search-result-item';
+              row.innerHTML = '<span>' + escapeHtml(file.name) + '</span>';
+              var button = document.createElement('button');
+              button.type = 'button';
+              button.textContent = 'Add';
+              button.onclick = function() { addExistingInsertFile(file); };
+              row.appendChild(button);
+              resultsDiv.appendChild(row);
+            });
+          })
+          .withFailureHandler(function(err) {
+            resultsDiv.innerHTML = '<div style="font-size:12px;color:#c5221f;">Search failed: ' + escapeHtml(err.message) + '</div>';
+          })
+          .searchDriveFiles(query);
+      }
+
+      function addExistingInsertFile(file) {
+        ensureInsertItems();
+        var alreadyAdded = buildState.insertItems.some(function(entry) {
+          return entry.kind === 'existing' && String(entry.item.fileId) === String(file.id);
+        });
+        if (alreadyAdded) return;
+        var googleType = String(file.mimeType || '').indexOf('application/vnd.google-apps.') === 0;
+        buildState.insertItems.push({
+          key: 'file-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
+          kind: 'existing',
+          item: {
+            fileId: file.id,
+            title: file.name,
+            mimeType: file.mimeType || '',
+            shareMode: googleType ? 'STUDENT_COPY' : 'VIEW',
+            maxPoints: 100
+          }
+        });
+        renderInsertScreen();
+      }
+
+      function updateExistingInsertFile(key, field, value) {
+        var entry = (buildState.insertItems || []).filter(function(item) { return item.key === key; })[0];
+        if (!entry || entry.kind !== 'existing') return;
+        entry.item[field] = field === 'maxPoints' ? (parseInt(value) || 100) : value;
+        if (field === 'shareMode') renderInsertScreen();
+      }
+
+      function removeInsertItem(key) {
+        buildState.insertItems = (buildState.insertItems || []).filter(function(entry) {
+          return entry.key !== key || entry.kind === 'built';
+        });
+        renderInsertScreen();
+      }
+
+      function moveInsertItem(index, direction) {
+        ensureInsertItems();
+        var next = index + direction;
+        if (next < 0 || next >= buildState.insertItems.length) return;
+        var moving = buildState.insertItems[index];
+        buildState.insertItems[index] = buildState.insertItems[next];
+        buildState.insertItems[next] = moving;
+        renderInsertScreen();
+      }
+
+      function renderInsertScreen() {
+        ensureInsertItems();
+        var container = document.getElementById('insertItemsContainer');
+        container.innerHTML = '';
+        buildState.insertItems.forEach(function(entry, index) {
+          var item = entry.item;
+          var row = document.createElement('div');
+          row.className = 'insert-item-row';
+          row.id = 'insert-row-' + entry.key;
+          var mainHtml;
+          if (entry.kind === 'existing') {
+            var isCopy = item.shareMode === 'STUDENT_COPY';
+            var canStudentCopy = String(item.mimeType || '').indexOf('application/vnd.google-apps.') === 0;
+            mainHtml = '<div class="insert-item-main"><strong>Existing file</strong>' +
+              '<div class="existing-file-options">' +
+                '<input type="text" value="' + escapeHtml(item.title) + '" onchange="updateExistingInsertFile(\'' + entry.key + '\', \'title\', this.value)">' +
+                '<select onchange="updateExistingInsertFile(\'' + entry.key + '\', \'shareMode\', this.value)">' +
+                  '<option value="STUDENT_COPY"' + (isCopy ? ' selected' : '') + (!canStudentCopy ? ' disabled' : '') + '>Student copy to complete</option>' +
+                  '<option value="VIEW"' + (!isCopy ? ' selected' : '') + '>View only resource</option>' +
+                '</select>' +
+                '<input type="number" min="1" value="' + item.maxPoints + '" title="Points"' + (!isCopy ? ' disabled' : '') +
+                  ' onchange="updateExistingInsertFile(\'' + entry.key + '\', \'maxPoints\', this.value)">' +
+              '</div></div>';
+          } else {
+            mainHtml = '<div class="insert-item-main"><span>' + escapeHtml(item.title) +
+              ' <span class="build-item-type">(' + escapeHtml(itemLabel(item.type)) + ')</span></span></div>';
+          }
+          row.innerHTML = mainHtml +
+            '<div class="insert-order-controls">' +
+              '<button type="button" class="btn-secondary" onclick="moveInsertItem(' + index + ', -1)" title="Move up">↑</button>' +
+              '<button type="button" class="btn-secondary" onclick="moveInsertItem(' + index + ', 1)" title="Move down">↓</button>' +
+              (entry.kind === 'existing' ? '<button type="button" class="remove-item" onclick="removeInsertItem(\'' + entry.key + '\')">Remove</button>' : '') +
+              '<span class="result-badge ' + (entry.inserted ? 'inserted' : 'pending') + '" id="insert-badge-' + entry.key + '">' + (entry.inserted ? 'Inserted' : 'Pending') + '</span>' +
+            '</div>';
+          container.appendChild(row);
+        });
+        document.getElementById('status').innerHTML = '';
+      }
+
+      function runInsertProcess() {
+        var courseId = document.getElementById('courseSelect').value;
+        var topicName = document.getElementById('topicName').value.trim();
+        document.getElementById('btnInsert').disabled = true;
+        setStatus('Creating the topic and inserting content into Classroom...', 'loading');
+
+        google.script.run
+          .withSuccessHandler(function(topicId) {
+            ensureInsertItems();
+            var pendingItems = buildState.insertItems.filter(function(entry) { return !entry.inserted; });
+            if (!pendingItems.length) {
+              setStatus('Everything in this set has already been inserted. Start a new topic to create another set.', 'success');
+              document.getElementById('btnInsert').disabled = false;
+              return;
+            }
+            insertNextItem(courseId, topicId, pendingItems, 0, 0);
+          })
+          .withFailureHandler(function(err) {
+            setStatus('Error: ' + err.message, 'error');
+            document.getElementById('btnInsert').disabled = false;
+          })
+          .prepareModuleTopic(courseId, topicName);
+      }
+
+      function insertNextItem(courseId, topicId, items, index, insertedCount) {
+        if (index >= items.length) {
+          setStatus('Success! Inserted ' + insertedCount + ' of ' + items.length + ' content item(s) into "' +
+            document.getElementById('topicName').value.trim() + '". Student visibility remains off until you publish in Classroom.', insertedCount === items.length ? 'success' : 'error');
+          document.getElementById('btnInsert').disabled = false;
+          return;
+        }
+        var entry = items[index];
+        var item = entry.item;
+        var badge = document.getElementById('insert-badge-' + entry.key);
+        var runner = google.script.run
+          .withSuccessHandler(function(res) {
+            if (badge) { badge.className = 'result-badge inserted'; badge.textContent = 'Inserted'; }
+            entry.inserted = true;
+            entry.insertResult = res || {};
+            insertNextItem(courseId, topicId, items, index + 1, insertedCount + 1);
+          })
+          .withFailureHandler(function(err) {
+            if (badge) { badge.className = 'result-badge error'; badge.textContent = 'Error'; badge.title = err.message; }
+            insertNextItem(courseId, topicId, items, index + 1, insertedCount);
+          });
+        if (entry.kind === 'existing') {
+          var existingPayload = Object.assign({}, item, { insertionKey: buildState.insertionRunId + ':' + entry.key });
+          runner.insertExistingDriveFile(courseId, topicId, existingPayload);
+        } else {
+          var result = buildState.results[item.id];
+          var builtPayload = Object.assign({}, item, { insertionKey: buildState.insertionRunId + ':' + entry.key });
+          runner.insertBuiltItem(courseId, topicId, builtPayload, result.data, currentSettings);
+        }
+      }
+
+      function setStatus(msg, type) {
+        var div = document.getElementById('status');
+        div.className = 'status-' + type;
+        div.innerText = msg;
+      }
+
+      // ---------- Settings ----------
+      function applySettingsToForm(settings) {
+        currentSettings = settings;
+        document.getElementById('settingsSpeedDetailed').checked = settings.aiSpeed !== 'fast';
+        document.getElementById('settingsSpeedFast').checked = settings.aiSpeed === 'fast';
+        document.getElementById('settingsAutoCriteria').checked = !!settings.defaultAutoCriteria;
+        document.getElementById('settingsAccentColor').value = settings.accentColor || '#f59e0b';
+      }
+
+      function saveBuilderSettings() {
+        var settings = {
+          aiSpeed: document.getElementById('settingsSpeedFast').checked ? 'fast' : 'detailed',
+          defaultAutoCriteria: document.getElementById('settingsAutoCriteria').checked,
+          accentColor: document.getElementById('settingsAccentColor').value
+        };
+        var statusEl = document.getElementById('settingsStatus');
+        statusEl.textContent = 'Saving...';
+        google.script.run
+          .withSuccessHandler(function(saved) {
+            currentSettings = saved;
+            statusEl.textContent = 'Settings saved.';
+          })
+          .withFailureHandler(function(err) {
+            statusEl.textContent = 'Error: ' + err.message;
+          })
+          .saveSettings(settings);
+      }
+
+      function setGradeStatus(msg, type) {
+        var div = document.getElementById('gradeStatus');
+        div.className = 'status-' + type;
+        div.innerText = msg;
+      }
+
+      function copyTextToClipboard(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).catch(function() {});
+          return;
+        }
+        var input = document.createElement('textarea');
+        input.value = text;
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        document.body.appendChild(input);
+        input.focus();
+        input.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(input);
+      }
+
+      // ---------- HQSD ----------
+      var hqsdAssignmentList = [];
+      var hqsdReviewAssignmentList = [];
+      var hqsdOhioStandardsSuggestions = [];
+      var hqsdReflectionLogDirty = false;
+      var hqsdReflectionLogReady = false;
+      var hqsdLoadedReflectionGroupId = '';
+      var lastHqsdCourseId = '';
+
+      function populateHqsdClasses(courses) {
+        var select = document.getElementById('hqsdCourseSelect');
+        select.innerHTML = '';
+        (courses || []).forEach(function(c) {
+          var opt = document.createElement('option');
+          opt.value = c.id;
+          opt.text = c.name;
+          select.appendChild(opt);
+        });
+        onHqsdCourseChange();
+      }
+
+      function onHqsdCourseChange() {
+        var courseSelect = document.getElementById('hqsdCourseSelect');
+        var courseId = courseSelect.value;
+        if (lastHqsdCourseId && String(courseId) !== String(lastHqsdCourseId) && hqsdReflectionLogDirty) {
+          if (!confirm('The Reflections and Actions Taken Log has unsaved changes. Discard them and change classes?')) {
+            courseSelect.value = lastHqsdCourseId;
+            return;
+          }
+          hqsdReflectionLogDirty = false;
+        }
+        lastHqsdCourseId = courseId;
+        hqsdLoadedReflectionGroupId = '';
+        hqsdReflectionLogReady = false;
+        var groupSelect = document.getElementById('hqsdGroupSelect');
+        var editGroupSelect = document.getElementById('hqsdEditGroupSelect');
+        groupSelect.innerHTML = '<option>Loading...</option>';
+        editGroupSelect.innerHTML = '<option>Loading...</option>';
+        google.script.run
+          .withSuccessHandler(function(groups) {
+            populateHqsdReportSelect(groupSelect, groups);
+            populateHqsdReportSelect(editGroupSelect, groups);
+          })
+          .withFailureHandler(function(err) {
+            groupSelect.innerHTML = '<option value="">Failed to load</option>';
+            editGroupSelect.innerHTML = '<option value="">Failed to load</option>';
+          })
+          .getHQSDGroups(courseId);
+
+        hqsdAssignmentList = [];
+        hqsdOhioStandardsSuggestions = [];
+        document.getElementById('hqsdStandardsStatus').textContent = '';
+        document.getElementById('hqsdStandardsSuggestions').innerHTML = '';
+        loadHqsdAssignmentPicker();
+      }
+
+      function populateHqsdReportSelect(select, groups) {
+        select.innerHTML = '';
+        if (!groups || groups.length === 0) {
+          select.innerHTML = '<option value="">No saved HQSD domains yet for this class</option>';
+          if (select.id === 'hqsdGroupSelect') onHqsdGroupChange();
+          return;
+        }
+        groups.forEach(function(g) {
+          var opt = document.createElement('option');
+          opt.value = g.groupId;
+          opt.text = g.name;
+          select.appendChild(opt);
+        });
+        if (select.id === 'hqsdGroupSelect') onHqsdGroupChange();
+      }
+
+      function onHqsdGroupChange() {
+        var select = document.getElementById('hqsdGroupSelect');
+        var groupId = select.value;
+        if (hqsdLoadedReflectionGroupId && String(groupId) !== String(hqsdLoadedReflectionGroupId) && hqsdReflectionLogDirty) {
+          if (!confirm('The Reflections and Actions Taken Log has unsaved changes. Discard them and open another domain?')) {
+            select.value = hqsdLoadedReflectionGroupId;
+            return;
+          }
+        }
+        document.getElementById('hqsdStatus').textContent = '';
+        loadHqsdReflectionLog(groupId);
+      }
+
+      function loadHqsdReflectionLog(groupId) {
+        var textarea = document.getElementById('hqsdReflectionLog');
+        var saveButton = document.getElementById('hqsdSaveReflectionBtn');
+        var status = document.getElementById('hqsdReflectionLogStatus');
+        hqsdReflectionLogDirty = false;
+        hqsdReflectionLogReady = false;
+        hqsdLoadedReflectionGroupId = groupId || '';
+        textarea.value = '';
+        textarea.disabled = true;
+        saveButton.disabled = true;
+        if (!groupId) {
+          status.textContent = 'Select an HQSD Domain to open its log.';
+          return;
+        }
+        status.textContent = 'Loading log...';
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (String(document.getElementById('hqsdGroupSelect').value) !== String(groupId)) return;
+            textarea.value = result.log || '';
+            textarea.disabled = false;
+            saveButton.disabled = false;
+            hqsdLoadedReflectionGroupId = groupId;
+            hqsdReflectionLogDirty = false;
+            hqsdReflectionLogReady = true;
+            status.textContent = result.updatedAt
+              ? 'Last saved ' + new Date(result.updatedAt).toLocaleString()
+              : 'No entries saved yet.';
+          })
+          .withFailureHandler(function(err) {
+            if (String(document.getElementById('hqsdGroupSelect').value) !== String(groupId)) return;
+            status.textContent = 'Unable to load log: ' + err.message;
+          })
+          .getHQSDReflectionLog(groupId);
+      }
+
+      function markHqsdReflectionLogDirty() {
+        hqsdReflectionLogDirty = true;
+        document.getElementById('hqsdReflectionLogStatus').textContent = 'Unsaved changes';
+      }
+
+      function saveHqsdReflectionLog(afterSave) {
+        var groupId = document.getElementById('hqsdGroupSelect').value;
+        if (!groupId) {
+          alert('Pick an HQSD domain first.');
+          return;
+        }
+        if (!hqsdReflectionLogReady || String(groupId) !== String(hqsdLoadedReflectionGroupId)) {
+          alert('Please wait for this HQSD Domain’s log to finish loading before saving or generating the Evaluation.');
+          return;
+        }
+        var textarea = document.getElementById('hqsdReflectionLog');
+        var saveButton = document.getElementById('hqsdSaveReflectionBtn');
+        var status = document.getElementById('hqsdReflectionLogStatus');
+        saveButton.disabled = true;
+        status.textContent = 'Saving log...';
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (String(document.getElementById('hqsdGroupSelect').value) !== String(groupId)) return;
+            hqsdReflectionLogDirty = false;
+            hqsdLoadedReflectionGroupId = groupId;
+            saveButton.disabled = false;
+            status.textContent = 'Saved ' + new Date(result.updatedAt).toLocaleString();
+            if (typeof afterSave === 'function') afterSave();
+          })
+          .withFailureHandler(function(err) {
+            saveButton.disabled = false;
+            status.textContent = 'Unable to save log: ' + err.message;
+          })
+          .saveHQSDReflectionLog(groupId, textarea.value);
+      }
+
+      function onHqsdEditGroupChange() {
+        document.getElementById('hqsdManageAssignmentPicker').innerHTML = '';
+      }
+
+      function hqsdAssignmentOptions(items, selectedId, optional) {
+        var options = '<option value="">' + (optional ? 'No midpoint' : 'Select an assignment...') + '</option>';
+        return options + (items || []).map(function(item) {
+          return '<option value="' + escapeHtml(String(item.courseworkId)) + '"' +
+            (String(item.courseworkId) === String(selectedId || '') ? ' selected' : '') + '>' +
+            escapeHtml((item.topicName || 'No topic') + ' — ' + item.title) + '</option>';
+        }).join('');
+      }
+
+      function getHqsdItemById(items, courseworkId) {
+        for (var i = 0; i < (items || []).length; i++) {
+          if (String(items[i].courseworkId) === String(courseworkId)) return items[i];
+        }
+        return null;
+      }
+
+      function syncHqsdCheckpointRubric(mode, role) {
+        var manage = mode === 'manage';
+        var items = manage ? hqsdReviewAssignmentList : hqsdAssignmentList;
+        var selectId = (manage ? 'manageHqsdCheckpoint' : 'hqsdCheckpoint') + role;
+        var rubricId = (manage ? 'manageHqsdCheckpointRubric' : 'hqsdCheckpointRubric') + role;
+        var select = document.getElementById(selectId);
+        var rubric = document.getElementById(rubricId);
+        if (!select || !rubric) return;
+        var item = getHqsdItemById(items, select.value);
+        rubric.disabled = !item;
+        rubric.checked = !!(item && item.rubricAvailable);
+      }
+
+      function onHqsdCheckpointChange(mode, role) {
+        var manage = mode === 'manage';
+        var prefix = manage ? 'manageHqsdCheckpoint' : 'hqsdCheckpoint';
+        var current = document.getElementById(prefix + role);
+        if (!current || !current.value) {
+          syncHqsdCheckpointRubric(mode, role);
+          return;
+        }
+        var duplicate = ['Baseline', 'Midpoint', 'Final'].some(function(otherRole) {
+          if (otherRole === role) return false;
+          var other = document.getElementById(prefix + otherRole);
+          return other && other.value && String(other.value) === String(current.value);
+        });
+        if (duplicate) {
+          alert('That assignment is already being used as another checkpoint. Choose a different assignment.');
+          current.value = '';
+        }
+        syncHqsdCheckpointRubric(mode, role);
+      }
+
+      function renderHqsdCheckpointRows(container, mode, items) {
+        var manage = mode === 'manage';
+        var selectPrefix = manage ? 'manageHqsdCheckpoint' : 'hqsdCheckpoint';
+        var rubricPrefix = manage ? 'manageHqsdCheckpointRubric' : 'hqsdCheckpointRubric';
+        ['Baseline', 'Midpoint', 'Final'].forEach(function(role) {
+          var existing = (items || []).filter(function(item) {
+            return item.selected && item.assessmentRole === role;
+          })[0];
+          var row = document.createElement('div');
+          row.style.cssText = 'margin-bottom:10px;padding:10px;background:#fff;border:1px solid #d8e2f0;border-radius:6px;';
+          row.innerHTML = '<label for="' + selectPrefix + role + '">' + role + (role === 'Midpoint' ? ' (optional)' : '') + '</label>' +
+            '<select id="' + selectPrefix + role + '" onchange="onHqsdCheckpointChange(\'' + mode + '\',\'' + role + '\')">' +
+            hqsdAssignmentOptions(items, existing ? existing.courseworkId : '', role === 'Midpoint') + '</select>' +
+            '<label class="checkbox-item" style="margin-top:6px;color:#5f6368;"><input type="checkbox" id="' + rubricPrefix + role + '"' +
+            (existing && existing.rubricEnhanced ? ' checked' : '') + (existing ? '' : ' disabled') +
+            '> Rubric-enhanced' + (existing && existing.rubricAvailable ? ' · rubric detected' : '') + '</label>';
+          container.appendChild(row);
+        });
+      }
+
+      function renderHqsdOngoingRows(container, mode, items) {
+        var manage = mode === 'manage';
+        (items || []).forEach(function(item, i) {
+          var row = document.createElement('div');
+          row.style.marginBottom = '6px';
+          var selected = manage ? !!item.selected : false;
+          var badge = manage && item.isNew ? ' · NEW — approve to add' : (manage && item.noLongerInTopic ? ' · no longer in Classroom' : '');
+          var itemId = manage ? 'hqsd-review-item-' + i : 'hqsd-item-' + i;
+          var rubricId = manage ? 'hqsd-review-rubric-' + i : 'hqsd-rubric-' + i;
+          row.innerHTML = '<label class="checkbox-item"><input type="checkbox" id="' + itemId + '"' + (selected ? ' checked' : '') + '> ' +
+            '<strong>' + escapeHtml(item.topicName || 'No topic') + ' — ' + escapeHtml(item.title) + '</strong> ' +
+            '<span style="color:#5f6368;">(' + item.maxPoints + ' pts' + escapeHtml(badge) + ')</span></label>' +
+            '<label class="checkbox-item" style="margin:3px 0 0 25px;color:#5f6368;"><input type="checkbox" id="' + rubricId + '"' +
+            ((manage ? item.rubricEnhanced : item.rubricAvailable) ? ' checked' : '') +
+            '> Rubric-enhanced' + (item.rubricAvailable ? ' · rubric detected' : '') + '</label>';
+          container.appendChild(row);
+        });
+      }
+
+      function collectHqsdTrackingItems(mode) {
+        var manage = mode === 'manage';
+        var items = manage ? hqsdReviewAssignmentList : hqsdAssignmentList;
+        var typeElement = document.getElementById(manage ? 'manageHqsdTrackingType' : 'hqsdTrackingType');
+        var trackingType = typeElement ? typeElement.value : '';
+        if (trackingType === 'checkpoints') {
+          var selected = [];
+          ['Baseline', 'Midpoint', 'Final'].forEach(function(role) {
+            var select = document.getElementById((manage ? 'manageHqsdCheckpoint' : 'hqsdCheckpoint') + role);
+            if (!select || !select.value) return;
+            var source = getHqsdItemById(items, select.value);
+            if (!source) return;
+            var copy = Object.assign({}, source);
+            var rubric = document.getElementById((manage ? 'manageHqsdCheckpointRubric' : 'hqsdCheckpointRubric') + role);
+            copy.rubricEnhanced = !!(rubric && rubric.checked);
+            copy.assessmentRole = role;
+            selected.push(copy);
+          });
+          return selected;
+        }
+        return (items || []).filter(function(item, i) {
+          var box = document.getElementById((manage ? 'hqsd-review-item-' : 'hqsd-item-') + i);
+          return box && box.checked;
+        }).map(function(item, i) {
+          var sourceIndex = items.indexOf(item);
+          var rubric = document.getElementById((manage ? 'hqsd-review-rubric-' : 'hqsd-rubric-') + sourceIndex);
+          var copy = Object.assign({}, item);
+          copy.rubricEnhanced = !!(rubric && rubric.checked);
+          copy.assessmentRole = 'Ongoing evidence';
+          return copy;
+        });
+      }
+
+      function collectHqsdPlanConfig(prefix) {
+        function value(suffix) {
+          var element = document.getElementById(prefix + suffix);
+          return element ? element.value.trim() : '';
+        }
+        return {
+          teacherAttribution: value('TeacherName'), standards: value('Standards'),
+          measurePurpose: value('MeasurePurpose'), protocol: value('Protocol'),
+          trustworthiness: value('Trustworthiness'), valueAdded: value('ValueAdded') || 'Not available'
+        };
+      }
+
+      function getHqsdTrustworthinessPresets() {
+        return {
+          mixed: 'All students receive common directions and scoring expectations. Tests use consistent answer keys; shop projects use the same rubric dimensions and performance levels. Required accommodations are provided without changing the skill being measured. The teacher reviews all scores and AI suggestions, compares multiple evidence points, and checks for inconsistent scoring or possible bias before making instructional decisions.',
+          tests: 'All students complete assessments aligned to the same learning targets under consistent conditions, with required accommodations provided. The same answer key and scoring rules are applied. The teacher reviews unusual patterns, missing data, retakes, and any AI-assisted scores for accuracy, consistent treatment, and possible bias.',
+          projects: 'All students receive the same project expectations and are evaluated with the same rubric dimensions and performance levels. The teacher directly observes and scores physical safety, tool use, and craftsmanship. Required accommodations provide access without changing the skill being measured. Scores are checked across students and projects for consistent rubric use and possible bias.'
+        };
+      }
+
+      function applyHqsdTrustworthinessPreset(prefix) {
+        var select = document.getElementById(prefix + 'TrustworthinessPreset');
+        var textarea = document.getElementById(prefix + 'Trustworthiness');
+        if (!select || !textarea) return;
+        if (select.value === 'custom') {
+          textarea.focus();
+          return;
+        }
+        var presets = getHqsdTrustworthinessPresets();
+        textarea.value = presets[select.value] || '';
+      }
+
+      function detectHqsdTrustworthinessPreset(text) {
+        var presets = getHqsdTrustworthinessPresets();
+        var value = String(text || '').trim();
+        var keys = Object.keys(presets);
+        for (var i = 0; i < keys.length; i++) {
+          if (value === presets[keys[i]]) return keys[i];
+        }
+        return 'custom';
+      }
+
+      function markHqsdTrustworthinessCustom(prefix) {
+        var select = document.getElementById(prefix + 'TrustworthinessPreset');
+        if (select) select.value = 'custom';
+      }
+
+      function suggestOhioStandards() {
+        var selectedItems = collectHqsdTrackingItems('create').map(function(item) {
+          return {
+            courseworkId: item.courseworkId,
+            title: item.title,
+            topicName: item.topicName,
+            rubricEnhanced: !!item.rubricEnhanced
+          };
+        });
+        if (!selectedItems.length) {
+          alert('Select the assignments for this domain first.');
+          return;
+        }
+        var button = document.getElementById('hqsdStandardsSuggestBtn');
+        var status = document.getElementById('hqsdStandardsStatus');
+        var results = document.getElementById('hqsdStandardsSuggestions');
+        button.disabled = true;
+        status.textContent = 'Matching the selected assignments to Ohio technical and career-preparation standards...';
+        results.innerHTML = '';
+        google.script.run
+          .withSuccessHandler(function(response) {
+            button.disabled = false;
+            hqsdOhioStandardsSuggestions = response.standards || [];
+            var sourceLinks = (response.sources || []).map(function(source) {
+              return '<a href="' + escapeHtml(source.url) + '" target="_blank" rel="noopener">' + escapeHtml(source.name) + '</a>';
+            }).join(' and ');
+            status.innerHTML = 'AI suggestions from ' + sourceLinks + '. Review and choose only the standards or skills actually measured.';
+            if (!hqsdOhioStandardsSuggestions.length) {
+              results.innerHTML = '<span style="font-size:13px;color:#5f6368;">No direct standards match was found. You can still enter a standard manually.</span>';
+              return;
+            }
+            hqsdOhioStandardsSuggestions.forEach(function(standard, i) {
+              var row = document.createElement('label');
+              row.className = 'checkbox-item';
+              row.style.cssText = 'display:block;margin-bottom:8px;';
+              row.innerHTML = '<input type="checkbox" id="hqsd-standard-' + i + '"> <strong>' +
+                escapeHtml(standard.label || standard.code) + '</strong> — ' + escapeHtml(standard.description) +
+                '<span style="display:block;margin:3px 0 0 25px;color:#5f6368;">' +
+                escapeHtml(standard.sourceName || '') + (standard.sourceName ? ' · ' : '') + escapeHtml(standard.reason) + '</span>';
+              results.appendChild(row);
+            });
+            var addButton = document.createElement('button');
+            addButton.type = 'button';
+            addButton.className = 'btn-secondary';
+            addButton.textContent = 'Add Selected Standards';
+            addButton.onclick = addSelectedOhioStandards;
+            results.appendChild(addButton);
+          })
+          .withFailureHandler(function(err) {
+            button.disabled = false;
+            status.textContent = 'Could not suggest standards: ' + err.message;
+          })
+          .suggestOhioConstructionStandards(document.getElementById('hqsdCourseSelect').value, selectedItems);
+      }
+
+      function addSelectedOhioStandards() {
+        var selected = hqsdOhioStandardsSuggestions.filter(function(standard, i) {
+          var box = document.getElementById('hqsd-standard-' + i);
+          return box && box.checked;
+        });
+        if (!selected.length) {
+          alert('Check at least one Ohio standard to add.');
+          return;
+        }
+        var textarea = document.getElementById('hqsdStandards');
+        var current = textarea.value.trim();
+        var additions = selected.filter(function(standard) {
+          var label = standard.label || standard.code;
+          return current.indexOf(label + ' — ') === -1;
+        }).map(function(standard) {
+          return (standard.label || standard.code) + ' — ' + standard.description;
+        });
+        textarea.value = [current].concat(additions).filter(Boolean).join('\n');
+        document.getElementById('hqsdStandardsStatus').textContent =
+          additions.length ? additions.length + ' Ohio standard' + (additions.length === 1 ? '' : 's') + ' added.' : 'Those standards are already included.';
+      }
+
+      function renderHqsdPlanConfigEditor(container, config) {
+        var wrapper = document.createElement('details');
+        wrapper.style.marginBottom = '12px';
+        wrapper.innerHTML = '<summary style="cursor:pointer;font-weight:600;">Review HQSD verification details</summary>' +
+          '<div class="card-subtext" style="margin:8px 0;">Optional. Blank fields use the domain’s professional defaults.</div>' +
+          '<label>Teacher / course attribution<input id="manageHqsdTeacherName" type="text"></label>' +
+          '<label>Standards alignment<textarea id="manageHqsdStandards"></textarea></label>' +
+          '<label>What the evidence is intended to measure<textarea id="manageHqsdMeasurePurpose"></textarea></label>' +
+          '<label>Administration and scoring protocol<textarea id="manageHqsdProtocol"></textarea></label>' +
+          '<div class="field-hint">Explain how students complete the evidence and how it is scored consistently. Include where or when it is given, who scores it, the answer key or rubric used, accommodations, and how retakes or resubmissions are handled. You do not need to describe the lesson itself.</div>' +
+          '<details class="protocol-help"><summary>See test and shop-project examples</summary>' +
+            '<div class="protocol-example"><strong>Test example:</strong> Students complete the same Chapter Safety Test in Google Classroom after instruction. The teacher scores all responses with the same answer key. Required accommodations are provided. Retakes assess the same learning targets using the same scoring scale, and earlier and later scores are retained to measure growth.</div>' +
+            '<div class="protocol-example"><strong>Shop-project example:</strong> Students complete the same project guide and submit the rubric document in Google Classroom. Students complete the reflection sections; the teacher scores safety, measurement and precision, craftsmanship, and completion using the same four-level rubric. Physical performance is observed and scored by the teacher. Resubmitted projects use the same rubric, and both results are retained.</div></details>' +
+          '<label>Trustworthiness and bias safeguards</label>' +
+          '<div class="field-hint">This explains why the results are fair and dependable. Choose the option that best matches this domain. The statement it creates remains editable.</div>' +
+          '<select id="manageHqsdTrustworthinessPreset" onchange="applyHqsdTrustworthinessPreset(\'manageHqsd\')">' +
+            '<option value="mixed">Mixed tests and shop projects (recommended)</option>' +
+            '<option value="tests">Primarily tests or written assignments</option>' +
+            '<option value="projects">Primarily rubric-scored shop projects</option>' +
+            '<option value="custom">Write my own safeguards</option></select>' +
+          '<textarea id="manageHqsdTrustworthiness" oninput="markHqsdTrustworthinessCustom(\'manageHqsd\')"></textarea>' +
+          '<label>Value-added data<select id="manageHqsdValueAdded"><option>Not available</option><option>Included</option><option>Available but not used</option></select></label>';
+        container.appendChild(wrapper);
+        document.getElementById('manageHqsdTeacherName').value = config.teacherAttribution || '';
+        document.getElementById('manageHqsdStandards').value = config.standards || '';
+        document.getElementById('manageHqsdMeasurePurpose').value = config.measurePurpose || '';
+        document.getElementById('manageHqsdProtocol').value = config.protocol || '';
+        document.getElementById('manageHqsdTrustworthiness').value = config.trustworthiness || '';
+        document.getElementById('manageHqsdTrustworthinessPreset').value =
+          detectHqsdTrustworthinessPreset(config.trustworthiness);
+        document.getElementById('manageHqsdValueAdded').value = config.valueAdded || 'Not available';
+      }
+
+      function renderHqsdManageAssignmentPicker() {
+        var container = document.getElementById('manageHqsdAssignments');
+        if (!container) return;
+        var trackingType = document.getElementById('manageHqsdTrackingType').value;
+        container.innerHTML = '';
+        var help = document.createElement('div');
+        help.className = 'field-hint';
+        help.style.margin = '7px 0 9px';
+        help.textContent = trackingType === 'checkpoints'
+          ? 'Choose one Baseline and one Final assignment. A Midpoint is optional. Each assignment can be used only once.'
+          : 'Select at least two separate, comparable assignments for the ongoing series.';
+        container.appendChild(help);
+        if (trackingType === 'checkpoints') renderHqsdCheckpointRows(container, 'manage', hqsdReviewAssignmentList);
+        else renderHqsdOngoingRows(container, 'manage', hqsdReviewAssignmentList);
+      }
+
+      function reviewHqsdReportAssignments() {
+        var groupId = document.getElementById('hqsdEditGroupSelect').value;
+        if (!groupId) { alert('Pick an HQSD domain first.'); return; }
+        var picker = document.getElementById('hqsdManageAssignmentPicker');
+        picker.innerHTML = 'Loading the domain and available assignments...';
+        google.script.run
+          .withSuccessHandler(function(result) {
+            hqsdReviewAssignmentList = result.items || [];
+            picker.innerHTML = '';
+            var trackingBlock = document.createElement('div');
+            trackingBlock.innerHTML =
+              '<label for="manageHqsdTrackingType">Tracking type</label>' +
+              '<select id="manageHqsdTrackingType" onchange="renderHqsdManageAssignmentPicker()">' +
+                '<option value="checkpoints">Baseline / Midpoint / Final</option>' +
+                '<option value="ongoing">Ongoing evidence series</option>' +
+              '</select>' +
+              '<div class="field-hint">The tracking type controls how assignments are linked and how growth is calculated.</div>' +
+              '<label style="margin-top:12px;">Assignments to track</label>' +
+              '<div id="manageHqsdAssignments"></div>';
+            picker.appendChild(trackingBlock);
+            document.getElementById('manageHqsdTrackingType').value =
+              result.planConfig && result.planConfig.trackingType === 'checkpoints' ? 'checkpoints' : 'ongoing';
+            renderHqsdManageAssignmentPicker();
+            renderHqsdPlanConfigEditor(picker, result.planConfig || {});
+            var saveButton = document.createElement('button');
+            saveButton.type = 'button';
+            saveButton.textContent = 'Save Assignment Changes';
+            saveButton.style.marginTop = '8px';
+            saveButton.onclick = updateHqsdReportAssignments;
+            picker.appendChild(saveButton);
+          })
+          .withFailureHandler(function(err) { picker.textContent = 'Error: ' + err.message; })
+          .getHQSDGroupAssignmentReview(groupId);
+      }
+
+      function updateHqsdReportAssignments() {
+        var groupId = document.getElementById('hqsdEditGroupSelect').value;
+        var trackingType = document.getElementById('manageHqsdTrackingType').value;
+        var selectedItems = collectHqsdTrackingItems('manage');
+        if (trackingType === 'checkpoints') {
+          var roleCounts = {};
+          selectedItems.forEach(function(item) { roleCounts[item.assessmentRole] = (roleCounts[item.assessmentRole] || 0) + 1; });
+          if (roleCounts.Baseline !== 1 || roleCounts.Final !== 1) {
+            alert('Choose one Baseline assignment and one Final assignment.');
+            return;
+          }
+          var checkpointIds = selectedItems.map(function(item) { return String(item.courseworkId); });
+          if (checkpointIds.filter(function(id, i) { return checkpointIds.indexOf(id) !== i; }).length) {
+            alert('Baseline, Midpoint, and Final must use different assignments.');
+            return;
+          }
+        } else if (selectedItems.length < 2) {
+          alert('An ongoing evidence series needs at least two assignments.');
+          return;
+        }
+        var planConfig = collectHqsdPlanConfig('manageHqsd');
+        planConfig.trackingType = trackingType;
+
+        var picker = document.getElementById('hqsdManageAssignmentPicker');
+        google.script.run
+          .withSuccessHandler(function() {
+            picker.innerHTML = '<span style="font-size:13px;color:#188038;">Assignment changes saved.</span>';
+          })
+          .withFailureHandler(function(err) { picker.textContent = 'Error: ' + err.message; })
+          .updateHQSDGroupItems(groupId, selectedItems, planConfig);
+      }
+
+      function generateHqsdEvaluation() {
+        var groupId = document.getElementById('hqsdGroupSelect').value;
+        if (!groupId) { alert('Pick an HQSD domain first.'); return; }
+        saveHqsdReflectionLog(function() {
+          document.getElementById('hqsdStatus').textContent = 'Evaluating the plan...';
+          google.script.run
+            .withSuccessHandler(function(res) {
+              document.getElementById('hqsdStatus').innerHTML = 'Evaluation ready: <a href="' + res.docUrl + '" target="_blank">Open</a>';
+            })
+            .withFailureHandler(function(err) {
+              document.getElementById('hqsdStatus').textContent = 'Error: ' + err.message;
+            })
+            .generateHQSDEvaluationReport(groupId);
+        });
+      }
+
+      function loadHqsdAssignmentPicker() {
+        var courseId = document.getElementById('hqsdCourseSelect').value;
+        var picker = document.getElementById('hqsdAssignmentPicker');
+        picker.innerHTML = 'Loading assignments...';
+        google.script.run
+          .withSuccessHandler(function(items) {
+            if (String(document.getElementById('hqsdCourseSelect').value) !== String(courseId)) return;
+            hqsdAssignmentList = items || [];
+            renderHqsdAssignmentPicker();
+          })
+          .withFailureHandler(function(err) {
+            picker.innerHTML = 'Error: ' + err.message;
+          })
+          .getAllCourseWorkForHQSD(courseId);
+      }
+
+      function renderHqsdAssignmentPicker() {
+        var picker = document.getElementById('hqsdAssignmentPicker');
+        var trackingType = document.getElementById('hqsdTrackingType').value;
+        picker.innerHTML = '';
+        if (!trackingType) {
+          picker.innerHTML = '<span style="font-size:13px;color:#5f6368;">Choose a tracking type first.</span>';
+          return;
+        }
+        if (!hqsdAssignmentList.length) {
+          picker.innerHTML = '<span style="font-size:13px;color:#5f6368;">No assignments found for this class.</span>';
+          return;
+        }
+        var help = document.createElement('div');
+        help.className = 'field-hint';
+        help.style.marginBottom = '9px';
+        help.textContent = trackingType === 'checkpoints'
+          ? 'Choose one Baseline and one Final assignment. A Midpoint is optional. Each assignment can be used only once.'
+          : 'Select at least two separate, comparable assignments. The Evaluation will order them by date and compare the first available score with the latest.';
+        picker.appendChild(help);
+        if (trackingType === 'checkpoints') renderHqsdCheckpointRows(picker, 'create', hqsdAssignmentList);
+        else renderHqsdOngoingRows(picker, 'create', hqsdAssignmentList);
+      }
+
+      function createHqsdGroup() {
+        var courseId = document.getElementById('hqsdCourseSelect').value;
+        var courseName = document.getElementById('hqsdCourseSelect').selectedOptions[0].text;
+        var name = document.getElementById('hqsdGroupName').value.trim();
+        if (!name) { alert('Give the HQSD domain a name.'); return; }
+        var planConfig = collectHqsdPlanConfig('hqsd');
+
+        var trackingType = document.getElementById('hqsdTrackingType').value;
+        if (!trackingType) { alert('Choose a tracking type.'); return; }
+        var selectedItems = collectHqsdTrackingItems('create');
+        if (trackingType === 'checkpoints') {
+          var roleCounts = {};
+          selectedItems.forEach(function(item) { roleCounts[item.assessmentRole] = (roleCounts[item.assessmentRole] || 0) + 1; });
+          if (roleCounts.Baseline !== 1 || roleCounts.Final !== 1) {
+            alert('Choose one Baseline assignment and one Final assignment.');
+            return;
+          }
+          var checkpointIds = selectedItems.map(function(item) { return String(item.courseworkId); });
+          if (checkpointIds.filter(function(id, i) { return checkpointIds.indexOf(id) !== i; }).length) {
+            alert('Baseline, Midpoint, and Final must use different assignments.');
+            return;
+          }
+        } else if (selectedItems.length < 2) {
+          alert('An ongoing evidence series needs at least two assignments.');
+          return;
+        }
+        planConfig.trackingType = trackingType;
+        var topicMap = {};
+        selectedItems.forEach(function(item) {
+          var topicId = String(item.topicId || '');
+          topicMap[topicId] = { topicId: topicId, name: item.topicName || 'No topic' };
+        });
+        var selectedTopics = Object.keys(topicMap).map(function(topicId) { return topicMap[topicId]; });
+
+        google.script.run
+          .withSuccessHandler(function() {
+            document.getElementById('hqsdGroupName').value = '';
+            document.getElementById('hqsdAssignmentPicker').innerHTML = '';
+            onHqsdCourseChange();
+            showHqsdSection('run');
+          })
+          .withFailureHandler(function(err) { alert('Error: ' + err.message); })
+          .createHQSDGroup(name, courseId, courseName, selectedItems, selectedTopics, planConfig);
+      }
+
+      function generateHqsdPlan() {
+        var groupId = document.getElementById('hqsdGroupSelect').value;
+        if (!groupId) return;
+        document.getElementById('hqsdStatus').textContent = 'Generating plan report...';
+        google.script.run
+          .withSuccessHandler(function(res) {
+            document.getElementById('hqsdStatus').innerHTML = 'Plan report ready: <a href="' + res.docUrl + '" target="_blank">Open</a>';
+          })
+          .withFailureHandler(function(err) {
+            document.getElementById('hqsdStatus').textContent = 'Error: ' + err.message;
+          })
+          .generateHQSDPlanReport(groupId);
+      }
+
+      function deleteHqsdGroup() {
+        var select = document.getElementById('hqsdGroupSelect');
+        var groupId = select.value;
+        if (!groupId) return;
+        var groupName = select.selectedOptions[0] ? select.selectedOptions[0].text : 'this domain';
+        if (!confirm('Delete "' + groupName + '"? The HQSD domain will no longer be selectable here.')) return;
+
+        document.getElementById('hqsdStatus').textContent = 'Deleting...';
+        google.script.run
+          .withSuccessHandler(function() {
+            document.getElementById('hqsdStatus').textContent = 'HQSD domain deleted.';
+            onHqsdCourseChange();
+          })
+          .withFailureHandler(function(err) {
+            document.getElementById('hqsdStatus').textContent = 'Error: ' + err.message;
+          })
+          .deleteHQSDGroup(groupId);
+      }
+
+      function showError(err) {
+        setStatus('Failed to load classes: ' + err.message, 'error');
+      }
+
+      function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+      }
+    </script>
+  </body>
+</html>
