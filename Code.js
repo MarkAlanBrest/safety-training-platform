@@ -1903,21 +1903,16 @@ function getGraderAttachmentList(sub) {
 
 // Classroom keeps one StudentSubmission record through unsubmit/resubmit cycles.
 // When a student adds a revised file without removing the original, both Drive
-// attachments can remain on that record. Prefer the most recently modified file;
-// if Drive metadata is unavailable, prefer the last attachment Classroom returned.
+// attachments can remain on that record. Classroom places newly attached revisions
+// after existing files, so prefer the last attachment. File modification time is
+// intentionally not used because teacher feedback can make an older file look newer.
 function getSubmittedDriveAttachmentsNewestFirst(sub) {
   var attachments = (sub.assignmentSubmission && sub.assignmentSubmission.attachments) || [];
   return attachments.map(function(attachment, index) {
     if (!attachment.driveFile || !attachment.driveFile.id) return null;
-    var modifiedTime = 0;
-    try {
-      modifiedTime = DriveApp.getFileById(attachment.driveFile.id).getLastUpdated().getTime();
-    } catch (e) {
-      // Attachment order remains a useful fallback when file metadata is unavailable.
-    }
-    return { attachment: attachment, index: index, modifiedTime: modifiedTime };
+    return { attachment: attachment, index: index };
   }).filter(function(item) { return !!item; }).sort(function(a, b) {
-    return b.modifiedTime - a.modifiedTime || b.index - a.index;
+    return b.index - a.index;
   }).map(function(item) { return item.attachment; });
 }
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Classroom Grading Assistant
 // @namespace    https://github.com/MarkAlanBrest/google-classroom-grading-assistant
-// @version      1.3.4
+// @version      1.3.5
 // @description  AI-assisted grading for Google Classroom with assignment-specific rubrics, submission review, suggested grades and comments, and insertion into Classroom's grade box.
 // @author       MarkAlanBrest
 // @homepageURL  https://career-toolkit-ruby.vercel.app/
@@ -277,7 +277,10 @@
     render();
     try {
       if (!state.rubric.trim()) throw new Error('Add a rubric/answer key first.');
-      if (!state.submissionText.trim()) await fetchSubmission();
+      // Classroom often changes the selected student without changing the page
+      // URL. Always reload the visible submission immediately before grading so
+      // text cached for the previous student or turn-in can never be reused.
+      await fetchSubmission();
       if (!state.submissionText.trim()) {
         throw new Error(state.fetchError || 'The student submission could not be loaded.');
       }
@@ -332,6 +335,8 @@
 
   async function fetchSubmission() {
     state.fetchError = '';
+    state.detectedFile = null;
+    state.submissionText = '';
     state.fetching = true;
     render();
     try {
