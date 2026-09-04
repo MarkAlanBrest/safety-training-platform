@@ -10,10 +10,10 @@ export default function NewClassroomCoursePage() {
     <AdminShell title="PowerPoint narration course" eyebrow="Slide images + AI instructor">
       <div className="mx-auto max-w-5xl">
         <Link
-          href="/admin/courses/new"
+          href="/admin/courses"
           className="inline-flex items-center gap-2 text-sm font-bold text-[#69757e] hover:text-[#10283f]"
         >
-          <ArrowLeft size={16} /> Back to course types
+          <ArrowLeft size={16} /> Back to programs
         </Link>
 
         <section className="mt-5 overflow-hidden rounded-[2rem] bg-[#10283f] text-white shadow-xl">

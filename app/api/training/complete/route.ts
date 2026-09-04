@@ -8,10 +8,16 @@ const PASSING_SCORE = 80;
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    const body = (await req.json()) as {
+      code?: unknown;
+      courseSlug?: unknown;
+      answers?: unknown;
+    };
     const code = normalizeEnrollmentCode(body.code);
     const courseSlug = String(body.courseSlug || "").trim();
-    const answers = Array.isArray(body.answers) ? body.answers.map(Number) : [];
+    const answers: number[] = Array.isArray(body.answers)
+      ? body.answers.map((answer: unknown) => Number(answer))
+      : [];
 
     if (!code || !courseSlug || !answers.length) {
       return Response.json({ error: "Course code, course, and exam answers are required." }, { status: 400 });
