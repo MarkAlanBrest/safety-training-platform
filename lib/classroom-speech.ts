@@ -67,7 +67,23 @@ export function dedupeReplyWithCheckQuestion(
   return withoutPrompt || "Let's check your understanding.";
 }
 
-/** Speech for a turn — lead-in only when a Quick Check card is showing the question. */
+/** Format a comprehension check for speech and on-screen narration. */
+export function formatCheckQuestionSpeech(checkQuestion: ClassroomCheckQuestion): string {
+  const prompt = checkQuestion.prompt.trim();
+  if (!prompt) return "";
+  const options = checkQuestion.options?.length
+    ? checkQuestion.options
+    : checkQuestion.type === "trueFalse"
+      ? ["True", "False"]
+      : [];
+  if (!options.length) return prompt;
+  const optionSpeech = options
+    .map((option, index) => `${String.fromCharCode(65 + index)}. ${option}`)
+    .join(". ");
+  return `${prompt} ${optionSpeech}`;
+}
+
+/** Speech for a turn — matches what the learner should read on screen. */
 export function speechTextForTurn(
   reply: string,
   checkQuestion: ClassroomCheckQuestion | null,
@@ -75,7 +91,8 @@ export function speechTextForTurn(
   const cleanedReply = filterPrivateSpeechDirections(reply).trim();
   if (!checkQuestion) return cleanedReply || reply;
   const leadIn = dedupeReplyWithCheckQuestion(cleanedReply || reply, checkQuestion);
-  return leadIn || "Here's a quick check for you.";
+  const questionSpeech = formatCheckQuestionSpeech(checkQuestion);
+  return [leadIn, questionSpeech].filter(Boolean).join(" ");
 }
 
 function authorCueLines(notes: string): string[] {

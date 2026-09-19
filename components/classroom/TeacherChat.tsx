@@ -188,11 +188,19 @@ export default function TeacherChat({
         ) : null}
 
         {checkQuestion ? (
-          <QuickCheckCard
-            question={checkQuestion}
-            onSelectOption={awaitingInput ? onSelectOption : undefined}
-            disabled={thinking}
-          />
+          <>
+            {liveNarration?.trim() ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-base font-medium leading-7 text-slate-800">
+                {liveNarration}
+              </div>
+            ) : null}
+            <QuickCheckCard
+              question={checkQuestion}
+              onSelectOption={awaitingInput ? onSelectOption : undefined}
+              disabled={thinking}
+              showPrompt={!liveNarration?.trim()}
+            />
+          </>
         ) : showThread ? (
           <div className="flex min-h-0 flex-1 flex-col gap-3">
             {!visibleMessages.length && !thinking ? (
@@ -259,7 +267,7 @@ export default function TeacherChat({
                 <p className="text-base font-medium leading-7 text-slate-800">{liveNarration}</p>
               ) : narrationHistory.length ? null : (
                 <p className="text-sm leading-7 text-slate-500">
-                  Lesson text appears here as the SCORM page changes.
+                  Lesson narration appears here as the instructor teaches each slide.
                 </p>
               )}
               <div ref={transcriptEndRef} />
