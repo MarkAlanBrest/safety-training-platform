@@ -496,49 +496,51 @@ export function CourseAlertsSetupForm({ courseId, importMode, initialConfig }: P
         {error ? <p className="course-alerts-error">{error}</p> : null}
         {success ? <p className="course-alerts-success">{success}</p> : null}
 
-        <button type="submit" disabled={loading}>
-          {loading
-            ? "Saving this course..."
-            : importMode
-              ? "Save settings and add to module"
-              : "Save this course"}
-        </button>
+        <div className="course-alerts-setup-actions">
+          <button type="submit" disabled={loading}>
+            {loading
+              ? "Saving this course..."
+              : importMode
+                ? "Save settings and add to module"
+                : "Save this course"}
+          </button>
 
-        <button
-          type="button"
-          className="course-alerts-send-now"
-          disabled={loading}
-          onClick={async () => {
-            setLoading(true);
-            setError("");
-            setSuccess("");
-            try {
-              const resp = await fetch("/api/course-alerts/send-now", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ courseId }),
-              });
-              const data = await resp.json();
-              if (!resp.ok) throw new Error(data.error || "Send failed");
-              setSuccess(`Sent ${data.result?.sent || 0} message(s).`);
-            } catch (err) {
-              setError(err instanceof Error ? err.message : String(err));
-            } finally {
-              setLoading(false);
-            }
-          }}
-        >
-          Send now
-        </button>
+          <button
+            type="button"
+            className="course-alerts-send-now"
+            disabled={loading}
+            onClick={async () => {
+              setLoading(true);
+              setError("");
+              setSuccess("");
+              try {
+                const resp = await fetch("/api/course-alerts/send-now", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ courseId }),
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || "Send failed");
+                setSuccess(`Sent ${data.result?.sent || 0} message(s).`);
+              } catch (err) {
+                setError(err instanceof Error ? err.message : String(err));
+              } finally {
+                setLoading(false);
+              }
+            }}
+          >
+            Send now
+          </button>
 
-        <button
-          type="button"
-          className="course-alerts-remove-embed"
-          disabled={cleaning}
-          onClick={() => void handleRemoveEmbed()}
-        >
-          {cleaning ? "Removing..." : "Remove home page embed"}
-        </button>
+          <button
+            type="button"
+            className="course-alerts-remove-embed"
+            disabled={cleaning}
+            onClick={() => void handleRemoveEmbed()}
+          >
+            {cleaning ? "Removing..." : "Remove home page embed"}
+          </button>
+        </div>
       </form>
     </div>
   );
