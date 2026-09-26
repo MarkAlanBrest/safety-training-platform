@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { GraduationCap, Presentation } from "lucide-react";
+import { GraduationCap, Presentation, Bot, ArrowUpRight } from "lucide-react";
 import { CourseCodeEntry } from "@/components/CourseCodeEntry";
 
 export default function HomePage() {
@@ -33,6 +33,21 @@ export default function HomePage() {
         </header>
 
         <CourseCodeEntry />
+
+        <Link
+          href="/robot-logic"
+          className="mt-8 flex flex-wrap items-center gap-5 rounded-2xl border border-emerald-300/25 bg-emerald-300/10 p-6 transition hover:bg-emerald-300/15"
+        >
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-emerald-200 text-emerald-950">
+            <Bot size={26} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-[.16em] text-emerald-200">New learning path · 8 units</p>
+            <h2 className="mt-1 text-2xl font-bold !text-white">Robot Logic Lab</h2>
+            <p className="mt-1 text-sm leading-6 text-slate-300">Learn pseudocode and logic for FTC robotics with simple lessons, practice challenges, and AI feedback.</p>
+          </div>
+          <span className="inline-flex items-center gap-2 text-sm font-bold text-emerald-200">Start learning <ArrowUpRight size={18} /></span>
+        </Link>
 
         <section className="grid flex-1 gap-10 py-16 lg:grid-cols-[1.12fr_.88fr] lg:items-center lg:py-20">
           <div>
