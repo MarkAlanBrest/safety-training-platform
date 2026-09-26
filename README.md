@@ -19,6 +19,27 @@ creates the admin user, and installs demo courses.
 
 ## AI-generated lessons
 
+### Robot Logic Lab
+
+Open `/robot-logic` or select **Robot Logic Lab** on the homepage. This built-in
+learning path teaches pseudocode and FTC-inspired logic in eight selectable units,
+with explained examples, knowledge checks, practice problems, and AI feedback.
+It runs with the training site (`npm run dev`); no separate server is needed.
+
+The coach uses the site's `OPENAI_API_KEY` and `OPENAI_MODEL`. Optionally set
+`ROBOT_LOGIC_MODEL` to override the model for this course. The API uses
+[OpenAI Responses structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs).
+Without a key, students can use a clearly labeled self-review checklist. Unit
+completion requires a correct knowledge check and a passing AI practice review.
+
+Drafts and progress are saved in the current browser, not the student roster or
+database. Editing a draft clears its prior assessment. Students' answers are sent
+to OpenAI only when they request feedback (`store: false`); provider data policies
+still apply. Robot commands are illustrative pseudocode, not executable SDK code.
+The API has an in-memory per-IP request limit; it is not a persistent account quota.
+
+Run the integration checks with `node --experimental-strip-types --test --test-isolation=none scripts/robot-logic.test.mjs`.
+
 Training Studio is available at `/admin/courses`. Create a course by uploading one
 PDF for each section. The backend stores the source PDF in PostgreSQL and uses
 the OpenAI Responses API to create a source-grounded lesson plan with teaching
