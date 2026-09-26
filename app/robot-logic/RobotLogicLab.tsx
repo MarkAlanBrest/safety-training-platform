@@ -1,11 +1,16 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { units } from "@/lib/robot-logic/curriculum.mjs";
+import { tracks, units } from "@/lib/robot-logic/curriculum.mjs";
 import { editDraft, emptyProgress, isFeedback, readProgress, recordReview, type Feedback, type Progress } from "@/lib/robot-logic/progress";
 
-type Unit = (typeof units)[number];
+type Unit = (typeof units)[number] & {
+  controls?: string[][];
+  deepDive?: { h: string; p: string; code?: string }[];
+  java?: string;
+  pitfalls?: string[];
+  challenge?: boolean;
+};
 const storageKey = "robot-logic-v1";
 
 function FeedbackPanel({ feedback: f }: { feedback: Feedback }) {
@@ -99,44 +104,61 @@ export default function RobotLogicLab() {
     }
   }
 
-  const selected = units.find(u => hash === `#unit/${u.id}`);
+  const selected = (units as Unit[]).find(u => hash === `#unit/${u.id}`);
+  const activeTrack = tracks.find(t => hash === `#track/${t.id}`);
   const complete = (u: Unit) => progress.quiz[u.id] === true && progress.passed[u.id] === true;
   const count = units.filter(complete).length;
   const next = units.find(u => !complete(u)) || units[0];
-  const filtered = units.filter(u => filter === "all" || (filter === "complete" ? complete(u) : !complete(u) && (!!progress.drafts[u.id] || progress.quiz[u.id] !== undefined)));
+  const filtered = (units as Unit[]).filter(u => (!activeTrack || u.track === activeTrack.id) && (filter === "all" || (filter === "complete" ? complete(u) : !complete(u) && (!!progress.drafts[u.id] || progress.quiz[u.id] !== undefined))));
   const unitLink = (u: Unit) => `#unit/${u.id}`;
+  const trackOf = (u: Unit) => tracks.find(t => t.id === u.track) || tracks[0];
+  const trackUnits = (id: string) => units.filter(u => u.track === id);
+  const nextUnit = selected && units[(units.indexOf(selected) + 1) % units.length];
+  const isLast = selected && units.indexOf(selected) === units.length - 1;
+  let step = 0;
+  const stepLabel = (name: string) => `${String(++step).padStart(2, "0")} / ${name}`;
 
   return <div className="robot-lab">
     <aside className="sidebar">
       <a className="brand" href="#" onClick={() => navigate("")}><span className="brand-icon">⌘</span><span>robot<span className="light">logic</span><small>THE LEARNING LAB</small></span></a>
       <div className="sidebar-label">YOUR WORKSPACE</div>
-      <a className={`nav-link ${!selected && hash !== "#glossary" ? "active" : ""}`} href="#" onClick={() => navigate("")}>▦ <span>Learning path</span><span>08</span></a>
+      <a className={`nav-link ${!selected && !activeTrack && hash !== "#glossary" ? "active" : ""}`} href="#" onClick={() => navigate("")}>▦ <span>Learning path</span><span>{units.length}</span></a>
+      <div className="sidebar-label track-label">TRACKS</div>
+      <nav className="track-nav" aria-label="Tracks">{tracks.map(t => <a key={t.id} className={`nav-link ${activeTrack?.id === t.id || selected?.track === t.id ? "active" : ""}`} href={`#track/${t.id}`} onClick={() => navigate(`#track/${t.id}`)}><span className="track-code">{t.code}</span><span>{t.title}</span><span>{trackUnits(t.id).filter(complete).length}/{trackUnits(t.id).length}</span></a>)}</nav>
       <div className="sidebar-label">THE TOOLKIT</div>
       <a className={`nav-link ${hash === "#glossary" ? "active" : ""}`} href="#glossary" onClick={() => navigate("#glossary")}>⌁ <span>Pseudocode reference</span></a>
-      <div className="sidebar-bottom"><span className="tiny-pill">FTC INSPIRED</span><h3>Big ideas.<br />Small steps.</h3><p>Every great robot starts with a little logic.</p><div className="student"><span className="avatar">S</span><div>Student workspace<small>Progress saved on this device</small></div></div></div>
+      <div className="sidebar-bottom"><span className="tiny-pill">FTC TEAM LAB</span><h3>Big ideas.<br />Small steps.</h3><p>Every great robot starts with a little logic.</p><div className="student"><span className="avatar">S</span><div>Student workspace<small>Progress saved on this device</small></div></div></div>
     </aside>
     <div className="main">
-      <header><Link href="/" className="training-back">← Training Studio</Link><span className="status"><i className={ai ? "connected" : ""} />{statusError ? "Coach status unavailable" : ai === null ? "Checking coach…" : ai ? "AI coach configured" : "Self-review mode"}</span></header>
+      <header><span className="status"><i className={ai ? "connected" : ""} />{statusError ? "Coach status unavailable" : ai === null ? "Checking coach…" : ai ? "AI coach configured" : "Self-review mode"}</span></header>
       {storageFailed && <p className="storage-warning" role="status">Browser storage is unavailable. Keep a copy of your work before leaving.</p>}
       {!ready ? <section className="lesson" aria-live="polite"><p>Loading your learning workspace…</p></section> : selected ? <section className="lesson" key={selected.id}>
-        <a className="back" href="#" onClick={() => navigate("")}>← All units</a>
+        <a className="back" href={`#track/${selected.track}`} onClick={() => navigate(`#track/${selected.track}`)}>← {trackOf(selected).title}</a>
         <div className="eyebrow">UNIT {selected.icon} / {selected.tag.toUpperCase()} / {selected.minutes} MIN</div>
         <h1>{selected.title}</h1><p className="lesson-intro">{selected.summary}</p>
         <div className="lesson-grid"><div>
-          <article className="paper"><span className="step-label">01 / UNDERSTAND</span><h2>The big idea</h2><p>{selected.concept}</p><div className="connection"><strong>On the robot</strong><p>{selected.connection}</p></div><h3>See it in pseudocode</h3><div className="code-title"><span>EXAMPLE.pseudo</span><span>READ → TRACE → UNDERSTAND</span></div><pre><code>{selected.example}</code></pre><ol>{selected.explain.map(item => <li key={item}>{item}</li>)}</ol></article>
-          <article className="paper"><span className="step-label">02 / CHECK YOUR UNDERSTANDING</span><h2>{selected.quiz.q}</h2><div className="quiz-options">{selected.quiz.options.map((option, index) => <button key={option} onClick={() => update({ ...progressRef.current, quiz: { ...progressRef.current.quiz, [selected.id]: index === selected.quiz.answer } })}>{String.fromCharCode(65 + index)}<span>{option}</span></button>)}</div><p role="status">{progress.quiz[selected.id] !== undefined && `${progress.quiz[selected.id] ? "✓ Correct." : "Not quite."} ${selected.quiz.why}`}</p></article>
-          <article className="paper practice"><span className="step-label">03 / YOUR TURN</span><h2>Put your logic to work.</h2><p>{selected.task}</p><details><summary>Need a nudge?</summary><p>{selected.hint}</p></details><label htmlFor="robot-answer">Your pseudocode <span>Plain English is welcome.</span></label>
+          <article className="paper"><span className="step-label">{stepLabel("UNDERSTAND")}</span><h2>The big idea</h2><p>{selected.concept}</p><div className="connection"><strong>On the robot</strong><p>{selected.connection}</p></div>
+            {selected.controls && <><h3>What your code controls</h3><div className="table-wrap"><table className="controls-table"><thead><tr><th>Item</th><th>What code does with it</th><th>Values &amp; units</th></tr></thead><tbody>{selected.controls.map(([item, what, values]) => <tr key={item}><th scope="row">{item}</th><td>{what}</td><td>{values}</td></tr>)}</tbody></table></div></>}
+            <h3>See it in pseudocode</h3><div className="code-title"><span>EXAMPLE.pseudo</span><span>READ → TRACE → UNDERSTAND</span></div><pre><code>{selected.example}</code></pre><ol>{selected.explain.map(item => <li key={item}>{item}</li>)}</ol></article>
+          {(selected.deepDive || selected.java || selected.pitfalls) && <article className="paper deep-dive"><span className="step-label">{stepLabel("GO DEEPER")}</span><h2>What the pros know</h2>
+            {selected.deepDive?.map(section => <section key={section.h}><h3>{section.h}</h3><p>{section.p}</p>{section.code && <pre><code>{section.code}</code></pre>}</section>)}
+            {selected.java && <details className="java-peek"><summary>Peek at real FTC SDK Java</summary><p>The same idea as it looks in an FTC Java OpMode. Device names and constants are examples.</p><pre><code>{selected.java}</code></pre></details>}
+            {selected.pitfalls && <div className="pitfalls"><strong>Common mistakes</strong><ul>{selected.pitfalls.map(item => <li key={item}>{item}</li>)}</ul></div>}
+          </article>}
+          <article className="paper"><span className="step-label">{stepLabel("CHECK YOUR UNDERSTANDING")}</span><h2>{selected.quiz.q}</h2><div className="quiz-options">{selected.quiz.options.map((option, index) => <button key={option} onClick={() => update({ ...progressRef.current, quiz: { ...progressRef.current.quiz, [selected.id]: index === selected.quiz.answer } })}>{String.fromCharCode(65 + index)}<span>{option}</span></button>)}</div><p role="status">{progress.quiz[selected.id] !== undefined && `${progress.quiz[selected.id] ? "✓ Correct." : "Not quite."} ${selected.quiz.why}`}</p></article>
+          <article className="paper practice"><span className="step-label">{stepLabel("YOUR TURN")}</span><h2>Put your logic to work.</h2><p>{selected.task}</p><details><summary>Need a nudge?</summary><p>{selected.hint}</p></details><label htmlFor="robot-answer">Your pseudocode <span>Plain English is welcome.</span></label>
             <textarea id="robot-answer" ref={answerInput} maxLength={6000} spellCheck={false} value={progress.drafts[selected.id] || ""} readOnly={pending === selected.id} placeholder={"WAIT FOR START\n// Write your plan, one step at a time..."} onChange={event => { update(editDraft(progressRef.current, selected.id, event.target.value)); setErrors(current => ({ ...current, [selected.id]: "" })); }} />
             <div className="editor-footer"><span>{storageFailed ? "Draft could not be saved" : "Draft saved on this device"}</span><span>{(progress.drafts[selected.id] || "").length} / 6,000</span></div>
             <p className="privacy">{ai || statusError ? "Checking sends this answer to OpenAI for feedback when the coach is configured. Avoid personal information." : ai === null ? "Checking whether AI coaching is configured…" : "AI is not connected. You can practice and use the self-review checklist."}</p>
             <button className="button primary" disabled={pending !== null || (ai === null && !statusError)} onClick={() => review(selected)}>{pending === selected.id ? "Reviewing your logic…" : ai === false ? "Review my checklist" : "Check my logic"} <span>✦</span></button>
             <div aria-live="polite" aria-busy={pending === selected.id}>{errors[selected.id] && <p role="alert">{errors[selected.id]}</p>}{progress.feedback[selected.id] && <FeedbackPanel feedback={progress.feedback[selected.id]} />}</div>
           </article>
-        </div><aside className="lesson-side"><div className="paper"><div className="eyebrow">YOUR MISSION</div><h3>Small steps. Real understanding.</h3><ul className="milestones"><li>Read the lesson &amp; example</li><li>{progress.quiz[selected.id] ? "✓" : "○"} Pass the knowledge check</li><li>{progress.passed[selected.id] ? "✓" : "○"} Get your practice AI-checked</li></ul><p>{complete(selected) ? "Unit complete! You’re ready to keep exploring." : "Complete both checks to finish this unit. You can explore any unit at any time."}</p><a className="button secondary" href={unitLink(units[(units.indexOf(selected) + 1) % units.length])} onClick={() => navigate(unitLink(units[(units.indexOf(selected) + 1) % units.length]))}>{units.indexOf(selected) === 7 ? "Revisit first unit" : "Explore next unit"} →</a></div><div className="tip"><span>✳</span><h3>Think before syntax.</h3><p>There’s no single perfect way to write pseudocode. Clear steps and sound logic matter most.</p></div></aside></div>
+        </div><aside className="lesson-side"><div className="paper"><div className="eyebrow">YOUR MISSION</div><h3>Small steps. Real understanding.</h3><p className="track-progress">{trackOf(selected).title}: {trackUnits(selected.track).filter(complete).length} of {trackUnits(selected.track).length} complete</p><ul className="milestones"><li>Read the lesson &amp; example</li><li>{progress.quiz[selected.id] ? "✓" : "○"} Pass the knowledge check</li><li>{progress.passed[selected.id] ? "✓" : "○"} Get your practice AI-checked</li></ul><p>{complete(selected) ? "Unit complete! You’re ready to keep exploring." : "Complete both checks to finish this unit. You can explore any unit at any time."}</p>{nextUnit && <a className="button secondary" href={unitLink(nextUnit)} onClick={() => navigate(unitLink(nextUnit))}>{isLast ? "Revisit first unit" : nextUnit.track !== selected.track ? `Start ${trackOf(nextUnit).title}` : "Explore next unit"} →</a>}</div><div className="tip"><span>✳</span><h3>Think before syntax.</h3><p>There’s no single perfect way to write pseudocode. Clear steps and sound logic matter most.</p></div></aside></div>
       </section> : hash === "#glossary" ? <Reference onBack={() => navigate("")} /> : <>
-        <section className="hero"><div><div className="eyebrow">FROM FIRST STEPS TO FIRST ROBOT</div><h1>Think it through.<br /><em>Make it move.</em></h1><p>Learn the logic behind the robot. Bite-sized lessons, real robotics examples, and a place to put your ideas into practice.</p><a className="button primary" href={unitLink(next)} onClick={() => navigate(unitLink(next))}>{count ? "Continue learning" : "Start your first unit"} <span>↗</span></a><div className="hero-meta"><span>◎ Beginner friendly</span><span>◷ At your own pace</span></div></div><div className="robot-art" role="img" aria-label="A robot following a planned path"><div className="art-label">IDEA → LOGIC → ACTION</div><div className="path-line" /><div className="robot"><div className="eyes"><i /><i /></div><div className="robot-body">R / 01</div><span className="wheel left" /><span className="wheel right" /></div><div className="code-chip">IF curious THEN<br /><strong>&nbsp; START learning</strong></div><span className="target">+</span><div className="art-caption">YOUR NEXT MOVE STARTS HERE.</div></div></section>
-        <section className="progress-panel"><div className="progress-icon">↗</div><div><strong>Your learning journey</strong><p>{count === 8 ? "All units complete. Your autonomous plan is ready to revisit." : "Build your skills, one small win at a time."}</p></div><div className="progress-right"><span><b>{count} of 8</b> units complete</span><progress aria-label="Units completed" max={8} value={count} /></div></section>
-        <section className="unit-section"><div className="section-title"><div className="eyebrow">THE BUILDING BLOCKS</div><h2>Choose your next discovery<span>08 UNITS</span></h2><p>Follow the path or jump into something that sparks your curiosity.</p></div><div className="filters" role="group" aria-label="Filter units">{[["all", "All units"], ["started", "In progress"], ["complete", "Completed"]].map(([id, label]) => <button key={id} className={filter === id ? "selected" : ""} aria-pressed={filter === id} onClick={() => setFilter(id)}>{label}</button>)}</div><div className="unit-grid">{filtered.map(u => <a className={`unit-card ${complete(u) ? "done" : ""}`} key={u.id} href={unitLink(u)} onClick={() => navigate(unitLink(u))}><div className="card-top"><span className="unit-number">{u.icon}</span><span>{complete(u) ? "✓ Complete" : `${u.minutes} MIN · ${u.id === "mission" ? "CHALLENGE" : "LESSON"}`}</span></div><div className="unit-tag">{u.tag}</div><h3>{u.title}</h3><p>{u.summary}</p><div className="card-bottom"><span>{complete(u) ? "Revisit unit" : progress.drafts[u.id] ? "Keep exploring" : "Explore unit"}</span><span>↗</span></div></a>)}{!filtered.length && <p className="empty">No units here yet. Choose “All units” to start exploring.</p>}</div></section>
+        <section className="hero"><div><div className="eyebrow">FROM FIRST STEPS TO FIRST ROBOT</div><h1>Think it through.<br /><em>Make it move.</em></h1><p>The team&apos;s programming lab. Start with pseudocode and logic, then learn what every motor, servo, sensor, mecanum drive, intake, outtake, and Limelight can do from code.</p><a className="button primary" href={unitLink(next)} onClick={() => navigate(unitLink(next))}>{count ? "Continue learning" : "Start your first unit"} <span>↗</span></a><div className="hero-meta"><span>◎ Beginner friendly</span><span>◷ At your own pace</span></div></div><div className="robot-art" role="img" aria-label="A robot following a planned path"><div className="art-label">IDEA → LOGIC → ACTION</div><div className="path-line" /><div className="robot"><div className="eyes"><i /><i /></div><div className="robot-body">R / 01</div><span className="wheel left" /><span className="wheel right" /></div><div className="code-chip">IF curious THEN<br /><strong>&nbsp; START learning</strong></div><span className="target">+</span><div className="art-caption">YOUR NEXT MOVE STARTS HERE.</div></div></section>
+        <section className="progress-panel"><div className="progress-icon">↗</div><div><strong>Your learning journey</strong><p>{count === units.length ? "Every unit complete. You are ready to write real robot code." : "Build your skills, one small win at a time."}</p></div><div className="progress-right"><span><b>{count} of {units.length}</b> units complete</span><progress aria-label="Units completed" max={units.length} value={count} /></div></section>
+        <section className="track-grid" aria-label="Learning tracks">{tracks.map(t => { const list = trackUnits(t.id); const done = list.filter(complete).length; return <a key={t.id} className={`track-card ${activeTrack?.id === t.id ? "selected" : ""}`} href={`#track/${t.id}`} onClick={() => navigate(`#track/${t.id}`)}><span className="track-code">{t.code}</span><h3>{t.title}</h3><p>{t.summary}</p><span className="track-meta">{done} / {list.length} units</span><progress aria-label={`${t.title} units completed`} max={list.length} value={done} /></a>; })}</section>
+        <section className="unit-section"><div className="section-title"><div className="eyebrow">{activeTrack ? `TRACK ${activeTrack.code}` : "THE BUILDING BLOCKS"}</div><h2>{activeTrack ? activeTrack.title : "Choose your next discovery"}<span>{String(activeTrack ? trackUnits(activeTrack.id).length : units.length).padStart(2, "0")} UNITS</span></h2><p>{activeTrack ? activeTrack.summary : "Follow the path or jump into something that sparks your curiosity."}</p>{activeTrack && <a className="back all-tracks" href="#" onClick={() => navigate("")}>← All tracks</a>}</div><div className="filters" role="group" aria-label="Filter units">{[["all", "All units"], ["started", "In progress"], ["complete", "Completed"]].map(([id, label]) => <button key={id} className={filter === id ? "selected" : ""} aria-pressed={filter === id} onClick={() => setFilter(id)}>{label}</button>)}</div>{tracks.filter(t => filtered.some(u => u.track === t.id)).map(t => <div className="track-group" key={t.id}>{!activeTrack && <h3 className="track-heading"><span className="track-code">{t.code}</span>{t.title}</h3>}<div className="unit-grid">{filtered.filter(u => u.track === t.id).map(u => <a className={`unit-card ${complete(u) ? "done" : ""}`} key={u.id} href={unitLink(u)} onClick={() => navigate(unitLink(u))}><div className="card-top"><span className="unit-number">{u.icon}</span><span>{complete(u) ? "✓ Complete" : `${u.minutes} MIN · ${u.challenge ? "CHALLENGE" : "LESSON"}`}</span></div><div className="unit-tag">{u.tag}</div><h3>{u.title}</h3><p>{u.summary}</p><div className="card-bottom"><span>{complete(u) ? "Revisit unit" : progress.drafts[u.id] ? "Keep exploring" : "Explore unit"}</span><span>↗</span></div></a>)}</div></div>)}{!filtered.length && <p className="empty">No units here yet. Choose “All units” to start exploring.</p>}</section>
         <section className="closing"><span>✦</span><div><h3>You don’t need to know how to code. Yet.</h3><p>Bring your curiosity. We’ll start with the thinking that makes great code possible.</p></div></section>
       </>}
       <footer>Made for curious minds and future robot builders.<span>ROBOT LOGIC LAB · INDEPENDENT FTC-INSPIRED LEARNING</span></footer>
@@ -152,6 +174,27 @@ function Reference({ onBack }: { onBack: () => void }) {
     ["WHILE", "Repeat while a condition is true.", "WHILE active AND timer < 3 seconds\n  READ sensor\nEND WHILE"],
     ["FUNCTION / CALL", "Define a reusable behavior, then use it.", "FUNCTION stopRobot()\n  STOP all motors\nEND FUNCTION\nCALL stopRobot()"],
     ["// Comments", "Explain intent and expected test results.", "// At exactly 10 cm, the robot stops."],
+    ["ELSE IF", "Pick exactly one of several branches, checked top to bottom.", "IF d <= 10 THEN\n  STOP\nELSE IF d <= 40 THEN\n  DRIVE at 0.2\nELSE\n  DRIVE at 0.6\nEND IF"],
+    ["FOR EACH / lists", "Visit every item in a list. Indexes start at 0.", "SET heights = [0, 1200, 2400]\nFOR EACH tag IN detections\n  DISPLAY tag.id\nEND FOR"],
+    ["RETURN", "Send a value back from a function.", "FUNCTION clamp(v, lo, hi)\n  IF v < lo THEN RETURN lo\n  IF v > hi THEN RETURN hi\n  RETURN v\nEND FUNCTION"],
+    ["Edge detection", "Act once per button press, not every loop.", "IF aNow AND NOT aBefore THEN\n  SET open = NOT open\nEND IF\nSET aBefore = aNow"],
+    ["Timers", "Wait without freezing the loop.", "RESET timer\n...\nIF timer > 0.5 seconds THEN\n  LOWER lift\nEND IF"],
+    ["STATE", "Keep one named state and move between states on conditions.", "IF state = LIFTING AND liftAtTarget THEN\n  SET state = SCORING\nEND IF"],
   ];
-  return <section className="lesson"><a className="back" href="#" onClick={onBack}>← Learning path</a><div className="eyebrow">KEEP THIS HANDY</div><h1>A little language.<br />A lot of possibility.</h1><p className="lesson-intro">Pseudocode is flexible. These conventions help your team read your plan.</p><div className="reference-grid">{entries.map(([name, description, code]) => <article className="paper" key={name}><h2>{name}</h2><p>{description}</p><pre>{code}</pre></article>)}</div><p>Illustrative commands such as DRIVE, READ, and WAIT are conceptual helpers, not FTC SDK methods. Units and stop conditions should always be explicit.</p></section>;
+  const cheats = [
+    ["DC motor power", "-1.0 to 1.0", "Direction FORWARD/REVERSE; zero power BRAKE or FLOAT"],
+    ["Encoder", "Ticks", "inches = ticks ÷ ticks per inch; reset before trusting"],
+    ["Servo", "Position 0.0 to 1.0", "No real feedback on most servos; CR servos take power -1 to 1"],
+    ["Touch / limit switch", "true / false", "Check which value means triggered"],
+    ["Distance sensor", "cm, mm, or inches", "Out of range gives a very large value"],
+    ["Color sensor", "RGB 0–1, hue 0–360", "Use hue with margins; calibrate on the field"],
+    ["IMU yaw", "-180° to 180°", "Counterclockwise is positive; normalize errors"],
+    ["Gamepad stick", "-1 to 1", "Forward on a stick reads negative y"],
+    ["Mecanum wheels", "FL = y+x+rx, BL = y−x+rx", "FR = y−x−rx, BR = y+x−rx, ÷ max(|y|+|x|+|rx|, 1)"],
+    ["Limelight tx / ty / ta", "Degrees, degrees, % area", "Positive tx = target right; always check isValid()"],
+    ["AprilTag botpose", "Meters, field coordinates", "× 39.37 for inches; MegaTag2 needs IMU yaw each loop"],
+    ["Battery", "~12–14 V", "Scale power by 12 ÷ voltage for consistency"],
+  ];
+  return <section className="lesson"><a className="back" href="#" onClick={onBack}>← Learning path</a><div className="eyebrow">KEEP THIS HANDY</div><h1>A little language.<br />A lot of possibility.</h1><p className="lesson-intro">Pseudocode is flexible. These conventions help your team read your plan.</p><div className="reference-grid">{entries.map(([name, description, code]) => <article className="paper" key={name}><h2>{name}</h2><p>{description}</p><pre>{code}</pre></article>)}</div><p>Illustrative commands such as DRIVE, READ, and WAIT are conceptual helpers, not FTC SDK methods. Units and stop conditions should always be explicit.</p>
+    <div className="eyebrow cheat-title">ROBOT CHEAT SHEET</div><h2 className="cheat-heading">Values your code works with</h2><div className="table-wrap paper"><table className="controls-table"><thead><tr><th>Device or value</th><th>Range &amp; units</th><th>Remember</th></tr></thead><tbody>{cheats.map(([name, range, note]) => <tr key={name}><th scope="row">{name}</th><td>{range}</td><td>{note}</td></tr>)}</tbody></table></div></section>;
 }

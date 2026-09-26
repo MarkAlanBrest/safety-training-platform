@@ -9,8 +9,6 @@
 .robot-lab ol { list-style: decimal; padding-left: 24px; margin-top: 1em; }
 .robot-lab .milestones { list-style: none; padding: 0; }
 .robot-lab .sidebar-bottom h3 { margin: 1em 0; }
-.robot-lab .training-back { letter-spacing: 0; font-size: 12px; }
-.robot-lab .training-back:hover { text-decoration: underline; }
 .robot-lab .progress-panel p, .robot-lab .connection p { margin-bottom: 0; }
 .robot-lab .closing h3 { margin: 0; }
 .robot-lab .closing p { margin-bottom: 0; }
@@ -19,3 +17,48 @@
   .robot-lab .sidebar { flex-wrap: wrap; gap: 8px; }
   .robot-lab .nav-link:last-of-type { display: flex; }
 }
+
+/* Tracks, richer lessons, and the robot cheat sheet. */
+.robot-lab .track-nav { display: flex; flex-direction: column; }
+.robot-lab .track-nav .nav-link { padding: 10px 12px; font-size: 12px; }
+.robot-lab .track-code { font: 10px Consolas, monospace; color: #7a8c60; background: #eef0e3; border-radius: 5px; padding: 3px 6px; }
+.robot-lab .sidebar-bottom { padding-top: 30px; }
+.robot-lab .sidebar { overflow-y: auto; }
+.robot-lab .track-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 22px 5% 0; }
+.robot-lab .track-card { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 8px; transition: border-color .18s, transform .18s; }
+.robot-lab .track-card:hover, .robot-lab .track-card.selected { border-color: #91aa78; transform: translateY(-2px); }
+.robot-lab .track-card .track-code { align-self: flex-start; }
+.robot-lab .track-card h3 { font-size: 15px; margin: 4px 0 0; }
+.robot-lab .track-card p { font-size: 11px; line-height: 1.55; margin: 0; flex: 1; }
+.robot-lab .track-meta { font-size: 10px; color: var(--muted); }
+.robot-lab .track-group + .track-group { margin-top: 38px; }
+.robot-lab .track-heading { display: flex; align-items: center; gap: 10px; font-size: 17px; margin: 0 0 16px; }
+.robot-lab .all-tracks { margin: 12px 0 0; }
+.robot-lab .table-wrap { overflow-x: auto; margin: 10px 0 22px; }
+.robot-lab .controls-table { width: 100%; border-collapse: collapse; font-size: 12px; line-height: 1.55; }
+.robot-lab .controls-table th, .robot-lab .controls-table td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.robot-lab .controls-table thead th { font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--green); background: #f1f4ea; }
+.robot-lab .controls-table tbody th { font-weight: 600; color: var(--ink); min-width: 130px; }
+.robot-lab .controls-table td { color: var(--muted); }
+.robot-lab .deep-dive section + section { border-top: 1px solid var(--line); margin-top: 6px; }
+.robot-lab .deep-dive section h3 { margin-bottom: 0; }
+.robot-lab .java-peek pre { background: #17262f; color: #cfe3f1; }
+.robot-lab .java-peek p { font-size: 11px; }
+.robot-lab .pitfalls { background: #fbf1df; border-left: 3px solid #d9a65a; padding: 16px 18px; border-radius: 0 6px 6px 0; margin-top: 22px; }
+.robot-lab .pitfalls strong { font-size: 12px; }
+.robot-lab .pitfalls ul { margin: 8px 0 0; }
+.robot-lab .track-progress { font-size: 11px; color: var(--green); margin: 10px 0 0; }
+.robot-lab .cheat-title { margin-top: 40px; }
+.robot-lab .cheat-heading { font-size: 25px; letter-spacing: -.6px; margin: 12px 0 14px; }
+.robot-lab .table-wrap.paper { padding: 0; }
+@media (max-width: 1150px) {
+  .robot-lab .track-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .robot-lab .track-nav, .robot-lab .track-label { display: none; }
+  .robot-lab .track-grid { grid-template-columns: 1fr; }
+  .robot-lab .controls-table { font-size: 11px; }
+  .robot-lab .controls-table tbody th { min-width: 100px; }
+}
+
+.robot-lab header { justify-content: flex-end; }

@@ -2,16 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createFeedbackHandler } from '../lib/robot-logic/feedback.ts';
 import { emptyProgress, editDraft, recordReview, readProgress } from '../lib/robot-logic/progress.ts';
-import { units } from '../lib/robot-logic/curriculum.mjs';
+import { tracks, units } from '../lib/robot-logic/curriculum.mjs';
 import { GET } from '../app/api/robot-logic/status/route.ts';
 
 const answer = { unitId:'sequence', answer:'WAIT FOR START\nCLOSE claw\nDRIVE forward for 2 seconds\nSTOP drivetrain\nOPEN claw' };
 const review = {mode:'ai',passed:true,summary:'Correct sequence.',strengths:['Stops before releasing.'],improvements:[],nextStep:'What if the claw opened earlier?'};
 const request = (body=answer, headers={}) => new Request('https://training.example/api/robot-logic/feedback', {method:'POST',headers:{'Content-Type':'application/json',...headers},body:typeof body==='string'?body:JSON.stringify(body)});
 
-test('all eight units have lessons, valid quizzes, and practice criteria',()=>{
-  assert.equal(units.length,8);
-  assert.equal(new Set(units.map(u=>u.id)).size,8);
+test('every unit belongs to a track and has a lesson, valid quiz, and practice criteria',()=>{
+  assert.equal(units.length,43);
+  assert.equal(new Set(units.map(u=>u.id)).size,units.length);
+  for(const track of tracks)assert.ok(units.some(u=>u.track===track.id),track.id);
+  for(const unit of units){assert.ok(tracks.some(t=>t.id===unit.track),unit.id);for(const row of unit.controls||[])assert.equal(row.length,3,unit.id);for(const section of unit.deepDive||[])assert.ok(section.h&&section.p,unit.id);}
   for(const unit of units){assert.ok(unit.concept&&unit.example&&unit.task&&unit.hint);assert.ok(unit.criteria.length>=4);assert.ok(unit.quiz.answer>=0&&unit.quiz.answer<unit.quiz.options.length);}
 });
 test('status reveals only configuration presence, never a secret',async()=>{

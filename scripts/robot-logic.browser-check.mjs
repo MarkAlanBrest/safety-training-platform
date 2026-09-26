@@ -4,6 +4,7 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
+import { units } from '../lib/robot-logic/curriculum.mjs';
 
 const origin = process.env.ROBOT_LOGIC_TEST_ORIGIN || 'http://localhost:3000';
 const chrome = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
@@ -38,8 +39,7 @@ try {
   await send('Page.enable'); await send('Runtime.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: origin + '/robot-logic' });
-  await waitFor('document.querySelectorAll(".unit-card").length === 8');
-  assert.equal(await evaluate('document.querySelector(".training-back").getAttribute("href")'), '/');
+  await waitFor(`document.querySelectorAll(".unit-card").length === ${units.length}`);
   await evaluate('document.querySelector(".unit-card").click()');
   await waitFor('!!document.querySelector("#robot-answer")');
   await evaluate('document.querySelector(".quiz-options button").click()');
@@ -67,13 +67,13 @@ try {
   await waitFor('!document.querySelector(".feedback")');
   assert.equal(await evaluate('JSON.parse(localStorage.getItem("robot-logic-v1")).passed.sequence === undefined'), true);
   await evaluate('document.querySelector("a[href=\"#glossary\"]").click()');
-  await waitFor('document.querySelectorAll(".reference-grid .paper").length===6');
+  await waitFor('document.querySelectorAll(".reference-grid .paper").length===12');
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true);
   await evaluate('document.querySelector(".back").click()');
   await waitFor('!!document.querySelector(".filters")');
   await evaluate('document.querySelector(".filters button").click()');
-  await waitFor('document.querySelectorAll(".unit-card").length===8');
+  await waitFor(`document.querySelectorAll(".unit-card").length===${units.length}`);
   assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true);
   if (process.env.ROBOT_LOGIC_SCREENSHOT) {
     await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
@@ -81,7 +81,7 @@ try {
     await writeFile(process.env.ROBOT_LOGIC_SCREENSHOT, Buffer.from(screenshot.data, 'base64'));
   }
   assert.deepEqual(errors, []);
-  console.log('Browser checks passed: 8 units, quiz, saved draft after reload, feedback, completion, edit invalidation, glossary, mobile overflow, and no uncaught exceptions.');
+  console.log(`Browser checks passed: ${units.length} units, quiz, saved draft after reload, feedback, completion, edit invalidation, glossary, mobile overflow, and no uncaught exceptions.`);
 } finally {
   socket?.close(); child.kill();
 }
