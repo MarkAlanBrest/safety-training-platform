@@ -61,6 +61,11 @@ export default function RobotLogicLab() {
     };
   }, []);
 
+  // Keep the current track's tab visible when the toolbar scrolls on small screens.
+  useEffect(() => {
+    document.querySelector(".robot-lab .topnav .active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [hash, ready]);
+
   function update(next: Progress) {
     progressRef.current = next;
     setProgress(next);
@@ -119,18 +124,16 @@ export default function RobotLogicLab() {
   const stepLabel = (name: string) => `${String(++step).padStart(2, "0")} / ${name}`;
 
   return <div className="robot-lab">
-    <aside className="sidebar">
+    <header className="topbar">
       <a className="brand" href="#" onClick={() => navigate("")}><span className="brand-icon">⌘</span><span>robot<span className="light">logic</span><small>THE LEARNING LAB</small></span></a>
-      <div className="sidebar-label">YOUR WORKSPACE</div>
-      <a className={`nav-link ${!selected && !activeTrack && hash !== "#glossary" ? "active" : ""}`} href="#" onClick={() => navigate("")}>▦ <span>Learning path</span><span>{units.length}</span></a>
-      <div className="sidebar-label track-label">TRACKS</div>
-      <nav className="track-nav" aria-label="Tracks">{tracks.map(t => <a key={t.id} className={`nav-link ${activeTrack?.id === t.id || selected?.track === t.id ? "active" : ""}`} href={`#track/${t.id}`} onClick={() => navigate(`#track/${t.id}`)}><span className="track-code">{t.code}</span><span>{t.title}</span><span>{trackUnits(t.id).filter(complete).length}/{trackUnits(t.id).length}</span></a>)}</nav>
-      <div className="sidebar-label">THE TOOLKIT</div>
-      <a className={`nav-link ${hash === "#glossary" ? "active" : ""}`} href="#glossary" onClick={() => navigate("#glossary")}>⌁ <span>Pseudocode reference</span></a>
-      <div className="sidebar-bottom"><span className="tiny-pill">FTC TEAM LAB</span><h3>Big ideas.<br />Small steps.</h3><p>Every great robot starts with a little logic.</p><div className="student"><span className="avatar">S</span><div>Student workspace<small>Progress saved on this device</small></div></div></div>
-    </aside>
+      <nav className="topnav" aria-label="Robot Logic Lab">
+        <a className={`nav-link ${!selected && !activeTrack && hash !== "#glossary" ? "active" : ""}`} href="#" onClick={() => navigate("")}><span>Home</span></a>
+        {tracks.map(t => <a key={t.id} className={`nav-link ${activeTrack?.id === t.id || selected?.track === t.id ? "active" : ""}`} href={`#track/${t.id}`} onClick={() => navigate(`#track/${t.id}`)}><span className="track-code">{t.code}</span><span>{t.title}</span><small>{trackUnits(t.id).filter(complete).length}/{trackUnits(t.id).length}</small></a>)}
+        <a className={`nav-link ${hash === "#glossary" ? "active" : ""}`} href="#glossary" onClick={() => navigate("#glossary")}><span>Reference</span></a>
+      </nav>
+      <span className="status" title={statusError ? "Coach status unavailable" : ai === null ? "Checking coach…" : ai ? "AI coach configured" : "Self-review mode"}><i className={ai ? "connected" : ""} /><span>{statusError ? "Coach status unavailable" : ai === null ? "Checking coach…" : ai ? "AI coach configured" : "Self-review mode"}</span></span>
+    </header>
     <div className="main">
-      <header><span className="status"><i className={ai ? "connected" : ""} />{statusError ? "Coach status unavailable" : ai === null ? "Checking coach…" : ai ? "AI coach configured" : "Self-review mode"}</span></header>
       {storageFailed && <p className="storage-warning" role="status">Browser storage is unavailable. Keep a copy of your work before leaving.</p>}
       {!ready ? <section className="lesson" aria-live="polite"><p>Loading your learning workspace…</p></section> : selected ? <section className="lesson" key={selected.id}>
         <a className="back" href={`#track/${selected.track}`} onClick={() => navigate(`#track/${selected.track}`)}>← {trackOf(selected).title}</a>

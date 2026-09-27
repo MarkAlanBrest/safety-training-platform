@@ -66,7 +66,7 @@ try {
   await evaluate(`(() => {const el=document.querySelector('#robot-answer');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,'Revised draft');el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
   await waitFor('!document.querySelector(".feedback")');
   assert.equal(await evaluate('JSON.parse(localStorage.getItem("robot-logic-v1")).passed.sequence === undefined'), true);
-  await evaluate('document.querySelector("a[href=\"#glossary\"]").click()');
+  await evaluate(`document.querySelector("a[href='#glossary']").click()`);
   await waitFor('document.querySelectorAll(".reference-grid .paper").length===12');
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true);
