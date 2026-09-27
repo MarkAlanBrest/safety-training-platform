@@ -99,3 +99,24 @@
 }
 .robot-lab .lesson[data-track] .lesson-head .eyebrow { margin-top: 14px; }
 .robot-lab .track-units { padding-top: 36px; }
+
+/* Unit objective, key terms, and step-by-step walkthrough. */
+.robot-lab .objective { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 18px; margin: 4px 0 22px; padding: 18px 20px; background: #fffefa; border: 1px solid var(--accent-line, var(--line)); border-radius: 10px; }
+.robot-lab .objective-label { display: block; font-size: 9px; font-weight: 700; letter-spacing: 1.6px; color: var(--accent, var(--green)); margin-bottom: 8px; }
+.robot-lab .objective-main p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--ink); font-weight: 550; }
+.robot-lab .objective-outcomes ul { margin: 0; padding-left: 0; list-style: none; }
+.robot-lab .objective-outcomes li { position: relative; padding-left: 22px; margin-bottom: 6px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.robot-lab .objective-outcomes li::before { content: "✓"; position: absolute; left: 0; color: var(--accent, var(--green)); font-weight: 700; }
+.robot-lab .key-terms dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 0 0; }
+.robot-lab .key-terms dl > div { background: var(--accent-soft, #f1f4ea); border-radius: 8px; padding: 14px 16px; }
+.robot-lab .key-terms dt { font-weight: 700; font-size: 13px; color: var(--accent, var(--green)); }
+.robot-lab .key-terms dd { margin: 5px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--ink); }
+.robot-lab .walkthrough section { padding-top: 6px; }
+.robot-lab .walkthrough section + section { border-top: 1px solid var(--line); margin-top: 14px; }
+.robot-lab .walkthrough h3 { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.robot-lab .walk-number { flex-shrink: 0; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent, var(--green)); color: #fff; font-size: 12px; font-weight: 700; }
+.robot-lab .walkthrough p { color: var(--ink); opacity: .86; }
+@media (max-width: 760px) {
+  .robot-lab .objective { grid-template-columns: 1fr; padding: 16px; }
+  .robot-lab .key-terms dl { grid-template-columns: 1fr; }
+}

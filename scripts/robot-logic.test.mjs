@@ -9,11 +9,13 @@ const answer = { unitId:'sequence', answer:'WAIT FOR START\nCLOSE claw\nDRIVE fo
 const review = {mode:'ai',passed:true,summary:'Correct sequence.',strengths:['Stops before releasing.'],improvements:[],nextStep:'What if the claw opened earlier?'};
 const request = (body=answer, headers={}) => new Request('https://training.example/api/robot-logic/feedback', {method:'POST',headers:{'Content-Type':'application/json',...headers},body:typeof body==='string'?body:JSON.stringify(body)});
 
-test('every unit belongs to a track and has a lesson, valid quiz, and practice criteria',()=>{
+test('every unit belongs to a track and has an objective, key terms, walkthrough, valid quiz, and practice criteria',()=>{
   assert.equal(units.length,43);
   assert.equal(new Set(units.map(u=>u.id)).size,units.length);
   for(const track of tracks)assert.ok(units.some(u=>u.track===track.id),track.id);
-  for(const unit of units){assert.ok(tracks.some(t=>t.id===unit.track),unit.id);for(const row of unit.controls||[])assert.equal(row.length,3,unit.id);for(const section of unit.deepDive||[])assert.ok(section.h&&section.p,unit.id);}
+  for(const unit of units){assert.ok(tracks.some(t=>t.id===unit.track),unit.id);for(const row of unit.controls||[])assert.equal(row.length,3,unit.id);for(const section of unit.deepDive||[])assert.ok(section.h&&section.p,unit.id);
+    assert.ok(unit.objective&&unit.outcomes.length>=3,unit.id);assert.ok(unit.keyTerms.length>=5&&unit.keyTerms.every(t=>t.length===2&&t[0]&&t[1]),unit.id);
+    assert.ok(unit.walkthrough.length>=4&&unit.walkthrough.every(w=>w.h&&w.p.length>=1),unit.id);}
   for(const unit of units){assert.ok(unit.concept&&unit.example&&unit.task&&unit.hint);assert.ok(unit.criteria.length>=4);assert.ok(unit.quiz.answer>=0&&unit.quiz.answer<unit.quiz.options.length);}
 });
 test('status reveals only configuration presence, never a secret',async()=>{
