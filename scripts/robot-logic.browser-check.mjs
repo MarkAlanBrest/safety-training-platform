@@ -39,7 +39,14 @@ try {
   await send('Page.enable'); await send('Runtime.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url: origin + '/robot-logic' });
-  await waitFor(`document.querySelectorAll(".unit-card").length === ${units.length}`);
+  await waitFor('!!document.querySelector(".hero") && !document.querySelector(".unit-card")');
+  // Each track tab shows only that track's lesson cards.
+  for (const track of new Set(units.map(u => u.track))) {
+    await evaluate(`document.querySelector("a[href='#track/${track}']").click()`);
+    await waitFor(`document.querySelectorAll(".unit-card").length === ${units.filter(u => u.track === track).length} && !document.querySelector(".hero")`);
+  }
+  await evaluate(`document.querySelector("a[href='#track/logic']").click()`);
+  await waitFor('!!document.querySelector(".unit-card")');
   await evaluate('document.querySelector(".unit-card").click()');
   await waitFor('!!document.querySelector("#robot-answer")');
   await evaluate('document.querySelector(".quiz-options button").click()');
@@ -57,10 +64,8 @@ try {
   await evaluate('document.querySelector(".practice button").click()');
   await waitFor('!!document.querySelector(".feedback.success")');
   await evaluate('document.querySelector(".back").click()');
-  await waitFor('!!document.querySelector("progress")');
-  assert.equal(await evaluate('document.querySelector("progress").value'), 1);
-  await evaluate('document.querySelectorAll(".filters button")[2].click()');
-  assert.equal(await evaluate('document.querySelectorAll(".unit-card").length'), 1);
+  await waitFor('!!document.querySelector(".unit-card.done")');
+  assert.equal(await evaluate('document.querySelectorAll(".unit-card.done").length'), 1);
   await evaluate('document.querySelector(".unit-card").click()');
   await waitFor('!!document.querySelector("#robot-answer")');
   await evaluate(`(() => {const el=document.querySelector('#robot-answer');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,'Revised draft');el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
@@ -71,9 +76,9 @@ try {
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true);
   await evaluate('document.querySelector(".back").click()');
-  await waitFor('!!document.querySelector(".filters")');
-  await evaluate('document.querySelector(".filters button").click()');
-  await waitFor(`document.querySelectorAll(".unit-card").length===${units.length}`);
+  await waitFor('!!document.querySelector(".hero")');
+  await evaluate(`document.querySelector("a[href='#track/mechanisms']").click()`);
+  await waitFor('!!document.querySelector(".unit-card")');
   assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true);
   if (process.env.ROBOT_LOGIC_SCREENSHOT) {
     await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
@@ -81,7 +86,7 @@ try {
     await writeFile(process.env.ROBOT_LOGIC_SCREENSHOT, Buffer.from(screenshot.data, 'base64'));
   }
   assert.deepEqual(errors, []);
-  console.log(`Browser checks passed: ${units.length} units, quiz, saved draft after reload, feedback, completion, edit invalidation, glossary, mobile overflow, and no uncaught exceptions.`);
+  console.log(`Browser checks passed: home banner, ${units.length} units across track pages, quiz, saved draft after reload, feedback, completion, edit invalidation, glossary, mobile overflow, and no uncaught exceptions.`);
 } finally {
   socket?.close(); child.kill();
 }
