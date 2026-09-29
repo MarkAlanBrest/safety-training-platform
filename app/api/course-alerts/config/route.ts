@@ -50,7 +50,26 @@ function configFromBody(body: ConfigBody, courseNameFallback?: string | null) {
   };
 }
 
-export async function GET(request: Request) {
+// A thrown route handler returns an empty 500, which the setup form cannot parse.
+function withJsonErrors(handler: (request: Request) => Promise<Response>) {
+  return async (request: Request) => {
+    try {
+      return await handler(request);
+    } catch (error) {
+      console.error("Course alert settings request failed", error);
+      return NextResponse.json(
+        { error: "Could not load or save alert settings. Please try again or contact the site admin." },
+        { status: 500 },
+      );
+    }
+  };
+}
+
+export const GET = withJsonErrors(handleGet);
+export const PUT = withJsonErrors(handlePut);
+export const POST = withJsonErrors(handlePost);
+
+async function handleGet(request: Request) {
   const url = new URL(request.url);
   const courseId = url.searchParams.get("courseId")?.trim() || url.searchParams.get("course")?.trim();
   if (!courseId) {
@@ -61,7 +80,7 @@ export async function GET(request: Request) {
   return NextResponse.json({ config });
 }
 
-export async function PUT(request: Request) {
+async function handlePut(request: Request) {
   const unauthorized = await requireAdmin(request);
   if (unauthorized) return unauthorized;
 
@@ -81,7 +100,7 @@ export async function PUT(request: Request) {
   return NextResponse.json({ config, homeEmbed });
 }
 
-export async function POST(request: Request) {
+async function handlePost(request: Request) {
   const session = getCanvasStudentSession(request);
   if (!session) {
     return NextResponse.json({ error: "Open this setup page from Canvas." }, { status: 401 });

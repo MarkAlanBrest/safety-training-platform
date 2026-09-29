@@ -30,7 +30,20 @@ type FinishBody = {
   showDueSoon?: boolean;
 };
 
+// A thrown route handler returns an empty 500, which the setup form cannot parse.
 export async function POST(request: Request) {
+  try {
+    return await finishDeepLink(request);
+  } catch (error) {
+    console.error("Student Alerts deep-link finish failed", error);
+    return NextResponse.json(
+      { error: "Could not save alert settings. Please try again or contact the site admin." },
+      { status: 500 },
+    );
+  }
+}
+
+async function finishDeepLink(request: Request) {
   const session = getCanvasStudentSession(request);
   if (!session) {
     return NextResponse.json({ error: "Open this setup page from Canvas." }, { status: 401 });
