@@ -198,12 +198,20 @@ export async function buildCourseScopedAlerts(
     }
   }
 
-  if (config.showLowGrades && enrollment) {
+  // A student with nothing graded yet has no real grade. Canvas's final_score counts
+  // ungraded work as 0, so only trust current_score and require at least one graded item.
+  const hasGradedWork = assignments.some(
+    (assignment) =>
+      assignment.submission &&
+      !assignment.submission.excused &&
+      assignment.submission.score !== null &&
+      assignment.submission.score !== undefined,
+  );
+
+  if (config.showLowGrades && enrollment && hasGradedWork) {
     const score =
       enrollment.grades?.current_score ??
       enrollment.computed_current_score ??
-      enrollment.grades?.final_score ??
-      enrollment.computed_final_score ??
       null;
 
     if (score !== null && score < config.lowGradeThreshold) {

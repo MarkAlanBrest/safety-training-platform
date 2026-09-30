@@ -117,11 +117,10 @@ function gradeAlerts(
   const alerts: CanvasAlert[] = [];
 
   for (const enrollment of enrollments) {
+    // Skip final_score: Canvas counts ungraded work as 0 there, so an ungraded student reads as 0%.
     const score =
       enrollment.grades?.current_score ??
       enrollment.computed_current_score ??
-      enrollment.grades?.final_score ??
-      enrollment.computed_final_score ??
       null;
     if (score === null || score >= LOW_GRADE_THRESHOLD) continue;
 
