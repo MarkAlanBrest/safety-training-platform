@@ -16,10 +16,10 @@ type ChatState = { topic: string; messages: Message[] };
 
 const STORAGE_KEY = "pseudocode-coach-v1";
 const GREETING =
-  "Hi! Let's practice writing **pseudocode**.\n\n" +
-  "Pseudocode is a plan for a program written in plain, step-by-step words. You don't need any special syntax. For example:\n\n" +
-  '```\nINPUT age\nIF age >= 16 THEN\n  DISPLAY "You can drive"\nELSE\n  DISPLAY "Not yet"\nEND IF\n```\n\n' +
-  "Pick a topic at the top and I'll give you a challenge. You can also just tell me what you'd like to work on.";
+  "Hi! Let's practice writing **pseudocode** for your FTC robot.\n\n" +
+  "Pseudocode is a plan for your robot's program written in plain, step-by-step words, before you write any Java or Blocks. For example:\n\n" +
+  "```\nWAIT FOR START\nSET distanceCm = READ distance sensor\nIF distanceCm <= 15 THEN\n  STOP drivetrain\nELSE\n  DRIVE forward at power 0.3\nEND IF\n```\n\n" +
+  "Pick a topic at the top and I'll give you a robot challenge. You can also just tell me what you'd like your robot to do.";
 const QUICK_ACTIONS: [string, string][] = [
   ["Give me a hint", "Give me a hint for this challenge, but don't give away the answer."],
   ["Show an example", "Show me a short example of this idea that is different from my challenge."],
@@ -158,7 +158,7 @@ export default function PseudocodeCoach() {
         {
           role: "user",
           hidden: true,
-          content: `I want to practice: ${topic.label}. Introduce the idea in 2-3 short sentences with a tiny example, then give me my first practice challenge.`,
+          content: `I want to practice: ${topic.label}. Introduce the idea in 2-3 short sentences with a tiny robot example, then give me my first robot practice challenge.`,
         },
       ],
     });
@@ -201,7 +201,7 @@ export default function PseudocodeCoach() {
         <div className="pc-brand">
           <span className="pc-mark" aria-hidden="true">{"{ }"}</span>
           <div className="pc-brand-text">
-            <strong>Pseudocode Coach</strong>
+            <strong>FTC Pseudocode Coach</strong>
             <span className="pc-status" data-state={ai === null ? "checking" : ai ? "online" : "offline"}>
               {ai === null ? "Connecting…" : ai ? "Coach online" : "Coach offline"}
             </span>
