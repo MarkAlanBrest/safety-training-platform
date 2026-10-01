@@ -25,7 +25,14 @@ type Workbench = {
 type Busy = null | "challenge" | "check" | "ask";
 
 const STORAGE_KEY = "ftc-pseudocode-workbench-v1";
-const EXAMPLE = "WAIT FOR START\nSET distanceCm = READ distance sensor\nIF distanceCm <= 15 THEN\n  STOP drivetrain\nELSE\n  DRIVE forward at power 0.3\nEND IF";
+const EXAMPLE = [
+  "WAIT FOR START",
+  "SET claw servo to 0.8   // close the claw",
+  "DRIVE forward at power 0.3",
+  "WAIT 2 seconds",
+  "STOP drivetrain",
+  "SET claw servo to 0.2   // open the claw",
+].join("\n");
 const ASK_ACTIONS: [string, string][] = [
   ["💡 Hint", "Give me a small hint for this challenge. Don't give away the answer."],
   ["📘 Explain the idea", "Explain the main idea behind this challenge in simple terms."],
@@ -409,12 +416,12 @@ export default function PseudocodeCoach() {
                   <div className="wb-tag">👋 Welcome</div>
                   <h1>Let&apos;s practice writing pseudocode for your FTC robot</h1>
                   <p className="wb-task">
-                    Pseudocode is your robot&apos;s plan written in plain, step-by-step words, before any Java or Blocks. Pick a
-                    topic on the left, and the coach will give you a robot challenge. Write your plan in the editor, then press{" "}
-                    <strong>Check my code</strong>.
+                    Pseudocode is your robot&apos;s plan written in plain, step-by-step words, before any Java or Blocks. New here?
+                    Start with <strong>✏️ Start writing pseudocode</strong> on the left, and the coach will give you a simple robot
+                    challenge. Write your plan in the editor, then press <strong>Check my code</strong>.
                   </p>
                   <button type="button" className="wb-primary wb-start" onClick={() => loadChallenge(wb.topic)} disabled={busy !== null}>
-                    Start with {topic.label} ▶
+                    Get my first challenge ▶
                   </button>
                 </div>
                 <pre className="wb-example" aria-label="Example pseudocode">

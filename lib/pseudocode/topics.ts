@@ -1,8 +1,21 @@
 export type PseudocodeTopic = { id: string; label: string; icon: string; blurb: string; focus: string };
 
-export const DEFAULT_TOPIC = "mixed";
+export const DEFAULT_TOPIC = "basics";
 
 export const topics: PseudocodeTopic[] = [
+  {
+    id: "basics",
+    icon: "✏️",
+    label: "Start writing pseudocode",
+    blurb: "The basic idea, one step at a time",
+    focus:
+      "First steps for students who have never written pseudocode. Teach the basic idea: pseudocode is a list of clear steps a robot follows exactly, in order, one action per line. " +
+      "Keep challenges very short and simple (3-6 lines): turn a plain-English robot task into steps, such as start, close the claw, drive forward for 2 seconds, stop, open the claw. " +
+      "Use only simple commands (WAIT FOR START, DRIVE, TURN, STOP, WAIT, SET claw servo, RUN intake). No variables, IF, loops, or functions yet. " +
+      "Accept plain-English lines as long as each step is clear and specific, then gently show the matching command style. " +
+      "Good ideas to practice: being specific (how far, how fast, how long), putting steps in the right order, remembering to stop, and fixing steps that are vague or out of order. " +
+      "Requirements should be about order, specific numbers, one action per line, and stopping.",
+  },
   {
     id: "mixed",
     icon: "🤖",
