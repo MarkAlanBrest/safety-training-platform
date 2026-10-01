@@ -213,6 +213,7 @@ export default function PseudocodeCoach() {
         topic: current.topic,
         challenge: current.challenge,
         code: current.code,
+        previous: current.latest,
       });
       update((w) => {
         const firstPass = feedback.passed && !w.passed;

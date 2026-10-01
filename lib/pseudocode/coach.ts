@@ -99,6 +99,11 @@ export function checkInstructions(topic: PseudocodeTopic) {
     "- When unsure whether something counts, give the student the benefit of the doubt and mark it met, then mention a clearer way in tips.",
     "- Trace the logic with one concrete example value (a sensor reading, timer value, or button press) to check that it basically works.",
     "",
+    "Stay consistent when yourPreviousFeedback is in the input. It is what you told this student on their last check, and they have revised their code since.",
+    "- Requirements you already marked met stay met. Do not find new problems with them.",
+    "- If the student made a change you asked for in fixesYouAskedFor or tipsYouGave, that is correct. Never call it wrong, and never ask them to undo or redo it a different way.",
+    "- Do not raise new issues you could have mentioned last time unless they truly stop a requirement from being met. Put anything else in tips, and do not repeat tips they already followed.",
+    "",
     "Output:",
     "- requirements: exactly one entry per challenge requirement, in the same order.",
     "  - evidence: FIRST search the whole student code and copy the line(s) that address this requirement, exactly as written. Use \"\" only if nothing in the code relates to it.",
@@ -164,7 +169,24 @@ function quotedFromCode(evidence: unknown, code: string) {
   return lines.length > 0 && lines.every((line) => source.includes(line));
 }
 
-function normalizeFeedback(value: unknown, requirementCount: number, code: string): Feedback | null {
+// The coach's last feedback on this challenge, sent back by the browser so the next check stays consistent with it.
+function parsePrevious(value: unknown, requirementCount: number) {
+  const p = value as Feedback | null;
+  if (!p || !Array.isArray(p.requirements) || p.requirements.length !== requirementCount) return null;
+  const list = (items: unknown) => (isStringList(items, 10, 1000) ? (items as string[]) : []);
+  return {
+    requirementsMet: p.requirements.map((r) => r?.met === true),
+    fixesYouAskedFor: list(p.fixes),
+    tipsYouGave: list(p.tips),
+  };
+}
+
+function normalizeFeedback(
+  value: unknown,
+  requirementCount: number,
+  code: string,
+  previouslyMet: boolean[] = [],
+): Feedback | null {
   const f = value as (Omit<Feedback, "requirements"> & { requirements: (RequirementResult & { evidence?: unknown })[] }) | null;
   if (
     !f ||
@@ -178,9 +200,11 @@ function normalizeFeedback(value: unknown, requirementCount: number, code: strin
   ) {
     return null;
   }
-  // Lean toward the student: if the model quoted a real line from their code for a requirement, count it as met.
+  // Lean toward the student: a requirement met on an earlier check stays met, and if the model quoted a real
+  // line from their code for a requirement, it counts as met.
   const requirements = Array.from({ length: requirementCount }, (_, i) => {
     const r = f.requirements[i];
+    if (previouslyMet[i]) return { met: true, note: r?.met && typeof r.note === "string" ? r.note : "Already met on your last check." };
     if (!r || typeof r.met !== "boolean" || typeof r.note !== "string") return { met: false, note: "" };
     if (r.met || !quotedFromCode(r.evidence, code)) return { met: r.met, note: r.note };
     return { met: true, note: `Found in your code: "${String(r.evidence).trim().split("\n")[0]}"` };
@@ -284,10 +308,20 @@ export function createPseudocodeCoach({ apiKey, model, fetchImpl = fetch }: Opti
     }
   }
 
-  async function structured(openAiKey: string, request: Request, instructions: string, input: unknown, name: string, schema: object) {
+  async function structured(
+    openAiKey: string,
+    request: Request,
+    instructions: string,
+    input: unknown,
+    name: string,
+    schema: object,
+    steady = false,
+  ) {
     const response = await callOpenAI(
       openAiKey,
       {
+        // Temperature 0 makes grading repeatable; only GPT-4 family models accept it.
+        ...(steady && /^gpt-4/.test(modelName()) ? { temperature: 0 } : {}),
         max_output_tokens: 1000,
         instructions,
         input: JSON.stringify(input),
@@ -347,17 +381,23 @@ export function createPseudocodeCoach({ apiKey, model, fetchImpl = fetch }: Opti
       const code = input.code as string;
       if (!code.trim()) return json(400, { error: "Write some pseudocode in the editor first." });
 
+      const previous = parsePrevious(input.previous, challenge.requirements.length);
+
       const feedback = normalizeFeedback(
         await structured(
           openAiKey,
           request,
           checkInstructions(topic),
-          { challenge, studentPseudocode: code },
+          previous
+            ? { challenge, studentPseudocode: code, yourPreviousFeedback: previous }
+            : { challenge, studentPseudocode: code },
           "pseudocode_feedback",
           feedbackSchema,
+          true,
         ),
         challenge.requirements.length,
         code,
+        previous?.requirementsMet,
       );
       if (!feedback) return json(502, { error: "The coach could not check your code. Please try again." });
       return json(200, { feedback });
