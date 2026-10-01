@@ -39,6 +39,9 @@ const ASK_ACTIONS: [string, string][] = [
   ["🧪 Show an example", "Show me a short example of this idea using a different robot situation than my challenge."],
 ];
 
+const JAVA_REQUEST =
+  "I passed! Show me my pseudocode from the editor written as FTC Java, and explain how each part matches my plan.";
+
 const empty = (): Workbench => ({
   topic: DEFAULT_TOPIC,
   challenge: null,
@@ -414,9 +417,14 @@ export default function PseudocodeCoach() {
               {wb.passed && (
                 <div className="wb-complete">
                   <span>🎉 Challenge complete! Nice work.</span>
-                  <button type="button" className="wb-primary" onClick={() => loadChallenge(wb.topic, true)} disabled={busy !== null}>
-                    Next challenge ▶
-                  </button>
+                  <span className="wb-complete-actions">
+                    <button type="button" className="wb-chip" onClick={() => ask(JAVA_REQUEST, "☕ See it in Java")} disabled={busy !== null}>
+                      ☕ See it in Java
+                    </button>
+                    <button type="button" className="wb-primary" onClick={() => loadChallenge(wb.topic, true)} disabled={busy !== null}>
+                      Next challenge ▶
+                    </button>
+                  </span>
                 </div>
               )}
             </section>

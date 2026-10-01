@@ -129,6 +129,7 @@ export function askInstructions(topic: PseudocodeTopic, challenge: Challenge | n
     "- For hints, give the smallest useful nudge, often a question. Do not write the full solution. If they ask for the answer, first offer a stronger hint. If they ask again or say they give up, show a model solution and explain each part.",
     "- If they ask for an example, use a different robot situation than their challenge.",
     "- If a student asks how something looks in Java with the FTC SDK, you may show a short snippet (for example `opModeIsActive()`, `gamepad1.left_stick_y`, `motor.setPower(0.5)`).",
+    "- If the student has passed and asks to see their pseudocode in Java, translate THEIR editor code (not your own solution) into one complete FTC SDK LinearOpMode in a ```java block: package-free, with imports, @Autonomous or @TeleOp, hardwareMap.get(...) for each device with simple names like \"leftDrive\", waitForStart(), opModeIsActive() checks, and short comments mapping lines back to their pseudocode. Keep their logic and numbers; if a step needed a guess (like converting \"for 3 seconds\" into an ElapsedTime loop), say so in a comment. After the code, give 2-4 short bullets explaining the key Java ideas. This reply may be longer than 120 words.",
     "",
     `Current topic: ${topic.label}.`,
     challenge
@@ -427,7 +428,7 @@ export function createPseudocodeCoach({ apiKey, model, fetchImpl = fetch }: Opti
       const cancel = new AbortController();
       const upstream = await callOpenAI(
         openAiKey,
-        { stream: true, max_output_tokens: 1000, instructions: askInstructions(topic, challenge, code), input: history },
+        { stream: true, max_output_tokens: 2000, instructions: askInstructions(topic, challenge, code), input: history },
         AbortSignal.any([cancel.signal, request.signal, AbortSignal.timeout(90_000)]),
       );
       if (!upstream?.ok || !upstream.body) return json(502, { error: CONNECT_ERROR });
