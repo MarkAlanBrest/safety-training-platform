@@ -57,8 +57,8 @@ const feedbackSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        properties: { met: { type: "boolean" }, note: { type: "string" } },
-        required: ["met", "note"],
+        properties: { evidence: { type: "string" }, met: { type: "boolean" }, note: { type: "string" } },
+        required: ["evidence", "met", "note"],
       },
     },
     works: { type: "array", items: { type: "string" } },
@@ -95,11 +95,15 @@ export function checkInstructions(topic: PseudocodeTopic) {
     "- Read generously. If a step is implied or obvious from context, count it. Small slips (a missing END IF, a typo, slightly different numbers or units that still make sense, steps in a different but still workable order) do not make a requirement unmet.",
     "- A requirement is met when the student's plan would make the robot do that thing. Only mark it unmet when it is truly missing or the logic would clearly do the wrong thing (for example, the loop could never end, or the robot never stops when it must).",
     "- Only grade the listed requirements. The good robot habits above (timeouts, `active` checks, extra safety, telemetry, re-reading sensors) are NOT requirements unless the challenge lists them. Mention them as tips instead.",
+    "- Plain English counts as a complete step. Example: \"drive forward at .5 for 3 seconds\" fully meets \"drive forward for 3 seconds\" and \"drive at half power\". Do not demand a timer variable, WAIT command, or loop unless the requirement explicitly says to use one; suggest those in tips instead.",
     "- When unsure whether something counts, give the student the benefit of the doubt and mark it met, then mention a clearer way in tips.",
     "- Trace the logic with one concrete example value (a sensor reading, timer value, or button press) to check that it basically works.",
     "",
     "Output:",
-    "- requirements: exactly one entry per challenge requirement, in the same order. note: under 15 words saying why.",
+    "- requirements: exactly one entry per challenge requirement, in the same order.",
+    "  - evidence: FIRST search the whole student code and copy the line(s) that address this requirement, exactly as written. Use \"\" only if nothing in the code relates to it.",
+    "  - met: true if the evidence shows the robot would do this, even if it is worded loosely. If evidence is not empty, it should almost always be met.",
+    "  - note: under 15 words saying why. Never say something is missing or unclear when it appears in the evidence.",
     "- passed is true when every requirement is met under this generous reading.",
     "- summary: one short, encouraging sentence about the attempt.",
     "- works: up to 3 specific things the student did well.",
@@ -150,8 +154,18 @@ function parseChallenge(value: unknown): Challenge | null {
   return { title: c.title, concept: c.concept, task: c.task, requirements: c.requirements };
 }
 
-function normalizeFeedback(value: unknown, requirementCount: number): Feedback | null {
-  const f = value as Feedback | null;
+const squash = (text: string) => text.toLowerCase().replace(/\s+/g, " ").trim();
+
+// True when every quoted line really appears in the student's code, so the model can't invent evidence.
+function quotedFromCode(evidence: unknown, code: string) {
+  if (typeof evidence !== "string") return false;
+  const lines = evidence.split("\n").map(squash).filter((line) => line.length >= 4);
+  const source = squash(code);
+  return lines.length > 0 && lines.every((line) => source.includes(line));
+}
+
+function normalizeFeedback(value: unknown, requirementCount: number, code: string): Feedback | null {
+  const f = value as (Omit<Feedback, "requirements"> & { requirements: (RequirementResult & { evidence?: unknown })[] }) | null;
   if (
     !f ||
     typeof f.passed !== "boolean" ||
@@ -164,17 +178,22 @@ function normalizeFeedback(value: unknown, requirementCount: number): Feedback |
   ) {
     return null;
   }
+  // Lean toward the student: if the model quoted a real line from their code for a requirement, count it as met.
   const requirements = Array.from({ length: requirementCount }, (_, i) => {
     const r = f.requirements[i];
-    return r && typeof r.met === "boolean" && typeof r.note === "string" ? { met: r.met, note: r.note } : { met: false, note: "" };
+    if (!r || typeof r.met !== "boolean" || typeof r.note !== "string") return { met: false, note: "" };
+    if (r.met || !quotedFromCode(r.evidence, code)) return { met: r.met, note: r.note };
+    return { met: true, note: `Found in your code: "${String(r.evidence).trim().split("\n")[0]}"` };
   });
+  const passed = requirements.every((r) => r.met);
   return {
-    passed: f.passed && requirements.every((r) => r.met),
+    passed,
     summary: f.summary,
     requirements,
     works: f.works.slice(0, 3),
-    fixes: f.fixes.slice(0, 2),
-    tips: f.tips.slice(0, 2),
+    // Once passed, leftover fixes become optional advice instead of blockers.
+    fixes: passed ? [] : f.fixes.slice(0, 2),
+    tips: (passed ? [...f.fixes, ...f.tips] : f.tips).slice(0, 2),
     question: f.question,
   };
 }
@@ -338,6 +357,7 @@ export function createPseudocodeCoach({ apiKey, model, fetchImpl = fetch }: Opti
           feedbackSchema,
         ),
         challenge.requirements.length,
+        code,
       );
       if (!feedback) return json(502, { error: "The coach could not check your code. Please try again." });
       return json(200, { feedback });
