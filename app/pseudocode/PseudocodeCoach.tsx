@@ -103,6 +103,16 @@ function FeedbackCard({ feedback }: { feedback: Feedback }) {
           </ul>
         </>
       )}
+      {feedback.tips?.length > 0 && (
+        <>
+          <div className="wb-mini-label tips">A better way (optional)</div>
+          <ul>
+            {feedback.tips.map((item, i) => (
+              <li key={i}>{item}</li>
+            ))}
+          </ul>
+        </>
+      )}
       {feedback.question && <div className="wb-question">{feedback.question}</div>}
     </div>
   );

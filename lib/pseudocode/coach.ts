@@ -8,6 +8,7 @@ export type Feedback = {
   requirements: RequirementResult[];
   works: string[];
   fixes: string[];
+  tips: string[];
   question: string;
 };
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -62,9 +63,10 @@ const feedbackSchema = {
     },
     works: { type: "array", items: { type: "string" } },
     fixes: { type: "array", items: { type: "string" } },
+    tips: { type: "array", items: { type: "string" } },
     question: { type: "string" },
   },
-  required: ["passed", "summary", "requirements", "works", "fixes", "question"],
+  required: ["passed", "summary", "requirements", "works", "fixes", "tips", "question"],
 };
 
 export function challengeInstructions(topic: PseudocodeTopic, harder: boolean) {
@@ -75,7 +77,7 @@ export function challengeInstructions(topic: PseudocodeTopic, harder: boolean) {
     "- title: a 2-5 word mission name, such as \"Stop before the wall\".",
     "- concept: 2-3 short sentences that teach the idea behind this challenge. You may include one tiny inline example in backticks, but never the solution.",
     "- task: 2-4 sentences describing the starting situation, the sensor readings or gamepad inputs, and exactly what the robot must do, with specific numbers and units.",
-    "- requirements: 3-5 short, checkable statements the student's pseudocode must satisfy, each under 15 words.",
+    "- requirements: 3-5 short, checkable statements the student's pseudocode must satisfy, each under 15 words. Describe what the robot must DO, never exact keywords, command names, or formatting the student must use.",
     "- Keep it achievable for a beginner in 5-15 lines of pseudocode.",
     "- Do not repeat any of the student's previous challenges listed in the input.",
     harder ? "- The student just solved a challenge. Make this one a little harder." : "",
@@ -87,14 +89,24 @@ export function checkInstructions(topic: PseudocodeTopic) {
     FTC_CONTEXT,
     "",
     `Assess the student's pseudocode for the challenge in the input. Topic: ${topic.label}.`,
-    "- Trace the actual logic with one or two concrete example values (sensor readings, timer values, button presses). Check order, boundaries, stopping, and termination.",
-    "- requirements: exactly one entry per challenge requirement, in the same order. met is true only if the code clearly does it. note: under 15 words saying why.",
-    "- passed is true only when every requirement is met.",
+    "",
+    "Grade like a friendly teacher, not a compiler. Students are beginners and every one of them writes pseudocode a little differently.",
+    "- Judge the INTENT and the logic, not the wording. Any keywords, capitalization, spelling, indentation, variable names, or command phrasing are fine if a reasonable person can tell what the robot should do (\"go forward\", \"DRIVE forward\", and \"set motors to 0.3\" all mean the same thing).",
+    "- Read generously. If a step is implied or obvious from context, count it. Small slips (a missing END IF, a typo, slightly different numbers or units that still make sense, steps in a different but still workable order) do not make a requirement unmet.",
+    "- A requirement is met when the student's plan would make the robot do that thing. Only mark it unmet when it is truly missing or the logic would clearly do the wrong thing (for example, the loop could never end, or the robot never stops when it must).",
+    "- Only grade the listed requirements. The good robot habits above (timeouts, `active` checks, extra safety, telemetry, re-reading sensors) are NOT requirements unless the challenge lists them. Mention them as tips instead.",
+    "- When unsure whether something counts, give the student the benefit of the doubt and mark it met, then mention a clearer way in tips.",
+    "- Trace the logic with one concrete example value (a sensor reading, timer value, or button press) to check that it basically works.",
+    "",
+    "Output:",
+    "- requirements: exactly one entry per challenge requirement, in the same order. note: under 15 words saying why.",
+    "- passed is true when every requirement is met under this generous reading.",
     "- summary: one short, encouraging sentence about the attempt.",
     "- works: up to 3 specific things the student did well.",
-    "- fixes: up to 2 of the most important issues, describing what to look at. Do not write the corrected code.",
+    "- fixes: up to 2 issues that actually stop a requirement from being met, describing what to look at. Empty if passed. Do not write the corrected code.",
+    "- tips: up to 2 optional suggestions for a cleaner, safer, or more professional way to write it (style, safety habits, clearer naming). These never affect passing. A short pseudocode snippet in backticks is fine, but not a full solution.",
     "- question: one guiding question that helps them find the next fix. If passed, ask a short stretch question instead.",
-    "- If the code is empty or unrelated, passed is false; explain kindly what to start with.",
+    "- If the code is empty or unrelated to the challenge, passed is false; explain kindly what to start with.",
     "- Never provide a full solution.",
   ].join("\n");
 }
@@ -147,7 +159,8 @@ function normalizeFeedback(value: unknown, requirementCount: number): Feedback |
     typeof f.question !== "string" ||
     !Array.isArray(f.requirements) ||
     !isStringList(f.works, 10, 1000) ||
-    !isStringList(f.fixes, 10, 1000)
+    !isStringList(f.fixes, 10, 1000) ||
+    !isStringList(f.tips, 10, 1000)
   ) {
     return null;
   }
@@ -161,6 +174,7 @@ function normalizeFeedback(value: unknown, requirementCount: number): Feedback |
     requirements,
     works: f.works.slice(0, 3),
     fixes: f.fixes.slice(0, 2),
+    tips: f.tips.slice(0, 2),
     question: f.question,
   };
 }

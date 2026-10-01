@@ -403,6 +403,7 @@
 .wb-mini-label { margin-top: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; }
 .wb-mini-label.works { color: var(--green); }
 .wb-mini-label.fixes { color: var(--amber); }
+.wb-mini-label.tips { color: var(--accent); }
 .wb-feedback ul { margin-top: 4px; padding-left: 18px; list-style: disc; }
 .wb-feedback li + li { margin-top: 3px; }
 .wb-question {
