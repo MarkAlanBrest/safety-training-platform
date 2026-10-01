@@ -7,5 +7,5 @@ export const maxDuration = 60;
 const coach = createPseudocodeCoach();
 
 export function POST(request: Request) {
-  return coach.chat(request, clientIdFrom(request));
+  return coach.challenge(request, clientIdFrom(request));
 }
