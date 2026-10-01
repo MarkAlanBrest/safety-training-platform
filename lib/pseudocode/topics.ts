@@ -14,7 +14,7 @@ export const topics: PseudocodeTopic[] = [
       "Use only simple commands (WAIT FOR START, DRIVE, TURN, STOP, WAIT, SET claw servo, RUN intake). No variables, IF, loops, or functions yet. " +
       "Accept plain-English lines as long as each step is clear and specific, then gently show the matching command style. " +
       "Good ideas to practice: being specific (how far, how fast, how long), putting steps in the right order, remembering to stop, and fixing steps that are vague or out of order. " +
-      "Requirements should be about order, specific numbers, one action per line, and stopping.",
+      "Requirements should be about doing the steps in a sensible order, giving specific numbers, and stopping.",
   },
   {
     id: "mixed",

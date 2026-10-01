@@ -50,8 +50,8 @@ const feedbackSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    passed: { type: "boolean" },
-    summary: { type: "string" },
+    robotBehavior: { type: "string" },
+    missionAccomplished: { type: "boolean" },
     requirements: {
       type: "array",
       items: {
@@ -61,12 +61,13 @@ const feedbackSchema = {
         required: ["evidence", "met", "note"],
       },
     },
+    summary: { type: "string" },
     works: { type: "array", items: { type: "string" } },
     fixes: { type: "array", items: { type: "string" } },
     tips: { type: "array", items: { type: "string" } },
     question: { type: "string" },
   },
-  required: ["passed", "summary", "requirements", "works", "fixes", "tips", "question"],
+  required: ["robotBehavior", "missionAccomplished", "requirements", "summary", "works", "fixes", "tips", "question"],
 };
 
 export function challengeInstructions(topic: PseudocodeTopic, harder: boolean) {
@@ -77,7 +78,7 @@ export function challengeInstructions(topic: PseudocodeTopic, harder: boolean) {
     "- title: a 2-5 word mission name, such as \"Stop before the wall\".",
     "- concept: 2-3 short sentences that teach the idea behind this challenge. You may include one tiny inline example in backticks, but never the solution.",
     "- task: 2-4 sentences describing the starting situation, the sensor readings or gamepad inputs, and exactly what the robot must do, with specific numbers and units.",
-    "- requirements: 3-5 short, checkable statements the student's pseudocode must satisfy, each under 15 words. Describe what the robot must DO, never exact keywords, command names, or formatting the student must use.",
+    "- requirements: 3-5 short, checkable statements the student's pseudocode must satisfy, each under 15 words. Describe outcomes the robot must achieve so many different solutions can satisfy them. Never require exact keywords, command names, formatting, line counts, or one specific structure unless the topic is about that structure (for example, a loops challenge may require a loop).",
     "- Keep it achievable for a beginner in 5-15 lines of pseudocode.",
     "- Do not repeat any of the student's previous challenges listed in the input.",
     harder ? "- The student just solved a challenge. Make this one a little harder." : "",
@@ -89,6 +90,13 @@ export function checkInstructions(topic: PseudocodeTopic) {
     FTC_CONTEXT,
     "",
     `Assess the student's pseudocode for the challenge in the input. Topic: ${topic.label}.`,
+    "",
+    "There is NO answer key. Every challenge has many correct solutions, and the student's will not look like the one you would write. Do not compare their code to your own idea of the answer. Different order, different commands, different structure, extra steps, or fewer lines are all fine if the robot still gets the job done.",
+    "",
+    "How to grade, in this order:",
+    "1. robotBehavior: pretend you are the robot and follow the student's plan literally, top to bottom. Describe in 1-3 plain sentences what the robot actually does. Read each line the way the student obviously meant it.",
+    "2. missionAccomplished: compare that behavior to the task. true if the robot ends up doing what the task asks, even if it is done differently than you expected. false only if the robot would clearly fail the task (does the wrong thing, never stops, skips a whole part of the mission, or the code is unrelated).",
+    "3. requirements: check each one against the behavior from step 1, not against wording or structure.",
     "",
     "Grade like a friendly teacher, not a compiler. Students are beginners and every one of them writes pseudocode a little differently.",
     "- Judge the INTENT and the logic, not the wording. Any keywords, capitalization, spelling, indentation, variable names, or command phrasing are fine if a reasonable person can tell what the robot should do (\"go forward\", \"DRIVE forward\", and \"set motors to 0.3\" all mean the same thing).",
@@ -109,10 +117,10 @@ export function checkInstructions(topic: PseudocodeTopic) {
     "  - evidence: FIRST search the whole student code and copy the line(s) that address this requirement, exactly as written. Use \"\" only if nothing in the code relates to it.",
     "  - met: true if the evidence shows the robot would do this, even if it is worded loosely. If evidence is not empty, it should almost always be met.",
     "  - note: under 15 words saying why. Never say something is missing or unclear when it appears in the evidence.",
-    "- passed is true when every requirement is met under this generous reading.",
+    "- If missionAccomplished is true, the student passes even if a requirement looks unmet; put anything you would have done differently in tips, not fixes.",
     "- summary: one short, encouraging sentence about the attempt.",
     "- works: up to 3 specific things the student did well.",
-    "- fixes: up to 2 issues that actually stop a requirement from being met, describing what to look at. Empty if passed. Do not write the corrected code.",
+    "- fixes: up to 2 things that would make the robot actually fail the task, describing what to look at. Empty if missionAccomplished. Do not write the corrected code.",
     "- tips: up to 2 optional suggestions for a cleaner, safer, or more professional way to write it (style, safety habits, clearer naming). These never affect passing. A short pseudocode snippet in backticks is fine, but not a full solution.",
     "- question: one guiding question that helps them find the next fix. If passed, ask a short stretch question instead.",
     "- If the code is empty or unrelated to the challenge, passed is false; explain kindly what to start with.",
@@ -188,10 +196,14 @@ function normalizeFeedback(
   code: string,
   previouslyMet: boolean[] = [],
 ): Feedback | null {
-  const f = value as (Omit<Feedback, "requirements"> & { requirements: (RequirementResult & { evidence?: unknown })[] }) | null;
+  type Raw = Omit<Feedback, "passed" | "requirements"> & {
+    missionAccomplished: boolean;
+    requirements: (RequirementResult & { evidence?: unknown })[];
+  };
+  const f = value as Raw | null;
   if (
     !f ||
-    typeof f.passed !== "boolean" ||
+    typeof f.missionAccomplished !== "boolean" ||
     typeof f.summary !== "string" ||
     typeof f.question !== "string" ||
     !Array.isArray(f.requirements) ||
@@ -203,14 +215,20 @@ function normalizeFeedback(
   }
   // Lean toward the student: a requirement met on an earlier check stays met, and if the model quoted a real
   // line from their code for a requirement, it counts as met.
-  const requirements = Array.from({ length: requirementCount }, (_, i) => {
+  const graded = Array.from({ length: requirementCount }, (_, i) => {
     const r = f.requirements[i];
     if (previouslyMet[i]) return { met: true, note: r?.met && typeof r.note === "string" ? r.note : "Already met on your last check." };
     if (!r || typeof r.met !== "boolean" || typeof r.note !== "string") return { met: false, note: "" };
     if (r.met || !quotedFromCode(r.evidence, code)) return { met: r.met, note: r.note };
     return { met: true, note: `Found in your code: "${String(r.evidence).trim().split("\n")[0]}"` };
   });
-  const passed = requirements.every((r) => r.met);
+  // If the robot would get the job done, the student passes; any requirement the model still flagged is
+  // only a different way of doing it, so its note becomes optional advice.
+  const passed = f.missionAccomplished || graded.every((r) => r.met);
+  const leftover = passed ? graded.filter((r) => !r.met && r.note).map((r) => r.note) : [];
+  const requirements = passed
+    ? graded.map((r) => (r.met ? r : { met: true, note: "Your way works too." }))
+    : graded;
   return {
     passed,
     summary: f.summary,
@@ -218,7 +236,7 @@ function normalizeFeedback(
     works: f.works.slice(0, 3),
     // Once passed, leftover fixes become optional advice instead of blockers.
     fixes: passed ? [] : f.fixes.slice(0, 2),
-    tips: (passed ? [...f.fixes, ...f.tips] : f.tips).slice(0, 2),
+    tips: (passed ? [...f.fixes, ...leftover, ...f.tips] : f.tips).slice(0, 2),
     question: f.question,
   };
 }
