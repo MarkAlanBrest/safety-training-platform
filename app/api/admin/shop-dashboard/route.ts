@@ -19,6 +19,6 @@ export async function PUT(request: Request) {
     return Response.json({ saved: true });
   } catch (error) {
     console.error("Dashboard save failed", error);
-    return Response.json({ error: "Could not save settings. The server needs a writable, persistent folder for its JSON file." }, { status: 503 });
+    return Response.json({ error: "Could not save settings to the database. Check DATABASE_URL and run npm run db:shop-dashboard." }, { status: 503 });
   }
 }

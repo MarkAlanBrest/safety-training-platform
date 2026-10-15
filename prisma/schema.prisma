@@ -7,6 +7,12 @@ datasource db {
   provider = "postgresql"
 }
 
+model ShopDashboard {
+  id        String   @id
+  content   Json
+  updatedAt DateTime @updatedAt
+}
+
 model MasonCourse {
   id               Int                @id @default(autoincrement())
   title            String

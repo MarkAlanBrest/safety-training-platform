@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "node --experimental-strip-types scripts/validate-database-url.mjs && prisma generate && next build --webpack",
+    "vercel-build": "node --experimental-strip-types scripts/validate-database-url.mjs && npm run db:shop-dashboard && prisma generate && next build --webpack",
+    "db:shop-dashboard": "node --experimental-strip-types scripts/init-shop-dashboard-db.mjs",
     "db:init": "prisma db push",
     "db:setup": "prisma db push && npm run admin:bootstrap && npm run courses:install",
     "admin:bootstrap": "node scripts/bootstrap-admin.mjs",

@@ -64,8 +64,8 @@ from training administration. The old `/admin/shop-dashboard` URL redirects ther
 Upload JPG, PNG, or WebP project photos, add titles,
 reorder slides, and set their rotation interval. Edit the school branding,
 clock timezone, weather forecast, objectives, safety tip, and announcements.
-The preview shows unsaved edits; **Save to TV** writes them to
-`data/shop-dashboard.json` on the server. Open displays poll every 15 seconds and retain their last
+The preview shows unsaved edits; **Save to TV** writes settings and photo data
+to one JSON record in PostgreSQL. Open displays poll every 15 seconds and retain their last
 content during connection failures. There are no camera feeds. The reference's
 weather panel embeds `/shop-weather`, a dedicated webpage for Hubbard, Ohio
 44425 using National Weather Service data. It shows this hour's forecast and
@@ -73,12 +73,13 @@ three upcoming daytime forecasts, refreshing every 15 minutes. No API key,
 external widget account, or embed configuration is required. On service errors,
 the page retains the last forecast and labels it as disconnected while retrying.
 
-No database setup is needed for the board. The JSON file is created on the first
-save and contains both settings and photo data. Before the first save, the board
-uses built-in defaults. Back up this file to preserve your board. Optionally set
-`SHOP_DASHBOARD_FILE` to an absolute path on persistent storage. File storage
-requires a writable server disk shared by the editor and TV requests; ephemeral
-or read-only hosting such as Vercel needs a persistent storage mount or service.
+The board uses the site's existing `DATABASE_URL`. The Vercel build automatically
+creates the `ShopDashboard` table if missing, without modifying other tables.
+For local setup run `npm run db:shop-dashboard` and `npx prisma generate` after
+installing dependencies. Before the first save, the board uses built-in defaults.
+Settings survive deployments and are shared across editor and TV devices.
+The former local `data/shop-dashboard.json` file is no longer used or overwritten;
+existing file contents are not automatically imported.
 The board is publicly readable; only publish content suitable for public display.
 Editor saves use the existing admin authorization policy. This repository
 currently has `ADMIN_AUTH_DISABLED = true` in `lib/admin-auth.ts`; enable the
