@@ -4,6 +4,7 @@ export type ShopDashboard = {
   timezone: string; slideSeconds: number; objectives: string[];
   safetyTip: string; announcements: string[]; projects: ShopProject[];
   weather: string;
+  weatherEmbedUrl?: string;
 };
 
 export const defaultShopDashboard: ShopDashboard = {
@@ -14,8 +15,20 @@ export const defaultShopDashboard: ShopDashboard = {
   objectives: ["Review power tool safety", "Complete project measurements", "Continue shop projects", "Clean and organize workstations"],
   safetyTip: "Always keep your hands away from the blade and use a push stick when cutting small pieces.",
   announcements: ["Complete your safety test before operating equipment.", "Return all tools to their proper place.", "Keep work areas clean.", "Great job on the new benches!"],
-  projects: [],
+  projects: [], weatherEmbedUrl: "",
 };
+
+export function parseWeatherEmbed(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  const source = trimmed.startsWith("<") ? trimmed.match(/<iframe\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i)?.[1] : trimmed;
+  if (!source || source.length > 3000) throw new Error("Paste a meteoblue widget URL or its iframe embed code.");
+  const decoded = source.replace(/&amp;/g, "&");
+  let url: URL;
+  try { url = new URL(decoded); } catch { throw new Error("Invalid weather widget URL."); }
+  if (url.origin !== "https://www.meteoblue.com" || url.username || url.password || !/^\/en\/weather\/widget\/(daily|three)\/[^/]+$/.test(url.pathname)) throw new Error("Use an HTTPS daily or 3-hour weather widget from www.meteoblue.com.");
+  return decoded;
+}
 
 export function validateShopDashboard(value: unknown): ShopDashboard {
   if (!value || typeof value !== "object") throw new Error("Invalid dashboard.");
@@ -41,5 +54,7 @@ export function validateShopDashboard(value: unknown): ShopDashboard {
   if (projects.reduce((total, project) => total + project.image.length, 0) > 3800000) throw new Error("The photo collection is too large. Remove some photos or upload smaller images.");
   const school = str("school", 60), title = str("title", 30);
   if (!school || !title) throw new Error("School and dashboard title are required.");
-  return { school, title, motto: str("motto", 80), footer: str("footer", 80), timezone, slideSeconds: Number(v.slideSeconds), weather: str("weather", 120), objectives: lines("objectives", 4), safetyTip: str("safetyTip", 240), announcements: lines("announcements", 4), projects };
+  if (v.weatherEmbedUrl !== undefined && typeof v.weatherEmbedUrl !== "string") throw new Error("Invalid weather widget URL.");
+  const weatherEmbedUrl = parseWeatherEmbed((v.weatherEmbedUrl as string | undefined) ?? "");
+  return { school, title, motto: str("motto", 80), footer: str("footer", 80), timezone, slideSeconds: Number(v.slideSeconds), weather: str("weather", 120), weatherEmbedUrl, objectives: lines("objectives", 4), safetyTip: str("safetyTip", 240), announcements: lines("announcements", 4), projects };
 }

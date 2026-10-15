@@ -59,14 +59,19 @@ falls back to the device voice when natural audio is unavailable.
 ### Wood shop TV dashboard
 
 Open `/shop-display` on a TV in portrait orientation (9:16), then choose
-**Fullscreen**. Edit its content at `/admin/shop-dashboard`, also linked from
-the admin navigation. Upload JPG, PNG, or WebP project photos, add titles,
+**Fullscreen**. Edit its content at `/shop-editor`, a standalone editor separate
+from training administration. The old `/admin/shop-dashboard` URL redirects there.
+Upload JPG, PNG, or WebP project photos, add titles,
 reorder slides, and set their rotation interval. Edit the school branding,
 clock timezone, weather forecast, objectives, safety tip, and announcements.
 The preview shows unsaved edits; **Save to TV** writes them to
 `data/shop-dashboard.json` on the server. Open displays poll every 15 seconds and retain their last
 content during connection failures. There are no camera feeds. The reference's
-weather panel is manually editable; no weather service is used.
+weather panel embeds `/shop-weather`, a dedicated webpage for Hubbard, Ohio
+44425 using National Weather Service data. It shows this hour's forecast and
+three upcoming daytime forecasts, refreshing every 15 minutes. No API key,
+external widget account, or embed configuration is required. On service errors,
+the page retains the last forecast and labels it as disconnected while retrying.
 
 No database setup is needed for the board. The JSON file is created on the first
 save and contains both settings and photo data. Before the first save, the board

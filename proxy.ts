@@ -11,7 +11,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const isAdminPage = pathname.startsWith("/admin");
+  const isAdminPage = pathname.startsWith("/admin") || pathname === "/shop-editor";
   const isAdminApi = pathname.startsWith("/api/admin");
   const isResumePage = pathname.startsWith("/resumes");
   const isResumeApi = pathname.startsWith("/api/resumes");
@@ -37,5 +37,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*", "/resumes/:path*", "/api/resumes/:path*"],
+  matcher: ["/shop-editor", "/admin/:path*", "/api/admin/:path*", "/resumes/:path*", "/api/resumes/:path*"],
 };
