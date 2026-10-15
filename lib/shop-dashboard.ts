@@ -1,10 +1,12 @@
 export type ShopProject = { title: string; image: string };
+export type ShopAlarm = { time: string; message: string; durationMinutes: number; days: number[]; enabled: boolean };
 export type ShopDashboard = {
   school: string; title: string; motto: string; footer: string;
   timezone: string; slideSeconds: number; objectives: string[];
   safetyTip: string; announcements: string[]; projects: ShopProject[];
   weather: string;
   weatherEmbedUrl?: string;
+  alarms: ShopAlarm[];
 };
 
 export const defaultShopDashboard: ShopDashboard = {
@@ -15,7 +17,7 @@ export const defaultShopDashboard: ShopDashboard = {
   objectives: ["Review power tool safety", "Complete project measurements", "Continue shop projects", "Clean and organize workstations"],
   safetyTip: "Always keep your hands away from the blade and use a push stick when cutting small pieces.",
   announcements: ["Complete your safety test before operating equipment.", "Return all tools to their proper place.", "Keep work areas clean.", "Great job on the new benches!"],
-  projects: [], weatherEmbedUrl: "",
+  projects: [], weatherEmbedUrl: "", alarms: [],
 };
 
 export function parseWeatherEmbed(input: string): string {
@@ -56,5 +58,42 @@ export function validateShopDashboard(value: unknown): ShopDashboard {
   if (!school || !title) throw new Error("School and dashboard title are required.");
   if (v.weatherEmbedUrl !== undefined && typeof v.weatherEmbedUrl !== "string") throw new Error("Invalid weather widget URL.");
   const weatherEmbedUrl = parseWeatherEmbed((v.weatherEmbedUrl as string | undefined) ?? "");
-  return { school, title, motto: str("motto", 80), footer: str("footer", 80), timezone, slideSeconds: Number(v.slideSeconds), weather: str("weather", 120), weatherEmbedUrl, objectives: lines("objectives", 4), safetyTip: str("safetyTip", 240), announcements: lines("announcements", 4), projects };
+  const alarms = validateShopAlarms(v.alarms);
+  return { school, title, motto: str("motto", 80), footer: str("footer", 80), timezone, slideSeconds: Number(v.slideSeconds), weather: str("weather", 120), weatherEmbedUrl, objectives: lines("objectives", 4), safetyTip: str("safetyTip", 240), announcements: lines("announcements", 4), projects, alarms };
+}
+
+function validateShopAlarms(value: unknown): ShopAlarm[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 30) throw new Error("Use up to 30 scheduled announcements.");
+  return value.map((item: unknown) => {
+    if (!item || typeof item !== "object") throw new Error("Invalid scheduled announcement.");
+    const a = item as ShopAlarm;
+    if (typeof a.time !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(a.time)) throw new Error("Choose a valid announcement time.");
+    if (typeof a.message !== "string" || !a.message.trim() || a.message.length > 240) throw new Error("Each announcement needs a message of up to 240 characters.");
+    if (!Number.isInteger(a.durationMinutes) || a.durationMinutes < 1 || a.durationMinutes > 30) throw new Error("Announcement duration must be 1–30 minutes.");
+    if (typeof a.enabled !== "boolean" || !Array.isArray(a.days) || !a.days.length || a.days.length > 7 || a.days.some(day => !Number.isInteger(day) || day < 0 || day > 6)) throw new Error("Choose at least one day for each announcement.");
+    return { time: a.time, message: a.message.trim(), durationMinutes: a.durationMinutes, enabled: a.enabled, days: [...new Set(a.days)] };
+  });
+}
+
+// Use the board's wall clock; the latest scheduled start wins when windows overlap.
+export function activeShopAlarm(alarms: ShopAlarm[], now: Date, timezone: string): ShopAlarm | null {
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat("en-US", { timeZone: timezone, year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).formatToParts(now);
+  } catch { return null; } // The editor can temporarily contain an incomplete timezone.
+  const part = (name: string) => Number(parts.find(p => p.type === name)?.value);
+  const day = new Date(Date.UTC(part("year"), part("month") - 1, part("day"))).getUTCDay();
+  const seconds = part("hour") * 3600 + part("minute") * 60 + part("second");
+  let result: ShopAlarm | null = null, smallestElapsed = Infinity;
+  for (const alarm of alarms) {
+    if (!alarm.enabled) continue;
+    const [hour, minute] = alarm.time.split(":").map(Number);
+    const elapsed = (seconds - hour * 3600 - minute * 60 + 86400) % 86400;
+    const startDay = seconds < hour * 3600 + minute * 60 ? (day + 6) % 7 : day;
+    if (alarm.days.includes(startDay) && elapsed < alarm.durationMinutes * 60 && elapsed < smallestElapsed) {
+      result = alarm; smallestElapsed = elapsed;
+    }
+  }
+  return result;
 }

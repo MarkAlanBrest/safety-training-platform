@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Hammer, Trees, ShieldCheck, ClipboardList, Megaphone, Expand } from "lucide-react";
 import ShopWeather from "@/components/ShopWeather";
-import { defaultShopDashboard, type ShopDashboard } from "@/lib/shop-dashboard";
+import { activeShopAlarm, defaultShopDashboard, type ShopDashboard } from "@/lib/shop-dashboard";
 import "@/app/shop-display/shop-display.css";
 
 export default function ShopDisplay({ preview }: { preview?: ShopDashboard }) {
@@ -36,6 +36,7 @@ export default function ShopDisplay({ preview }: { preview?: ShopDashboard }) {
     return () => clearInterval(timer);
   }, [data.slideSeconds]);
   const project = data.projects.length ? data.projects[slide % data.projects.length] : null;
+  const alarm = now ? activeShopAlarm(data.alarms ?? [], now, data.timezone) : null;
   const format = (options: Intl.DateTimeFormatOptions) => {
     try { return now?.toLocaleString("en-US", { timeZone: data.timezone, ...options }) ?? "—"; }
     catch { return "Check timezone"; }
@@ -48,6 +49,7 @@ export default function ShopDisplay({ preview }: { preview?: ShopDashboard }) {
       <div className="shop-daily"><section className="shop-chalk"><h2 className="shop-wood"><ClipboardList /> Today’s objectives</h2><ul className="shop-objectives">{data.objectives.map((line, i) => <li key={i}><span>□</span>{line}</li>)}</ul></section><section className="shop-chalk shop-safety"><h2 className="shop-wood"><ShieldCheck /> Daily safety tip</h2><div><p>{data.safetyTip}</p><strong>Safety first • Every day</strong></div></section></div>
       <section className="shop-chalk shop-announcements"><h2 className="shop-wood"><Megaphone /> Announcements</h2><div><ul>{data.announcements.map((line, i) => <li key={i}><span>◆</span>{line}</li>)}</ul><p className="shop-signoff">Build skills.<br />Build character.<Trees /></p></div></section>
       <footer className="shop-wood"><Trees />{data.footer}<Trees /></footer>
+      {alarm && <section className="shop-alarm-overlay" role="status" aria-live="polite"><Megaphone aria-hidden="true" /><p>Shop announcement</p><h2>{alarm.message}</h2><span>The regular screen will return automatically.</span></section>}
       {status && <div className="shop-status" role="status">{status}</div>}
     </div>
     {!preview && <button className="shop-fullscreen" title="Enter fullscreen" onClick={() => { void document.documentElement.requestFullscreen().catch(() => setStatus("Use your browser’s fullscreen option.")); }}><Expand size={18} /> Fullscreen</button>}
