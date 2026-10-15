@@ -18,6 +18,7 @@ type Props = {
 };
 
 const navItems = [
+  { href: "/admin/shop-dashboard", label: "Shop TV dashboard", icon: ExternalLink },
   { href: "/admin/courses", label: "Training programs", icon: BookOpen },
   { href: "/admin/course-alerts", label: "Course alerts", icon: ShieldCheck },
   { href: "/admin/courses/new/classroom", label: "New program", icon: Plus },

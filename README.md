@@ -56,6 +56,29 @@ falls back to the device voice when natural audio is unavailable.
 
 ## Administration
 
+### Wood shop TV dashboard
+
+Open `/shop-display` on a TV in portrait orientation (9:16), then choose
+**Fullscreen**. Edit its content at `/admin/shop-dashboard`, also linked from
+the admin navigation. Upload JPG, PNG, or WebP project photos, add titles,
+reorder slides, and set their rotation interval. Edit the school branding,
+clock timezone, weather forecast, objectives, safety tip, and announcements.
+The preview shows unsaved edits; **Save to TV** writes them to
+`data/shop-dashboard.json` on the server. Open displays poll every 15 seconds and retain their last
+content during connection failures. There are no camera feeds. The reference's
+weather panel is manually editable; no weather service is used.
+
+No database setup is needed for the board. The JSON file is created on the first
+save and contains both settings and photo data. Before the first save, the board
+uses built-in defaults. Back up this file to preserve your board. Optionally set
+`SHOP_DASHBOARD_FILE` to an absolute path on persistent storage. File storage
+requires a writable server disk shared by the editor and TV requests; ephemeral
+or read-only hosting such as Vercel needs a persistent storage mount or service.
+The board is publicly readable; only publish content suitable for public display.
+Editor saves use the existing admin authorization policy. This repository
+currently has `ADMIN_AUTH_DISABLED = true` in `lib/admin-auth.ts`; enable the
+existing authentication before exposing editing controls to untrusted users.
+
 The administration area is available at `/admin/login`. After signing in, an
 administrator can create training programs, manage AI classroom courses, generate
 enrollment codes, view learner rosters, and remove records.

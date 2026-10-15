@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/.npm-cache/
 /.pnp
 .pnp.*
 .yarn/*
@@ -28,6 +29,8 @@ canvas-lti-private-jwk.local.json
 # local course / SCORM asset blobs (kept on disk, not in Postgres)
 /data/uploads/*
 !/data/uploads/.gitkeep
+/data/shop-dashboard.json
+/data/shop-dashboard.json.*.tmp
 
 # debug
 npm-debug.log*
