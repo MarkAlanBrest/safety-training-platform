@@ -2,8 +2,8 @@ export type ShopProject = { title: string; image: string };
 export type ShopAlarm = { time: string; message: string; durationMinutes: number; days: number[]; enabled: boolean };
 export type ShopDashboard = {
   school: string; title: string; motto: string; footer: string;
-  timezone: string; slideSeconds: number; objectives: string[];
-  safetyTip: string; announcements: string[]; projects: ShopProject[];
+  timezone: string; slideSeconds: number;
+  notesTitle: string; notes: string; projects: ShopProject[];
   weather: string;
   weatherEmbedUrl?: string;
   alarms: ShopAlarm[];
@@ -14,9 +14,8 @@ export const defaultShopDashboard: ShopDashboard = {
   motto: "Create  •  Build  •  Learn  •  Respect",
   footer: "Hubbard Carpentry Program", timezone: "America/New_York",
   slideSeconds: 12, weather: "Add today’s forecast in the dashboard editor.",
-  objectives: ["Review power tool safety", "Complete project measurements", "Continue shop projects", "Clean and organize workstations"],
-  safetyTip: "Always keep your hands away from the blade and use a push stick when cutting small pieces.",
-  announcements: ["Complete your safety test before operating equipment.", "Return all tools to their proper place.", "Keep work areas clean.", "Great job on the new benches!"],
+  notesTitle: "Shop notes",
+  notes: "Complete your safety test before operating equipment.\nAlways keep your hands away from the blade and use a push stick when cutting small pieces.\nReturn all tools to their proper place and keep work areas clean.\nGreat job on the new benches!",
   projects: [], weatherEmbedUrl: "", alarms: [],
 };
 
@@ -39,10 +38,6 @@ export function validateShopDashboard(value: unknown): ShopDashboard {
     if (typeof v[key] !== "string" || (v[key] as string).length > max) throw new Error(`Invalid ${key} (maximum ${max} characters).`);
     return (v[key] as string).trim();
   };
-  const lines = (key: string, max: number) => {
-    if (!Array.isArray(v[key]) || v[key].length > max || v[key].some((s: unknown) => typeof s !== "string" || s.length > 110)) throw new Error(`${key}: use up to ${max} lines of 110 characters.`);
-    return (v[key] as string[]).map(s => s.trim()).filter(Boolean);
-  };
   const timezone = str("timezone", 80);
   try { new Intl.DateTimeFormat("en-US", { timeZone: timezone }); } catch { throw new Error("Enter a valid timezone, such as America/New_York."); }
   if (!Number.isInteger(v.slideSeconds) || Number(v.slideSeconds) < 5 || Number(v.slideSeconds) > 120) throw new Error("Slide duration must be 5–120 seconds.");
@@ -59,7 +54,15 @@ export function validateShopDashboard(value: unknown): ShopDashboard {
   if (v.weatherEmbedUrl !== undefined && typeof v.weatherEmbedUrl !== "string") throw new Error("Invalid weather widget URL.");
   const weatherEmbedUrl = parseWeatherEmbed((v.weatherEmbedUrl as string | undefined) ?? "");
   const alarms = validateShopAlarms(v.alarms);
-  return { school, title, motto: str("motto", 80), footer: str("footer", 80), timezone, slideSeconds: Number(v.slideSeconds), weather: str("weather", 120), weatherEmbedUrl, objectives: lines("objectives", 4), safetyTip: str("safetyTip", 240), announcements: lines("announcements", 4), projects, alarms };
+  const notesTitle = v.notesTitle === undefined ? defaultShopDashboard.notesTitle : str("notesTitle", 40);
+  const notes = v.notes === undefined ? legacyNotes(v) : str("notes", 600);
+  return { school, title, motto: str("motto", 80), footer: str("footer", 80), timezone, slideSeconds: Number(v.slideSeconds), weather: str("weather", 120), weatherEmbedUrl, notesTitle, notes, projects, alarms };
+}
+
+// Boards saved before the single notes box kept objectives, a safety tip, and announcements separately.
+function legacyNotes(v: Record<string, unknown>): string {
+  const lines = [v.objectives, v.safetyTip, v.announcements].flat().filter((s): s is string => typeof s === "string" && !!s.trim());
+  return lines.length ? lines.map(s => s.trim()).join("\n").slice(0, 600) : defaultShopDashboard.notes;
 }
 
 function validateShopAlarms(value: unknown): ShopAlarm[] {

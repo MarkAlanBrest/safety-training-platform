@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Hammer, Trees, ShieldCheck, ClipboardList, Megaphone, Expand } from "lucide-react";
+import { Hammer, Trees, Megaphone, Expand } from "lucide-react";
 import ShopWeather from "@/components/ShopWeather";
 import { activeShopAlarm, defaultShopDashboard, type ShopDashboard } from "@/lib/shop-dashboard";
 import "@/app/shop-display/shop-display.css";
@@ -46,8 +46,7 @@ export default function ShopDisplay({ preview }: { preview?: ShopDashboard }) {
       <header className="shop-brand shop-wood"><div className="shop-emblem"><Trees /></div><div><p>{data.school}</p><h1>{data.title}</h1><small>{data.motto}</small></div><div className="shop-creed"><Hammer /><span>Good work<br />builds<br />good people.</span></div></header>
       <div className="shop-info"><section className="shop-chalk shop-clock"><p>{format({ weekday: "long" })}</p><span>{format({ month: "long", day: "numeric", year: "numeric" })}</span><strong>{format({ hour: "numeric", minute: "2-digit" })}</strong></section><ShopWeather /></div>
       <section className="shop-chalk shop-projects"><h2 className="shop-wood"><Hammer /> Student project spotlight <span>{data.projects.length ? `${slide % data.projects.length + 1} / ${data.projects.length}` : "Made in our shop"}</span></h2><div className="shop-photo">{project ? <img key={project.image} src={project.image} alt={project.title} /> : <div className="shop-empty"><Hammer /><p>Great things are taking shape.</p><span>Project photos will appear here.</span></div>}<div className="shop-caption"><span>CRAFTSMANSHIP IN THE MAKING</span><h3>{project?.title ?? "Our next great project starts here"}</h3></div></div></section>
-      <div className="shop-daily"><section className="shop-chalk"><h2 className="shop-wood"><ClipboardList /> Today’s objectives</h2><ul className="shop-objectives">{data.objectives.map((line, i) => <li key={i}><span>□</span>{line}</li>)}</ul></section><section className="shop-chalk shop-safety"><h2 className="shop-wood"><ShieldCheck /> Daily safety tip</h2><div><p>{data.safetyTip}</p><strong>Safety first • Every day</strong></div></section></div>
-      <section className="shop-chalk shop-announcements"><h2 className="shop-wood"><Megaphone /> Announcements</h2><div><ul>{data.announcements.map((line, i) => <li key={i}><span>◆</span>{line}</li>)}</ul><p className="shop-signoff">Build skills.<br />Build character.<Trees /></p></div></section>
+      <section className="shop-chalk shop-notes"><h2 className="shop-wood"><Megaphone /> {data.notesTitle}</h2><p>{data.notes}</p></section>
       <footer className="shop-wood"><Trees />{data.footer}<Trees /></footer>
       {alarm && <section className="shop-alarm-overlay" role="status" aria-live="polite"><Megaphone aria-hidden="true" /><p>Shop announcement</p><h2>{alarm.message}</h2><span>The regular screen will return automatically.</span></section>}
       {status && <div className="shop-status" role="status">{status}</div>}

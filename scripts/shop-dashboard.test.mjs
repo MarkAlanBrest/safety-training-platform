@@ -27,9 +27,16 @@ test("rejects unsafe images, invalid clock settings, and content that overflows"
     { projects: [{ title: "Bench", image: "data:image/svg+xml;base64,YWJj" }] },
     { projects: [{ title: "", image: "data:image/jpeg;base64,YWJj" }] },
     { timezone: "not/a/timezone" }, { slideSeconds: 0 }, { slideSeconds: 5.5 },
-    { school: " " }, { safetyTip: "a".repeat(241) },
-    { objectives: ["1", "2", "3", "4", "5"] }, { announcements: ["a".repeat(111)] },
+    { school: " " }, { notes: "a".repeat(601) }, { notes: 5 }, { notesTitle: "a".repeat(41) },
   ]) assert.throws(() => validateShopDashboard({ ...defaultShopDashboard, ...patch }));
+});
+test("boards saved with separate objectives, tip, and announcements keep that text in the notes box", () => {
+  const legacy = { ...defaultShopDashboard, objectives: ["Measure twice"], safetyTip: " Wear goggles ", announcements: ["Bench sale Friday"] };
+  delete legacy.notes; delete legacy.notesTitle;
+  const result = validateShopDashboard(legacy);
+  assert.equal(result.notes, "Measure twice\nWear goggles\nBench sale Friday");
+  assert.equal(result.notesTitle, defaultShopDashboard.notesTitle);
+  assert.equal("objectives" in result, false);
 });
 test("rejects collections exceeding the hosting request budget", () => {
   const project = { title: "Bench", image: "data:image/jpeg;base64," + "a".repeat(650000) };
