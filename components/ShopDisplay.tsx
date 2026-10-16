@@ -37,6 +37,8 @@ export default function ShopDisplay({ preview }: { preview?: ShopDashboard }) {
   }, [data.slideSeconds]);
   const project = data.projects.length ? data.projects[slide % data.projects.length] : null;
   const alarm = now ? activeShopAlarm(data.alarms ?? [], now, data.timezone) : null;
+  // Alternate every 5 seconds. Alarms start on a whole minute, so each one opens on the alarm screen.
+  const showAlarm = !!alarm && !!now && Math.floor(now.getTime() / 5000) % 2 === 0;
   const format = (options: Intl.DateTimeFormatOptions) => {
     try { return now?.toLocaleString("en-US", { timeZone: data.timezone, ...options }) ?? "—"; }
     catch { return "Check timezone"; }
@@ -48,7 +50,7 @@ export default function ShopDisplay({ preview }: { preview?: ShopDashboard }) {
       <section className="shop-chalk shop-projects"><h2 className="shop-wood"><Hammer /> Student project spotlight <span>{data.projects.length ? `${slide % data.projects.length + 1} / ${data.projects.length}` : "Made in our shop"}</span></h2><div className="shop-photo">{project ? <img key={project.image} src={project.image} alt={project.title} /> : <div className="shop-empty"><Hammer /><p>Great things are taking shape.</p><span>Project photos will appear here.</span></div>}<div className="shop-caption"><span>CRAFTSMANSHIP IN THE MAKING</span><h3>{project?.title ?? "Our next great project starts here"}</h3></div></div></section>
       <section className="shop-chalk shop-notes"><h2 className="shop-wood"><Megaphone /> {data.notesTitle}</h2><p>{data.notes}</p></section>
       <footer className="shop-wood"><Trees />{data.footer}<Trees /></footer>
-      {alarm && <section className="shop-alarm-overlay" role="status" aria-live="polite"><Megaphone aria-hidden="true" /><p>Shop announcement</p><h2>{alarm.message}</h2><span>The regular screen will return automatically.</span></section>}
+      {alarm && showAlarm && <section className="shop-alarm-overlay" role="status" aria-live="polite"><div><Megaphone aria-hidden="true" /><p>Shop announcement</p><h2 className={alarm.message.length > 90 ? "shop-alarm-long" : alarm.message.length > 30 ? "shop-alarm-medium" : ""}>{alarm.message}</h2></div></section>}
       {status && <div className="shop-status" role="status">{status}</div>}
     </div>
     {!preview && <button className="shop-fullscreen" title="Enter fullscreen" onClick={() => { void document.documentElement.requestFullscreen().catch(() => setStatus("Use your browser’s fullscreen option.")); }}><Expand size={18} /> Fullscreen</button>}

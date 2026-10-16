@@ -92,11 +92,11 @@ export default function ShopEditor() {
             <label>Message<textarea rows={3} maxLength={240} value={alarm.message} onChange={e => change({ message: e.target.value })} /></label>
             <label>Display for (minutes)<input type="number" min={1} max={30} value={alarm.durationMinutes} onChange={e => change({ durationMinutes: Number(e.target.value) })} /></label>
             <div role="group" aria-label={`Days for announcement ${index + 1}`} className="shop-alarm-days">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, value) => <label key={day}><input type="checkbox" checked={alarm.days.includes(value)} onChange={e => change({ days: e.target.checked ? [...alarm.days, value] : alarm.days.filter(d => d !== value) })} />{day}</label>)}</div>
-            <button onClick={() => update("alarms", draft.alarms.filter((_, i) => i !== index))}>Remove announcement {index + 1}</button>
+            <button className="shop-alarm-remove" onClick={() => update("alarms", draft.alarms.filter((_, i) => i !== index))}>Remove announcement {index + 1}</button>
           </div>;
         })}
         <button disabled={draft.alarms.length >= 30} onClick={() => update("alarms", [...draft.alarms, { time: "14:00", message: "Time For Clean Up", durationMinutes: 3, days: [1, 2, 3, 4, 5], enabled: true }])}>Add scheduled announcement</button>
-        <small>Up to 30 announcements. New announcements default to weekdays and three minutes. Save to TV to apply your schedule.</small>
+        <small>Up to 30 announcements. New announcements default to weekdays and three minutes. While an announcement is on, the TV switches between it and the regular board every 5 seconds. Save to TV to apply your schedule.</small>
       </section>
       <section><h2>Weather for Hubbard, OH 44425</h2><p>The board embeds its own weather webpage with National Weather Service forecasts. It updates every 15 minutes automatically.</p><p><a href="/shop-weather" target="_blank" rel="noreferrer">Open the weather webpage</a></p></section>
       <section><h2>Student project spotlight</h2><p>Add up to 12 photos. Images are resized automatically and stored with the board.</p><label>Seconds per photo<input type="number" min={5} max={120} value={draft.slideSeconds} onChange={e => update("slideSeconds", Number(e.target.value))} /></label><label className="shop-upload">Add project photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={upload} /></label>
