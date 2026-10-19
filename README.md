@@ -66,12 +66,18 @@ reorder slides, and set their rotation interval. Edit the school branding,
 clock timezone, weather forecast, objectives, safety tip, and announcements.
 The preview shows unsaved edits; **Save to TV** writes settings and photo data
 to one JSON record in PostgreSQL. Open displays poll every 15 seconds and retain their last
-content during connection failures. There are no camera feeds. The reference's
-weather panel embeds `/shop-weather`, a dedicated webpage for Hubbard, Ohio
+content during connection failures. The reference's weather panel embeds
+`/shop-weather`, a dedicated webpage for Hubbard, Ohio
 44425 using National Weather Service data. It shows this hour's forecast and
 three upcoming daytime forecasts, refreshing every 15 minutes. No API key,
 external widget account, or embed configuration is required. On service errors,
 the page retains the last forecast and labels it as disconnected while retrying.
+
+The bottom of the display shares space between the shop notes and a Ring account
+panel. Ring may block sign-in pages from loading in an embedded frame or require
+you to sign in again; use **Open Ring in a new tab** in that case. This panel
+opens Ring's account dashboard and does not provide a direct camera-stream
+integration.
 
 The board uses the site's existing `DATABASE_URL`. The Vercel build automatically
 creates the `ShopDashboard` table if missing, without modifying other tables.
