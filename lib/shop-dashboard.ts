@@ -89,8 +89,9 @@ function validateShopAlarms(value: unknown): ShopAlarm[] {
     if (!Number.isInteger(a.durationMinutes) || a.durationMinutes < 1 || a.durationMinutes > 30) throw new Error("Announcement duration must be 1–30 minutes.");
     if (typeof a.enabled !== "boolean" || !Array.isArray(a.days) || !a.days.length || a.days.length > 7 || a.days.some(day => !Number.isInteger(day) || day < 0 || day > 6)) throw new Error("Choose at least one day for each announcement.");
     const students = a.students === undefined ? [] : a.students;
-    if (!Array.isArray(students) || students.length > 60 || students.some(student => typeof student !== "string" || !student.trim() || student.length > 80)) throw new Error("Each announcement can have up to 60 students. Student names must be 1–80 characters.");
-    const normalizedStudents = students.map(student => student.trim());
+    if (!Array.isArray(students) || students.some(student => typeof student !== "string")) throw new Error("Student names must be text.");
+    const normalizedStudents = students.map(student => student.trim()).filter(Boolean);
+    if (normalizedStudents.length > 60 || normalizedStudents.some(student => student.length > 80)) throw new Error("Each announcement can have up to 60 students. Student names must be 1–80 characters.");
     if (new Set(normalizedStudents.map(student => student.toLocaleLowerCase())).size !== normalizedStudents.length) throw new Error("Remove duplicate student names from each announcement.");
     const cleanupTasks = a.cleanupTasks === undefined ? emptyCleanupTasks() : a.cleanupTasks;
     if (!cleanupTasks || typeof cleanupTasks !== "object" || Array.isArray(cleanupTasks)) throw new Error("Invalid cleanup task descriptions.");
@@ -114,7 +115,7 @@ export function assignCleanupStudents(alarm: ShopAlarm, seed: string): Record<Sh
     return (state >>> 0) / 4294967296;
   };
   const result: Record<ShopCleanupCategory, string[]> = { tools: [], tables: [], floors: [], backRoom: [] };
-  const students = [...alarm.students];
+  const students = alarm.students.map(student => student.trim()).filter(Boolean);
   for (let i = students.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
     [students[i], students[j]] = [students[j], students[i]];

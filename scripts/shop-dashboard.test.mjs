@@ -52,7 +52,7 @@ test("scheduled announcements validate and old boards have an empty schedule", (
   for (const patch of [{ time: "25:00" }, { message: " " }, { durationMinutes: 0 }, { durationMinutes: 1.5 }, { days: [] }, { days: [7] }, { enabled: "yes" }]) {
     assert.throws(() => validateShopDashboard({ ...defaultShopDashboard, alarms: [{ ...alarm, ...patch }] }));
   }
-  for (const patch of [{ students: ["Sam", " sam "] }, { students: [""] }, { students: Array(61).fill("Student") }, { cleanupTasks: { tools: "x".repeat(401) } }]) {
+  for (const patch of [{ students: ["Sam", " sam "] }, { students: [5] }, { students: Array(61).fill("Student") }, { cleanupTasks: { tools: "x".repeat(401) } }]) {
     assert.throws(() => validateShopDashboard({ ...defaultShopDashboard, alarms: [{ ...alarm, ...patch }] }));
   }
   assert.equal(validateShopDashboard({ ...defaultShopDashboard, alarms: Array(7).fill(alarm) }).alarms.length, 7);
@@ -67,6 +67,12 @@ test("cleanup assignments are stable, include every student once, and cap the ba
   assert.deepEqual(repeated, first);
   assert.ok(first.backRoom.length <= 2);
   assert.deepEqual(Object.values(first).flat().sort(), [...students].sort());
+});
+test("student lists preserve new lines while editing and discard blank lines when saved", () => {
+  const legacy = { ...defaultShopDashboard, alarms: [{ ...alarm, students: ["  Sam ", "", " Taylor  ", ""] }] };
+  const saved = validateShopDashboard(legacy).alarms[0];
+  assert.deepEqual(saved.students, ["Sam", "Taylor"]);
+  assert.deepEqual(Object.values(assignCleanupStudents(legacy.alarms[0], "seed")).flat().sort(), ["Sam", "Taylor"]);
 });
 test("announcements follow the board timezone and end precisely after three minutes", () => {
   const active = iso => activeShopAlarm([alarm], new Date(iso), "America/New_York");
