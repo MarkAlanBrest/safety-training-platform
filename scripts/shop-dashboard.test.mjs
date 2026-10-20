@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assignCleanupStudents, defaultShopDashboard, validateShopDashboard, parseWeatherEmbed, activeShopAlarm } from "../lib/shop-dashboard.ts";
+import { assignCleanupStudents, defaultShopDashboard, validateShopDashboard, parseWeatherEmbed, activeShopAlarm, formatShopDateTime } from "../lib/shop-dashboard.ts";
 
 test("weather embeds extract the iframe URL without executing surrounding HTML", () => {
   const url = "https://www.meteoblue.com/en/weather/widget/daily/example_123?days=3&layout=dark";
@@ -89,4 +89,11 @@ test("announcements cross midnight and latest start wins overlaps", () => {
   assert.equal(activeShopAlarm([midnight], new Date("2026-10-16T04:02:00Z"), "America/New_York"), null);
   const later = { ...alarm, time: "14:01" };
   assert.equal(activeShopAlarm([alarm, later], new Date("2026-10-15T18:01:30Z"), "America/New_York"), later);
+});
+test("clock banner puts weekday, ordinal date, and time on one line", () => {
+  assert.equal(formatShopDateTime(new Date("2026-10-20T23:53:00Z"), "America/New_York"), "Tuesday - Oct, 20th   7:53 PM");
+  assert.equal(formatShopDateTime(new Date("2026-10-21T00:53:00Z"), "America/New_York"), "Tuesday - Oct, 20th   8:53 PM");
+  assert.equal(formatShopDateTime(new Date("2026-10-21T00:53:00Z"), "UTC"), "Wednesday - Oct, 21st   12:53 AM");
+  assert.equal(formatShopDateTime(new Date("2026-10-22T00:53:00Z"), "UTC"), "Thursday - Oct, 22nd   12:53 AM");
+  assert.equal(formatShopDateTime(new Date("2026-10-23T00:53:00Z"), "UTC"), "Friday - Oct, 23rd   12:53 AM");
 });

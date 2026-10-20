@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Hammer, Trees, Megaphone, Expand, Video } from "lucide-react";
 import ShopWebcam from "@/components/ShopWebcam";
-import { activeShopAlarm, assignCleanupStudents, defaultShopDashboard, SHOP_CLEANUP_CATEGORIES, shopCleanupCategoryLabels, shopDateKey, type ShopDashboard } from "@/lib/shop-dashboard";
+import { activeShopAlarm, assignCleanupStudents, defaultShopDashboard, formatShopDateTime, SHOP_CLEANUP_CATEGORIES, shopCleanupCategoryLabels, shopDateKey, type ShopDashboard } from "@/lib/shop-dashboard";
 import "@/app/shop-display/shop-display.css";
 
 export default function ShopDisplay({ preview }: { preview?: ShopDashboard }) {
@@ -43,10 +43,13 @@ export default function ShopDisplay({ preview }: { preview?: ShopDashboard }) {
     try { return now?.toLocaleString("en-US", { timeZone: data.timezone, ...options }) ?? "—"; }
     catch { return "Check timezone"; }
   };
+  let clockLabel = "—";
+  try { if (now) clockLabel = formatShopDateTime(now, data.timezone); }
+  catch { clockLabel = "Check timezone"; }
   return <div className={`shop-screen ${preview ? "shop-preview" : ""}`}>
     <div className="shop-board">
       <header className="shop-brand shop-wood"><div className="shop-emblem"><Trees /></div><div><p>{data.school}</p><h1>{data.title}</h1><small>{data.motto}</small></div><div className="shop-creed"><Hammer /><span>Good work<br />builds<br />good people.</span></div></header>
-      <div className="shop-info"><section className="shop-clock shop-clock-banner"><div className="shop-clock-date"><p>{format({ weekday: "long" })}</p><span>{format({ month: "long", day: "numeric", year: "numeric" })}</span></div><strong>{format({ hour: "numeric", minute: "2-digit" })}</strong></section></div>
+      <div className="shop-info"><section className="shop-clock shop-clock-banner"><strong>{clockLabel}</strong></section></div>
       <section className="shop-chalk shop-projects"><h2 className="shop-wood"><Hammer /> Student project spotlight <span>{data.projects.length ? `${slide % data.projects.length + 1} / ${data.projects.length}` : "Made in our shop"}</span></h2><div className="shop-photo">{project ? <img key={project.image} src={project.image} alt={project.title} /> : <div className="shop-empty"><Hammer /><p>Great things are taking shape.</p><span>Project photos will appear here.</span></div>}<div className="shop-caption"><span>CRAFTSMANSHIP IN THE MAKING</span><h3>{project?.title ?? "Our next great project starts here"}</h3></div></div></section>
       <div className="shop-lower-panels">
         <section className="shop-chalk shop-notes"><h2 className="shop-wood"><Megaphone /> {data.notesTitle}</h2><p>{data.notes}</p></section>

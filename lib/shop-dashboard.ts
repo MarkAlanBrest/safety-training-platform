@@ -135,6 +135,22 @@ export function shopDateKey(now: Date, timezone: string): string {
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
+export function formatShopDateTime(now: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).formatToParts(now);
+  const part = (name: string) => parts.find(value => value.type === name)?.value ?? "";
+  const day = Number(part("day"));
+  const lastTwoDigits = day % 100;
+  const ordinal = lastTwoDigits >= 11 && lastTwoDigits <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[day % 10] ?? "th";
+  return `${part("weekday")} - ${part("month")}, ${day}${ordinal}   ${part("hour")}:${part("minute")} ${part("dayPeriod")}`;
+}
+
 // Use the board's wall clock; the latest scheduled start wins when windows overlap.
 export function activeShopAlarm(alarms: ShopAlarm[], now: Date, timezone: string): ShopAlarm | null {
   let parts: Intl.DateTimeFormatPart[];
