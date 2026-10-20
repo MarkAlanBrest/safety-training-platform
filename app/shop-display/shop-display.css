@@ -5,9 +5,9 @@
 .shop-clock{width:84%;padding:1cqw 3cqw;display:flex;flex-direction:row;align-items:center;justify-content:space-between}
 .shop-clock-banner{color:#f5ebd4;background:linear-gradient(110deg,#173b32,#285347 55%,#173b32);border:1px solid #c18d48;box-shadow:inset 0 0 0 2px #d8b77733,0 2px 5px #0009}
 .shop-clock-date{display:flex;flex-direction:column;align-items:flex-start}
-.shop-clock p{text-transform:uppercase;font:600 2.8cqw var(--font-oswald);letter-spacing:.1cqw;margin:0;color:#e7b746}
-.shop-clock-date span{font-size:2.2cqw;text-transform:uppercase}
-.shop-clock strong{font:700 6.5cqw/1 var(--font-oswald);white-space:nowrap}
+.shop-clock p{text-transform:uppercase;font:600 3.4cqw var(--font-oswald);letter-spacing:.1cqw;margin:0;color:#e7b746}
+.shop-clock-date span{font-size:2.7cqw;text-transform:uppercase}
+.shop-clock strong{font:700 7.5cqw/1 var(--font-oswald);white-space:nowrap}
 .shop-alarm-overlay{padding:3cqw;background:radial-gradient(ellipse at 50% 0%,#244638,#101914 75%);border:1px solid #8d7549}
 .shop-alarm-overlay>div.shop-cleanup-board{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:2.5cqw;padding:2cqw;background:transparent;color:#f7f2e5;text-align:left;border:0;overflow:hidden}
 .shop-cleanup-header{display:flex;align-items:center;gap:2cqw;flex-shrink:0;padding:1cqw 2cqw}
