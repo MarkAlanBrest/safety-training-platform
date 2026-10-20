@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { defaultShopDashboard, validateShopDashboard, parseWeatherEmbed, activeShopAlarm } from "../lib/shop-dashboard.ts";
+import { assignCleanupStudents, defaultShopDashboard, validateShopDashboard, parseWeatherEmbed, activeShopAlarm } from "../lib/shop-dashboard.ts";
 
 test("weather embeds extract the iframe URL without executing surrounding HTML", () => {
   const url = "https://www.meteoblue.com/en/weather/widget/daily/example_123?days=3&layout=dark";
@@ -46,13 +46,28 @@ test("rejects collections exceeding the hosting request budget", () => {
 test("scheduled announcements validate and old boards have an empty schedule", () => {
   const legacy = { ...defaultShopDashboard }; delete legacy.alarms;
   assert.deepEqual(validateShopDashboard(legacy).alarms, []);
+  const oldAlarm = validateShopDashboard({ ...defaultShopDashboard, alarms: [alarm] }).alarms[0];
+  assert.deepEqual(oldAlarm.students, []);
+  assert.deepEqual(oldAlarm.cleanupTasks, { tools: "", tables: "", floors: "", backRoom: "" });
   for (const patch of [{ time: "25:00" }, { message: " " }, { durationMinutes: 0 }, { durationMinutes: 1.5 }, { days: [] }, { days: [7] }, { enabled: "yes" }]) {
+    assert.throws(() => validateShopDashboard({ ...defaultShopDashboard, alarms: [{ ...alarm, ...patch }] }));
+  }
+  for (const patch of [{ students: ["Sam", " sam "] }, { students: [""] }, { students: Array(61).fill("Student") }, { cleanupTasks: { tools: "x".repeat(401) } }]) {
     assert.throws(() => validateShopDashboard({ ...defaultShopDashboard, alarms: [{ ...alarm, ...patch }] }));
   }
   assert.equal(validateShopDashboard({ ...defaultShopDashboard, alarms: Array(7).fill(alarm) }).alarms.length, 7);
 });
 
 const alarm = { time: "14:00", message: "Time For Clean Up", durationMinutes: 3, days: [1, 2, 3, 4, 5], enabled: true };
+test("cleanup assignments are stable, include every student once, and cap the back room at two", () => {
+  const students = Array.from({ length: 37 }, (_, index) => `Student ${index + 1}`);
+  const cleanupAlarm = validateShopDashboard({ ...defaultShopDashboard, alarms: [{ ...alarm, students }] }).alarms[0];
+  const first = assignCleanupStudents(cleanupAlarm, "2026-10-20:14:00:0");
+  const repeated = assignCleanupStudents(cleanupAlarm, "2026-10-20:14:00:0");
+  assert.deepEqual(repeated, first);
+  assert.ok(first.backRoom.length <= 2);
+  assert.deepEqual(Object.values(first).flat().sort(), [...students].sort());
+});
 test("announcements follow the board timezone and end precisely after three minutes", () => {
   const active = iso => activeShopAlarm([alarm], new Date(iso), "America/New_York");
   assert.equal(active("2026-10-15T17:59:59Z"), null);

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, type ChangeEvent } from "react";
 import ShopDisplay from "@/components/ShopDisplay";
-import { defaultShopDashboard, validateShopDashboard, type ShopDashboard } from "@/lib/shop-dashboard";
+import { defaultShopDashboard, SHOP_CLEANUP_CATEGORIES, shopCleanupCategoryLabels, validateShopDashboard, type ShopDashboard } from "@/lib/shop-dashboard";
 import "./editor.css";
 
 async function resizePhoto(file: File): Promise<string> {
@@ -83,20 +83,22 @@ export default function ShopEditor() {
     <p role="status" className="shop-editor-status">{message || (dirty ? "Unsaved changes" : loaded ? "Ready to edit" : "Loading saved content…")}</p>
     <div className="shop-editor-layout"><fieldset disabled={!loaded || busy} className="shop-editor-fields">
       <section><h2>Board identity</h2>{textField("school", "School name", 60)}{textField("title", "Board title", 30)}{textField("motto", "Motto", 80)}{textField("footer", "Footer", 80)}{textField("timezone", "Clock timezone", 80)}<small>Use an IANA timezone, such as America/New_York.</small></section>
-      <section><h2>Scheduled announcements</h2><p>Show a message over the board, then automatically return to the regular screen. Times use {draft.timezone}. Keep the display open for announcements to appear. If times overlap, the most recent announcement takes priority.</p>
+      <section><h2>Scheduled cleanup alarms</h2><p>Each alarm has its own student list and task descriptions. When it starts, students are randomly split across the four areas and the assignment stays fixed until the alarm ends. Back Room can have no more than two students. Times use {draft.timezone}; if alarms overlap, the most recent start takes priority.</p>
         {draft.alarms.map((alarm, index) => {
           const change = (patch: Partial<typeof alarm>) => update("alarms", draft.alarms.map((a, i) => i === index ? { ...a, ...patch } : a));
-          return <div className="shop-alarm-edit" key={index}><h3>Announcement {index + 1}</h3>
+          return <div className="shop-alarm-edit" key={index}><h3>Cleanup alarm {index + 1}</h3>
             <label><input type="checkbox" checked={alarm.enabled} onChange={e => change({ enabled: e.target.checked })} /> Enabled</label>
             <label>Time<input type="time" value={alarm.time} onChange={e => change({ time: e.target.value })} /></label>
-            <label>Message<textarea rows={3} maxLength={240} value={alarm.message} onChange={e => change({ message: e.target.value })} /></label>
+            <label>Screen heading<textarea rows={2} maxLength={240} value={alarm.message} onChange={e => change({ message: e.target.value })} /></label>
             <label>Display for (minutes)<input type="number" min={1} max={30} value={alarm.durationMinutes} onChange={e => change({ durationMinutes: Number(e.target.value) })} /></label>
             <div role="group" aria-label={`Days for announcement ${index + 1}`} className="shop-alarm-days">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, value) => <label key={day}><input type="checkbox" checked={alarm.days.includes(value)} onChange={e => change({ days: e.target.checked ? [...alarm.days, value] : alarm.days.filter(d => d !== value) })} />{day}</label>)}</div>
-            <button className="shop-alarm-remove" onClick={() => update("alarms", draft.alarms.filter((_, i) => i !== index))}>Remove announcement {index + 1}</button>
+            <label>Students · one name per line<textarea rows={6} maxLength={5000} value={alarm.students.join("\n")} onChange={e => change({ students: e.target.value.split(/\r?\n/).map(name => name.trim()).filter(Boolean) })} /></label>
+            <div className="shop-cleanup-task-edit"><h4>Cleanup task descriptions</h4>{SHOP_CLEANUP_CATEGORIES.map(category => <label key={category}>{shopCleanupCategoryLabels[category]} · what should students do?<textarea rows={3} maxLength={400} value={alarm.cleanupTasks[category]} onChange={e => change({ cleanupTasks: { ...alarm.cleanupTasks, [category]: e.target.value } })} /></label>)}</div>
+            <button className="shop-alarm-remove" onClick={() => update("alarms", draft.alarms.filter((_, i) => i !== index))}>Remove cleanup alarm {index + 1}</button>
           </div>;
         })}
-        <button disabled={draft.alarms.length >= 30} onClick={() => update("alarms", [...draft.alarms, { time: "14:00", message: "Time For Clean Up", durationMinutes: 3, days: [1, 2, 3, 4, 5], enabled: true }])}>Add scheduled announcement</button>
-        <small>Up to 30 announcements. New announcements default to weekdays and three minutes. While an announcement is on, the TV switches between it and the regular board every 5 seconds. Save to TV to apply your schedule.</small>
+        <button disabled={draft.alarms.length >= 30} onClick={() => update("alarms", [...draft.alarms, { time: "14:00", message: "Time For Clean Up", durationMinutes: 3, days: [1, 2, 3, 4, 5], enabled: true, students: [], cleanupTasks: { tools: "", tables: "", floors: "", backRoom: "" } }])}>Add scheduled cleanup alarm</button>
+        <small>Up to 30 alarms. New alarms default to weekdays and three minutes. Save to TV to apply your schedule.</small>
       </section>
       <section><h2>Weather for Hubbard, OH 44425</h2><p>The board embeds its own weather webpage with National Weather Service forecasts. It updates every 15 minutes automatically.</p><p><a href="/shop-weather" target="_blank" rel="noreferrer">Open the weather webpage</a></p></section>
       <section><h2>Student project spotlight</h2><p>Add up to 12 photos. Images are resized automatically and stored with the board.</p><label>Seconds per photo<input type="number" min={5} max={120} value={draft.slideSeconds} onChange={e => update("slideSeconds", Number(e.target.value))} /></label><label className="shop-upload">Add project photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={upload} /></label>

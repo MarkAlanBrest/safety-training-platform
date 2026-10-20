@@ -7,3 +7,18 @@
 .shop-clock p{text-transform:uppercase;font:600 2.8cqw var(--font-oswald);letter-spacing:.1cqw;margin:0}
 .shop-clock-date span{font-size:2.2cqw;text-transform:uppercase}
 .shop-clock strong{font:700 6.5cqw/1 var(--font-oswald);white-space:nowrap}
+.shop-alarm-overlay{padding:3cqw;background:radial-gradient(ellipse at 50% 0%,#244638,#101914 75%);border:1px solid #8d7549}
+.shop-alarm-overlay>div.shop-cleanup-board{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:2.5cqw;padding:2cqw;background:transparent;color:#f7f2e5;text-align:left;border:0;overflow:hidden}
+.shop-cleanup-header{display:flex;align-items:center;gap:2cqw;flex-shrink:0;padding:1cqw 2cqw}
+.shop-cleanup-header svg{width:7cqw;height:7cqw;flex-shrink:0;color:#e7b746;animation:none}
+.shop-cleanup-header p{font:700 2.5cqw var(--font-oswald),sans-serif;text-transform:uppercase;letter-spacing:.3cqw;color:#e7b746;margin:0}
+.shop-cleanup-header h2{font:900 6cqw/1.1 Impact,var(--font-oswald),sans-serif;text-transform:uppercase;overflow-wrap:anywhere;margin:.7cqw 0 0}
+.shop-cleanup-grid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:1.6cqw}
+.shop-cleanup-card{min-height:0;overflow:auto;padding:1.8cqw;background:#242a26;border:1px solid #6c705d;border-top:1cqw solid #d2a354;border-radius:4px}
+.shop-cleanup-backRoom{border-top-color:#83a88c}
+.shop-cleanup-card h3{font:700 3.6cqw/1.1 var(--font-oswald),sans-serif;text-transform:uppercase;color:#e7b746;margin:0 0 1cqw}
+.shop-cleanup-card>p{font:400 2.25cqw/1.35 var(--font-roboto-condensed),sans-serif;color:#f2f0e8;white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 1cqw}
+.shop-cleanup-card ul{list-style:none;padding:0;margin:0;border-top:1px solid #ffffff2a;columns:2;column-gap:1.2cqw}
+.shop-cleanup-card li{font:600 2.3cqw/1.1 var(--font-oswald),sans-serif;padding:.45cqw 0;border-bottom:1px solid #ffffff1c;overflow-wrap:anywhere;break-inside:avoid}
+.shop-cleanup-card li.shop-cleanup-unassigned{font-size:2.2cqw;color:#aeb8ae;font-style:italic}
+.shop-cleanup-board>footer{height:auto;flex-shrink:0;text-align:center;color:#c5b58f;font:600 2cqw var(--font-oswald),sans-serif;letter-spacing:.2cqw;text-transform:uppercase}

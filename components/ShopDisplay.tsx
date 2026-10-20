@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Hammer, Trees, Megaphone, Expand, Video } from "lucide-react";
-import { activeShopAlarm, defaultShopDashboard, type ShopDashboard } from "@/lib/shop-dashboard";
+import { activeShopAlarm, assignCleanupStudents, defaultShopDashboard, SHOP_CLEANUP_CATEGORIES, shopCleanupCategoryLabels, shopDateKey, type ShopDashboard } from "@/lib/shop-dashboard";
 import "@/app/shop-display/shop-display.css";
 
 const RING_DASHBOARD_URL = "https://ring.com/users/sign_in?return=account&path=%2Faccount%2Fdashboard%3Fl%3D6dd9d39e-848d-49e7-8bc5-4f7561ffd363%26lv_d%3D720198591";
@@ -38,8 +38,8 @@ export default function ShopDisplay({ preview }: { preview?: ShopDashboard }) {
   }, [data.slideSeconds]);
   const project = data.projects.length ? data.projects[slide % data.projects.length] : null;
   const alarm = now ? activeShopAlarm(data.alarms ?? [], now, data.timezone) : null;
-  // Alternate every 5 seconds. Alarms start on a whole minute, so each one opens on the alarm screen.
-  const showAlarm = !!alarm && !!now && Math.floor(now.getTime() / 5000) % 2 === 0;
+  const alarmIndex = alarm ? data.alarms.indexOf(alarm) : -1;
+  const assignments = alarm && now ? assignCleanupStudents(alarm, `${shopDateKey(now, data.timezone)}:${alarm.time}:${alarmIndex}`) : null;
   const format = (options: Intl.DateTimeFormatOptions) => {
     try { return now?.toLocaleString("en-US", { timeZone: data.timezone, ...options }) ?? "—"; }
     catch { return "Check timezone"; }
@@ -54,7 +54,7 @@ export default function ShopDisplay({ preview }: { preview?: ShopDashboard }) {
         <section className="shop-chalk shop-ring"><h2 className="shop-wood"><Video /> Ring doorbell</h2><iframe src={RING_DASHBOARD_URL} title="Ring doorbell dashboard" referrerPolicy="no-referrer" /><a href={RING_DASHBOARD_URL} target="_blank" rel="noopener noreferrer">Open Ring in a new tab ↗</a></section>
       </div>
       <footer className="shop-wood"><Trees />{data.footer}<Trees /></footer>
-      {alarm && showAlarm && <section className="shop-alarm-overlay" role="status" aria-live="polite"><div><Megaphone aria-hidden="true" /><p>Shop announcement</p><h2 className={alarm.message.length > 90 ? "shop-alarm-long" : alarm.message.length > 30 ? "shop-alarm-medium" : ""}>{alarm.message}</h2></div></section>}
+      {alarm && assignments && <section className="shop-alarm-overlay" role="status" aria-live="polite"><div className="shop-cleanup-board"><header className="shop-cleanup-header"><Megaphone aria-hidden="true" /><div><p>Cleanup assignments</p><h2>{alarm.message}</h2></div></header><div className="shop-cleanup-grid">{SHOP_CLEANUP_CATEGORIES.map(category => <article className={`shop-cleanup-card shop-cleanup-${category}`} key={category}><h3>{shopCleanupCategoryLabels[category]}</h3><p>{alarm.cleanupTasks[category] || "No task description added."}</p><ul>{assignments[category].length ? assignments[category].map(student => <li key={student}>{student}</li>) : <li className="shop-cleanup-unassigned">No students assigned</li>}</ul></article>)}</div><footer>Work safely · Return tools when finished</footer></div></section>}
       {status && <div className="shop-status" role="status">{status}</div>}
     </div>
     {!preview && <button className="shop-fullscreen" title="Enter fullscreen" onClick={() => { void document.documentElement.requestFullscreen().catch(() => setStatus("Use your browser’s fullscreen option.")); }}><Expand size={18} /> Fullscreen</button>}
