@@ -48,8 +48,7 @@ export default function ShopDisplay({ preview }: { preview?: ShopDashboard }) {
   catch { clockLabel = "Check timezone"; }
   return <div className={`shop-screen ${preview ? "shop-preview" : ""}`}>
     <div className="shop-board">
-      <header className="shop-brand shop-wood"><div className="shop-emblem"><Trees /></div><div><p>{data.school}</p><h1>{data.title}</h1><small>{data.motto}</small></div><div className="shop-creed"><Hammer /><span>Good work<br />builds<br />good people.</span></div></header>
-      <div className="shop-info"><section className="shop-clock shop-clock-banner"><strong>{clockLabel}</strong></section></div>
+      <header className="shop-brand shop-wood"><div className="shop-emblem"><Trees /></div><div className="shop-brand-copy"><p>{data.school}</p><h1>{data.title}</h1><small>{data.motto}</small></div><div className="shop-creed"><Hammer /><span>Good work<br />builds<br />good people.</span></div><p className="shop-toolbar-clock">{clockLabel}</p></header>
       <section className="shop-chalk shop-projects"><h2 className="shop-wood"><Hammer /> Student project spotlight <span>{data.projects.length ? `${slide % data.projects.length + 1} / ${data.projects.length}` : "Made in our shop"}</span></h2><div className="shop-photo">{project ? <img key={project.image} src={project.image} alt={project.title} /> : <div className="shop-empty"><Hammer /><p>Great things are taking shape.</p><span>Project photos will appear here.</span></div>}<div className="shop-caption"><span>CRAFTSMANSHIP IN THE MAKING</span><h3>{project?.title ?? "Our next great project starts here"}</h3></div></div></section>
       <div className="shop-lower-panels">
         <section className="shop-chalk shop-notes"><h2 className="shop-wood"><Megaphone /> {data.notesTitle}</h2><p>{data.notes}</p></section>
