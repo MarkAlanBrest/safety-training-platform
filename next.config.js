@@ -26,6 +26,10 @@ const nextConfig = {
     root: __dirname,
   },
   transpilePackages: ["pptx-react-viewer"],
+  async rewrites() {
+    // Talking robot face is a standalone static page in public/
+    return [{ source: "/robot-face", destination: "/robot-face.html" }];
+  },
   async headers() {
     const embedPolicy = canvasFrameAncestors();
     return [

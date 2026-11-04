@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Talon Robot Face</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Plan: one dark "robot screen" world (single theme by choice). Face fills the screen on a canvas;
+     a slim status bar on top, captions + talk dock pinned to the bottom. */
+  :root {
+    --bg: #04070b;
+    --panel: #0d1620;
+    --line: #22364b;
+    --ink: #dcecff;
+    --muted: #7f97b0;
+    --eye: #3FA9F5;
+    --display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+    --body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink);
+    font-family: var(--body); cursor: default; }
+  body { background: radial-gradient(ellipse at 50% 40%, #0a1520 0%, var(--bg) 70%); }
+
+  #face { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; }
+
+  .iconbtn { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; padding: 0;
+    background: rgba(13, 22, 32, .7); border: 1px solid var(--line); color: var(--ink); cursor: pointer; }
+  .iconbtn:hover { border-color: var(--eye); }
+  .iconbtn svg { width: 20px; height: 20px; }
+
+  /* ---------- BOTTOM DOCK ---------- */
+  #dock { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(100% - 32px, 820px);
+    padding-bottom: 16px; display: flex; flex-direction: column; gap: 10px; }
+  #captions { text-align: center; font-size: clamp(16px, 2.3vw, 24px); line-height: 1.35; min-height: 1.4em; }
+  #captions div { transition: opacity .6s; text-shadow: 0 0 10px #000; }
+  #capYou { color: var(--muted); font-size: .8em; }
+  .hide-captions #captions { visibility: hidden; }
+  #talk { display: flex; gap: 8px; align-items: center; background: rgba(13, 22, 32, .85);
+    border: 1px solid var(--line); border-radius: 14px; padding: 6px; }
+  #talk:focus-within { border-color: var(--eye); }
+  #msg { flex: 1; min-width: 0; background: transparent; border: 0; color: var(--ink); font: 16px var(--body);
+    padding: 8px 6px; outline: none; }
+  #msg::placeholder { color: #5d7590; }
+  #mic.on { background: #14532d; border-color: #4ade80; }
+  #mic.blocked { opacity: .45; }
+  #send { background: var(--eye); color: #00111f; border: 0; border-radius: 10px; padding: 0 16px; height: 40px;
+    font: 600 15px var(--body); cursor: pointer; }
+  #send:disabled { opacity: .5; cursor: wait; }
+
+  /* ---------- BOOT CARD ---------- */
+  #boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(4, 7, 11, .55); cursor: pointer; z-index: 5; }
+  #boot .card { text-align: center; padding: 28px 36px; border-radius: 16px; background: rgba(13, 22, 32, .9);
+    border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+  #boot h1 { margin: 0; font: 700 clamp(30px, 6vw, 56px) var(--display); color: var(--eye); letter-spacing: 6px; }
+  #boot p { margin: 0; color: var(--muted); }
+
+  /* ---------- SETTINGS ---------- */
+  #settings { position: fixed; inset: 0; background: rgba(0, 0, 0, .7); display: none; align-items: center;
+    justify-content: center; z-index: 10; padding: 16px; }
+  #settings.open { display: flex; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; width: min(100%, 760px);
+    max-height: 100%; overflow-y: auto; padding: 22px 26px; }
+  .panel h2 { margin: 0 0 4px; font: 700 24px var(--display); color: var(--eye); letter-spacing: 1px; }
+  .panel .hint { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+  .panel h3 { margin: 20px 0 8px; font: 500 15px var(--display); letter-spacing: 1px; text-transform: uppercase;
+    color: #9fc3e8; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  .row { display: grid; grid-template-columns: 170px 1fr; gap: 10px; align-items: center; margin: 8px 0; }
+  @media (max-width: 520px) { .row { grid-template-columns: 1fr; gap: 4px; } }
+  .row label { font-size: 14px; color: #b9cde0; }
+  input[type=text], input[type=password], input[type=number], select, textarea {
+    width: 100%; background: #070d14; color: var(--ink); border: 1px solid #2f4357; border-radius: 6px;
+    padding: 7px 9px; font: 14px var(--body); }
+  textarea { min-height: 110px; resize: vertical; }
+  input[type=range] { width: 100%; accent-color: var(--eye); }
+  .rangewrap { display: flex; gap: 10px; align-items: center; }
+  .rangewrap span { min-width: 40px; text-align: right; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .btns, .moods { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btns { margin-top: 22px; }
+  .panel button { background: #172535; color: var(--ink); border: 1px solid #36506a; border-radius: 6px;
+    padding: 8px 14px; font: 14px var(--body); cursor: pointer; }
+  .panel button:hover { background: #20344a; }
+  .panel button.primary { background: var(--eye); color: #00111f; border-color: var(--eye); font-weight: 600; }
+  .moods button { padding: 6px 10px; font-size: 13px; text-transform: capitalize; }
+  .note { font-size: 12px; color: var(--muted); }
+  .ok { color: #4ade80; } .warn { color: #fbbf24; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--eye); outline-offset: 2px; }
+</style>
+</head>
+<body>
+
+<canvas id="face" aria-label="Robot face"></canvas>
+
+
+<div id="dock">
+  <div id="captions"><div id="capYou"></div><div id="capBot"></div></div>
+  <form id="talk" autocomplete="off">
+    <button type="button" class="iconbtn" id="mic" title="Talk with the microphone" aria-label="Talk with the microphone">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+    </button>
+    <input id="msg" type="text" placeholder="Say something to Talon…" aria-label="Message">
+    <button id="send" type="submit">Send</button>
+  </form>
+</div>
+
+<div id="boot">
+  <div class="card">
+    <h1 id="bootName">TALON</h1>
+    <p>Tap anywhere to wake me up</p>
+  </div>
+</div>
+
+<div id="settings">
+  <div class="panel" role="dialog" aria-label="Robot settings">
+    <h2>Robot settings</h2>
+    <p class="hint">Double-click the face to open this panel. Esc closes.</p>
+
+    <h3>Identity</h3>
+    <div class="row"><label for="sName">Robot name</label><input type="text" id="sName"></div>
+    <div class="row"><label for="sPersonality">Personality</label><textarea id="sPersonality"></textarea></div>
+    <div class="row"><label></label><span class="note">{name} gets replaced with the robot's name.</span></div>
+
+    <h3>AI brain</h3>
+    <div class="row"><label>On claude.ai</label><span class="note" id="brainNote">Checking…</span></div>
+    <div class="row"><label for="sKey">Claude API key</label><input type="password" id="sKey" placeholder="sk-ant-... (only for running the file locally)"></div>
+    <div class="row"><label for="sModel">Model (API key only)</label><input type="text" id="sModel"></div>
+    <div class="row"><label for="sTokens">Max reply length</label><input type="number" id="sTokens" min="30" max="1000"></div>
+    <div class="row"><label></label><span class="note">The key is stored only in this browser. On claude.ai the robot uses your Claude account and needs no key.</span></div>
+
+    <h3>Listening</h3>
+    <div class="row"><label for="sMode">Microphone mode</label>
+      <select id="sMode">
+        <option value="tap">Tap to talk (mic button or spacebar)</option>
+        <option value="wake">Wake word (say its name first)</option>
+        <option value="always">Always listening (answers everything)</option>
+      </select></div>
+    <div class="row"><label for="sWake">Wake word</label><input type="text" id="sWake" placeholder="blank = robot name"></div>
+    <div class="row"><label></label><span class="note">The microphone works in Chrome when this file is opened directly. claude.ai blocks it, so type there instead.</span></div>
+
+    <h3>Voice</h3>
+    <div class="row"><label for="sVoice">Voice</label><select id="sVoice"></select></div>
+    <div class="row"><label for="sPitch">Pitch</label><div class="rangewrap"><input type="range" id="sPitch" min="0" max="2" step="0.05"><span id="vPitch"></span></div></div>
+    <div class="row"><label for="sRate">Speed</label><div class="rangewrap"><input type="range" id="sRate" min="0.5" max="1.6" step="0.05"><span id="vRate"></span></div></div>
+    <div class="row"><label for="sVolume">Volume</label><div class="rangewrap"><input type="range" id="sVolume" min="0" max="1" step="0.05"><span id="vVolume"></span></div></div>
+    <div class="row"><label for="sBeeps">Robot beeps</label><select id="sBeeps"><option value="1">On</option><option value="0">Off</option></select></div>
+
+    <h3>Face</h3>
+    <div class="row"><label for="sEye">Eye color</label><input type="text" id="sEye" placeholder="#3FA9F5"></div>
+    <div class="row"><label for="sFollow">Eyes follow mouse</label><select id="sFollow"><option value="1">Yes</option><option value="0">No</option></select></div>
+    <div class="row"><label for="sSleep">Sleep after (minutes)</label><input type="number" id="sSleep" min="0" max="120"></div>
+    <div class="row"><label for="sCaptions">Captions</label><select id="sCaptions"><option value="1">Show</option><option value="0">Hide</option></select></div>
+    <div class="row"><label>Try an expression</label><div class="moods" id="moods"></div></div>
+
+    <div class="btns">
+      <button class="primary" id="btnSave">Save &amp; close</button>
+      <button id="btnTest">Test voice</button>
+      <button id="btnForget">Clear conversation</button>
+      <button id="btnClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= SETTINGS STORAGE ================= */
+const DEFAULTS = {
+  name: 'Talon',
+  personality: "You are {name}, a friendly, funny robot who lives in the shop class at Hubbard High School, home of the Hubbard Eagles, in Ohio. You speak out loud, so answer in one or two short sentences with no lists, emojis, or markdown. You love robot humor, shop puns, and corny jokes. Keep everything school-appropriate.",
+  apiKey: '',
+  model: 'claude-haiku-5-5',
+  maxTokens: 150,
+  listenMode: 'tap',
+  wakeWord: '',
+  voiceName: '',
+  pitch: 0.4,
+  rate: 0.95,
+  volume: 1,
+  beeps: true,
+  eyeColor: '#3FA9F5',
+  followMouse: true,
+  sleepMinutes: 5,
+  captions: true
+};
+const STORE_KEY = 'robotFaceSettingsV2';
+let S = loadSettings();
+function loadSettings() {
+  try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(STORE_KEY) || '{}')); }
+  catch (e) { return Object.assign({}, DEFAULTS); }
+}
+function saveSettings() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) { console.warn('Could not save settings', e); }
+}
+
+const $ = id => document.getElementById(id);
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ================= EXPRESSIONS ================= */
+// Each expression is a set of numbers the face eases toward.
+const BASE = { open: 1, scale: 1, lidIn: 0, lidOut: 0, lidLow: 0, mCurve: .3, mOpen: 0, mWidth: 1, mRound: 0,
+  mTilt: 0, heart: 0, blush: 0, winkL: 0, asym: 0, droop: 0, bounce: 0, shake: 0 };
+const E = o => Object.assign({}, BASE, o);
+const EXPR = {
+  neutral:   E({}),
+  happy:     E({ lidLow: .42, mCurve: .9, mOpen: .12, blush: .35 }),
+  excited:   E({ scale: 1.1, lidLow: .2, mCurve: 1, mOpen: .55, bounce: 1, blush: .3 }),
+  laughing:  E({ lidLow: .62, mCurve: 1, mOpen: .85, shake: 1, blush: .45 }),
+  sad:       E({ open: .82, lidOut: .38, mCurve: -.75, mWidth: .7, droop: 1, tint: '#6f8fd6' }),
+  angry:     E({ lidIn: .48, mCurve: -.55, mWidth: .75, tint: '#ff5a4f' }),
+  surprised: E({ scale: 1.18, open: 1.08, mCurve: 0, mOpen: .7, mWidth: .32, mRound: 1 }),
+  love:      E({ heart: 1, mCurve: .85, mOpen: .1, blush: .8, tint: '#ff6fae' }),
+  confused:  E({ asym: 1, lidIn: .12, mCurve: -.1, mWidth: .55, mTilt: .5 }),
+  wink:      E({ winkL: 1, lidLow: .25, mCurve: .9, mTilt: -.25 }),
+  sleepy:    E({ open: .3, lidOut: .15, mCurve: .1, mWidth: .55, droop: .5 }),
+  thinking:  E({ lidIn: .1, mCurve: 0, mWidth: .45, asym: .3 })
+};
+const MOODS = ['happy', 'excited', 'laughing', 'sad', 'angry', 'surprised', 'love', 'confused', 'wink', 'sleepy', 'neutral'];
+const KEYS = Object.keys(BASE);
+
+let expr = 'neutral', exprUntil = Infinity;
+function setExpression(name, ms) {
+  expr = EXPR[name] ? name : 'neutral';
+  exprUntil = ms === undefined || ms === Infinity ? Infinity : performance.now() + ms;
+}
+
+/* ================= FACE STATE ================= */
+let state = 'sleeping', busy = false, lastActivity = Date.now();
+function setState(s) {
+  state = s;
+  $('send').disabled = s === 'thinking' || s === 'speaking';
+}
+function wakeUp() { lastActivity = Date.now(); if (state === 'sleeping' && booted) setState('idle'); }
+
+setInterval(() => {
+  if (S.sleepMinutes > 0 && (state === 'idle' || state === 'listening') && !busy &&
+      Date.now() - lastActivity > S.sleepMinutes * 60000) setState('sleeping');
+}, 5000);
+
+/* ================= CANVAS FACE ================= */
+const cv = $('face'), ctx = cv.getContext('2d');
+const off = document.createElement('canvas'), oc = off.getContext('2d');
+const glowOK = 'filter' in ctx;
+let dpr = 1, k = 1, ox = 0, oy = 0;
+
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = off.width = Math.round(innerWidth * dpr);
+  cv.height = off.height = Math.round(innerHeight * dpr);
+  const topH = 16, dockH = $('dock').getBoundingClientRect().height + 8;
+  const availW = innerWidth - 32, availH = Math.max(160, innerHeight - topH - dockH);
+  const kc = Math.min(availW / 800, availH / 470);
+  k = kc * dpr;
+  ox = (innerWidth - 800 * kc) / 2 * dpr;
+  oy = (topH + (availH - 470 * kc) / 2 - 20 * kc) * dpr;
+}
+addEventListener('resize', resize);
+
+const colorCache = {}, colorCtx = document.createElement('canvas').getContext('2d');
+function parseColor(str) {
+  if (colorCache[str]) return colorCache[str];
+  colorCtx.fillStyle = '#3FA9F5'; colorCtx.fillStyle = str;
+  const v = colorCtx.fillStyle, m = v.match(/[\d.]+/g);
+  return colorCache[str] = v[0] === '#' ? [1, 3, 5].map(i => parseInt(v.slice(i, i + 2), 16))
+    : m ? m.slice(0, 3).map(Number) : [63, 169, 245];
+}
+
+const cur = Object.assign({}, BASE, { lookX: 0, lookY: 0, talk: 0 });
+let curColor = parseColor(S.eyeColor);
+
+/* where the eyes look */
+let mouse = { x: 0, y: 0, t: -1e9 }, idleLook = { x: 0, y: 0 };
+addEventListener('pointermove', e => { mouse = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+(function lookLoop() {
+  setTimeout(() => {
+    idleLook = Math.random() < .35 ? { x: 0, y: 0 } : { x: (Math.random() - .5) * 1.4, y: (Math.random() - .5) * 1.2 };
+    lookLoop();
+  }, 2200 + Math.random() * 3500);
+})();
+
+/* blinking */
+let blinkStart = -1e9, blinkLen = 150;
+(function blinkLoop() {
+  setTimeout(() => {
+    if (state !== 'sleeping') { blinkStart = performance.now(); if (Math.random() < .2) setTimeout(() => blinkStart = performance.now(), 260); }
+    blinkLoop();
+  }, 2400 + Math.random() * 4200);
+})();
+
+/* mouth movement while talking */
+let talkPulse = 0;
+
+let lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(.05, (now - lastT) / 1000); lastT = now;
+  if (now > exprUntil) setExpression('neutral');
+
+  // pick the target face
+  let name = expr;
+  if (state === 'thinking') name = 'thinking';
+  if (state === 'sleeping') name = 'sleepy';
+  const tgt = Object.assign({}, EXPR[name]);
+  if (state === 'sleeping') { tgt.open = .06; tgt.mWidth = .45; tgt.lidOut = 0; }
+
+  let lx, ly;
+  if (state === 'thinking') { lx = .7; ly = -1; }
+  else if (state === 'sleeping') { lx = 0; ly = .3; }
+  else if (S.followMouse && now - mouse.t < 2500) {
+    const fx = (mouse.x * dpr - ox) / k, fy = (mouse.y * dpr - oy) / k;
+    lx = Math.max(-1, Math.min(1, (fx - 400) / 380));
+    ly = Math.max(-1, Math.min(1, (fy - 200) / 260));
+  } else { lx = idleLook.x; ly = idleLook.y; }
+  tgt.lookX = lx; tgt.lookY = ly;
+
+  if (state === 'speaking') {
+    const t = now / 1000;
+    tgt.talk = Math.min(1, .2 + .55 * Math.abs(Math.sin(t * 15)) * (.6 + .4 * Math.sin(t * 4.7)) + talkPulse);
+  } else tgt.talk = 0;
+  talkPulse *= .85;
+
+  const ease = Math.min(1, dt * 9), fast = Math.min(1, dt * 22);
+  KEYS.forEach(key => { cur[key] += (tgt[key] - cur[key]) * ease; });
+  cur.lookX += (tgt.lookX - cur.lookX) * Math.min(1, dt * 6);
+  cur.lookY += (tgt.lookY - cur.lookY) * Math.min(1, dt * 6);
+  cur.talk += (tgt.talk - cur.talk) * fast;
+  const tc = parseColor(EXPR[name].tint || S.eyeColor);
+  curColor = curColor.map((c, i) => c + (tc[i] - c) * ease);
+
+  draw(now);
+  requestAnimationFrame(frame);
+}
+
+function roundRect(c, x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  c.beginPath();
+  c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+}
+
+function draw(now) {
+  const t = now / 1000;
+  const col = `rgb(${curColor.map(Math.round).join(',')})`;
+  oc.setTransform(1, 0, 0, 1, 0, 0);
+  oc.clearRect(0, 0, off.width, off.height);
+
+  const motion = reduceMotion ? 0 : 1;
+  const bob = (Math.sin(t * 1.6) * 4 - Math.abs(Math.sin(t * 7)) * 14 * cur.bounce) * motion;
+  const shake = Math.sin(t * 28) * 6 * cur.shake * motion;
+  oc.setTransform(k, 0, 0, k, ox + shake * k, oy);
+
+  const lx = cur.lookX * 38, ly = cur.lookY * 22 + cur.droop * 14 + bob;
+  const blinkP = (now - blinkStart) / blinkLen;
+  const blink = blinkP >= 0 && blinkP <= 1 ? Math.sin(blinkP * Math.PI) : 0;
+
+  [-1, 1].forEach(side => drawEye(side, 400 + side * 150 + lx, 190 + ly, blink, col, t));
+
+  // blush
+  if (cur.blush > .02) {
+    oc.fillStyle = `rgba(255,110,170,${(cur.blush * .5).toFixed(3)})`;
+    [-1, 1].forEach(side => {
+      oc.beginPath(); oc.ellipse(400 + side * 175 + lx, 300 + ly, 36, 13, 0, 0, Math.PI * 2); oc.fill();
+    });
+  }
+
+  const mx = 400 + lx * .35, my = 378 + ly * .35;
+  oc.fillStyle = oc.strokeStyle = col;
+  if (state === 'thinking') {
+    for (let i = 0; i < 3; i++) {
+      const b = reduceMotion ? 0 : Math.max(0, Math.sin(t * 6 - i * .8)) * 16;
+      oc.globalAlpha = .45 + b / 30;
+      oc.beginPath(); oc.arc(mx - 40 + i * 40, my - b, 13, 0, Math.PI * 2); oc.fill();
+    }
+    oc.globalAlpha = 1;
+  } else drawMouth(mx, my);
+
+  if (state === 'sleeping') {
+    oc.font = 'bold 46px "Chakra Petch", system-ui, sans-serif';
+    for (let i = 0; i < 3; i++) {
+      const p = ((t / 3.2) + i / 3) % 1;
+      oc.globalAlpha = Math.sin(p * Math.PI) * .9;
+      oc.fillText(i === 0 ? 'Z' : 'z', 640 + p * 50, 130 - p * 110);
+    }
+    oc.globalAlpha = 1;
+  }
+
+  // composite with glow
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (glowOK) {
+    ctx.filter = `blur(${Math.round(14 * k)}px)`; ctx.globalAlpha = .9;
+    ctx.drawImage(off, 0, 0);
+    ctx.filter = 'none'; ctx.globalAlpha = 1;
+  }
+  ctx.drawImage(off, 0, 0);
+}
+
+function drawEye(side, ex, ey, blink, col, t) {
+  let open = cur.open * (1 - blink * .94);
+  if (side < 0) open *= (1 - cur.winkL * .94) * (1 - cur.asym * .45);
+  else open *= 1 + cur.asym * .08;
+  const w = 160 * cur.scale, h = Math.max(7, 160 * cur.scale * open);
+
+  oc.globalCompositeOperation = 'source-over';
+  oc.fillStyle = col;
+  if (cur.heart < .98) {
+    oc.globalAlpha = 1 - cur.heart;
+    roundRect(oc, ex - w / 2, ey - h / 2, w, h, 34 * cur.scale); oc.fill();
+  }
+  if (cur.heart > .02) {
+    const s = w * 1.05 * (1 + (reduceMotion ? 0 : Math.max(0, Math.sin(t * 7)) * .06));
+    oc.globalAlpha = cur.heart;
+    oc.save(); oc.translate(ex, ey); oc.scale(s, s * Math.min(1, open));
+    oc.beginPath(); oc.moveTo(0, .36);
+    oc.bezierCurveTo(-.62, -.02, -.36, -.6, 0, -.22);
+    oc.bezierCurveTo(.36, -.6, .62, -.02, 0, .36);
+    oc.restore(); oc.fill();
+  }
+  oc.globalAlpha = 1;
+
+  // carve eyelids out of the eye
+  oc.globalCompositeOperation = 'destination-out';
+  oc.fillStyle = '#000';
+  const top = ey - h / 2, bot = ey + h / 2;
+  const innerX = ex - side * (w / 2 + 24), outerX = ex + side * (w / 2 + 24);
+  const li = cur.lidIn * h, lo = cur.lidOut * h;
+  if (li > .5 || lo > .5) {
+    oc.beginPath(); oc.moveTo(innerX, top - 80); oc.lineTo(outerX, top - 80);
+    oc.lineTo(outerX, top + lo); oc.lineTo(innerX, top + li); oc.closePath(); oc.fill();
+  }
+  if (cur.lidLow > .01) {
+    const ry = h * .75, rx = w * .85;
+    oc.beginPath(); oc.ellipse(ex, bot + ry - cur.lidLow * h * 1.25, rx, ry, 0, 0, Math.PI * 2); oc.fill();
+  }
+  oc.globalCompositeOperation = 'source-over';
+}
+
+function drawMouth(mx, my) {
+  const W = 210 * cur.mWidth, c = cur.mCurve * 38;
+  const o = Math.min(1.1, cur.mOpen + cur.talk * .7) * 70;
+  const tilt = cur.mTilt * 22;
+  const Lx = mx - W / 2, Ly = my - c * .5 - tilt, Rx = mx + W / 2, Ry = my - c * .5 + tilt;
+  oc.lineWidth = 14; oc.lineJoin = oc.lineCap = 'round';
+  oc.beginPath();
+  oc.moveTo(Lx, Ly);
+  oc.quadraticCurveTo(mx, my + c - o * cur.mRound * 1.1, Rx, Ry);
+  oc.quadraticCurveTo(mx, my + c + o * 2, Lx, Ly);
+  oc.closePath();
+  oc.fill(); oc.stroke();
+}
+
+/* ================= CAPTIONS ================= */
+let capTimer = null;
+function caption(you, bot) {
+  if (you !== undefined) $('capYou').textContent = you;
+  if (bot !== undefined) $('capBot').textContent = bot;
+  $('capYou').style.opacity = $('capBot').style.opacity = 1;
+  clearTimeout(capTimer);
+  capTimer = setTimeout(() => { $('capYou').style.opacity = $('capBot').style.opacity = 0; }, 9000);
+}
+
+/* ================= SOUND ================= */
+let audioCtx = null;
+function unlockAudio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch (e) {}
+}
+function beep(notes = [880, 1320, 990]) {
+  return new Promise(resolve => {
+    if (!S.beeps || !audioCtx) return resolve();
+    const now = audioCtx.currentTime;
+    notes.forEach((f, i) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'square'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, now + i * 0.09);
+      g.gain.exponentialRampToValueAtTime(0.07 * S.volume + 0.0001, now + i * 0.09 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.09 + 0.08);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(now + i * 0.09); o.stop(now + i * 0.09 + 0.09);
+    });
+    setTimeout(resolve, notes.length * 90 + 50);
+  });
+}
+
+/* ================= VOICE ================= */
+let voices = [];
+const hasTTS = 'speechSynthesis' in window;
+function loadVoices() { voices = speechSynthesis.getVoices(); fillVoiceList(); }
+if (hasTTS) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
+
+function speak(text, mood = 'neutral') {
+  return new Promise(async resolve => {
+    caption(undefined, `${S.name}: ${text}`);
+    setExpression(mood);
+    await beep();
+    let done = false;
+    const finish = () => {
+      if (done) return; done = true;
+      setExpression(mood, 3500);
+      resolve();
+    };
+    if (!hasTTS) {                                   // no voice: still move the mouth
+      setState('speaking');
+      return setTimeout(finish, 800 + text.length * 55);
+    }
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    const v = voices.find(v => v.name === S.voiceName);
+    if (v) u.voice = v;
+    u.pitch = S.pitch; u.rate = S.rate; u.volume = S.volume;
+    u.onstart = () => setState('speaking');
+    u.onboundary = () => { talkPulse = .45; };
+    u.onend = finish; u.onerror = finish;
+    setState('speaking');
+    setTimeout(finish, 5000 + text.length * 110);   // safety net if the browser never fires onend
+    speechSynthesis.speak(u);
+  });
+}
+
+/* ================= AI BRAIN ================= */
+// On claude.ai the page asks Claude through the viewer's account; opened as a file it uses an API key.
+let sample = null;
+const sampleReady = (window.claude && typeof window.claude.use === 'function')
+  ? window.claude.use('sample').catch(() => null) : Promise.resolve(null);
+sampleReady.then(s => { sample = s; showBrain(); });
+
+function showBrain() {
+  $('brainNote').innerHTML = sample
+    ? '<span class="ok">Connected. Replies come from Claude through your account.</span>'
+    : '<span class="warn">Not available here. Add an API key below to give the robot a brain.</span>';
+}
+showBrain();
+
+function instructions() {
+  return S.personality.replaceAll('{name}', S.name) +
+    `\n\nYou talk out loud through a robot face on a screen that can show expressions. ` +
+    `Start every reply with exactly one expression tag in square brackets, chosen from: ${MOODS.map(m => `[${m}]`).join(' ')}. ` +
+    `Pick the one that matches how you feel about what you are saying. After the tag, write only the words to say out loud, ` +
+    `with no stage directions, asterisks, emojis or markdown.`;
+}
+
+function parseReply(raw) {
+  const m = raw.match(/^\s*\[([a-z]+)\]\s*/i);
+  const mood = m && EXPR[m[1].toLowerCase()] ? m[1].toLowerCase() : 'happy';
+  const text = raw.slice(m ? m[0].length : 0).replace(/\[[a-z]+\]/gi, '').replace(/[*_#`~]/g, '').trim();
+  return { mood, text: text || 'Beep. I have nothing to say.' };
+}
+
+let history = [];
+async function askAI(text) {
+  history.push({ role: 'user', content: text });
+  history = history.slice(-12);
+  while (history.length && history[0].role !== 'user') history.shift();
+  let raw;
+  try {
+    if (sample) {
+      const msgs = history.map((m, i) => i === 0 ? { role: 'user', content: instructions() + '\n\n---\n\n' + m.content } : m);
+      raw = (await sample(msgs, { modelTier: 'quick', cache: false })).text;
+    } else if (S.apiKey) {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': S.apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({ model: S.model, max_tokens: Number(S.maxTokens) || 150, system: instructions(), messages: history })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+      raw = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join(' ');
+    } else throw { code: 'NO_BRAIN' };
+  } catch (err) {
+    history.pop();                                    // keep user/assistant turns paired
+    throw err;
+  }
+  history.push({ role: 'assistant', content: raw });
+  return parseReply(raw);
+}
+
+/* ================= CONVERSATION ================= */
+let cooldownUntil = 0;
+
+async function respond(text) {
+  if (busy) return;
+  busy = true;
+  wakeUp();
+  caption(`You: ${text}`, '');
+  if (/\b(go to sleep|power down|nap time)\b/i.test(text)) {
+    await speak('Powering down. Goodnight.', 'sleepy');
+    busy = false; cooldownUntil = Date.now() + 800;
+    setState('sleeping');
+    return;
+  }
+  setState('thinking');
+  let reply;
+  try {
+    reply = await askAI(text);
+  } catch (err) {
+    console.error(err);
+    if (err && err.code === 'NO_BRAIN') reply = { mood: 'confused', text: 'I need a brain. Double-click my face to open my settings and add an API key.' };
+    else if (err && err.code === 'not_granted') { sample = null; showBrain(); reply = { mood: 'sad', text: 'I was not allowed to use Claude. Check my settings.' }; }
+    else if (err && err.code === 'rate_limited') reply = { mood: 'sleepy', text: 'My brain needs a short break. Try again in a minute.' };
+    else { reply = { mood: 'sad', text: 'My brain is offline. Check my settings.' }; }
+  }
+  await speak(reply.text, reply.mood);
+  busy = false;
+  cooldownUntil = Date.now() + 800;                   // ignore the tail end of its own voice
+  lastActivity = Date.now();
+  setState(recActive ? 'listening' : 'idle');
+}
+
+$('talk').addEventListener('submit', e => {
+  e.preventDefault();
+  const text = $('msg').value.trim();
+  if (!text || busy) return;
+  unlockAudio();
+  if (!booted) boot(false);
+  $('msg').value = '';
+  respond(text);
+});
+$('msg').addEventListener('input', wakeUp);
+
+/* ================= MICROPHONE ================= */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, recActive = false, wantListen = false, micBlocked = false;
+let awaitingCommand = false, awaitUntil = 0;
+
+function micUnavailable(msg) {
+  micBlocked = true; wantListen = false;
+  $('mic').classList.add('blocked'); $('mic').classList.remove('on');
+  caption(undefined, msg);
+  setExpression('confused', 3000);
+}
+
+function startRec() {
+  if (!SR) return micUnavailable('Voice input needs Google Chrome. Type your message below instead.');
+  if (recActive) return;
+  rec = new SR();
+  rec.lang = 'en-US';
+  rec.continuous = S.listenMode !== 'tap';
+  rec.interimResults = false;
+  rec.onresult = e => {
+    const r = e.results[e.results.length - 1];
+    if (r.isFinal) handleHeard(r[0].transcript.trim());
+  };
+  rec.onerror = e => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture')
+      micUnavailable('The microphone is blocked on this page. Type your message below instead.');
+  };
+  rec.onend = () => {
+    recActive = false; $('mic').classList.remove('on');
+    if (wantListen && S.listenMode !== 'tap') setTimeout(startRec, 250);
+    else if (state === 'listening') setState('idle');
+  };
+  try {
+    rec.start(); recActive = true; $('mic').classList.add('on');
+    if (state === 'idle') setState('listening');
+  } catch (e) { micUnavailable('The microphone could not start. Type your message below instead.'); }
+}
+function stopRec() {
+  wantListen = false;
+  if (rec) { try { rec.abort(); } catch (e) {} }
+  recActive = false; $('mic').classList.remove('on');
+}
+function restartListening() {
+  stopRec();
+  if (S.listenMode !== 'tap' && !micBlocked) { wantListen = true; setTimeout(startRec, 300); }
+}
+
+function handleHeard(text) {
+  if (!text || busy || Date.now() < cooldownUntil) return;
+  lastActivity = Date.now();
+  if (S.listenMode === 'wake') {
+    const wake = (S.wakeWord || S.name).toLowerCase().trim();
+    if (awaitingCommand && Date.now() < awaitUntil) { awaitingCommand = false; return respond(text); }
+    const idx = text.toLowerCase().indexOf(wake);
+    if (idx < 0) return;                              // not talking to the robot
+    const command = text.slice(idx + wake.length).replace(/^[\s,.!?]+/, '').trim();
+    if (!command) {
+      wakeUp();
+      awaitingCommand = true; awaitUntil = Date.now() + 8000;
+      busy = true;
+      speak('Yes?', 'surprised').then(() => { busy = false; cooldownUntil = Date.now() + 600; setState('listening'); });
+      return;
+    }
+    return respond(command);
+  }
+  respond(text);
+}
+
+function tapToTalk() {
+  if (busy) return;
+  unlockAudio(); wakeUp();
+  if (micBlocked) return micUnavailable('The microphone is blocked on this page. Type your message below instead.');
+  if (recActive) return stopRec();
+  setState('listening'); startRec();
+}
+$('mic').addEventListener('click', () => { if (!booted) boot(false); tapToTalk(); });
+
+/* ================= CLICKS & KEYS ================= */
+let clickTimer = null;
+cv.addEventListener('click', () => {
+  unlockAudio();
+  clearTimeout(clickTimer);
+  clickTimer = setTimeout(() => {                    // wait to make sure it is not a double-click
+    wakeUp();
+    if (busy) return;
+    setExpression('surprised', 450);                  // boop!
+    beep([1200, 1600]);
+    setTimeout(() => { if (!busy) setExpression(Math.random() < .5 ? 'laughing' : 'happy', 1600); }, 450);
+  }, 260);
+});
+cv.addEventListener('dblclick', () => { clearTimeout(clickTimer); openSettings(); });
+
+document.addEventListener('keydown', e => {
+  const open = $('settings').classList.contains('open');
+  if (e.key === 'Escape' && open) closeSettings();
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+  if (e.code === 'Space' && !open && !typing && booted && S.listenMode === 'tap') { e.preventDefault(); tapToTalk(); }
+});
+
+/* ================= BOOT ================= */
+let booted = false;
+function boot(greet = true) {
+  if (booted) return;
+  booted = true;
+  unlockAudio();
+  $('boot').style.display = 'none';
+  setState('idle');
+  if (greet) {
+    busy = true;
+    speak(`Systems online. Hello, I am ${S.name}.`, 'happy').then(() => { busy = false; setState('idle'); restartListening(); });
+  } else restartListening();
+}
+$('boot').addEventListener('click', () => boot(true));
+
+/* ================= SETTINGS PANEL ================= */
+function fillVoiceList() {
+  const sel = $('sVoice'); if (!sel) return;
+  sel.innerHTML = '<option value="">Default voice</option>' +
+    voices.map(v => `<option value="${v.name.replace(/"/g, '&quot;')}">${v.name} (${v.lang})</option>`).join('');
+  sel.value = S.voiceName;
+}
+function showRangeValues() {
+  $('vPitch').textContent = $('sPitch').value;
+  $('vRate').textContent = $('sRate').value;
+  $('vVolume').textContent = $('sVolume').value;
+}
+['sPitch', 'sRate', 'sVolume'].forEach(id => $(id).addEventListener('input', showRangeValues));
+
+$('moods').innerHTML = MOODS.map(m => `<button type="button" data-mood="${m}">${m}</button>`).join('');
+$('moods').addEventListener('click', e => {
+  const m = e.target.dataset && e.target.dataset.mood;
+  if (m) { closeSettings(); if (!booted) boot(false); setExpression(m, 4000); }
+});
+
+function openSettings() {
+  $('sName').value = S.name;
+  $('sPersonality').value = S.personality;
+  $('sKey').value = S.apiKey;
+  $('sModel').value = S.model;
+  $('sTokens').value = S.maxTokens;
+  $('sMode').value = S.listenMode;
+  $('sWake').value = S.wakeWord;
+  fillVoiceList();
+  $('sPitch').value = S.pitch; $('sRate').value = S.rate; $('sVolume').value = S.volume;
+  $('sBeeps').value = S.beeps ? '1' : '0';
+  $('sEye').value = S.eyeColor;
+  $('sFollow').value = S.followMouse ? '1' : '0';
+  $('sSleep').value = S.sleepMinutes;
+  $('sCaptions').value = S.captions ? '1' : '0';
+  showRangeValues();
+  $('settings').classList.add('open');
+  $('sName').focus();
+}
+function closeSettings() { $('settings').classList.remove('open'); }
+
+function readForm() {
+  return {
+    name: $('sName').value.trim() || DEFAULTS.name,
+    personality: $('sPersonality').value.trim() || DEFAULTS.personality,
+    apiKey: $('sKey').value.trim(),
+    model: $('sModel').value.trim() || DEFAULTS.model,
+    maxTokens: Number($('sTokens').value) || DEFAULTS.maxTokens,
+    listenMode: $('sMode').value,
+    wakeWord: $('sWake').value.trim(),
+    voiceName: $('sVoice').value,
+    pitch: Number($('sPitch').value),
+    rate: Number($('sRate').value),
+    volume: Number($('sVolume').value),
+    beeps: $('sBeeps').value === '1',
+    eyeColor: $('sEye').value.trim() || DEFAULTS.eyeColor,
+    followMouse: $('sFollow').value === '1',
+    sleepMinutes: Number($('sSleep').value) || 0,
+    captions: $('sCaptions').value === '1'
+  };
+}
+function applySettings() {
+  document.documentElement.style.setProperty('--eye', `rgb(${parseColor(S.eyeColor).join(',')})`);
+  document.body.classList.toggle('hide-captions', !S.captions);
+  $('bootName').textContent = S.name.toUpperCase();
+  $('msg').placeholder = `Say something to ${S.name}…`;
+  showBrain();
+}
+
+$('btnSave').addEventListener('click', () => {
+  const modeChanged = $('sMode').value !== S.listenMode;
+  S = readForm();
+  saveSettings();
+  applySettings();
+  closeSettings();
+  if (modeChanged && booted) { micBlocked = false; $('mic').classList.remove('blocked'); restartListening(); }
+});
+$('btnClose').addEventListener('click', closeSettings);
+$('btnTest').addEventListener('click', () => {
+  unlockAudio();
+  const prev = S; S = readForm();
+  speak(`Hello. I am ${S.name}. Beep boop.`, 'happy').then(() => { S = prev; setState(booted ? 'idle' : 'sleeping'); });
+});
+$('btnForget').addEventListener('click', () => { history = []; caption(undefined, 'Conversation cleared.'); });
+
+applySettings();
+resize();
+setState('sleeping');
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
