@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   /* Plan: one dark "robot screen" world (single theme by choice). Face fills the screen on a canvas;
-     a slim status bar on top, captions + talk dock pinned to the bottom. */
+     captions pinned to the bottom. Voice only: no buttons or text box. */
   :root {
     --bg: #04070b;
     --panel: #0d1620;
@@ -28,10 +28,6 @@
 
   #face { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; }
 
-  .iconbtn { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; padding: 0;
-    background: rgba(13, 22, 32, .7); border: 1px solid var(--line); color: var(--ink); cursor: pointer; }
-  .iconbtn:hover { border-color: var(--eye); }
-  .iconbtn svg { width: 20px; height: 20px; }
 
   /* ---------- BOTTOM DOCK ---------- */
   #dock { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(100% - 32px, 820px);
@@ -40,19 +36,6 @@
   #captions div { transition: opacity .6s; text-shadow: 0 0 10px #000; }
   #capYou { color: var(--muted); font-size: .8em; }
   .hide-captions #captions { visibility: hidden; }
-  #talk { display: flex; gap: 8px; align-items: center; background: rgba(13, 22, 32, .85);
-    border: 1px solid var(--line); border-radius: 14px; padding: 6px; }
-  #talk:focus-within { border-color: var(--eye); }
-  #msg { flex: 1; min-width: 0; background: transparent; border: 0; color: var(--ink); font: 16px var(--body);
-    padding: 8px 6px; outline: none; }
-  #msg::placeholder { color: #5d7590; }
-  #mic.on { background: #14532d; border-color: #4ade80; }
-  #mic.blocked { opacity: .45; }
-  #mic.on svg { animation: micpulse 1.4s ease-in-out infinite; }
-  @keyframes micpulse { 50% { opacity: .4; } }
-  #send { background: var(--eye); color: #00111f; border: 0; border-radius: 10px; padding: 0 16px; height: 40px;
-    font: 600 15px var(--body); cursor: pointer; }
-  #send:disabled { opacity: .5; cursor: wait; }
 
   /* ---------- BOOT CARD ---------- */
   #boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -102,13 +85,6 @@
 
 <div id="dock">
   <div id="captions"><div id="capYou"></div><div id="capBot"></div></div>
-  <form id="talk" autocomplete="off">
-    <button type="button" class="iconbtn" id="mic" title="Talk with the microphone" aria-label="Talk with the microphone">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
-    </button>
-    <input id="msg" type="text" placeholder="Say something to Talon…" aria-label="Message">
-    <button id="send" type="submit">Send</button>
-  </form>
 </div>
 
 <div id="boot">
@@ -139,11 +115,11 @@
     <div class="row"><label for="sMode">Microphone mode</label>
       <select id="sMode">
         <option value="wake">Answer to its name (say the name first)</option>
-        <option value="tap">Tap to talk (mic button or spacebar)</option>
+        <option value="tap">Tap to talk (click the face or press spacebar)</option>
         <option value="always">Always listening (answers everything)</option>
       </select></div>
     <div class="row"><label for="sWake">Extra names</label><input type="text" id="sWake" placeholder="optional, comma separated, e.g. hey robot, robot"></div>
-    <div class="row"><label></label><span class="note">It always answers to its robot name, and close mishearings like "talent" for Talon. Press the mic button to talk without saying the name. Use Chrome or Edge and allow the microphone.</span></div>
+    <div class="row"><label></label><span class="note">It always answers to its robot name, and close mishearings like "talent" for Talon. Click the face or press the spacebar to talk without saying the name. Use Chrome or Edge and allow the microphone.</span></div>
 
     <h3>Voice</h3>
     <div class="row"><label for="sVoice">Voice</label><select id="sVoice"></select></div>
@@ -237,7 +213,6 @@ function setExpression(name, ms) {
 let state = 'sleeping', busy = false, lastActivity = Date.now();
 function setState(s) {
   state = s;
-  $('send').disabled = s === 'thinking' || s === 'speaking';
 }
 function wakeUp() { lastActivity = Date.now(); if (state === 'sleeping' && booted) setState('idle'); }
 
@@ -621,16 +596,6 @@ async function respond(text) {
   setState(recActive ? 'listening' : 'idle');
 }
 
-$('talk').addEventListener('submit', e => {
-  e.preventDefault();
-  const text = $('msg').value.trim();
-  if (!text || busy) return;
-  unlockAudio();
-  if (!booted) boot(false);
-  $('msg').value = '';
-  respond(text);
-});
-$('msg').addEventListener('input', wakeUp);
 
 /* ================= MICROPHONE ================= */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -639,7 +604,6 @@ let awaitingCommand = false, awaitUntil = 0, recStartedAt = 0, quickEnds = 0, ne
 
 function micUnavailable(msg) {
   micBlocked = true; wantListen = false;
-  $('mic').classList.add('blocked'); $('mic').classList.remove('on');
   caption(undefined, msg);
   setExpression('confused', 4000);
 }
@@ -654,7 +618,7 @@ async function checkMic() {
     return true;
   } catch (e) {
     if (e.name === 'NotFoundError' || e.name === 'OverconstrainedError')
-      micUnavailable('I cannot find a microphone. Plug one in or check the Windows sound settings, then tap the mic button.');
+      micUnavailable('I cannot find a microphone. Plug one in or check the Windows sound settings, then click the face.');
     else
       micUnavailable('Chrome blocked the microphone. Click the icon left of the web address, set Microphone to Allow, then reload the page.');
     return false;
@@ -662,7 +626,7 @@ async function checkMic() {
 }
 
 async function startRec() {
-  if (!SR) return micUnavailable('Voice input needs Google Chrome or Microsoft Edge. Type your message below instead.');
+  if (!SR) return micUnavailable('Voice input needs Google Chrome or Microsoft Edge.');
   if (recActive) return;
   if (!(await checkMic())) return;
   if (recActive) return;
@@ -685,21 +649,21 @@ async function startRec() {
       micUnavailable('Chrome cannot reach its speech service. Check the internet connection; some school networks block it.');
   };
   rec.onend = () => {
-    recActive = false; $('mic').classList.remove('on');
+    recActive = false;
     quickEnds = Date.now() - recStartedAt < 1500 ? quickEnds + 1 : 0;
     if (wantListen && S.listenMode !== 'tap') setTimeout(startRec, quickEnds > 4 ? 3000 : 250);
     else if (state === 'listening') setState('idle');
   };
   try {
     rec.start(); recActive = true; recStartedAt = Date.now();
-    micBlocked = false; $('mic').classList.remove('blocked'); $('mic').classList.add('on');
+    micBlocked = false;
     if (state === 'idle') setState('listening');
   } catch (e) { recActive = false; }
 }
 function stopRec() {
   wantListen = false;
   if (rec) { try { rec.abort(); } catch (e) {} }
-  recActive = false; $('mic').classList.remove('on');
+  recActive = false;
 }
 function restartListening() {
   stopRec();
@@ -764,19 +728,18 @@ function handleHeard(alts) {
 function tapToTalk() {
   if (busy) return;
   unlockAudio(); wakeUp();
-  micBlocked = false; $('mic').classList.remove('blocked');
+  micBlocked = false;
   if (S.listenMode === 'tap') {
     if (recActive) return stopRec();
     setState('listening'); startRec();
     return;
   }
-  // wake / always mode: the mic button means "listen to me now, no name needed"
+  // wake / always mode: clicking the face means "listen to me now, no name needed"
   if (!recActive) restartListening();
   awaitingCommand = true; awaitUntil = Date.now() + 8000;
   setExpression('surprised', 600); beep([1100, 1500]);
   caption(undefined, `${S.name} is listening…`);
 }
-$('mic').addEventListener('click', () => { if (!booted) boot(false); tapToTalk(); });
 
 /* ================= CLICKS & KEYS ================= */
 let clickTimer = null;
@@ -784,11 +747,8 @@ cv.addEventListener('click', () => {
   unlockAudio();
   clearTimeout(clickTimer);
   clickTimer = setTimeout(() => {                    // wait to make sure it is not a double-click
-    wakeUp();
-    if (busy) return;
-    setExpression('surprised', 450);                  // boop!
-    beep([1200, 1600]);
-    setTimeout(() => { if (!busy) setExpression(Math.random() < .5 ? 'laughing' : 'happy', 1600); }, 450);
+    if (!booted) return;
+    tapToTalk();                                      // click the face to ask a question without the name
   }, 260);
 });
 cv.addEventListener('dblclick', () => { clearTimeout(clickTimer); openSettings(); });
@@ -884,7 +844,6 @@ function applySettings() {
   document.documentElement.style.setProperty('--eye', `rgb(${parseColor(S.eyeColor).join(',')})`);
   document.body.classList.toggle('hide-captions', !S.captions);
   $('bootName').textContent = S.name.toUpperCase();
-  $('msg').placeholder = `Say something to ${S.name}…`;
   showBrain();
 }
 
@@ -894,7 +853,7 @@ $('btnSave').addEventListener('click', () => {
   saveSettings();
   applySettings();
   closeSettings();
-  if (modeChanged && booted) { micBlocked = false; $('mic').classList.remove('blocked'); restartListening(); }
+  if (modeChanged && booted) { micBlocked = false; restartListening(); }
 });
 $('btnClose').addEventListener('click', closeSettings);
 $('btnTest').addEventListener('click', () => {
