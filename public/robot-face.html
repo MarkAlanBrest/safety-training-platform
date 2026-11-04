@@ -477,11 +477,13 @@ function speak(text, mood = 'neutral') {
   return new Promise(async resolve => {
     caption(undefined, `${S.name}: ${text}`);
     setExpression(mood);
+    pauseMic();                                       // never listen to its own voice
     await beep();
     let done = false;
     const finish = () => {
       if (done) return; done = true;
       setExpression(mood, 3500);
+      resumeMic();
       resolve();
     };
     if (!hasTTS) {                                   // no voice: still move the mouth
@@ -599,7 +601,7 @@ async function respond(text) {
 
 /* ================= MICROPHONE ================= */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let rec = null, recActive = false, wantListen = false, micBlocked = false, micChecked = false;
+let rec = null, recActive = false, wantListen = false, micBlocked = false, micChecked = false, micPaused = false;
 let awaitingCommand = false, awaitUntil = 0, recStartedAt = 0, quickEnds = 0, netErrors = 0;
 
 function micUnavailable(msg) {
@@ -627,15 +629,17 @@ async function checkMic() {
 
 async function startRec() {
   if (!SR) return micUnavailable('Voice input needs Google Chrome or Microsoft Edge.');
+  if (micPaused) return;
   if (recActive) return;
   if (!(await checkMic())) return;
-  if (recActive) return;
-  rec = new SR();
+  if (recActive || micPaused) return;
+  const r0 = rec = new SR();
   rec.lang = 'en-US';
   rec.continuous = S.listenMode !== 'tap';
   rec.interimResults = false;
   rec.maxAlternatives = 3;
   rec.onresult = e => {
+    if (micPaused || rec !== r0) return;
     netErrors = 0;
     const r = e.results[e.results.length - 1];
     if (r.isFinal) handleHeard(Array.from(r).map(a => a.transcript.trim()));
@@ -649,8 +653,10 @@ async function startRec() {
       micUnavailable('Chrome cannot reach its speech service. Check the internet connection; some school networks block it.');
   };
   rec.onend = () => {
+    if (rec !== r0) return;                         // an older, replaced recognizer
     recActive = false;
     quickEnds = Date.now() - recStartedAt < 1500 ? quickEnds + 1 : 0;
+    if (micPaused) return;
     if (wantListen && S.listenMode !== 'tap') setTimeout(startRec, quickEnds > 4 ? 3000 : 250);
     else if (state === 'listening') setState('idle');
   };
@@ -664,6 +670,17 @@ function stopRec() {
   wantListen = false;
   if (rec) { try { rec.abort(); } catch (e) {} }
   recActive = false;
+}
+// Turn the mic fully off while the robot talks, then back on once its voice has stopped.
+function pauseMic() {
+  micPaused = true;
+  if (rec) { try { rec.abort(); } catch (e) {} }
+  recActive = false;
+}
+function resumeMic() {
+  micPaused = false; quickEnds = 0;
+  cooldownUntil = Date.now() + 700;
+  if (wantListen && S.listenMode !== 'tap') setTimeout(startRec, 700);
 }
 function restartListening() {
   stopRec();
