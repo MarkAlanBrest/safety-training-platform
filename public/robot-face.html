@@ -48,6 +48,8 @@
   #msg::placeholder { color: #5d7590; }
   #mic.on { background: #14532d; border-color: #4ade80; }
   #mic.blocked { opacity: .45; }
+  #mic.on svg { animation: micpulse 1.4s ease-in-out infinite; }
+  @keyframes micpulse { 50% { opacity: .4; } }
   #send { background: var(--eye); color: #00111f; border: 0; border-radius: 10px; padding: 0 16px; height: 40px;
     font: 600 15px var(--body); cursor: pointer; }
   #send:disabled { opacity: .5; cursor: wait; }
@@ -136,12 +138,12 @@
     <h3>Listening</h3>
     <div class="row"><label for="sMode">Microphone mode</label>
       <select id="sMode">
+        <option value="wake">Answer to its name (say the name first)</option>
         <option value="tap">Tap to talk (mic button or spacebar)</option>
-        <option value="wake">Wake word (say its name first)</option>
         <option value="always">Always listening (answers everything)</option>
       </select></div>
-    <div class="row"><label for="sWake">Wake word</label><input type="text" id="sWake" placeholder="blank = robot name"></div>
-    <div class="row"><label></label><span class="note">The microphone works in Chrome when this file is opened directly. claude.ai blocks it, so type there instead.</span></div>
+    <div class="row"><label for="sWake">Extra names</label><input type="text" id="sWake" placeholder="optional, comma separated, e.g. hey robot, robot"></div>
+    <div class="row"><label></label><span class="note">It always answers to its robot name, and close mishearings like "talent" for Talon. Press the mic button to talk without saying the name. Use Chrome or Edge and allow the microphone.</span></div>
 
     <h3>Voice</h3>
     <div class="row"><label for="sVoice">Voice</label><select id="sVoice"></select></div>
@@ -174,7 +176,7 @@ const DEFAULTS = {
   apiKey: '',
   model: 'claude-haiku-5-5',
   maxTokens: 150,
-  listenMode: 'tap',
+  listenMode: 'wake',
   wakeWord: '',
   voiceName: '',
   pitch: 0.4,
@@ -189,7 +191,11 @@ const DEFAULTS = {
 const STORE_KEY = 'robotFaceSettingsV2';
 let S = loadSettings();
 function loadSettings() {
-  try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(STORE_KEY) || '{}')); }
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+    if (!saved.micV3) { saved.listenMode = 'wake'; saved.micV3 = true; }   // older saves defaulted to tap-to-talk
+    return Object.assign({}, DEFAULTS, saved);
+  }
   catch (e) { return Object.assign({}, DEFAULTS); }
 }
 function saveSettings() {
@@ -628,40 +634,67 @@ $('msg').addEventListener('input', wakeUp);
 
 /* ================= MICROPHONE ================= */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let rec = null, recActive = false, wantListen = false, micBlocked = false;
-let awaitingCommand = false, awaitUntil = 0;
+let rec = null, recActive = false, wantListen = false, micBlocked = false, micChecked = false;
+let awaitingCommand = false, awaitUntil = 0, recStartedAt = 0, quickEnds = 0, netErrors = 0;
 
 function micUnavailable(msg) {
   micBlocked = true; wantListen = false;
   $('mic').classList.add('blocked'); $('mic').classList.remove('on');
   caption(undefined, msg);
-  setExpression('confused', 3000);
+  setExpression('confused', 4000);
 }
 
-function startRec() {
-  if (!SR) return micUnavailable('Voice input needs Google Chrome. Type your message below instead.');
+// Ask for the mic once up front so Chrome shows its prompt and we get a clear reason if it fails.
+async function checkMic() {
+  if (micChecked || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(t => t.stop());
+    micChecked = true;
+    return true;
+  } catch (e) {
+    if (e.name === 'NotFoundError' || e.name === 'OverconstrainedError')
+      micUnavailable('I cannot find a microphone. Plug one in or check the Windows sound settings, then tap the mic button.');
+    else
+      micUnavailable('Chrome blocked the microphone. Click the icon left of the web address, set Microphone to Allow, then reload the page.');
+    return false;
+  }
+}
+
+async function startRec() {
+  if (!SR) return micUnavailable('Voice input needs Google Chrome or Microsoft Edge. Type your message below instead.');
+  if (recActive) return;
+  if (!(await checkMic())) return;
   if (recActive) return;
   rec = new SR();
   rec.lang = 'en-US';
   rec.continuous = S.listenMode !== 'tap';
   rec.interimResults = false;
+  rec.maxAlternatives = 3;
   rec.onresult = e => {
+    netErrors = 0;
     const r = e.results[e.results.length - 1];
-    if (r.isFinal) handleHeard(r[0].transcript.trim());
+    if (r.isFinal) handleHeard(Array.from(r).map(a => a.transcript.trim()));
   };
   rec.onerror = e => {
-    if (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture')
-      micUnavailable('The microphone is blocked on this page. Type your message below instead.');
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed')
+      micUnavailable('Chrome blocked the microphone. Click the icon left of the web address, set Microphone to Allow, then reload the page.');
+    else if (e.error === 'audio-capture')
+      micUnavailable('I cannot hear the microphone. Check that it is plugged in and picked in the Windows sound settings.');
+    else if (e.error === 'network' && ++netErrors >= 3)
+      micUnavailable('Chrome cannot reach its speech service. Check the internet connection; some school networks block it.');
   };
   rec.onend = () => {
     recActive = false; $('mic').classList.remove('on');
-    if (wantListen && S.listenMode !== 'tap') setTimeout(startRec, 250);
+    quickEnds = Date.now() - recStartedAt < 1500 ? quickEnds + 1 : 0;
+    if (wantListen && S.listenMode !== 'tap') setTimeout(startRec, quickEnds > 4 ? 3000 : 250);
     else if (state === 'listening') setState('idle');
   };
   try {
-    rec.start(); recActive = true; $('mic').classList.add('on');
+    rec.start(); recActive = true; recStartedAt = Date.now();
+    micBlocked = false; $('mic').classList.remove('blocked'); $('mic').classList.add('on');
     if (state === 'idle') setState('listening');
-  } catch (e) { micUnavailable('The microphone could not start. Type your message below instead.'); }
+  } catch (e) { recActive = false; }
 }
 function stopRec() {
   wantListen = false;
@@ -670,25 +703,59 @@ function stopRec() {
 }
 function restartListening() {
   stopRec();
-  if (S.listenMode !== 'tap' && !micBlocked) { wantListen = true; setTimeout(startRec, 300); }
+  if (S.listenMode !== 'tap') { wantListen = true; setTimeout(startRec, 300); }
 }
 
-function handleHeard(text) {
+/* ---- hearing its name ---- */
+const norm = s => s.toLowerCase().replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim();
+function lev(a, b) {
+  const d = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = d[0]; d[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = d[j];
+      d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = tmp;
+    }
+  }
+  return d[b.length];
+}
+// Speech recognition often mishears names ("Talon" -> "talent", "tallon", "tell on"), so allow close matches.
+const sounds = (heard, name) => heard === name ||
+  (name.length >= 4 && heard[0] === name[0] && lev(heard, name) <= (name.length >= 5 ? 2 : 1));
+function wakeWords() {
+  return [...new Set([...(S.wakeWord || '').split(','), S.name].map(norm).filter(Boolean))];
+}
+// Returns the words said after the name, '' if only the name was said, or null if the name was not heard.
+function findWake(text) {
+  const words = norm(text).split(' ');
+  for (const w of wakeWords()) {
+    const n = w.split(' ').length;
+    for (let i = 0; i < words.length; i++) {
+      if (sounds(words.slice(i, i + n).join(' '), w)) return words.slice(i + n).join(' ');
+      if (n === 1 && i + 1 < words.length && sounds(words[i] + words[i + 1], w)) return words.slice(i + 2).join(' ');
+    }
+  }
+  return null;
+}
+
+function handleHeard(alts) {
+  const text = alts[0];
   if (!text || busy || Date.now() < cooldownUntil) return;
   lastActivity = Date.now();
   if (S.listenMode === 'wake') {
-    const wake = (S.wakeWord || S.name).toLowerCase().trim();
     if (awaitingCommand && Date.now() < awaitUntil) { awaitingCommand = false; return respond(text); }
-    const idx = text.toLowerCase().indexOf(wake);
-    if (idx < 0) return;                              // not talking to the robot
-    const command = text.slice(idx + wake.length).replace(/^[\s,.!?]+/, '').trim();
+    let command = null;
+    for (const a of alts) { command = findWake(a); if (command !== null) break; }
+    if (command === null) return;                     // not talking to the robot
+    wakeUp();
     if (!command) {
-      wakeUp();
       awaitingCommand = true; awaitUntil = Date.now() + 8000;
       busy = true;
       speak('Yes?', 'surprised').then(() => { busy = false; cooldownUntil = Date.now() + 600; setState('listening'); });
       return;
     }
+    setExpression('surprised', 500);
     return respond(command);
   }
   respond(text);
@@ -697,9 +764,17 @@ function handleHeard(text) {
 function tapToTalk() {
   if (busy) return;
   unlockAudio(); wakeUp();
-  if (micBlocked) return micUnavailable('The microphone is blocked on this page. Type your message below instead.');
-  if (recActive) return stopRec();
-  setState('listening'); startRec();
+  micBlocked = false; $('mic').classList.remove('blocked');
+  if (S.listenMode === 'tap') {
+    if (recActive) return stopRec();
+    setState('listening'); startRec();
+    return;
+  }
+  // wake / always mode: the mic button means "listen to me now, no name needed"
+  if (!recActive) restartListening();
+  awaitingCommand = true; awaitUntil = Date.now() + 8000;
+  setExpression('surprised', 600); beep([1100, 1500]);
+  caption(undefined, `${S.name} is listening…`);
 }
 $('mic').addEventListener('click', () => { if (!booted) boot(false); tapToTalk(); });
 
@@ -722,7 +797,7 @@ document.addEventListener('keydown', e => {
   const open = $('settings').classList.contains('open');
   if (e.key === 'Escape' && open) closeSettings();
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
-  if (e.code === 'Space' && !open && !typing && booted && S.listenMode === 'tap') { e.preventDefault(); tapToTalk(); }
+  if (e.code === 'Space' && !open && !typing && booted) { e.preventDefault(); tapToTalk(); }
 });
 
 /* ================= BOOT ================= */
@@ -735,7 +810,10 @@ function boot(greet = true) {
   setState('idle');
   if (greet) {
     busy = true;
-    speak(`Systems online. Hello, I am ${S.name}.`, 'happy').then(() => { busy = false; setState('idle'); restartListening(); });
+    speak(`Systems online. Hello, I am ${S.name}.`, 'happy').then(() => {
+      busy = false; setState('idle'); restartListening();
+      if (S.listenMode === 'wake') caption(undefined, `Say "${S.name}" and then your question.`);
+    });
   } else restartListening();
 }
 $('boot').addEventListener('click', () => boot(true));
@@ -798,7 +876,8 @@ function readForm() {
     eyeColor: $('sEye').value.trim() || DEFAULTS.eyeColor,
     followMouse: $('sFollow').value === '1',
     sleepMinutes: Number($('sSleep').value) || 0,
-    captions: $('sCaptions').value === '1'
+    captions: $('sCaptions').value === '1',
+    micV3: true
   };
 }
 function applySettings() {
