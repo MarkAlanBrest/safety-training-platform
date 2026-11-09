@@ -37,6 +37,14 @@
   #capYou { color: var(--muted); font-size: .8em; }
   .hide-captions #captions { visibility: hidden; }
 
+  /* ---------- TIMER BADGE ---------- */
+  #timerBadge { position: fixed; top: 14px; right: 18px; display: none; padding: 6px 14px; border-radius: 999px;
+    background: rgba(13, 22, 32, .85); border: 1px solid var(--line); color: var(--eye);
+    font: 700 clamp(18px, 2.6vw, 28px) var(--display); letter-spacing: 2px; font-variant-numeric: tabular-nums; }
+  #timerBadge.on { display: block; }
+  #timerBadge.done { animation: flash .5s steps(2) infinite; }
+  @keyframes flash { 50% { opacity: .25; } }
+
   /* ---------- BOOT CARD ---------- */
   #boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
     background: rgba(4, 7, 11, .55); cursor: pointer; z-index: 5; }
@@ -83,6 +91,8 @@
 <canvas id="face" aria-label="Robot face"></canvas>
 
 
+<div id="timerBadge" aria-live="polite"></div>
+
 <div id="dock">
   <div id="captions"><div id="capYou"></div><div id="capBot"></div></div>
 </div>
@@ -108,7 +118,7 @@
     <div class="row"><label>On claude.ai</label><span class="note" id="brainNote">Checking…</span></div>
     <div class="row"><label for="sKey">Claude API key</label><input type="password" id="sKey" placeholder="sk-ant-... (only for running the file locally)"></div>
     <div class="row"><label for="sModel">Model (API key only)</label><input type="text" id="sModel"></div>
-    <div class="row"><label for="sTokens">Max reply length</label><input type="number" id="sTokens" min="30" max="1000"></div>
+    <div class="row"><label for="sSearch">Look things up online</label><select id="sSearch"><option value="1">On (weather, scores, news)</option><option value="0">Off</option></select></div>
     <div class="row"><label></label><span class="note">The key is stored only in this browser. On claude.ai the robot uses your Claude account and needs no key.</span></div>
 
     <h3>Listening</h3>
@@ -151,7 +161,7 @@ const DEFAULTS = {
   personality: "You are {name}, a friendly, funny robot who lives in the shop class at Hubbard High School, home of the Hubbard Eagles, in Ohio. You speak out loud, so answer in one or two short sentences with no lists, emojis, or markdown. You love robot humor, shop puns, and corny jokes. Keep everything school-appropriate.",
   apiKey: '',
   model: 'claude-haiku-5-5',
-  maxTokens: 150,
+  webSearch: true,
   listenMode: 'wake',
   wakeWord: '',
   voiceName: '',
@@ -518,12 +528,47 @@ function showBrain() {
 }
 showBrain();
 
-function instructions() {
-  return S.personality.replaceAll('{name}', S.name) +
+/* ---- things it has said lately, kept across reloads so jokes don't repeat ---- */
+const RECENT_KEY = 'talonRecentLines';
+let recentLines = [];
+try { recentLines = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) {}
+function rememberLine(text) {
+  recentLines = [...recentLines.filter(l => l !== text), text].slice(-40);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(recentLines)); } catch (e) {}
+}
+
+const JOKE_ANGLES = ['welding', '3D printers', 'the CNC machine', 'the drill press', 'robotics competitions', 'gears', 'batteries',
+  'Wi-Fi', 'homework', 'cafeteria food', 'Ohio weather', 'football', 'real eagles', 'screws and bolts', 'duct tape',
+  'tape measures', 'sawdust', 'safety goggles', 'binary code', 'motors', 'sensors', 'computer bugs', 'lasers', 'magnets',
+  'outer space', 'dinosaurs', 'pizza', 'math class', 'history class', 'science lab', 'cats', 'dogs', 'Monday mornings',
+  'fire drills', 'the school bus', 'video games', 'phones', 'the vending machine', 'being a robot', 'electricity', 'rust',
+  'wrenches', 'hammers', 'the bell schedule', 'pop quizzes', 'gym class', 'snow days', 'Halloween', 'Thanksgiving', 'music'];
+const wantsJoke = t => /\b(joke|jokes|funny|pun|puns|laugh|riddle|knock knock|comedy|roast)\b/i.test(t);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+
+function nowContext() {
+  const d = new Date();
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const date = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const h = d.getHours(), part = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+  let s = `Right now it is ${time} on ${date} (${part}, ${Intl.DateTimeFormat().resolvedOptions().timeZone} time).`;
+  if (timer) s += ` A timer is running with ${spokenDuration(Math.max(0, timer.end - Date.now()) / 1000)} left.`;
+  return s;
+}
+
+function instructions(userText = '') {
+  let s = S.personality.replaceAll('{name}', S.name) +
     `\n\nYou talk out loud through a robot face on a screen that can show expressions. ` +
     `Start every reply with exactly one expression tag in square brackets, chosen from: ${MOODS.map(m => `[${m}]`).join(' ')}. ` +
     `Pick the one that matches how you feel about what you are saying. After the tag, write only the words to say out loud, ` +
-    `with no stage directions, asterisks, emojis or markdown.`;
+    `with no stage directions, asterisks, emojis, markdown or links. Write numbers and times the way you would say them.` +
+    `\n\n${nowContext()}` +
+    (S.webSearch && !sample ? `\nYou can search the web. Use it for anything current, like weather, sports scores, news or facts you are unsure of, then answer in one or two spoken sentences without naming websites.` : '') +
+    `\nYou also have built-in skills people can ask for: telling the time or date, setting a timer, flipping a coin, rolling dice, and picking a random number.` +
+    `\n\nBe surprising and vary your style. Never reuse a joke, pun or punchline you have told before.`;
+  if (recentLines.length) s += ` Here are things you said recently, so do not repeat any of them:\n- ${recentLines.slice(-25).join('\n- ')}`;
+  if (wantsJoke(userText)) s += `\n\nFor this joke, make up a fresh one about ${pick(JOKE_ANGLES)}, unless they asked about a specific topic.`;
+  return s;
 }
 
 function parseReply(raw) {
@@ -541,29 +586,140 @@ async function askAI(text) {
   let raw;
   try {
     if (sample) {
-      const msgs = history.map((m, i) => i === 0 ? { role: 'user', content: instructions() + '\n\n---\n\n' + m.content } : m);
+      const msgs = history.map((m, i) => i === 0 ? { role: 'user', content: instructions(text) + '\n\n---\n\n' + m.content } : m);
       raw = (await sample(msgs, { modelTier: 'quick', cache: false })).text;
     } else if (S.apiKey) {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': S.apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({ model: S.model, max_tokens: Number(S.maxTokens) || 150, system: instructions(), messages: history })
-      });
-      const data = await res.json();
+      const call = async withSearch => {
+        const body = {
+          model: S.model,
+          max_tokens: 2000,                             // room for thinking + searching; the prompt keeps replies short
+          output_config: { effort: 'low' },             // quick answers for a talking robot
+          system: instructions(text),
+          messages: history
+        };
+        if (withSearch) body.tools = [{
+          type: 'web_search_20250305', name: 'web_search', max_uses: 2,
+          user_location: { type: 'approximate', city: 'Hubbard', region: 'Ohio', country: 'US', timezone: 'America/New_York' }
+        }];
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': S.apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        return { res, data };
+      };
+      let { res, data } = await call(S.webSearch);
+      if (!res.ok && S.webSearch && res.status === 400) ({ res, data } = await call(false));   // web search not enabled for this key
       if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
-      raw = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join(' ');
+      raw = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
     } else throw { code: 'NO_BRAIN' };
   } catch (err) {
     history.pop();                                    // keep user/assistant turns paired
     throw err;
   }
   history.push({ role: 'assistant', content: raw });
-  return parseReply(raw);
+  const reply = parseReply(raw);
+  rememberLine(reply.text);
+  return reply;
+}
+
+/* ================= BUILT-IN SKILLS (instant, no AI needed) ================= */
+const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, fifteen: 15, twenty: 20, thirty: 30, forty: 40, 'forty five': 45, fifty: 50, sixty: 60, ninety: 90 };
+const toNum = s => { s = s.trim().toLowerCase(); return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NUM_WORDS[s]; };
+
+function spokenDuration(sec) {
+  sec = Math.round(sec);
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+  const part = (n, w) => n ? `${n} ${w}${n === 1 ? '' : 's'}` : '';
+  return [part(h, 'hour'), part(m, 'minute'), h ? '' : part(s, 'second')].filter(Boolean).join(' and ') || '0 seconds';
+}
+
+let timer = null, timerTick = null;
+function startTimer(sec, label) {
+  clearTimer();
+  timer = { end: Date.now() + sec * 1000, label };
+  $('timerBadge').classList.add('on');
+  timerTick = setInterval(updateTimer, 250); updateTimer();
+}
+function clearTimer() {
+  timer = null; clearInterval(timerTick);
+  $('timerBadge').classList.remove('on', 'done');
+}
+function updateTimer() {
+  if (!timer) return;
+  const left = Math.max(0, Math.ceil((timer.end - Date.now()) / 1000));
+  const h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60), s = left % 60;
+  $('timerBadge').textContent = (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0');
+  if (left === 0) timerDone();
+}
+async function timerDone() {
+  const label = timer.label;
+  clearInterval(timerTick); timer = null;
+  $('timerBadge').classList.add('done');
+  wakeUp();
+  while (busy) await new Promise(r => setTimeout(r, 300));
+  busy = true;
+  await beep([1320, 990, 1320, 990, 1320, 990]);
+  await speak(pick([`Beep beep! Your ${label} timer is done!`, `Time is up! That was ${label}.`,
+    `Ding ding ding! ${label} is up.`, `Attention humans! Your ${label} timer just finished.`]), 'excited');
+  busy = false; cooldownUntil = Date.now() + 800;
+  setTimeout(() => $('timerBadge').classList.remove('on', 'done'), 6000);
+  setState(recActive ? 'listening' : 'idle');
+}
+
+function localSkill(text) {
+  const t = text.toLowerCase();
+  const d = new Date();
+  if (/\b(what('?s| is) the time|what time is it|what time|tell me the time|got the time|time is it)\b/.test(t) && !/timer/.test(t)) {
+    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return { mood: 'happy', text: pick([`It is ${time}.`, `My internal clock says ${time}.`, `It's ${time}. Time flies when you're a robot.`,
+      `${time} on the dot. Well, close to the dot.`, `Beep boop, it is ${time}.`]) };
+  }
+  if (/\b(what('?s| is) (the |today'?s )?date|what day is (it|today)|today'?s date|what is today)\b/.test(t)) {
+    const date = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    return { mood: 'happy', text: `Today is ${date}.` };
+  }
+  if (/\b(cancel|stop|clear|end|turn off)\b.*\btimer\b/.test(t)) {
+    if (!timer) return { mood: 'confused', text: 'There is no timer running.' };
+    clearTimer(); return { mood: 'neutral', text: 'Timer canceled.' };
+  }
+  if (/\b(how (much|long)|time left|time remaining)\b/.test(t) && /\btimer\b/.test(t)) {
+    if (!timer) return { mood: 'confused', text: 'There is no timer running right now.' };
+    return { mood: 'happy', text: `${spokenDuration((timer.end - Date.now()) / 1000)} left on the timer.` };
+  }
+  const tm = t.match(/\b(?:timer|countdown)\b.*?\b(\d+(?:\.\d+)?|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty five|forty|fifty|sixty|ninety)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)\b/) ||
+             t.match(/\b(\d+(?:\.\d+)?|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty five|forty|fifty|sixty|ninety)[\s-]*(seconds?|secs?|minutes?|mins?|hours?|hrs?)\s+(?:timer|countdown)\b/);
+  if (tm) {
+    const n = toNum(tm[1]), unit = tm[2][0] === 's' ? 1 : tm[2][0] === 'm' ? 60 : 3600;
+    if (n && n * unit <= 24 * 3600) {
+      const sec = n * unit, label = spokenDuration(sec);
+      startTimer(sec, label);
+      return { mood: 'excited', text: pick([`Timer set for ${label}. Starting now!`, `Okay, ${label} on the clock. Go!`, `${label}, counting down.`]) };
+    }
+  }
+  if (/\b(flip|toss) a coin\b|\bheads or tails\b/.test(t)) {
+    return { mood: 'surprised', text: `Flipping... ${Math.random() < .5 ? 'Heads' : 'Tails'}!` };
+  }
+  const dm = t.match(/\broll (?:a |an |the |(\w+) )?(?:die|dice|d(\d+))\b/);
+  if (dm) {
+    const count = Math.min(6, toNum(dm[1] || 'one') || 1), sides = Number(dm[2]) || 6;
+    const rolls = Array.from({ length: count }, () => 1 + Math.floor(Math.random() * sides));
+    return { mood: 'excited', text: count === 1 ? `Rolling... you got a ${rolls[0]}!`
+      : `Rolling ${count} dice... ${rolls.join(', ')}. That's ${rolls.reduce((a, b) => a + b, 0)} total!` };
+  }
+  const nm = t.match(/\b(?:pick|choose|give me) a (?:random )?number (?:between|from) (\d+) (?:and|to) (\d+)\b/);
+  if (nm) {
+    const lo = Math.min(+nm[1], +nm[2]), hi = Math.max(+nm[1], +nm[2]);
+    return { mood: 'happy', text: `I pick ${lo + Math.floor(Math.random() * (hi - lo + 1))}.` };
+  }
+  return null;
 }
 
 /* ================= CONVERSATION ================= */
@@ -580,8 +736,14 @@ async function respond(text) {
     setState('sleeping');
     return;
   }
+  let reply = localSkill(text);
+  if (reply) {
+    await speak(reply.text, reply.mood);
+    busy = false; cooldownUntil = Date.now() + 800; lastActivity = Date.now();
+    setState(recActive ? 'listening' : 'idle');
+    return;
+  }
   setState('thinking');
-  let reply;
   try {
     reply = await askAI(text);
   } catch (err) {
@@ -820,7 +982,7 @@ function openSettings() {
   $('sPersonality').value = S.personality;
   $('sKey').value = S.apiKey;
   $('sModel').value = S.model;
-  $('sTokens').value = S.maxTokens;
+  $('sSearch').value = S.webSearch ? '1' : '0';
   $('sMode').value = S.listenMode;
   $('sWake').value = S.wakeWord;
   fillVoiceList();
@@ -842,7 +1004,7 @@ function readForm() {
     personality: $('sPersonality').value.trim() || DEFAULTS.personality,
     apiKey: $('sKey').value.trim(),
     model: $('sModel').value.trim() || DEFAULTS.model,
-    maxTokens: Number($('sTokens').value) || DEFAULTS.maxTokens,
+    webSearch: $('sSearch').value === '1',
     listenMode: $('sMode').value,
     wakeWord: $('sWake').value.trim(),
     voiceName: $('sVoice').value,
@@ -878,7 +1040,11 @@ $('btnTest').addEventListener('click', () => {
   const prev = S; S = readForm();
   speak(`Hello. I am ${S.name}. Beep boop.`, 'happy').then(() => { S = prev; setState(booted ? 'idle' : 'sleeping'); });
 });
-$('btnForget').addEventListener('click', () => { history = []; caption(undefined, 'Conversation cleared.'); });
+$('btnForget').addEventListener('click', () => {
+  history = []; recentLines = [];
+  try { localStorage.removeItem(RECENT_KEY); } catch (e) {}
+  caption(undefined, 'Conversation cleared.');
+});
 
 applySettings();
 resize();
