@@ -234,13 +234,19 @@ setInterval(() => {
 /* ================= CANVAS FACE ================= */
 const cv = $('face'), ctx = cv.getContext('2d');
 const off = document.createElement('canvas'), oc = off.getContext('2d');
+// The glow is blurred on a quarter-size copy: ~1/16 the pixels and a smaller blur radius, so it costs a tiny
+// fraction of blurring the full-screen canvas every frame (the main cause of lag on school laptops).
+const glow = document.createElement('canvas'), gc = glow.getContext('2d');
+const GLOW_SCALE = 4;
 const glowOK = 'filter' in ctx;
 let dpr = 1, k = 1, ox = 0, oy = 0;
 
 function resize() {
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  dpr = Math.min(window.devicePixelRatio || 1, 1.5);
   cv.width = off.width = Math.round(innerWidth * dpr);
   cv.height = off.height = Math.round(innerHeight * dpr);
+  glow.width = Math.ceil(off.width / GLOW_SCALE);
+  glow.height = Math.ceil(off.height / GLOW_SCALE);
   const topH = 16, dockH = $('dock').getBoundingClientRect().height + 8;
   const availW = innerWidth - 32, availH = Math.max(160, innerHeight - topH - dockH);
   const kc = Math.min(availW / 800, availH / 470);
@@ -312,10 +318,11 @@ function frame(now) {
   } else tgt.talk = 0;
   talkPulse *= .85;
 
-  const ease = Math.min(1, dt * 9), fast = Math.min(1, dt * 22);
+  // frame-rate independent easing, so motion looks the same at 30, 60 or 144 fps
+  const ease = 1 - Math.exp(-dt * 9), fast = 1 - Math.exp(-dt * 22), look = 1 - Math.exp(-dt * 6);
   KEYS.forEach(key => { cur[key] += (tgt[key] - cur[key]) * ease; });
-  cur.lookX += (tgt.lookX - cur.lookX) * Math.min(1, dt * 6);
-  cur.lookY += (tgt.lookY - cur.lookY) * Math.min(1, dt * 6);
+  cur.lookX += (tgt.lookX - cur.lookX) * look;
+  cur.lookY += (tgt.lookY - cur.lookY) * look;
   cur.talk += (tgt.talk - cur.talk) * fast;
   const tc = parseColor(EXPR[name].tint || S.eyeColor);
   curColor = curColor.map((c, i) => c + (tc[i] - c) * ease);
@@ -381,9 +388,14 @@ function draw(now) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, cv.width, cv.height);
   if (glowOK) {
-    ctx.filter = `blur(${Math.round(14 * k)}px)`; ctx.globalAlpha = .9;
-    ctx.drawImage(off, 0, 0);
-    ctx.filter = 'none'; ctx.globalAlpha = 1;
+    gc.setTransform(1, 0, 0, 1, 0, 0);
+    gc.clearRect(0, 0, glow.width, glow.height);
+    gc.filter = `blur(${Math.max(1, Math.round(14 * k / GLOW_SCALE))}px)`;
+    gc.drawImage(off, 0, 0, glow.width, glow.height);
+    gc.filter = 'none';
+    ctx.globalAlpha = .9;
+    ctx.drawImage(glow, 0, 0, cv.width, cv.height);
+    ctx.globalAlpha = 1;
   }
   ctx.drawImage(off, 0, 0);
 }
@@ -460,20 +472,20 @@ function unlockAudio() {
     if (audioCtx.state === 'suspended') audioCtx.resume();
   } catch (e) {}
 }
-function beep(notes = [880, 1320, 990]) {
+function beep(notes = [880, 1320], step = 0.065) {
   return new Promise(resolve => {
     if (!S.beeps || !audioCtx) return resolve();
     const now = audioCtx.currentTime;
     notes.forEach((f, i) => {
       const o = audioCtx.createOscillator(), g = audioCtx.createGain();
       o.type = 'square'; o.frequency.value = f;
-      g.gain.setValueAtTime(0.0001, now + i * 0.09);
-      g.gain.exponentialRampToValueAtTime(0.07 * S.volume + 0.0001, now + i * 0.09 + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.09 + 0.08);
+      g.gain.setValueAtTime(0.0001, now + i * step);
+      g.gain.exponentialRampToValueAtTime(0.07 * S.volume + 0.0001, now + i * step + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + i * step + step * 0.85);
       o.connect(g).connect(audioCtx.destination);
-      o.start(now + i * 0.09); o.stop(now + i * 0.09 + 0.09);
+      o.start(now + i * step); o.stop(now + i * step + step);
     });
-    setTimeout(resolve, notes.length * 90 + 50);
+    setTimeout(resolve, notes.length * step * 1000 + 20);
   });
 }
 
@@ -483,35 +495,78 @@ const hasTTS = 'speechSynthesis' in window;
 function loadVoices() { voices = speechSynthesis.getVoices(); fillVoiceList(); }
 if (hasTTS) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
 
+const cleanSpoken = s => s.replace(/\[[a-z]+\]/gi, '').replace(/[*_#`~]/g, '').replace(/\s+/g, ' ').trim();
+function splitSentences(text) {
+  return (text.match(/[\s\S]*?[.!?…]+["'’”)\]]*(?=\s|$)|[\s\S]+$/g) || [text]).map(s => s.trim()).filter(Boolean);
+}
+
+// Speaks sentences as they arrive. All sentences go into the browser's own speech queue right away, so there
+// is no gap between them, and short utterances avoid Chrome cutting off long speech after about 15 seconds.
+let currentSpeech = null;
+function speechQueue() {
+  let started = false, closed = false, finished = false, pending = 0, remaining = 0, mood = 'happy', said = '';
+  let chain = Promise.resolve(), safety = null, resolveDone;
+  const done = new Promise(r => resolveDone = r);
+  const keep = [];                                   // Chrome can drop onend if the utterance is garbage collected
+  const arm = () => { clearTimeout(safety); safety = setTimeout(stop, 5000 + remaining * 110); };
+  const check = () => {
+    if (!closed || pending > 0 || finished) return;
+    finished = true; clearTimeout(safety);
+    if (currentSpeech === api) currentSpeech = null;
+    if (started) { setExpression(mood, 3500); resumeMic(); }
+    resolveDone();
+  };
+  function stop() {                                  // interrupt: drop everything still queued
+    if (hasTTS) speechSynthesis.cancel();
+    pending = 0; remaining = 0; closed = true; check();
+  }
+  function sayOne(s) {
+    return new Promise(next => {
+      let over = false;
+      const end = () => { if (over) return; over = true; pending--; remaining -= s.length; arm(); check(); };
+      const show = () => { said += (said ? ' ' : '') + s; caption(undefined, `${S.name}: ${said}`); setState('speaking'); };
+      if (!hasTTS) { show(); setTimeout(() => { end(); next(); }, 800 + s.length * 55); return; }   // still move the mouth
+      const u = new SpeechSynthesisUtterance(s);
+      const v = voices.find(v => v.name === S.voiceName);
+      if (v) u.voice = v;
+      u.pitch = S.pitch; u.rate = S.rate; u.volume = S.volume;
+      u.onstart = () => { show(); arm(); };
+      u.onboundary = () => { talkPulse = .45; };
+      u.onend = end; u.onerror = end;
+      keep.push(u);
+      speechSynthesis.speak(u);
+      next();                                         // queue the next sentence immediately
+    });
+  }
+  const api = {
+    get started() { return started; },
+    setMood(m) { if (EXPR[m]) { mood = m; setExpression(m); } },
+    push(s) {
+      if (closed) return;
+      const tag = s.match(/\[([a-z]+)\]/i);
+      if (tag) api.setMood(tag[1].toLowerCase());
+      s = cleanSpoken(s);
+      if (!s) return;
+      pending++; remaining += s.length; arm();
+      if (!started) {
+        started = true; currentSpeech = api;
+        pauseMic();                                   // never listen to its own voice
+        if (hasTTS) speechSynthesis.cancel();
+        chain = beep();
+      }
+      chain = chain.then(() => sayOne(s));
+    },
+    end() { closed = true; check(); return done; },
+    stop
+  };
+  return api;
+}
+
 function speak(text, mood = 'neutral') {
-  return new Promise(async resolve => {
-    caption(undefined, `${S.name}: ${text}`);
-    setExpression(mood);
-    pauseMic();                                       // never listen to its own voice
-    await beep();
-    let done = false;
-    const finish = () => {
-      if (done) return; done = true;
-      setExpression(mood, 3500);
-      resumeMic();
-      resolve();
-    };
-    if (!hasTTS) {                                   // no voice: still move the mouth
-      setState('speaking');
-      return setTimeout(finish, 800 + text.length * 55);
-    }
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    const v = voices.find(v => v.name === S.voiceName);
-    if (v) u.voice = v;
-    u.pitch = S.pitch; u.rate = S.rate; u.volume = S.volume;
-    u.onstart = () => setState('speaking');
-    u.onboundary = () => { talkPulse = .45; };
-    u.onend = finish; u.onerror = finish;
-    setState('speaking');
-    setTimeout(finish, 5000 + text.length * 110);   // safety net if the browser never fires onend
-    speechSynthesis.speak(u);
-  });
+  const sp = speechQueue();
+  sp.setMood(mood);
+  splitSentences(text).forEach(s => sp.push(s));
+  return sp.end();
 }
 
 /* ================= AI BRAIN ================= */
@@ -578,54 +633,110 @@ function parseReply(raw) {
   return { mood, text: text || 'Beep. I have nothing to say.' };
 }
 
+// Cuts streamed text into sentences and hands each one to the speech queue as soon as it is complete.
+function sentenceFeeder(sp) {
+  let buf = '', moodSeen = false;
+  return {
+    feed(delta) {
+      buf += delta;
+      if (!moodSeen) {
+        const m = buf.match(/^\s*\[([a-z]+)\]\s*/i);
+        if (m) { moodSeen = true; sp.setMood(m[1].toLowerCase()); buf = buf.slice(m[0].length); }
+        else if (/^\s*\[[a-z]*$/i.test(buf)) return;  // the expression tag is still arriving
+        else { moodSeen = true; sp.setMood('happy'); }
+      }
+      let m;
+      while ((m = buf.match(/^([\s\S]*?[.!?…]+["'’”)\]]*)\s+/))) { sp.push(m[1]); buf = buf.slice(m[0].length); }
+      if (buf.length > 220) {                         // very long sentence: break at a comma so speech can start
+        const c = buf.lastIndexOf(', ');
+        if (c > 60) { sp.push(buf.slice(0, c + 1)); buf = buf.slice(c + 2); }
+      }
+    },
+    flush() { if (!moodSeen) sp.setMood('happy'); if (buf.trim()) sp.push(buf); buf = ''; }
+  };
+}
+
+async function streamClaude(body, onText) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': S.apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify(Object.assign({}, body, { stream: true }))
+  });
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { msg = (await res.json())?.error?.message || msg; } catch (e) {}
+    const err = new Error(msg); err.status = res.status; throw err;
+  }
+  const reader = res.body.getReader(), dec = new TextDecoder();
+  let sse = '', raw = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    sse += dec.decode(value, { stream: true }).replace(/\r/g, '');
+    let i;
+    while ((i = sse.indexOf('\n\n')) >= 0) {
+      const data = sse.slice(0, i).split('\n').filter(l => l.startsWith('data:')).map(l => l.slice(5).trim()).join('');
+      sse = sse.slice(i + 2);
+      if (!data) continue;
+      let ev; try { ev = JSON.parse(data); } catch (e) { continue; }
+      if (ev.type === 'content_block_start' && ev.content_block?.type === 'text' && raw) { raw += ' '; onText(' '); }
+      else if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') { raw += ev.delta.text; onText(ev.delta.text); }
+      else if (ev.type === 'error') throw new Error(ev.error?.message || 'Stream error');
+    }
+  }
+  return raw;
+}
+
 let history = [];
-async function askAI(text) {
+// Streams the reply into the speech queue `sp`, so the robot starts talking after the first sentence.
+async function askAI(text, sp) {
   history.push({ role: 'user', content: text });
   history = history.slice(-12);
   while (history.length && history[0].role !== 'user') history.shift();
+  const feeder = sentenceFeeder(sp);
   let raw;
   try {
     if (sample) {
       const msgs = history.map((m, i) => i === 0 ? { role: 'user', content: instructions(text) + '\n\n---\n\n' + m.content } : m);
       raw = (await sample(msgs, { modelTier: 'quick', cache: false })).text;
+      feeder.feed(raw);
     } else if (S.apiKey) {
-      const call = async withSearch => {
-        const body = {
-          model: S.model,
-          max_tokens: 2000,                             // room for thinking + searching; the prompt keeps replies short
-          output_config: { effort: 'low' },             // quick answers for a talking robot
-          system: instructions(text),
-          messages: history
-        };
-        if (withSearch) body.tools = [{
-          type: 'web_search_20250305', name: 'web_search', max_uses: 2,
-          user_location: { type: 'approximate', city: 'Hubbard', region: 'Ohio', country: 'US', timezone: 'America/New_York' }
-        }];
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-api-key': S.apiKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true'
-          },
-          body: JSON.stringify(body)
-        });
-        const data = await res.json();
-        return { res, data };
+      const body = {
+        model: S.model,
+        max_tokens: 1500,                               // room for searching; the prompt keeps replies short
+        output_config: { effort: 'low' },               // quick answers for a talking robot
+        system: instructions(text),
+        messages: history
       };
-      let { res, data } = await call(S.webSearch);
-      if (!res.ok && S.webSearch && res.status === 400) ({ res, data } = await call(false));   // web search not enabled for this key
-      if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
-      raw = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+      // Haiku 5.5 allows thinking off at low effort: the fastest time to the first spoken word.
+      if (/^claude-haiku-5/.test(S.model)) body.thinking = { type: 'disabled' };
+      if (S.webSearch) body.tools = [{
+        type: 'web_search_20250305', name: 'web_search', max_uses: 2,
+        user_location: { type: 'approximate', city: 'Hubbard', region: 'Ohio', country: 'US', timezone: 'America/New_York' }
+      }];
+      try { raw = await streamClaude(body, d => feeder.feed(d)); }
+      catch (err) {
+        // 400 before anything streamed: retry plainly (web search not enabled for this key, or a model
+        // that does not accept these options)
+        if (err.status !== 400) throw err;
+        delete body.tools; delete body.thinking;
+        raw = await streamClaude(body, d => feeder.feed(d));
+      }
     } else throw { code: 'NO_BRAIN' };
   } catch (err) {
     history.pop();                                    // keep user/assistant turns paired
     throw err;
   }
-  history.push({ role: 'assistant', content: raw });
+  feeder.flush();
+  history.push({ role: 'assistant', content: raw || '[neutral] ...' });
   const reply = parseReply(raw);
   rememberLine(reply.text);
+  if (!sp.started) sp.push(reply.text);               // nothing speakable came through
   return reply;
 }
 
@@ -744,16 +855,18 @@ async function respond(text) {
     return;
   }
   setState('thinking');
+  const sp = speechQueue();
   try {
-    reply = await askAI(text);
+    await askAI(text, sp);
   } catch (err) {
     console.error(err);
     if (err && err.code === 'NO_BRAIN') reply = { mood: 'confused', text: 'I need a brain. Double-click my face to open my settings and add an API key.' };
     else if (err && err.code === 'not_granted') { sample = null; showBrain(); reply = { mood: 'sad', text: 'I was not allowed to use Claude. Check my settings.' }; }
-    else if (err && err.code === 'rate_limited') reply = { mood: 'sleepy', text: 'My brain needs a short break. Try again in a minute.' };
+    else if (err && (err.code === 'rate_limited' || err.status === 429)) reply = { mood: 'sleepy', text: 'My brain needs a short break. Try again in a minute.' };
     else { reply = { mood: 'sad', text: 'My brain is offline. Check my settings.' }; }
+    if (!sp.started) { sp.setMood(reply.mood); splitSentences(reply.text).forEach(s => sp.push(s)); }
   }
-  await speak(reply.text, reply.mood);
+  await sp.end();
   busy = false;
   cooldownUntil = Date.now() + 800;                   // ignore the tail end of its own voice
   lastActivity = Date.now();
@@ -798,13 +911,16 @@ async function startRec() {
   const r0 = rec = new SR();
   rec.lang = 'en-US';
   rec.continuous = S.listenMode !== 'tap';
-  rec.interimResults = false;
+  rec.interimResults = true;                        // live captions while the person is still talking
   rec.maxAlternatives = 3;
   rec.onresult = e => {
     if (micPaused || rec !== r0) return;
     netErrors = 0;
-    const r = e.results[e.results.length - 1];
-    if (r.isFinal) handleHeard(Array.from(r).map(a => a.transcript.trim()));
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const r = e.results[i];
+      if (r.isFinal) handleHeard(Array.from(r).map(a => a.transcript.trim()));
+      else showInterim(r[0].transcript.trim());
+    }
   };
   rec.onerror = e => {
     if (e.error === 'not-allowed' || e.error === 'service-not-allowed')
@@ -882,6 +998,15 @@ function findWake(text) {
   return null;
 }
 
+// Show words as they are heard, but in name mode only once the robot is being talked to.
+function showInterim(text) {
+  if (!text || busy || Date.now() < cooldownUntil) return;
+  const forMe = S.listenMode !== 'wake' || (awaitingCommand && Date.now() < awaitUntil) || findWake(text) !== null;
+  if (!forMe) return;
+  $('capYou').textContent = `You: ${text}…`;
+  $('capYou').style.opacity = 1;
+}
+
 function handleHeard(alts) {
   const text = alts[0];
   if (!text || busy || Date.now() < cooldownUntil) return;
@@ -905,6 +1030,7 @@ function handleHeard(alts) {
 }
 
 function tapToTalk() {
+  if (currentSpeech && state === 'speaking') { currentSpeech.stop(); return; }   // tap to interrupt
   if (busy) return;
   unlockAudio(); wakeUp();
   micBlocked = false;
