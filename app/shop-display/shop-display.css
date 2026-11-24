@@ -16,3 +16,37 @@
 .shop-cleanup-card li{font:600 2.3cqw/1.1 var(--font-oswald),sans-serif;padding:.45cqw 0;border-bottom:1px solid #ffffff1c;overflow-wrap:anywhere;break-inside:avoid}
 .shop-cleanup-card li.shop-cleanup-unassigned{font-size:2.2cqw;color:#aeb8ae;font-style:italic}
 .shop-cleanup-board>footer{height:auto;flex-shrink:0;text-align:center;color:#c5b58f;font:600 2cqw var(--font-oswald),sans-serif;letter-spacing:.2cqw;text-transform:uppercase}
+/* ── Two webcam feeds (stacked for the portrait TV) ── */
+.shop-webcam-grid{flex:1;min-height:0;display:grid;grid-auto-rows:minmax(0,1fr);gap:1cqw;padding:1cqw;background:#111}
+.shop-webcam-grid>.shop-webcam,.shop-webcam-grid>.shop-webcam-message{min-height:0;border-radius:3px;overflow:hidden}
+
+/* ── Christmas theme (cleanup overlay intentionally unchanged) ── */
+.shop-xmas{background:#07140d}
+.shop-xmas .shop-board{background:radial-gradient(ellipse at 50% 0%,#1f5a3a,transparent 70%),repeating-linear-gradient(45deg,#0000 0 3cqw,#ffffff06 3cqw 6cqw),#0d2a1b}
+.shop-xmas .shop-wood{color:#fff8e7;background:radial-gradient(ellipse at 30% 0%,#ffffff22,transparent 60%),linear-gradient(100deg,#8e1015,#c4202a 45%,#8a0f14);border:1px solid #f0c75e;box-shadow:inset 0 0 0 2px #f0c75e55,0 2px 5px #0009}
+.shop-xmas .shop-brand{border:0.9cqw solid transparent;border-image:repeating-linear-gradient(45deg,#fff 0 1.6cqw,#c4202a 1.6cqw 3.2cqw) 12}
+.shop-xmas .shop-brand h1{color:#fff;text-shadow:0 0.4cqw 0 #5b0a0d,0 0 2cqw #ffd97a66}
+.shop-xmas .shop-brand p,.shop-xmas .shop-brand small{color:#ffe7a3}
+.shop-xmas .shop-brand p.shop-toolbar-clock{color:#fff8e7}
+.shop-xmas .shop-emblem{border-color:#f0c75e;color:#7fd39a;background:#0d2a1b}
+.shop-xmas .shop-creed{border-left-color:#f0c75e88}
+.shop-xmas .shop-creed svg{color:#ffe7a3}
+.shop-xmas .shop-chalk{border:3px solid #c9a240;background:radial-gradient(ellipse at 25% 0%,#ffffff0b,transparent 60%),#16241c}
+.shop-xmas .shop-caption span{color:#ffd97a}
+.shop-xmas .shop-board>footer svg{color:#fff}
+
+.shop-countdown{height:7.5%;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:2cqw;padding:0 2.5cqw;background:linear-gradient(180deg,#1b5a36,#0f3b23);border:2px solid #f0c75e;border-radius:5px;box-shadow:2px 3px 6px #000b;color:#fff8e7}
+.shop-countdown-title{display:flex;align-items:center;gap:1.5cqw;font:700 2.8cqw/1.1 var(--font-oswald),sans-serif;text-transform:uppercase;letter-spacing:.15cqw;color:#ffe7a3}
+.shop-countdown-title svg{width:6cqw;height:6cqw;color:#7fd39a}
+.shop-countdown-units{display:flex;gap:1.4cqw}
+.shop-countdown-units>div{min-width:11cqw;display:flex;flex-direction:column;align-items:center;padding:.6cqw 1cqw;background:#8e1015;border:1px solid #f0c75e;border-radius:4px}
+.shop-countdown-units strong{font:700 5.4cqw/1 var(--font-oswald),sans-serif;color:#fff;font-variant-numeric:tabular-nums}
+.shop-countdown-units span{font:600 1.5cqw var(--font-oswald),sans-serif;text-transform:uppercase;letter-spacing:.2cqw;color:#ffe7a3}
+.shop-countdown-day{justify-content:center;gap:3cqw}
+.shop-countdown-day strong{font:900 7cqw/1 Impact,var(--font-oswald),sans-serif;text-transform:uppercase;color:#fff;text-shadow:0 0 2cqw #ffd97a}
+.shop-countdown-day svg{width:7cqw;height:7cqw;color:#ffe7a3}
+
+/* Gentle falling snow over the board (sits below the cleanup overlay) */
+.shop-snow{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:.55;background-image:radial-gradient(circle,#fff 0 1.5px,transparent 2px),radial-gradient(circle,#fff 0 1px,transparent 1.5px),radial-gradient(circle,#fff 0 2px,transparent 2.5px);background-size:120px 120px,80px 80px,190px 190px;background-position:0 0,40px 30px,90px 60px;animation:shop-snowfall 22s linear infinite}
+@keyframes shop-snowfall{to{background-position:60px 1200px,-40px 800px,150px 1900px}}
+@media(prefers-reduced-motion:reduce){.shop-snow{animation:none}}
