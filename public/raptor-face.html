@@ -2070,6 +2070,47 @@
         let rec = null, recActive = false, wantListen = false, micBlocked = false, micChecked = false, micPaused = false;
         let recStartedAt = 0, quickEnds = 0, netErrors = 0, recMode = null;
 
+        // Android Chrome's continuous mode marks the first word or two "final" mid-sentence, so the robot would
+        // answer just "what". There, listen one phrase at a time (it restarts itself), and everywhere, collect
+        // the pieces of a sentence and only act once the speaker pauses.
+        const IS_ANDROID = /Android/i.test(navigator.userAgent || '');
+        const PAUSE_MS = 1000;
+        let heardFinal = '', heardAlts = null, heardInterim = '', heardTimer = null;
+
+        function clearHeard() {
+            clearTimeout(heardTimer);
+            heardTimer = null;
+            heardFinal = '';
+            heardAlts = null;
+            heardInterim = '';
+        }
+        function addFinal(alts) {
+            const t = alts[0];
+            if (!t) return;
+            const nt = norm(t), nf = norm(heardFinal);
+            if (heardFinal && nt.startsWith(nf)) {          // some phones repeat the whole phrase so far
+                heardFinal = t;
+                heardAlts = alts;
+            } else if (heardFinal && nf.endsWith(nt)) {
+                // duplicate of what we already have
+            } else {
+                heardAlts = heardFinal ? alts.map((a) => `${heardFinal} ${a}`) : alts;
+                heardFinal = heardFinal ? `${heardFinal} ${t}` : t;
+            }
+        }
+        function flushHeard(force = false) {
+            clearTimeout(heardTimer);
+            heardTimer = null;
+            if (!heardFinal && heardInterim && !force) {    // still talking: wait for the words to settle
+                heardTimer = setTimeout(() => flushHeard(true), PAUSE_MS * 2);
+                return;
+            }
+            const text = (heardFinal || heardInterim).trim();
+            const alts = heardFinal && heardAlts ? heardAlts : [text];
+            clearHeard();
+            if (text) handleHeard(alts);
+        }
+
         function micUnavailable(msg) {
             micBlocked = true;
             wantListen = false;
@@ -2108,18 +2149,24 @@
             const r0 = rec = new SR();
             recMode = listenMode();
             rec.lang = 'en-US';
-            rec.continuous = recMode !== 'tap';
+            rec.continuous = recMode !== 'tap' && !IS_ANDROID;
             rec.interimResults = true;             // live captions while the person is still talking
             rec.maxAlternatives = 3;
 
             rec.onresult = (e) => {
                 if (micPaused || rec !== r0) return;
                 netErrors = 0;
+                let interim = '';
                 for (let i = e.resultIndex; i < e.results.length; i++) {
                     const r = e.results[i];
-                    if (r.isFinal) handleHeard(Array.from(r).map((a) => a.transcript.trim()));
-                    else showInterim(r[0].transcript.trim());
+                    if (r.isFinal) addFinal(Array.from(r).map((a) => a.transcript.trim()).filter(Boolean));
+                    else interim += (interim ? ' ' : '') + r[0].transcript.trim();
                 }
+                heardInterim = interim.trim();
+                showInterim(`${heardFinal} ${heardInterim}`.trim());
+                // act only after a short pause, so the whole sentence is collected first
+                clearTimeout(heardTimer);
+                heardTimer = setTimeout(() => flushHeard(), PAUSE_MS);
             };
             rec.onerror = (e) => {
                 if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
@@ -2135,6 +2182,11 @@
                 recActive = false;
                 quickEnds = Date.now() - recStartedAt < 1500 ? quickEnds + 1 : 0;
                 if (micPaused) return;
+                if (heardFinal || heardInterim) {
+                    // The phone may stop listening mid-sentence: give the restarted mic a moment to catch the rest.
+                    clearTimeout(heardTimer);
+                    heardTimer = setTimeout(() => flushHeard(true), PAUSE_MS);
+                }
                 if (wantListen && listenMode() !== 'tap') {
                     setTimeout(startRec, quickEnds > 4 ? 3000 : 250);
                 } else if (currentState === 'listening') {
@@ -2162,6 +2214,7 @@
         // Turn the mic fully off while the robot talks, then back on once its voice has stopped.
         function pauseMic() {
             micPaused = true;
+            clearHeard();
             if (rec) { try { rec.abort(); } catch (e) {} }
             recActive = false;
         }
