@@ -1701,6 +1701,33 @@
         /* ================= GEMINI AI BRAIN (streaming) ================= */
         const GEMINI_MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3-flash-preview'];
 
+        // Ask Google which Flash models this key can actually use, so model renames and per-model
+        // free-tier limits don't break the robot. Falls back to the list above.
+        let modelListCache = null, modelListKey = '';
+        let searchOffUntil = 0;              // skip Google Search for a while after it hits its quota
+        async function geminiModels() {
+            if (modelListCache && modelListKey === config.apiKey) return modelListCache;
+            try {
+                const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${encodeURIComponent(config.apiKey)}`);
+                if (r.ok) {
+                    const j = await r.json();
+                    const ver = (n) => parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [])[1] || '0');
+                    const unstable = (n) => /preview|exp|latest/.test(n) ? 1 : 0;
+                    const names = (j.models || [])
+                        .filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
+                        .map((m) => m.name.replace(/^models\//, ''))
+                        .filter((n) => /^gemini-[\d.]+-flash/.test(n) && !/image|tts|audio|live|embed|native|thinking/.test(n))
+                        .sort((a, b) => unstable(a) - unstable(b) || ver(b) - ver(a) || a.length - b.length);
+                    if (names.length) {
+                        modelListCache = [...new Set([...names.slice(0, 5), ...GEMINI_MODELS])];
+                        modelListKey = config.apiKey;
+                        return modelListCache;
+                    }
+                }
+            } catch (e) {}
+            return GEMINI_MODELS;
+        }
+
         function nowContext() {
             const d = new Date();
             const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -1817,8 +1844,9 @@
             const feeder = sentenceFeeder(sp);
             let raw = '', lastErr = null, streamed = false;
             const onText = (d) => { streamed = true; feeder.feed(d); };
+            let saw429 = null;
             try {
-                for (const model of GEMINI_MODELS) {
+                for (const model of await geminiModels()) {
                     const body = {
                         systemInstruction: { parts: [{ text: instructions(text) }] },
                         contents: conversationHistory,
@@ -1828,14 +1856,18 @@
                             thinkingConfig: { thinkingLevel: 'low' }
                         }
                     };
-                    if (config.webSearch) body.tools = [{ google_search: {} }];
+                    if (config.webSearch && Date.now() > searchOffUntil) body.tools = [{ google_search: {} }];
                     try {
                         raw = await streamGemini(model, body, onText);
                     } catch (err) {
                         if (streamed || isKeyError(err)) throw err;
                         lastErr = err;
-                        if (err.status === 400) {
-                            // Model may not accept search or thinking options: retry it plainly
+                        if (err.status === 429) saw429 = err;
+                        if (err.status === 429 && body.tools) searchOffUntil = Date.now() + 10 * 60000;
+                        if (err.status === 400 || err.status === 429) {
+                            // 400: model may not accept search/thinking options.
+                            // 429: Google Search grounding has its own (often tiny) free quota.
+                            // Either way, retry the same model plainly before moving on.
                             delete body.tools;
                             delete body.generationConfig.thinkingConfig;
                             try {
@@ -1843,16 +1875,17 @@
                             } catch (err2) {
                                 if (streamed || isKeyError(err2)) throw err2;
                                 lastErr = err2;
-                                continue;
+                                if (err2.status === 429) saw429 = err2;
+                                continue;              // this model's quota is used up: try the next one
                             }
                         } else {
-                            continue;                  // 404 / 429 / 5xx: try the next model
+                            continue;                  // 404 / 5xx: try the next model
                         }
                     }
                     if (raw.trim()) break;
                     lastErr = new Error('Empty reply');
                 }
-                if (!raw.trim()) throw lastErr || new Error('Empty reply');
+                if (!raw.trim()) throw saw429 || lastErr || new Error('Empty reply');
             } catch (err) {
                 conversationHistory.pop();             // keep user/model turns paired
                 throw err;
@@ -1868,7 +1901,7 @@
         function aiErrorReply(err) {
             const msg = (err && err.message) || '';
             if (isKeyError(err)) return { mood: 'sad', text: 'My API key was rejected. Turn me upright to check my settings!', detail: `Key error: ${msg}` };
-            if (err && err.status === 429) return { mood: 'sleepy', text: 'My brain needs a short break. Try again in a minute!', detail: `Busy: ${msg}` };
+            if (err && err.status === 429) return { mood: 'sleepy', text: 'I used up my free AI brain power for now. Try again in a minute!', detail: `Gemini limit (429): ${msg.slice(0, 220)}` };
             if (!navigator.onLine) return { mood: 'sad', text: "I lost my Wi-Fi connection! Check that I'm online.", detail: 'Offline' };
             return { mood: 'confused', text: 'Oops, my brain had a quick hiccup! Try asking me again.', detail: `AI error: ${msg}` };
         }
