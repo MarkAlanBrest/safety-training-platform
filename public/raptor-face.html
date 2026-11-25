@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+    <title>Raptor - Classroom Robot Face</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000000;
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        /* Glowing amber/gold Raptor palette */
+        :root {
+            --raptor-glow: #ffb300;
+            --raptor-core: #ffca28;
+            --raptor-listen: #38bdf8;
+            --raptor-think: #a855f7;
+            --raptor-happy: #ffd54f;
+        }
+
+        /* Upright (Portrait) vs Sideways (Landscape) Layout Rules */
+        #portrait-rotate-banner {
+            display: none;
+        }
+
+        @media (orientation: landscape) {
+            /* No top toolbar or corner buttons when turned sideways */
+            .corner-btn {
+                display: none !important;
+            }
+        }
+
+        @media (orientation: portrait) {
+            /* Hide face elements and automatically show settings when held upright */
+            #face-stage,
+            #subtitle-box,
+            #status-pill,
+            .corner-btn {
+                display: none !important;
+            }
+
+            #settings-modal {
+                display: flex !important;
+                background-color: #000000 !important;
+                padding: 1rem !important;
+            }
+
+            #settings-card {
+                max-height: 94dvh !important;
+                border-color: #1e293b !important;
+            }
+
+            #portrait-rotate-banner {
+                display: flex;
+            }
+
+            #close-settings-btn {
+                display: none !important;
+            }
+        }
+
+        @keyframes tiltPhone {
+            0%, 100% { transform: rotate(0deg); }
+            45%, 65% { transform: rotate(-90deg); }
+        }
+
+        .phone-rotate-icon {
+            animation: tiltPhone 2.4s infinite ease-in-out;
+        }
+
+        /* Full-Viewport Landscape Face Stage */
+        #face-stage {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            background-color: #000000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: env(safe-area-inset-top, 12px) env(safe-area-inset-right, 24px) env(safe-area-inset-bottom, 14px) env(safe-area-inset-left, 24px);
+            cursor: pointer;
+        }
+
+        /* Subtle Top Status Indicator */
+        #status-pill {
+            font-size: clamp(0.75rem, 1.8vh, 0.95rem);
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: rgba(255, 202, 40, 0.55);
+            transition: color 0.25s ease;
+            z-index: 10;
+            margin-top: 2px;
+        }
+
+        .state-listening #status-pill {
+            color: var(--raptor-listen);
+        }
+
+        .state-thinking #status-pill {
+            color: var(--raptor-think);
+        }
+
+        /* Wide-Set Expressive Raptor Eyes */
+        .eyes-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: min(82vw, 760px);
+            flex: 1;
+            max-height: 46vh;
+            padding: 0 2vw;
+        }
+
+        .eye-socket {
+            position: relative;
+            width: clamp(110px, 23vw, 230px);
+            height: clamp(110px, 34vh, 210px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .eye {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 38% 35%, #fff8e1 0%, var(--raptor-core) 42%, var(--raptor-glow) 100%);
+            border-radius: 44% 44% 48% 48%;
+            box-shadow:
+                0 0 35px rgba(255, 179, 0, 0.75),
+                0 0 75px rgba(255, 179, 0, 0.35),
+                inset 0 0 22px rgba(255, 255, 255, 0.7);
+            transition:
+                transform 0.14s cubic-bezier(0.22, 1, 0.36, 1),
+                border-radius 0.25s ease,
+                background 0.3s ease,
+                box-shadow 0.3s ease;
+            overflow: hidden;
+        }
+
+        /* Friendly Raptor Inner Brow Ridge */
+        .eye::before {
+            content: '';
+            position: absolute;
+            top: -22%;
+            width: 120%;
+            height: 42%;
+            background: #000000;
+            transition: transform 0.25s ease;
+            z-index: 3;
+        }
+
+        .eye-left::before {
+            left: -10%;
+            transform: rotate(9deg);
+        }
+
+        .eye-right::before {
+            right: -10%;
+            transform: rotate(-9deg);
+        }
+
+        /* Friendly Lower Cheek Lift for Smiling */
+        .eye::after {
+            content: '';
+            position: absolute;
+            bottom: -48%;
+            left: -10%;
+            width: 120%;
+            height: 55%;
+            background: #000000;
+            border-radius: 50% 50% 0 0;
+            transition: transform 0.22s ease;
+            z-index: 3;
+        }
+
+        /* Blink State */
+        .eye.blink {
+            transform: scaleY(0.05) !important;
+        }
+
+        /* Happy / Joke Smile Eyes (Curved Crescent Squint) */
+        .state-happy .eye {
+            background: radial-gradient(circle at 50% 35%, #fffde7 0%, var(--raptor-happy) 55%, var(--raptor-glow) 100%);
+            box-shadow: 0 0 45px rgba(255, 213, 79, 0.9), 0 0 90px rgba(255, 179, 0, 0.45);
+        }
+
+        .state-happy .eye::after {
+            transform: translateY(-56%);
+        }
+
+        .state-happy .eye-left::before {
+            transform: rotate(3deg) translateY(-10%);
+        }
+
+        .state-happy .eye-right::before {
+            transform: rotate(-3deg) translateY(-10%);
+        }
+
+        /* Listening State (Sky Blue Alert Eyes) */
+        .state-listening .eye {
+            background: radial-gradient(circle at 40% 35%, #e0f2fe 0%, var(--raptor-listen) 50%, #0284c7 100%);
+            box-shadow: 0 0 42px rgba(56, 189, 248, 0.85), 0 0 85px rgba(56, 189, 248, 0.4);
+            transform: scale(1.04);
+        }
+
+        .state-listening .eye-left::before {
+            transform: rotate(4deg) translateY(-15%);
+        }
+
+        .state-listening .eye-right::before {
+            transform: rotate(-4deg) translateY(-15%);
+        }
+
+        /* Thinking State (Purple Pulse) */
+        .state-thinking .eye {
+            background: radial-gradient(circle at 40% 35%, #f3e8ff 0%, var(--raptor-think) 55%, #7e22ce 100%);
+            box-shadow: 0 0 42px rgba(168, 85, 247, 0.85);
+            animation: thinkPulse 1.1s infinite alternate ease-in-out;
+        }
+
+        @keyframes thinkPulse {
+            from { transform: scale(0.96); }
+            to { transform: scale(1.04); }
+        }
+
+        /* Eye Shine Reflection */
+        .eye-glint {
+            position: absolute;
+            top: 22%;
+            left: 22%;
+            width: 22%;
+            height: 22%;
+            background: rgba(255, 255, 255, 0.88);
+            border-radius: 50%;
+            z-index: 2;
+            transition: transform 0.25s ease;
+        }
+
+        /* Wide Curved 11-Bar Digital Mouth */
+        .mouth-zone {
+            width: min(68vw, 620px);
+            height: clamp(64px, 22vh, 130px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: clamp(6px, 1.4vw, 14px);
+            margin-bottom: 1vh;
+        }
+
+        .mouth-bar {
+            flex: 1;
+            max-width: 28px;
+            height: 16%;
+            min-height: 10px;
+            background: var(--raptor-core);
+            border-radius: 999px;
+            box-shadow: 0 0 18px rgba(255, 179, 0, 0.85);
+            transition: height 0.06s ease-out, transform 0.2s ease, background 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        /* Natural Friendly Smile Curve on Mouth Bars */
+        .mouth-bar:nth-child(1), .mouth-bar:nth-child(11) { transform: translateY(-14px); }
+        .mouth-bar:nth-child(2), .mouth-bar:nth-child(10) { transform: translateY(-8px); }
+        .mouth-bar:nth-child(3), .mouth-bar:nth-child(9)  { transform: translateY(-3px); }
+        .mouth-bar:nth-child(4), .mouth-bar:nth-child(8)  { transform: translateY(1px); }
+        .mouth-bar:nth-child(5), .mouth-bar:nth-child(7)  { transform: translateY(4px); }
+        .mouth-bar:nth-child(6)                           { transform: translateY(5px); }
+
+        .state-listening .mouth-bar {
+            background: var(--raptor-listen);
+            box-shadow: 0 0 18px rgba(56, 189, 248, 0.85);
+        }
+
+        .state-thinking .mouth-bar {
+            background: var(--raptor-think);
+            box-shadow: 0 0 18px rgba(168, 85, 247, 0.85);
+        }
+
+        /* Optional Bottom Captions */
+        #subtitle-box {
+            width: min(88vw, 820px);
+            min-height: 2.2rem;
+            max-height: 16vh;
+            overflow: hidden;
+            text-align: center;
+            font-size: clamp(0.95rem, 2.5vh, 1.35rem);
+            font-weight: 600;
+            line-height: 1.3;
+            color: #fef3c7;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95);
+            padding: 0 12px;
+        }
+
+        /* Discreet Corner Buttons (Hidden in Landscape via CSS above) */
+        .corner-btn {
+            position: fixed;
+            z-index: 30;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.35);
+            border-radius: 999px;
+            padding: 10px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .corner-btn:hover, .corner-btn:active {
+            background: rgba(255, 179, 0, 0.16);
+            color: #ffca28;
+            border-color: rgba(255, 179, 0, 0.45);
+        }
+
+        #fullscreen-btn {
+            top: max(12px, env(safe-area-inset-top));
+            left: max(12px, env(safe-area-inset-left));
+        }
+
+        #settings-btn {
+            top: max(12px, env(safe-area-inset-top));
+            right: max(12px, env(safe-area-inset-right));
+        }
+
+        #keyboard-btn {
+            bottom: max(12px, env(safe-area-inset-bottom));
+            left: max(12px, env(safe-area-inset-left));
+        }
+
+        .modal-selectable * {
+            user-select: text;
+        }
+    </style>
+</head>
+<body class="state-idle">
+
+    <!-- Discreet Top-Left Fullscreen Toggle (Hidden when sideways) -->
+    <button id="fullscreen-btn" class="corner-btn" title="Toggle Fullscreen" aria-label="Toggle Fullscreen">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
+        </svg>
+    </button>
+
+    <!-- Discreet Bottom-Left Text Input Toggle (Hidden when sideways) -->
+    <button id="keyboard-btn" class="corner-btn" title="Type to Raptor" aria-label="Type message to Raptor">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+        </svg>
+    </button>
+
+    <!-- Discreet Top-Right Teacher Settings Gear (Hidden when sideways) -->
+    <button id="settings-btn" class="corner-btn" title="Teacher Settings" aria-label="Open Teacher Settings">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.350 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.310.826 2.370 2.370a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.350a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.310-2.370 2.370a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.350 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.310-.826-2.370-2.370a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.350a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.310 2.370-2.370.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+    </button>
+
+    <!-- Full-Screen Landscape Face Stage -->
+    <main id="face-stage" role="button" tabindex="0" aria-label="Tap Raptor to talk">
+        <div id="status-pill">SAY "HEY RAPTOR" OR TAP</div>
+
+        <!-- Wide-Set Glowing Amber Eyes -->
+        <div class="eyes-row">
+            <div class="eye-socket">
+                <div id="eye-left" class="eye eye-left">
+                    <div id="glint-left" class="eye-glint"></div>
+                </div>
+            </div>
+            <div class="eye-socket">
+                <div id="eye-right" class="eye eye-right">
+                    <div id="glint-right" class="eye-glint"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 11-Bar Curved Smile Voice Visualizer -->
+        <div id="mouth-zone" class="mouth-zone">
+            <div class="mouth-bar"></div>
+            <div class="mouth-bar"></div>
+            <div class="mouth-bar"></div>
+            <div class="mouth-bar"></div>
+            <div class="mouth-bar"></div>
+            <div class="mouth-bar"></div>
+            <div class="mouth-bar"></div>
+            <div class="mouth-bar"></div>
+            <div class="mouth-bar"></div>
+            <div class="mouth-bar"></div>
+            <div class="mouth-bar"></div>
+        </div>
+
+        <!-- Live Subtitles -->
+        <div id="subtitle-box">Hey! Say "Hey Raptor" or tap my face to chat!</div>
+    </main>
+
+    <!-- Type-to-Raptor Modal -->
+    <div id="text-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm hidden items-center justify-center p-4 z-50 modal-selectable">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-5 shadow-2xl">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-base font-bold text-amber-400">Message Raptor</h2>
+                <button id="close-text-btn" class="text-slate-400 hover:text-white p-2 rounded-lg">✕</button>
+            </div>
+            <form id="text-form" class="flex gap-2">
+                <input id="text-input" type="text" placeholder="Ask for a dad joke, weather, or fun fact..." class="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:border-amber-400" autocomplete="off">
+                <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 py-2.5 rounded-xl transition">Send</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Teacher Settings Modal (Auto-shows when phone is upright) -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm hidden items-center justify-center p-4 z-50 modal-selectable">
+        <div id="settings-card" class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md max-h-[90dvh] overflow-y-auto p-5 shadow-2xl">
+            <!-- Upright Orientation Banner -->
+            <div id="portrait-rotate-banner" class="items-center gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-4">
+                <svg class="phone-rotate-icon w-9 h-9 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="6" y="2" width="12" height="20" rx="2" ry="2"></rect>
+                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                </svg>
+                <div>
+                    <p class="text-sm font-bold text-amber-400">Turn Sideways for Raptor's Face</p>
+                    <p class="text-xs text-slate-300">Settings automatically hide when rotated into landscape.</p>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
+                <div>
+                    <h2 class="text-lg font-bold text-amber-400">Raptor Teacher Settings</h2>
+                    <p class="text-xs text-slate-400">Auto-saved locally on this device</p>
+                </div>
+                <button id="close-settings-btn" class="text-slate-400 hover:text-white p-2 rounded-lg text-lg">✕</button>
+            </div>
+
+            <div class="space-y-3 text-sm">
+                <!-- Hands-Free Listening Settings -->
+                <div class="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-slate-200 font-semibold block">Hands-Free Always Listening</span>
+                            <span class="text-xs text-slate-400">Talk without tapping the screen</span>
+                        </div>
+                        <input id="handsfree-toggle" type="checkbox" class="w-5 h-5 accent-amber-400 rounded">
+                    </div>
+
+                    <div class="flex items-center justify-between pt-1 border-t border-slate-700/70">
+                        <div>
+                            <span class="text-slate-200 font-semibold block">Require "Hey Raptor" Wake Word</span>
+                            <span class="text-xs text-slate-400">Ignores background classroom chatter</span>
+                        </div>
+                        <input id="wakeword-toggle" type="checkbox" class="w-5 h-5 accent-amber-400 rounded">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-slate-300 font-semibold">Free Gemini API Key (Optional)</label>
+                        <span id="key-status-badge" class="text-xs font-semibold text-slate-400">Not set</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <input id="api-key-input" type="password" placeholder="AIzaSy... (Leave blank for built-in mode)" class="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400">
+                        <button id="paste-key-btn" type="button" class="bg-slate-700 hover:bg-slate-600 text-amber-300 font-semibold px-3 py-2 rounded-xl text-xs whitespace-nowrap transition">Paste</button>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Get a free key at <span class="text-amber-300">aistudio.google.com</span>.</p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-300 font-semibold mb-1">Classroom City (Weather)</label>
+                        <input id="city-input" type="text" placeholder="e.g. Hubbard, OH" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400">
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-300 font-semibold mb-1">Voice Personality</label>
+                        <select id="voice-preset-select" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400">
+                            <option value="natural">Natural & Friendly (Best)</option>
+                            <option value="upbeat">Upbeat & Energetic Buddy</option>
+                            <option value="warm">Warm & Calm Storyteller</option>
+                            <option value="classic">Classic Friendly Bot</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Voice</label>
+                    <div class="flex gap-2">
+                        <select id="voice-select" class="flex-1 min-w-0 bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400">
+                            <option value="">Auto-Select Best Natural Voice</option>
+                        </select>
+                        <button id="test-voice-btn" type="button" class="bg-slate-700 hover:bg-slate-600 text-amber-300 font-semibold px-3 py-2 rounded-xl text-xs whitespace-nowrap transition">Test</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-300 font-semibold mb-1">Pitch: <span id="pitch-val" class="text-amber-400">1.0</span></label>
+                        <input id="pitch-input" type="range" min="0.7" max="1.35" step="0.05" value="1.0" class="w-full accent-amber-400">
+                    </div>
+                    <div>
+                        <label class="block text-slate-300 font-semibold mb-1">Speed: <span id="rate-val" class="text-amber-400">1.0</span></label>
+                        <input id="rate-input" type="range" min="0.8" max="1.25" step="0.05" value="1.0" class="w-full accent-amber-400">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-1">
+                    <span class="text-slate-300 font-semibold">Show Spoken Captions</span>
+                    <input id="subtitles-toggle" type="checkbox" checked class="w-5 h-5 accent-amber-400 rounded">
+                </div>
+            </div>
+
+            <div class="mt-5 flex gap-3">
+                <button id="save-settings-btn" class="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 rounded-xl transition">Save &amp; Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * RAPTOR - Classroom Robot Companion (Landscape Full-Screen Edition)
+         * Hands-free wake word ("Hey Raptor"), natural voice selector, dad jokes, live weather & Gemini AI.
+         */
+
+        const STORAGE_KEY = 'raptor_robot_config_v4';
+        const defaultConfig = {
+            apiKey: '',
+            city: 'Hubbard, OH',
+            voicePreset: 'natural',
+            voiceURI: '',
+            pitch: 1.0,
+            rate: 1.0,
+            showSubtitles: true,
+            handsFree: true,
+            requireWakeWord: true
+        };
+
+        let config = loadConfig();
+
+        function loadConfig() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                return saved ? { ...defaultConfig, ...JSON.parse(saved) } : { ...defaultConfig };
+            } catch (e) {
+                return { ...defaultConfig };
+            }
+        }
+
+        function saveConfig() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+            } catch (e) {
+                console.warn('Could not save settings to localStorage:', e);
+            }
+        }
+
+        // DOM References
+        const body = document.body;
+        const faceStage = document.getElementById('face-stage');
+        const statusPill = document.getElementById('status-pill');
+        const subtitleBox = document.getElementById('subtitle-box');
+        const eyeLeft = document.getElementById('eye-left');
+        const eyeRight = document.getElementById('eye-right');
+        const glintLeft = document.getElementById('glint-left');
+        const glintRight = document.getElementById('glint-right');
+        const mouthBars = Array.from(document.querySelectorAll('.mouth-bar'));
+
+        // Modal Elements
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsModal = document.getElementById('settings-modal');
+        const closeSettingsBtn = document.getElementById('close-settings-btn');
+        const saveSettingsBtn = document.getElementById('save-settings-btn');
+        const handsfreeToggle = document.getElementById('handsfree-toggle');
+        const wakewordToggle = document.getElementById('wakeword-toggle');
+        const apiKeyInput = document.getElementById('api-key-input');
+        const keyStatusBadge = document.getElementById('key-status-badge');
+        const pasteKeyBtn = document.getElementById('paste-key-btn');
+        const cityInput = document.getElementById('city-input');
+        const voicePresetSelect = document.getElementById('voice-preset-select');
+        const voiceSelect = document.getElementById('voice-select');
+        const testVoiceBtn = document.getElementById('test-voice-btn');
+        const pitchInput = document.getElementById('pitch-input');
+        const pitchVal = document.getElementById('pitch-val');
+        const rateInput = document.getElementById('rate-input');
+        const rateVal = document.getElementById('rate-val');
+        const subtitlesToggle = document.getElementById('subtitles-toggle');
+
+        const keyboardBtn = document.getElementById('keyboard-btn');
+        const textModal = document.getElementById('text-modal');
+        const closeTextBtn = document.getElementById('close-text-btn');
+        const textForm = document.getElementById('text-form');
+        const textInput = document.getElementById('text-input');
+
+        // Runtime State
+        let currentState = 'idle';
+        let isSpeaking = false;
+        let isListening = false;
+        let isProcessing = false;
+        let mouthInterval = null;
+        let boundaryPulseTimeout = null;
+        let conversationHistory = [];
+        let rankedVoices = [];
+        let activeConversationUntil = 0; // Follow-up window after wake word
+        let lastSpokenNormalized = '';
+        let lastSpokenAt = 0;
+        let currentUtterance = null; // Kept global so Chrome doesn't garbage-collect it mid-speech
+        let speechWatchdog = null;
+        let micBlocked = false;
+
+        // Whole-word match so "hi" doesn't fire on "this", "which", "think", etc.
+        function hasWord(text, words) {
+            return new RegExp(`\\b(?:${words.join('|')})\\b`, 'i').test(text);
+        }
+
+        // Built-In Kid-Friendly Dad Jokes & Fun Facts
+        const dadJokes = [
+            "Why don't scientists trust atoms? Because they make up everything!",
+            "What do you call a dinosaur that is sleeping? A dino-snore!",
+            "Why did the math book look so sad? Because it had too many problems!",
+            "What do you call cheese that isn't yours? Nacho cheese!",
+            "Why couldn't the bicycle stand up by itself? It was two-tired!",
+            "What do you call a bear with no teeth? A gummy bear!",
+            "How do you organize a space party? You planet!",
+            "Why did the scarecrow win an award? Because he was outstanding in his field!",
+            "What do you call a fake noodle? An impasta!",
+            "Why do seagulls fly over the ocean? Because if they flew over the bay, they'd be bagels!",
+            "What did the zero say to the eight? Nice belt!",
+            "Why did the student eat his homework? Because the teacher told him it was a piece of cake!"
+        ];
+
+        const funFacts = [
+            "Did you know octopuses have three hearts and blue blood?",
+            "A group of flamingos is called a flamboyance!",
+            "Honey never spoils. Archaeologists have found three-thousand-year-old honey that is still good to eat!",
+            "Sea otters hold hands while they sleep so they don't drift apart!",
+            "Wombat poop is cube-shaped so it doesn't roll away!",
+            "Bananas are berries, while strawberries actually aren't!"
+        ];
+
+        // Fullscreen & Landscape Orientation Helper
+        async function enterFullscreen() {
+            const el = document.documentElement;
+            try {
+                if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                    if (el.requestFullscreen) {
+                        await el.requestFullscreen();
+                    } else if (el.webkitRequestFullscreen) {
+                        await el.webkitRequestFullscreen();
+                    }
+                }
+                if (screen.orientation && screen.orientation.lock) {
+                    await screen.orientation.lock('landscape').catch(() => {});
+                }
+            } catch (e) {
+                // Fullscreen may be restricted until user taps or in iframe preview
+            }
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                enterFullscreen();
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => {});
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            }
+        }
+
+        fullscreenBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleFullscreen();
+        });
+
+        // Set Visual Face State
+        function setRobotState(state) {
+            currentState = state;
+            body.className = `state-${state}`;
+
+            if (state === 'listening') {
+                const inFollowUp = Date.now() < activeConversationUntil;
+                if (config.handsFree && config.requireWakeWord && !inFollowUp) {
+                    statusPill.textContent = 'LISTENING FOR "HEY RAPTOR"...';
+                } else {
+                    statusPill.textContent = 'LISTENING TO YOU...';
+                }
+            } else if (state === 'thinking') {
+                statusPill.textContent = 'THINKING...';
+            } else if (state === 'speaking') {
+                statusPill.textContent = 'RAPTOR';
+            } else if (state === 'happy') {
+                statusPill.textContent = 'HAHA!';
+            } else {
+                statusPill.textContent = config.handsFree ? 'READY • SAY "HEY RAPTOR"' : 'TAP MY FACE TO TALK';
+            }
+        }
+
+        function updateIdleStatus() {
+            if (currentState === 'idle' || currentState === 'listening') {
+                setRobotState(currentState);
+            }
+            subtitleBox.style.display = config.showSubtitles ? 'block' : 'none';
+        }
+
+        function setSubtitle(text) {
+            subtitleBox.style.display = config.showSubtitles ? 'block' : 'none';
+            subtitleBox.textContent = text;
+        }
+
+        // Natural Blinking & Subtle Eye Glance Loops
+        function triggerBlink() {
+            if (currentState !== 'happy') {
+                eyeLeft.classList.add('blink');
+                eyeRight.classList.add('blink');
+                setTimeout(() => {
+                    eyeLeft.classList.remove('blink');
+                    eyeRight.classList.remove('blink');
+                }, 135);
+            }
+        }
+
+        function scheduleBlink() {
+            const nextBlinkMs = 2200 + Math.random() * 3800;
+            setTimeout(() => {
+                triggerBlink();
+                if (Math.random() < 0.22) {
+                    setTimeout(triggerBlink, 240);
+                }
+                scheduleBlink();
+            }, nextBlinkMs);
+        }
+
+        function startSubtleEyeDrift() {
+            setInterval(() => {
+                if (currentState === 'idle' || currentState === 'listening') {
+                    const offsetX = (Math.random() - 0.5) * 14;
+                    const offsetY = (Math.random() - 0.5) * 10;
+                    glintLeft.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+                    glintRight.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+                } else {
+                    glintLeft.style.transform = 'translate(0, 0)';
+                    glintRight.style.transform = 'translate(0, 0)';
+                }
+            }, 2600);
+        }
+
+        // Animated Mouth Bars (With Word-Boundary Cadence)
+        function pulseMouthWord() {
+            const center = (mouthBars.length - 1) / 2;
+            mouthBars.forEach((bar, index) => {
+                const distFromCenter = Math.abs(index - center) / center;
+                const envelope = 1 - distFromCenter * 0.65;
+                const heightPct = Math.max(24, Math.min(98, (55 + Math.random() * 45) * envelope));
+                bar.style.height = `${heightPct}%`;
+            });
+            clearTimeout(boundaryPulseTimeout);
+            boundaryPulseTimeout = setTimeout(() => {
+                if (isSpeaking) {
+                    mouthBars.forEach((bar) => {
+                        bar.style.height = '22%';
+                    });
+                }
+            }, 140);
+        }
+
+        function startMouthAnimation() {
+            stopMouthAnimation();
+            const center = (mouthBars.length - 1) / 2;
+            mouthInterval = setInterval(() => {
+                mouthBars.forEach((bar, index) => {
+                    const distFromCenter = Math.abs(index - center) / center;
+                    const envelope = 1 - distFromCenter * 0.65;
+                    const randomWave = 25 + Math.random() * 72;
+                    const heightPct = Math.max(16, Math.min(96, randomWave * envelope));
+                    bar.style.height = `${heightPct}%`;
+                });
+            }, 95);
+        }
+
+        function stopMouthAnimation() {
+            if (mouthInterval) {
+                clearInterval(mouthInterval);
+                mouthInterval = null;
+            }
+            clearTimeout(boundaryPulseTimeout);
+            mouthBars.forEach((bar) => {
+                bar.style.height = '16%';
+            });
+        }
+
+        // Smart Natural Voice Ranking
+        function scoreVoiceQuality(voice) {
+            const name = voice.name.toLowerCase();
+            const lang = voice.lang.toLowerCase();
+            let score = 0;
+
+            if (lang.startsWith('en-us')) score += 50;
+            else if (lang.startsWith('en')) score += 35;
+            else return -100;
+
+            if (name.includes('natural')) score += 60;
+            if (name.includes('neural')) score += 55;
+            if (name.includes('online')) score += 45;
+            if (name.includes('enhanced') || name.includes('premium')) score += 45;
+            if (name.includes('google us english')) score += 40;
+            if (name.includes('samantha') || name.includes('ava') || name.includes('allison') || name.includes('daniel') || name.includes('aria') || name.includes('guy') || name.includes('jenny')) score += 35;
+
+            if (name.includes('espeak') || name.includes('compact') || name.includes('robot')) score -= 40;
+
+            return score;
+        }
+
+        function populateVoices() {
+            if (!('speechSynthesis' in window)) return;
+            const voices = window.speechSynthesis.getVoices();
+            if (!voices.length) return;
+
+            rankedVoices = voices
+                .map((voice) => ({ voice, score: scoreVoiceQuality(voice) }))
+                .filter((item) => item.score > -50)
+                .sort((a, b) => b.score - a.score)
+                .map((item) => item.voice);
+
+            const currentVal = config.voiceURI;
+            voiceSelect.innerHTML = '<option value="">Auto-Select Best Natural Voice</option>';
+
+            rankedVoices.forEach((voice) => {
+                const option = document.createElement('option');
+                option.value = voice.voiceURI;
+                const cleanName = voice.name.replace(/Microsoft |Google |Apple /g, '');
+                option.textContent = `${cleanName} (${voice.lang})`;
+                if (voice.voiceURI === currentVal) option.selected = true;
+                voiceSelect.appendChild(option);
+            });
+        }
+
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = populateVoices;
+            populateVoices();
+        }
+
+        function applyVoicePreset(preset) {
+            if (preset === 'natural') {
+                pitchInput.value = 1.0;
+                rateInput.value = 1.0;
+            } else if (preset === 'upbeat') {
+                pitchInput.value = 1.12;
+                rateInput.value = 1.06;
+            } else if (preset === 'warm') {
+                pitchInput.value = 0.94;
+                rateInput.value = 0.94;
+            } else if (preset === 'classic') {
+                pitchInput.value = 0.85;
+                rateInput.value = 0.98;
+            }
+            pitchVal.textContent = parseFloat(pitchInput.value).toFixed(2);
+            rateVal.textContent = parseFloat(rateInput.value).toFixed(2);
+        }
+
+        voicePresetSelect.addEventListener('change', () => {
+            applyVoicePreset(voicePresetSelect.value);
+        });
+
+        // Update the number labels while dragging the sliders
+        pitchInput.addEventListener('input', () => {
+            pitchVal.textContent = parseFloat(pitchInput.value).toFixed(2);
+        });
+        rateInput.addEventListener('input', () => {
+            rateVal.textContent = parseFloat(rateInput.value).toFixed(2);
+        });
+
+        // Resume Hands-Free Listening After Raptor Finishes Speaking
+        function resumeAfterSpeech() {
+            clearTimeout(speechWatchdog);
+            currentUtterance = null;
+            isSpeaking = false;
+            lastSpokenAt = Date.now();
+            stopMouthAnimation();
+            if (config.handsFree) {
+                // Wait 900ms so speaker echo inside the 3D-printed head dies down
+                setTimeout(() => {
+                    if (!isSpeaking && !isProcessing) {
+                        startListening(true);
+                    }
+                }, 900);
+            } else {
+                setRobotState('idle');
+            }
+        }
+
+        // Text-to-Speech Output
+        function speak(text, mood = 'speaking') {
+            setSubtitle(text);
+            lastSpokenNormalized = text.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+            lastSpokenAt = Date.now();
+
+            // Mark as speaking BEFORE stopping the mic, so recognition.onend doesn't restart listening
+            isSpeaking = true;
+            stopListening();
+
+            if (!('speechSynthesis' in window)) {
+                setRobotState(mood);
+                startMouthAnimation();
+                setTimeout(() => {
+                    resumeAfterSpeech();
+                }, Math.max(2000, text.length * 60));
+                return;
+            }
+
+            // Cancelling fires onerror on the old utterance; the currentUtterance check below ignores it
+            currentUtterance = null;
+            window.speechSynthesis.cancel();
+
+            const cleanSpeechText = text
+                .replace(/[\u{1F600}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+                .replace(/\*/g, '');
+
+            const utterance = new SpeechSynthesisUtterance(cleanSpeechText);
+            utterance.pitch = parseFloat(config.pitch) || 1.0;
+            utterance.rate = parseFloat(config.rate) || 1.0;
+
+            const voices = window.speechSynthesis.getVoices();
+            if (config.voiceURI) {
+                const chosen = voices.find((v) => v.voiceURI === config.voiceURI);
+                if (chosen) utterance.voice = chosen;
+            } else if (rankedVoices.length > 0) {
+                utterance.voice = rankedVoices[0];
+            }
+
+            utterance.onstart = () => {
+                if (utterance !== currentUtterance) return;
+                isSpeaking = true;
+                setRobotState(mood === 'happy' ? 'happy' : 'speaking');
+                startMouthAnimation();
+            };
+
+            utterance.onboundary = (event) => {
+                if (utterance !== currentUtterance) return;
+                if (event.name === 'word') {
+                    pulseMouthWord();
+                }
+            };
+
+            utterance.onend = () => {
+                if (utterance !== currentUtterance) return;
+                resumeAfterSpeech();
+            };
+
+            utterance.onerror = () => {
+                if (utterance !== currentUtterance) return;
+                resumeAfterSpeech();
+            };
+
+            currentUtterance = utterance;
+            window.speechSynthesis.speak(utterance);
+
+            // Safety net: some Android browsers never fire onend, which would leave Raptor stuck "speaking"
+            clearTimeout(speechWatchdog);
+            speechWatchdog = setTimeout(() => {
+                if (utterance === currentUtterance) {
+                    window.speechSynthesis.cancel();
+                    resumeAfterSpeech();
+                }
+            }, 6000 + cleanSpeechText.length * 120);
+        }
+
+        // Live Weather via Free Open-Meteo API
+        async function fetchWeather(cityName) {
+            try {
+                const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=en&format=json`;
+                const geoRes = await fetch(geoUrl);
+                const geoData = await geoRes.json();
+
+                if (!geoData.results || geoData.results.length === 0) {
+                    return `I couldn't find the weather for ${cityName}. Check the city name in my settings!`;
+                }
+
+                const place = geoData.results[0];
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,weather_code&temperature_unit=fahrenheit`;
+                const weatherRes = await fetch(weatherUrl);
+                const weatherData = await weatherRes.json();
+
+                const temp = Math.round(weatherData.current.temperature_2m);
+                const code = weatherData.current.weather_code;
+                const condition = describeWeatherCode(code);
+
+                return `Right now in ${place.name}, it is ${temp} degrees and ${condition}.`;
+            } catch (err) {
+                return "I had trouble checking the sky right now. Make sure I'm connected to Wi-Fi!";
+            }
+        }
+
+        function describeWeatherCode(code) {
+            if (code === 0) return 'clear and sunny';
+            if (code <= 3) return 'partly cloudy';
+            if (code <= 48) return 'foggy';
+            if (code <= 67) return 'rainy';
+            if (code <= 77) return 'snowy';
+            if (code <= 82) return 'having rain showers';
+            if (code <= 99) return 'stormy';
+            return 'looking pretty nice';
+        }
+
+        // Free Gemini AI API Call (Uses active free-tier models with fallback)
+        async function queryGemini(userMessage) {
+            const systemInstruction =
+                "You are Raptor, a friendly, enthusiastic classroom robot assistant inside a 3D-printed head. " +
+                "You are talking with school students. Keep every response strictly 1 to 2 short, spoken sentences. " +
+                "Never use markdown, bullet points, or emojis. Be encouraging, curious, and school-appropriate.";
+
+            conversationHistory.push({ role: 'user', parts: [{ text: userMessage }] });
+            if (conversationHistory.length > 8) {
+                conversationHistory = conversationHistory.slice(-8);
+            }
+
+            const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3-flash-preview'];
+            let lastError = 'API error';
+
+            for (const model of models) {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(config.apiKey)}`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        systemInstruction: { parts: [{ text: systemInstruction }] },
+                        contents: conversationHistory,
+                        generationConfig: {
+                            // Thinking tokens count against maxOutputTokens on Gemini 3.x,
+                            // so 120 left nothing for the actual answer. Keep thinking low, give room.
+                            maxOutputTokens: 1024,
+                            thinkingConfig: { thinkingLevel: 'low' }
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const parts = data?.candidates?.[0]?.content?.parts || [];
+                    const reply = parts.filter((p) => p.text && !p.thought).map((p) => p.text).join(' ').trim();
+                    if (reply) {
+                        conversationHistory.push({ role: 'model', parts: [{ text: reply }] });
+                        return reply;
+                    }
+                    lastError = `Empty reply (${data?.candidates?.[0]?.finishReason || 'unknown'})`;
+                } else {
+                    const errBody = await response.json().catch(() => ({}));
+                    lastError = errBody?.error?.message || `HTTP ${response.status}`;
+                    if (response.status === 400 || response.status === 403) {
+                        break; // Invalid API key; no need to retry fallback model
+                    }
+                }
+            }
+
+            // Drop the unanswered question so history doesn't stack up user turns
+            conversationHistory.pop();
+            throw new Error(lastError);
+        }
+
+        // Process Student Input
+        async function handleStudentMessage(rawText) {
+            const text = rawText.trim();
+            if (!text) return;
+
+            isProcessing = true;
+            stopListening();
+            setRobotState('thinking');
+            setSubtitle(`"${text}"`);
+
+            // Extend follow-up conversation window for 12 seconds after a valid prompt
+            activeConversationUntil = Date.now() + 12000;
+
+            const lower = text.toLowerCase();
+
+            try {
+                // 1. Weather Check
+                if (lower.includes('weather') || lower.includes('temperature') || lower.includes('forecast') || lower.includes('hot outside') || lower.includes('cold outside')) {
+                    const weatherReport = await fetchWeather(config.city);
+                    speak(weatherReport, 'speaking');
+                    return;
+                }
+
+                // 2. Dad Jokes
+                if (lower.includes('joke') || lower.includes('make me laugh') || lower.includes('funny')) {
+                    const joke = dadJokes[Math.floor(Math.random() * dadJokes.length)];
+                    speak(joke, 'happy');
+                    return;
+                }
+
+                // 3. Time & Date
+                if (lower.includes('what time') || lower.includes('current time')) {
+                    const now = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                    speak(`It is currently ${now}!`, 'speaking');
+                    return;
+                }
+
+                if (lower.includes('what day') || lower.includes('today\'s date') || lower.includes('what is the date')) {
+                    const today = new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+                    speak(`Today is ${today}!`, 'speaking');
+                    return;
+                }
+
+                // 4. Full AI Conversation (if Teacher added free Gemini key)
+                if (config.apiKey) {
+                    const aiReply = await queryGemini(text);
+                    const isHappy = aiReply.includes('!') && hasWord(lower, ['awesome', 'cool', 'yay', 'hello', 'hi']);
+                    speak(aiReply, isHappy ? 'happy' : 'speaking');
+                    return;
+                }
+
+                // 5. Friendly Built-In Offline Responses
+                if (lower.includes('who are you') || lower.includes('your name')) {
+                    speak("I am your friendly classroom robot assistant, named after the coolest birds of prey!", 'happy');
+                } else if (lower.includes('fact') || lower.includes('something cool') || lower.includes('trivia')) {
+                    const fact = funFacts[Math.floor(Math.random() * funFacts.length)];
+                    speak(fact, 'happy');
+                } else if (hasWord(lower, ['hello', 'hi', 'hey'])) {
+                    speak("Hey there! Ask me for a dad joke, the weather, or a fun fact!", 'happy');
+                } else {
+                    speak("That's a great question! Ask me for a dad joke or the weather, or turn me upright to add my free AI key!", 'speaking');
+                }
+            } catch (error) {
+                console.error(error);
+                const msg = error.message || '';
+                if (msg.includes('API key') || msg.includes('400') || msg.includes('403')) {
+                    speak("My API key was rejected. Turn me upright to check your key!", 'speaking');
+                    setSubtitle(`Key error: ${msg}`);
+                } else {
+                    speak("Oops, my brain had a quick hiccup! Try asking me again.", 'speaking');
+                    setSubtitle(`AI error: ${msg}`);
+                }
+            } finally {
+                isProcessing = false;
+            }
+        }
+
+        // Speech Recognition (Hands-Free & Wake-Word Capable)
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let manualMicTrigger = false;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+            recognition.continuous = false;
+
+            recognition.onstart = () => {
+                isListening = true;
+                setRobotState('listening');
+                if (manualMicTrigger) {
+                    setSubtitle('Listening... go ahead!');
+                }
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript.trim();
+                if (!transcript) return;
+
+                const lower = transcript.toLowerCase();
+                const normalizedHeard = lower.replace(/[^a-z0-9\s]/g, '').trim();
+
+                // Ignore speaker echo if mic picked up what Raptor just said
+                if (
+                    normalizedHeard.length > 4 &&
+                    Date.now() - lastSpokenAt < 4000 &&
+                    lastSpokenNormalized.includes(normalizedHeard)
+                ) {
+                    return;
+                }
+
+                const inFollowUp = Date.now() < activeConversationUntil;
+
+                // Check wake word ("Hey Raptor" / "Raptor") if hands-free wake mode is active
+                if (config.handsFree && config.requireWakeWord && !manualMicTrigger && !inFollowUp) {
+                    const wakeMatch = lower.match(/\b(?:hey\s+|ok\s+|okay\s+|yo\s+|hi\s+)?raptor\b[,!?.\s]*(.*)/i);
+                    if (!wakeMatch) {
+                        // Ignore background classroom chatter that doesn't address Raptor
+                        return;
+                    }
+
+                    const commandAfterWake = (wakeMatch[1] || '').trim();
+                    if (!commandAfterWake) {
+                        // Student only said "Hey Raptor!" -> Perk up and listen for their question
+                        manualMicTrigger = true;
+                        activeConversationUntil = Date.now() + 12000;
+                        speak("Yes? What's up!", 'happy');
+                        return;
+                    }
+
+                    manualMicTrigger = false;
+                    handleStudentMessage(commandAfterWake);
+                    return;
+                }
+
+                // Strip optional leading "Hey Raptor" even during follow-up
+                const cleaned = transcript.replace(/^(?:hey\s+|ok\s+|okay\s+|yo\s+|hi\s+)?raptor\b[,!?.\s]*/i, '').trim();
+                manualMicTrigger = false;
+                handleStudentMessage(cleaned || transcript);
+            };
+
+            recognition.onerror = (event) => {
+                isListening = false;
+                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                    micBlocked = true;
+                    config.handsFree = false;
+                    setRobotState('idle');
+                    setSubtitle('Mic blocked! Tap my face to type a message instead.');
+                    return;
+                }
+                if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                    console.warn('Speech recognition notice:', event.error);
+                }
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                // Automatically restart listening loop if Hands-Free mode is on
+                if (config.handsFree && !isSpeaking && !isProcessing) {
+                    setTimeout(() => {
+                        if (config.handsFree && !isSpeaking && !isProcessing && !isListening) {
+                            startListening(true);
+                        }
+                    }, 220);
+                } else if (!isSpeaking && !isProcessing) {
+                    manualMicTrigger = false;
+                    setRobotState('idle');
+                }
+            };
+        }
+
+        function startListening(isBackgroundLoop = false) {
+            if (!recognition) {
+                if (!isBackgroundLoop) {
+                    openTextModal();
+                }
+                return;
+            }
+            if (isListening || isSpeaking || isProcessing) return;
+
+            manualMicTrigger = !isBackgroundLoop;
+            try {
+                recognition.start();
+            } catch (e) {
+                // Already started or waiting for initial user gesture
+            }
+        }
+
+        function stopListening() {
+            if (recognition && isListening) {
+                try {
+                    recognition.stop();
+                } catch (e) {}
+            }
+            isListening = false;
+        }
+
+        // Tap Face Interaction (Interrupts speech or triggers immediate listening)
+        faceStage.addEventListener('click', () => {
+            enterFullscreen();
+            if (isSpeaking) {
+                currentUtterance = null;
+                clearTimeout(speechWatchdog);
+                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                isSpeaking = false;
+                stopMouthAnimation();
+            }
+            // Corner buttons are hidden in landscape, so the face is the only way to reach typing
+            if (micBlocked) {
+                openTextModal();
+                return;
+            }
+            activeConversationUntil = Date.now() + 12000;
+            if (isListening) {
+                manualMicTrigger = true;
+                setRobotState('listening');
+                setSubtitle('Listening... go ahead!');
+            } else {
+                startListening(false);
+            }
+        });
+
+        // Keyboard Fallback Modal
+        function openTextModal() {
+            stopListening();
+            textModal.classList.remove('hidden');
+            textModal.classList.add('flex');
+            textInput.value = '';
+            setTimeout(() => textInput.focus(), 50);
+        }
+
+        function closeTextModal() {
+            textModal.classList.add('hidden');
+            textModal.classList.remove('flex');
+            if (config.handsFree) startListening(true);
+        }
+
+        keyboardBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            openTextModal();
+        });
+
+        closeTextBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeTextModal();
+        });
+
+        textForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const val = textInput.value.trim();
+            closeTextModal();
+            if (val) handleStudentMessage(val);
+        });
+
+        // Teacher Settings Modal
+        function updateKeyStatusBadge() {
+            const key = apiKeyInput.value.trim();
+            if (key.length > 10) {
+                keyStatusBadge.textContent = `✓ Key saved (${key.slice(0, 6)}...)`;
+                keyStatusBadge.className = 'text-xs font-semibold text-emerald-400';
+            } else if (key.length > 0) {
+                keyStatusBadge.textContent = 'Key looks too short';
+                keyStatusBadge.className = 'text-xs font-semibold text-amber-400';
+            } else {
+                keyStatusBadge.textContent = 'Not set (Built-in mode)';
+                keyStatusBadge.className = 'text-xs font-semibold text-slate-400';
+            }
+        }
+
+        function populateSettingsForm() {
+            handsfreeToggle.checked = config.handsFree;
+            wakewordToggle.checked = config.requireWakeWord;
+            apiKeyInput.value = config.apiKey;
+            updateKeyStatusBadge();
+            cityInput.value = config.city;
+            voicePresetSelect.value = config.voicePreset || 'natural';
+            pitchInput.value = config.pitch;
+            pitchVal.textContent = parseFloat(config.pitch).toFixed(2);
+            rateInput.value = config.rate;
+            rateVal.textContent = parseFloat(config.rate).toFixed(2);
+            subtitlesToggle.checked = config.showSubtitles;
+            populateVoices();
+        }
+
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            populateSettingsForm();
+            settingsModal.classList.remove('hidden');
+            settingsModal.classList.add('flex');
+        });
+
+        pasteKeyBtn.addEventListener('click', async () => {
+            try {
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                    const clipText = await navigator.clipboard.readText();
+                    if (clipText) {
+                        apiKeyInput.value = clipText.trim();
+                        persistSettingsFromForm();
+                        return;
+                    }
+                }
+            } catch (err) {}
+            apiKeyInput.focus();
+            apiKeyInput.select();
+        });
+
+        testVoiceBtn.addEventListener('click', () => {
+            persistSettingsFromForm();
+            speak("Hey there! Ready to help your students learn and laugh!", 'happy');
+        });
+
+        closeSettingsBtn.addEventListener('click', () => {
+            persistSettingsFromForm();
+            settingsModal.classList.add('hidden');
+            settingsModal.classList.remove('flex');
+        });
+        // Save settings immediately on input/change/rotation so nothing is lost when flipping sideways
+        function persistSettingsFromForm() {
+            config.apiKey = apiKeyInput.value.trim();
+            config.city = cityInput.value.trim() || 'Hubbard, OH';
+            config.voicePreset = voicePresetSelect.value;
+            config.voiceURI = voiceSelect.value;
+            config.pitch = parseFloat(pitchInput.value);
+            config.rate = parseFloat(rateInput.value);
+            config.showSubtitles = subtitlesToggle.checked;
+            config.handsFree = handsfreeToggle.checked;
+            config.requireWakeWord = wakewordToggle.checked;
+            updateKeyStatusBadge();
+            saveConfig();
+        }
+
+        [apiKeyInput, cityInput].forEach((el) => {
+            el.addEventListener('input', persistSettingsFromForm);
+            el.addEventListener('blur', persistSettingsFromForm);
+        });
+
+        [apiKeyInput, cityInput, voicePresetSelect, voiceSelect, pitchInput, rateInput, subtitlesToggle, handsfreeToggle, wakewordToggle].forEach((el) => {
+            el.addEventListener('change', persistSettingsFromForm);
+        });
+
+        // Ensure settings save the instant the phone rotates from upright to sideways
+        window.matchMedia('(orientation: landscape)').addEventListener('change', (e) => {
+            if (e.matches) {
+                persistSettingsFromForm();
+                updateIdleStatus();
+                if (config.handsFree && !isListening && !isSpeaking && !isProcessing) {
+                    startListening(true);
+                }
+            } else {
+                populateSettingsForm();
+            }
+        });
+
+        saveSettingsBtn.addEventListener('click', () => {
+            persistSettingsFromForm();
+            settingsModal.classList.add('hidden');
+            settingsModal.classList.remove('flex');
+            updateIdleStatus();
+            if (config.handsFree) {
+                startListening(true);
+            } else {
+                stopListening();
+            }
+            speak("Settings saved! Turn me sideways whenever you're ready.", 'happy');
+        });
+
+        // Start ambient animations and attempt hands-free listening on load
+        window.addEventListener('load', () => {
+            populateSettingsForm();
+            scheduleBlink();
+            startSubtleEyeDrift();
+            setRobotState('idle');
+            updateIdleStatus();
+            enterFullscreen();
+            if (config.handsFree) {
+                startListening(true);
+            }
+        });
+    </script>
+</body>
+</html>
