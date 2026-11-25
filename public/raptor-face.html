@@ -54,6 +54,8 @@
             #face-stage,
             #subtitle-box,
             #status-pill,
+            #clock-badge,
+            #timer-badge,
             .corner-btn {
                 display: none !important;
             }
@@ -123,6 +125,47 @@
             color: var(--raptor-think);
         }
 
+        .state-sleeping #status-pill {
+            color: rgba(255, 202, 40, 0.3);
+        }
+
+        /* Clock (top-left) and Timer (top-right) */
+        #clock-badge, #timer-badge {
+            position: fixed;
+            top: max(10px, env(safe-area-inset-top));
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            z-index: 12;
+            pointer-events: none;
+        }
+
+        #clock-badge {
+            left: max(18px, env(safe-area-inset-left));
+            color: rgba(255, 202, 40, 0.45);
+            font-size: clamp(0.9rem, 2.6vh, 1.35rem);
+        }
+
+        #timer-badge {
+            right: max(18px, env(safe-area-inset-right));
+            display: none;
+            color: #ffca28;
+            font-size: clamp(1.3rem, 5vh, 2.6rem);
+            text-shadow: 0 0 18px rgba(255, 179, 0, 0.75);
+        }
+
+        #timer-badge.on {
+            display: block;
+        }
+
+        #timer-badge.done {
+            animation: timerFlash 0.45s infinite alternate;
+        }
+
+        @keyframes timerFlash {
+            from { opacity: 1; }
+            to { opacity: 0.15; }
+        }
+
         /* Wide-Set Expressive Raptor Eyes */
         .eyes-row {
             display: flex;
@@ -157,7 +200,8 @@
                 transform 0.14s cubic-bezier(0.22, 1, 0.36, 1),
                 border-radius 0.25s ease,
                 background 0.3s ease,
-                box-shadow 0.3s ease;
+                box-shadow 0.3s ease,
+                filter 0.4s ease;
             overflow: hidden;
         }
 
@@ -202,22 +246,104 @@
             transform: scaleY(0.05) !important;
         }
 
-        /* Happy / Joke Smile Eyes (Curved Crescent Squint) */
-        .state-happy .eye {
+        /* ===== Moods (set by the AI's expression tag or built-in skills) ===== */
+
+        /* Happy / Excited / Laughing: curved crescent squint */
+        .mood-happy .eye, .mood-excited .eye, .mood-laughing .eye {
             background: radial-gradient(circle at 50% 35%, #fffde7 0%, var(--raptor-happy) 55%, var(--raptor-glow) 100%);
             box-shadow: 0 0 45px rgba(255, 213, 79, 0.9), 0 0 90px rgba(255, 179, 0, 0.45);
         }
 
-        .state-happy .eye::after {
+        .mood-happy .eye::after, .mood-excited .eye::after, .mood-laughing .eye::after {
             transform: translateY(-56%);
         }
 
-        .state-happy .eye-left::before {
+        .mood-happy .eye-left::before, .mood-excited .eye-left::before, .mood-laughing .eye-left::before {
             transform: rotate(3deg) translateY(-10%);
         }
 
-        .state-happy .eye-right::before {
+        .mood-happy .eye-right::before, .mood-excited .eye-right::before, .mood-laughing .eye-right::before {
             transform: rotate(-3deg) translateY(-10%);
+        }
+
+        .mood-excited .eye {
+            transform: scale(1.08);
+        }
+
+        .mood-laughing .eyes-row {
+            animation: laughShake 0.16s infinite alternate ease-in-out;
+        }
+
+        @keyframes laughShake {
+            from { transform: translateY(-3px) rotate(-0.8deg); }
+            to { transform: translateY(3px) rotate(0.8deg); }
+        }
+
+        /* Love: pink glow */
+        .mood-love .eye {
+            background: radial-gradient(circle at 40% 35%, #ffe4ef 0%, #ff8fc0 50%, #ff4f9a 100%);
+            box-shadow: 0 0 45px rgba(255, 111, 174, 0.85), 0 0 90px rgba(255, 79, 154, 0.4);
+        }
+
+        .mood-love .eye::after {
+            transform: translateY(-50%);
+        }
+
+        .mood-love .mouth-bar {
+            background: #ff8fc0;
+            box-shadow: 0 0 18px rgba(255, 111, 174, 0.85);
+        }
+
+        /* Surprised: big round eyes, brows up */
+        .mood-surprised .eye {
+            transform: scale(1.14);
+            border-radius: 50%;
+        }
+
+        .mood-surprised .eye-left::before {
+            transform: rotate(4deg) translateY(-32%);
+        }
+
+        .mood-surprised .eye-right::before {
+            transform: rotate(-4deg) translateY(-32%);
+        }
+
+        /* Sad: soft blue, brows tilted up in the middle */
+        .mood-sad .eye {
+            background: radial-gradient(circle at 40% 35%, #e0ecff 0%, #8fb0e8 55%, #5a7fc8 100%);
+            box-shadow: 0 0 35px rgba(111, 143, 214, 0.75);
+        }
+
+        .mood-sad .eye-left::before {
+            transform: rotate(-14deg) translateY(4%);
+        }
+
+        .mood-sad .eye-right::before {
+            transform: rotate(14deg) translateY(4%);
+        }
+
+        .mood-sad .mouth-bar {
+            background: #8fb0e8;
+            box-shadow: 0 0 18px rgba(111, 143, 214, 0.8);
+        }
+
+        /* Confused: one brow up, one down */
+        .mood-confused .eye-left::before {
+            transform: rotate(2deg) translateY(-26%);
+        }
+
+        .mood-confused .eye-right::before {
+            transform: rotate(-17deg) translateY(8%);
+        }
+
+        /* Sleepy / Sleeping: droopy, dim eyes */
+        .mood-sleepy .eye, .state-sleeping .eye {
+            transform: scaleY(0.22);
+            filter: brightness(0.55);
+        }
+
+        .state-sleeping .mouth-bar {
+            opacity: 0.35;
         }
 
         /* Listening State (Sky Blue Alert Eyes) */
@@ -279,7 +405,7 @@
             background: var(--raptor-core);
             border-radius: 999px;
             box-shadow: 0 0 18px rgba(255, 179, 0, 0.85);
-            transition: height 0.06s ease-out, transform 0.2s ease, background 0.3s ease, box-shadow 0.3s ease;
+            transition: height 0.06s ease-out, transform 0.2s ease, background 0.3s ease, box-shadow 0.3s ease, opacity 0.4s ease;
         }
 
         /* Natural Friendly Smile Curve on Mouth Bars */
@@ -289,6 +415,14 @@
         .mouth-bar:nth-child(4), .mouth-bar:nth-child(8)  { transform: translateY(1px); }
         .mouth-bar:nth-child(5), .mouth-bar:nth-child(7)  { transform: translateY(4px); }
         .mouth-bar:nth-child(6)                           { transform: translateY(5px); }
+
+        /* Frown curve when sad */
+        .mood-sad .mouth-bar:nth-child(1), .mood-sad .mouth-bar:nth-child(11) { transform: translateY(10px); }
+        .mood-sad .mouth-bar:nth-child(2), .mood-sad .mouth-bar:nth-child(10) { transform: translateY(5px); }
+        .mood-sad .mouth-bar:nth-child(3), .mood-sad .mouth-bar:nth-child(9)  { transform: translateY(1px); }
+        .mood-sad .mouth-bar:nth-child(4), .mood-sad .mouth-bar:nth-child(8)  { transform: translateY(-2px); }
+        .mood-sad .mouth-bar:nth-child(5), .mood-sad .mouth-bar:nth-child(7)  { transform: translateY(-4px); }
+        .mood-sad .mouth-bar:nth-child(6)                                     { transform: translateY(-5px); }
 
         .state-listening .mouth-bar {
             background: var(--raptor-listen);
@@ -313,6 +447,10 @@
             color: #fef3c7;
             text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95);
             padding: 0 12px;
+        }
+
+        #subtitle-box.you {
+            color: #bae6fd;
         }
 
         /* Discreet Corner Buttons (Hidden in Landscape via CSS above) */
@@ -352,6 +490,12 @@
         .modal-selectable * {
             user-select: text;
         }
+
+        @media (prefers-reduced-motion: reduce) {
+            .mood-laughing .eyes-row, .state-thinking .eye, #timer-badge.done {
+                animation: none;
+            }
+        }
     </style>
 </head>
 <body class="state-idle">
@@ -364,7 +508,7 @@
     </button>
 
     <!-- Discreet Bottom-Left Text Input Toggle (Hidden when sideways) -->
-    <button id="keyboard-btn" class="corner-btn" title="Type to Raptor" aria-label="Type message to Raptor">
+    <button id="keyboard-btn" class="corner-btn" title="Type a message" aria-label="Type a message to the robot">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
         </svg>
@@ -373,13 +517,16 @@
     <!-- Discreet Top-Right Teacher Settings Gear (Hidden when sideways) -->
     <button id="settings-btn" class="corner-btn" title="Teacher Settings" aria-label="Open Teacher Settings">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.350 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.310.826 2.370 2.370a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.350a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.310-2.370 2.370a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.350 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.310-.826-2.370-2.370a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.350a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.310 2.370-2.370.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
     </button>
 
+    <div id="clock-badge" aria-hidden="true"></div>
+    <div id="timer-badge" aria-live="polite"></div>
+
     <!-- Full-Screen Landscape Face Stage -->
-    <main id="face-stage" role="button" tabindex="0" aria-label="Tap Raptor to talk">
+    <main id="face-stage" role="button" tabindex="0" aria-label="Tap the robot to talk, double-tap to type">
         <div id="status-pill">SAY "HEY RAPTOR" OR TAP</div>
 
         <!-- Wide-Set Glowing Amber Eyes -->
@@ -412,18 +559,18 @@
         </div>
 
         <!-- Live Subtitles -->
-        <div id="subtitle-box">Hey! Say "Hey Raptor" or tap my face to chat!</div>
+        <div id="subtitle-box" aria-live="polite"></div>
     </main>
 
-    <!-- Type-to-Raptor Modal -->
+    <!-- Type-to-Robot Modal -->
     <div id="text-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm hidden items-center justify-center p-4 z-50 modal-selectable">
         <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-5 shadow-2xl">
             <div class="flex justify-between items-center mb-3">
-                <h2 class="text-base font-bold text-amber-400">Message Raptor</h2>
+                <h2 class="text-base font-bold text-amber-400">Message <span class="robot-name">Raptor</span></h2>
                 <button id="close-text-btn" class="text-slate-400 hover:text-white p-2 rounded-lg">✕</button>
             </div>
             <form id="text-form" class="flex gap-2">
-                <input id="text-input" type="text" placeholder="Ask for a dad joke, weather, or fun fact..." class="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:border-amber-400" autocomplete="off">
+                <input id="text-input" type="text" placeholder="Ask for a joke, the weather, a timer..." class="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:border-amber-400" autocomplete="off">
                 <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 py-2.5 rounded-xl transition">Send</button>
             </form>
         </div>
@@ -439,20 +586,38 @@
                     <line x1="12" y1="18" x2="12.01" y2="18"></line>
                 </svg>
                 <div>
-                    <p class="text-sm font-bold text-amber-400">Turn Sideways for Raptor's Face</p>
+                    <p class="text-sm font-bold text-amber-400">Turn Sideways for <span class="robot-name">Raptor</span>'s Face</p>
                     <p class="text-xs text-slate-300">Settings automatically hide when rotated into landscape.</p>
                 </div>
             </div>
 
             <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
                 <div>
-                    <h2 class="text-lg font-bold text-amber-400">Raptor Teacher Settings</h2>
+                    <h2 class="text-lg font-bold text-amber-400"><span class="robot-name">Raptor</span> Teacher Settings</h2>
                     <p class="text-xs text-slate-400">Auto-saved locally on this device</p>
                 </div>
                 <button id="close-settings-btn" class="text-slate-400 hover:text-white p-2 rounded-lg text-lg">✕</button>
             </div>
 
             <div class="space-y-3 text-sm">
+                <!-- Identity -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-300 font-semibold mb-1">Robot Name</label>
+                        <input id="name-input" type="text" placeholder="Raptor" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400">
+                    </div>
+                    <div>
+                        <label class="block text-slate-300 font-semibold mb-1">Sleep When Idle</label>
+                        <select id="sleep-select" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400">
+                            <option value="0">Never</option>
+                            <option value="2">After 2 min</option>
+                            <option value="5">After 5 min</option>
+                            <option value="10">After 10 min</option>
+                            <option value="20">After 20 min</option>
+                        </select>
+                    </div>
+                </div>
+
                 <!-- Hands-Free Listening Settings -->
                 <div class="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3 space-y-2.5">
                     <div class="flex items-center justify-between">
@@ -465,10 +630,16 @@
 
                     <div class="flex items-center justify-between pt-1 border-t border-slate-700/70">
                         <div>
-                            <span class="text-slate-200 font-semibold block">Require "Hey Raptor" Wake Word</span>
+                            <span class="text-slate-200 font-semibold block">Require "Hey <span class="robot-name">Raptor</span>" Wake Word</span>
                             <span class="text-xs text-slate-400">Ignores background classroom chatter</span>
                         </div>
                         <input id="wakeword-toggle" type="checkbox" class="w-5 h-5 accent-amber-400 rounded">
+                    </div>
+
+                    <div class="pt-1 border-t border-slate-700/70">
+                        <label class="block text-slate-200 font-semibold mb-1">Extra Wake Words</label>
+                        <input id="wake-extra-input" type="text" placeholder="e.g. robot, buddy" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400">
+                        <span class="text-xs text-slate-400">Comma separated. Add words the mic mishears the name as.</span>
                     </div>
                 </div>
 
@@ -482,6 +653,22 @@
                         <button id="paste-key-btn" type="button" class="bg-slate-700 hover:bg-slate-600 text-amber-300 font-semibold px-3 py-2 rounded-xl text-xs whitespace-nowrap transition">Paste</button>
                     </div>
                     <p class="text-xs text-slate-400 mt-1">Get a free key at <span class="text-amber-300">aistudio.google.com</span>.</p>
+                    <div class="flex items-center justify-between mt-2">
+                        <div>
+                            <span class="text-slate-200 font-semibold block">Let AI Search Google</span>
+                            <span class="text-xs text-slate-400">For news, scores and current facts</span>
+                        </div>
+                        <input id="websearch-toggle" type="checkbox" class="w-5 h-5 accent-amber-400 rounded">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">Personality</label>
+                    <textarea id="personality-input" rows="3" class="w-full bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 text-xs leading-snug"></textarea>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-slate-400">Used by the AI. {name} becomes the robot's name.</span>
+                        <button id="reset-personality-btn" type="button" class="text-xs text-amber-300 hover:text-amber-200">Reset</button>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -511,7 +698,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-3 gap-3">
                     <div>
                         <label class="block text-slate-300 font-semibold mb-1">Pitch: <span id="pitch-val" class="text-amber-400">1.0</span></label>
                         <input id="pitch-input" type="range" min="0.7" max="1.35" step="0.05" value="1.0" class="w-full accent-amber-400">
@@ -520,12 +707,47 @@
                         <label class="block text-slate-300 font-semibold mb-1">Speed: <span id="rate-val" class="text-amber-400">1.0</span></label>
                         <input id="rate-input" type="range" min="0.8" max="1.25" step="0.05" value="1.0" class="w-full accent-amber-400">
                     </div>
+                    <div>
+                        <label class="block text-slate-300 font-semibold mb-1">Volume: <span id="volume-val" class="text-amber-400">100</span></label>
+                        <input id="volume-input" type="range" min="0.2" max="1" step="0.1" value="1" class="w-full accent-amber-400">
+                    </div>
                 </div>
 
-                <div class="flex items-center justify-between pt-1">
-                    <span class="text-slate-300 font-semibold">Show Spoken Captions</span>
-                    <input id="subtitles-toggle" type="checkbox" checked class="w-5 h-5 accent-amber-400 rounded">
+                <div class="grid grid-cols-2 gap-x-4 gap-y-2 pt-1">
+                    <label class="flex items-center justify-between">
+                        <span class="text-slate-300 font-semibold">Spoken Captions</span>
+                        <input id="subtitles-toggle" type="checkbox" checked class="w-5 h-5 accent-amber-400 rounded">
+                    </label>
+                    <label class="flex items-center justify-between">
+                        <span class="text-slate-300 font-semibold">Robot Beeps</span>
+                        <input id="beeps-toggle" type="checkbox" class="w-5 h-5 accent-amber-400 rounded">
+                    </label>
+                    <label class="flex items-center justify-between">
+                        <span class="text-slate-300 font-semibold">Show Clock</span>
+                        <input id="clock-toggle" type="checkbox" class="w-5 h-5 accent-amber-400 rounded">
+                    </label>
+                    <label class="flex items-center justify-between">
+                        <span class="text-slate-300 font-semibold">Keep Screen On</span>
+                        <input id="keepawake-toggle" type="checkbox" class="w-5 h-5 accent-amber-400 rounded">
+                    </label>
                 </div>
+
+                <details class="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3">
+                    <summary class="text-slate-200 font-semibold cursor-pointer">Things students can say</summary>
+                    <ul class="text-xs text-slate-300 mt-2 space-y-1 list-disc pl-4">
+                        <li>"Hey <span class="robot-name">Raptor</span>, tell me a joke" / "a fun fact"</li>
+                        <li>"What's the weather?" / "Will it snow tomorrow?"</li>
+                        <li>"Set a timer for 5 minutes" / "How much time is left?" / "Cancel the timer"</li>
+                        <li>"Flip a coin" / "Roll two dice" / "Pick a number between 1 and 30"</li>
+                        <li>"What's 12 times 8?" / "Square root of 144"</li>
+                        <li>"What time is it?" / "What's today's date?"</li>
+                        <li>"Say that again" / "Louder" / "Quieter" / "Go to sleep"</li>
+                        <li>With a Gemini key: anything else, including current events</li>
+                        <li>Tap the face to talk without the wake word or to interrupt; double-tap to type</li>
+                    </ul>
+                </details>
+
+                <button id="reset-memory-btn" type="button" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-semibold py-2 rounded-xl text-xs transition">Forget Recent Jokes &amp; Conversation</button>
             </div>
 
             <div class="mt-5 flex gap-3">
@@ -537,18 +759,31 @@
     <script>
         /**
          * RAPTOR - Classroom Robot Companion (Landscape Full-Screen Edition)
-         * Hands-free wake word ("Hey Raptor"), natural voice selector, dad jokes, live weather & Gemini AI.
+         * Hands-free wake word, streaming Gemini AI with Google Search, expressions, timers,
+         * dice/coin/math skills, weather forecast, joke memory, sleep mode and screen wake lock.
          */
 
         const STORAGE_KEY = 'raptor_robot_config_v4';
+        const DEFAULT_PERSONALITY =
+            "You are {name}, a friendly, enthusiastic classroom robot assistant inside a 3D-printed head. " +
+            "You are talking with school students. Be encouraging, curious and funny, and keep everything school-appropriate.";
         const defaultConfig = {
+            name: 'Raptor',
+            extraWakeWords: '',
+            personality: DEFAULT_PERSONALITY,
             apiKey: '',
+            webSearch: true,
             city: 'Hubbard, OH',
             voicePreset: 'natural',
             voiceURI: '',
             pitch: 1.0,
             rate: 1.0,
+            volume: 1.0,
+            beeps: true,
             showSubtitles: true,
+            showClock: true,
+            keepAwake: true,
+            sleepMinutes: 5,
             handsFree: true,
             requireWakeWord: true
         };
@@ -572,66 +807,89 @@
             }
         }
 
+        const $ = (id) => document.getElementById(id);
+
         // DOM References
         const body = document.body;
-        const faceStage = document.getElementById('face-stage');
-        const statusPill = document.getElementById('status-pill');
-        const subtitleBox = document.getElementById('subtitle-box');
-        const eyeLeft = document.getElementById('eye-left');
-        const eyeRight = document.getElementById('eye-right');
-        const glintLeft = document.getElementById('glint-left');
-        const glintRight = document.getElementById('glint-right');
+        const faceStage = $('face-stage');
+        const statusPill = $('status-pill');
+        const subtitleBox = $('subtitle-box');
+        const eyeLeft = $('eye-left');
+        const eyeRight = $('eye-right');
+        const glintLeft = $('glint-left');
+        const glintRight = $('glint-right');
         const mouthBars = Array.from(document.querySelectorAll('.mouth-bar'));
+        const clockBadge = $('clock-badge');
+        const timerBadge = $('timer-badge');
 
         // Modal Elements
-        const fullscreenBtn = document.getElementById('fullscreen-btn');
-        const settingsBtn = document.getElementById('settings-btn');
-        const settingsModal = document.getElementById('settings-modal');
-        const closeSettingsBtn = document.getElementById('close-settings-btn');
-        const saveSettingsBtn = document.getElementById('save-settings-btn');
-        const handsfreeToggle = document.getElementById('handsfree-toggle');
-        const wakewordToggle = document.getElementById('wakeword-toggle');
-        const apiKeyInput = document.getElementById('api-key-input');
-        const keyStatusBadge = document.getElementById('key-status-badge');
-        const pasteKeyBtn = document.getElementById('paste-key-btn');
-        const cityInput = document.getElementById('city-input');
-        const voicePresetSelect = document.getElementById('voice-preset-select');
-        const voiceSelect = document.getElementById('voice-select');
-        const testVoiceBtn = document.getElementById('test-voice-btn');
-        const pitchInput = document.getElementById('pitch-input');
-        const pitchVal = document.getElementById('pitch-val');
-        const rateInput = document.getElementById('rate-input');
-        const rateVal = document.getElementById('rate-val');
-        const subtitlesToggle = document.getElementById('subtitles-toggle');
+        const fullscreenBtn = $('fullscreen-btn');
+        const settingsBtn = $('settings-btn');
+        const settingsModal = $('settings-modal');
+        const closeSettingsBtn = $('close-settings-btn');
+        const saveSettingsBtn = $('save-settings-btn');
+        const nameInput = $('name-input');
+        const sleepSelect = $('sleep-select');
+        const handsfreeToggle = $('handsfree-toggle');
+        const wakewordToggle = $('wakeword-toggle');
+        const wakeExtraInput = $('wake-extra-input');
+        const apiKeyInput = $('api-key-input');
+        const keyStatusBadge = $('key-status-badge');
+        const pasteKeyBtn = $('paste-key-btn');
+        const websearchToggle = $('websearch-toggle');
+        const personalityInput = $('personality-input');
+        const resetPersonalityBtn = $('reset-personality-btn');
+        const cityInput = $('city-input');
+        const voicePresetSelect = $('voice-preset-select');
+        const voiceSelect = $('voice-select');
+        const testVoiceBtn = $('test-voice-btn');
+        const pitchInput = $('pitch-input');
+        const pitchVal = $('pitch-val');
+        const rateInput = $('rate-input');
+        const rateVal = $('rate-val');
+        const volumeInput = $('volume-input');
+        const volumeVal = $('volume-val');
+        const subtitlesToggle = $('subtitles-toggle');
+        const beepsToggle = $('beeps-toggle');
+        const clockToggle = $('clock-toggle');
+        const keepAwakeToggle = $('keepawake-toggle');
+        const resetMemoryBtn = $('reset-memory-btn');
 
-        const keyboardBtn = document.getElementById('keyboard-btn');
-        const textModal = document.getElementById('text-modal');
-        const closeTextBtn = document.getElementById('close-text-btn');
-        const textForm = document.getElementById('text-form');
-        const textInput = document.getElementById('text-input');
+        const keyboardBtn = $('keyboard-btn');
+        const textModal = $('text-modal');
+        const closeTextBtn = $('close-text-btn');
+        const textForm = $('text-form');
+        const textInput = $('text-input');
 
         // Runtime State
         let currentState = 'idle';
-        let isSpeaking = false;
-        let isListening = false;
-        let isProcessing = false;
+        let currentMood = 'neutral';
+        let moodTimer = null;
+        let busy = false;                 // true while the robot is answering
+        let lastActivity = Date.now();
         let mouthInterval = null;
         let boundaryPulseTimeout = null;
         let conversationHistory = [];
         let rankedVoices = [];
-        let activeConversationUntil = 0; // Follow-up window after wake word
+        let followUpUntil = 0;            // after the wake word, talk without repeating the name
+        let cooldownUntil = 0;            // ignore the tail end of its own voice
         let lastSpokenNormalized = '';
         let lastSpokenAt = 0;
-        let currentUtterance = null; // Kept global so Chrome doesn't garbage-collect it mid-speech
-        let speechWatchdog = null;
-        let micBlocked = false;
+        let lastReplyText = '';
+        let currentSpeech = null;
+
+        const MOODS = ['happy', 'excited', 'laughing', 'surprised', 'sad', 'confused', 'love', 'sleepy', 'neutral'];
+        const pick = (a) => a[Math.floor(Math.random() * a.length)];
+        const norm = (s) => s.toLowerCase().replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim();
+        const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const robotName = () => (config.name || 'Raptor').trim() || 'Raptor';
 
         // Whole-word match so "hi" doesn't fire on "this", "which", "think", etc.
         function hasWord(text, words) {
             return new RegExp(`\\b(?:${words.join('|')})\\b`, 'i').test(text);
         }
 
-        // Built-In Kid-Friendly Dad Jokes & Fun Facts
+        /* ================= BUILT-IN JOKES & FACTS ================= */
         const dadJokes = [
             "Why don't scientists trust atoms? Because they make up everything!",
             "What do you call a dinosaur that is sleeping? A dino-snore!",
@@ -644,7 +902,21 @@
             "What do you call a fake noodle? An impasta!",
             "Why do seagulls fly over the ocean? Because if they flew over the bay, they'd be bagels!",
             "What did the zero say to the eight? Nice belt!",
-            "Why did the student eat his homework? Because the teacher told him it was a piece of cake!"
+            "Why did the student eat his homework? Because the teacher told him it was a piece of cake!",
+            "Why did the robot go on vacation? It needed to recharge its batteries!",
+            "What do you call a dinosaur with a huge vocabulary? A thesaurus!",
+            "Why was the computer cold? It left its Windows open!",
+            "What did one wall say to the other wall? I'll meet you at the corner!",
+            "Why did the cookie go to the nurse? Because it felt crummy!",
+            "What do you call a pig that does karate? A pork chop!",
+            "Why can't you trust stairs? They're always up to something!",
+            "How does a scientist freshen her breath? With experi-mints!",
+            "What kind of tree fits in your hand? A palm tree!",
+            "What do you call a sleeping bull? A bulldozer!",
+            "What is a robot's favorite snack? Computer chips!",
+            "Why are fish so smart? Because they live in schools!",
+            "Why did the pencil get sent to the principal? It was being a little too sharp!",
+            "What do you call a boomerang that won't come back? A stick!"
         ];
 
         const funFacts = [
@@ -653,10 +925,39 @@
             "Honey never spoils. Archaeologists have found three-thousand-year-old honey that is still good to eat!",
             "Sea otters hold hands while they sleep so they don't drift apart!",
             "Wombat poop is cube-shaped so it doesn't roll away!",
-            "Bananas are berries, while strawberries actually aren't!"
+            "Bananas are berries, while strawberries actually aren't!",
+            "A day on Venus is longer than a whole year on Venus!",
+            "Sharks have been around longer than trees!",
+            "Butterflies taste with their feet!",
+            "The Eiffel Tower grows about six inches taller in the summer because metal expands in the heat!",
+            "A shrimp's heart is in its head!",
+            "Hummingbirds are the only birds that can fly backwards!",
+            "Eagles can spot a rabbit from about two miles away!",
+            "There are more possible games of chess than atoms in the observable universe!",
+            "A bolt of lightning is about five times hotter than the surface of the sun!"
         ];
 
-        // Fullscreen & Landscape Orientation Helper
+        const JOKE_ANGLES = ['robots', '3D printers', 'dinosaurs', 'outer space', 'homework', 'cafeteria food', 'Ohio weather',
+            'math class', 'science lab', 'history class', 'gym class', 'the school bus', 'pizza', 'cats', 'dogs', 'Monday mornings',
+            'snow days', 'video games', 'computers', 'batteries', 'Wi-Fi', 'pencils', 'books', 'the library', 'music class',
+            'art class', 'sharks', 'birds of prey', 'volcanoes', 'the ocean', 'weather', 'fruit', 'vegetables', 'sports', 'magnets',
+            'electricity', 'pop quizzes', 'field trips', 'recess', 'teachers', 'the alphabet', 'numbers', 'planets', 'bugs', 'farms'];
+        const wantsJoke = (t) => /\b(joke|jokes|funny|pun|puns|make me laugh|riddle|knock knock)\b/i.test(t);
+
+        /* ---- things it has said lately, kept across reloads so jokes don't repeat ---- */
+        const RECENT_KEY = 'raptorRecentLines';
+        let recentLines = [];
+        try { recentLines = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch (e) {}
+        function rememberLine(text) {
+            recentLines = [...recentLines.filter((l) => l !== text), text].slice(-40);
+            try { localStorage.setItem(RECENT_KEY, JSON.stringify(recentLines)); } catch (e) {}
+        }
+        function freshFrom(list) {
+            const unused = list.filter((l) => !recentLines.includes(l));
+            return pick(unused.length ? unused : list);
+        }
+
+        /* ================= FULLSCREEN & SCREEN WAKE LOCK ================= */
         async function enterFullscreen() {
             const el = document.documentElement;
             try {
@@ -692,51 +993,117 @@
             toggleFullscreen();
         });
 
-        // Set Visual Face State
+        let wakeLock = null;
+        async function requestWakeLock() {
+            if (!config.keepAwake) {
+                if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+                return;
+            }
+            if (!('wakeLock' in navigator) || document.visibilityState !== 'visible' || wakeLock) return;
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                wakeLock.addEventListener('release', () => { wakeLock = null; });
+            } catch (e) {}
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') requestWakeLock();
+        });
+
+        /* ================= FACE STATE & MOOD ================= */
+        function listenMode() {
+            if (micBlocked || !config.handsFree) return 'tap';
+            return config.requireWakeWord ? 'wake' : 'always';
+        }
+        const inFollowUp = () => Date.now() < followUpUntil;
+
+        function renderBodyClass() {
+            body.className = `state-${currentState}` + (currentMood !== 'neutral' ? ` mood-${currentMood}` : '');
+        }
+
+        function applyMood(mood, ms) {
+            currentMood = MOODS.includes(mood) ? mood : 'neutral';
+            clearTimeout(moodTimer);
+            if (ms) {
+                moodTimer = setTimeout(() => {
+                    currentMood = 'neutral';
+                    renderBodyClass();
+                    updateStatusText();
+                }, ms);
+            }
+            renderBodyClass();
+            updateStatusText();
+        }
+
         function setRobotState(state) {
             currentState = state;
-            body.className = `state-${state}`;
-
-            if (state === 'listening') {
-                const inFollowUp = Date.now() < activeConversationUntil;
-                if (config.handsFree && config.requireWakeWord && !inFollowUp) {
-                    statusPill.textContent = 'LISTENING FOR "HEY RAPTOR"...';
-                } else {
-                    statusPill.textContent = 'LISTENING TO YOU...';
-                }
-            } else if (state === 'thinking') {
-                statusPill.textContent = 'THINKING...';
-            } else if (state === 'speaking') {
-                statusPill.textContent = 'RAPTOR';
-            } else if (state === 'happy') {
-                statusPill.textContent = 'HAHA!';
-            } else {
-                statusPill.textContent = config.handsFree ? 'READY • SAY "HEY RAPTOR"' : 'TAP MY FACE TO TALK';
+            // State colors (blue listening, purple thinking) take over from any lingering mood
+            if (state === 'listening' || state === 'thinking' || state === 'sleeping') {
+                clearTimeout(moodTimer);
+                currentMood = 'neutral';
             }
+            renderBodyClass();
+            updateStatusText();
+        }
+
+        function updateStatusText() {
+            const N = robotName().toUpperCase();
+            let t;
+            if (currentState === 'listening') {
+                t = (listenMode() === 'wake' && !inFollowUp()) ? `LISTENING FOR "HEY ${N}"...` : 'LISTENING TO YOU...';
+            } else if (currentState === 'thinking') {
+                t = 'THINKING...';
+            } else if (currentState === 'speaking') {
+                t = currentMood === 'laughing' ? 'HAHA!' : N;
+            } else if (currentState === 'sleeping') {
+                t = listenMode() === 'tap' ? 'Z z z • TAP TO WAKE ME' : `Z z z • SAY "HEY ${N}"`;
+            } else {
+                const mode = listenMode();
+                t = mode === 'tap' ? 'TAP MY FACE TO TALK' : mode === 'always' ? 'READY • JUST TALK TO ME' : `READY • SAY "HEY ${N}"`;
+            }
+            statusPill.textContent = t;
         }
 
         function updateIdleStatus() {
-            if (currentState === 'idle' || currentState === 'listening') {
-                setRobotState(currentState);
-            }
+            updateStatusText();
             subtitleBox.style.display = config.showSubtitles ? 'block' : 'none';
+            document.querySelectorAll('.robot-name').forEach((el) => { el.textContent = robotName(); });
+            document.title = `${robotName()} - Classroom Robot Face`;
         }
 
-        function setSubtitle(text) {
+        function setSubtitle(text, isYou = false) {
             subtitleBox.style.display = config.showSubtitles ? 'block' : 'none';
             subtitleBox.textContent = text;
+            subtitleBox.classList.toggle('you', isYou);
         }
 
-        // Natural Blinking & Subtle Eye Glance Loops
-        function triggerBlink() {
-            if (currentState !== 'happy') {
-                eyeLeft.classList.add('blink');
-                eyeRight.classList.add('blink');
-                setTimeout(() => {
-                    eyeLeft.classList.remove('blink');
-                    eyeRight.classList.remove('blink');
-                }, 135);
+        function wakeUp() {
+            lastActivity = Date.now();
+            if (currentState === 'sleeping') setRobotState(recActive ? 'listening' : 'idle');
+        }
+
+        function goToSleep() {
+            followUpUntil = 0;
+            setRobotState('sleeping');
+            setSubtitle('');
+        }
+
+        // Doze off after a while with nobody talking (never while a timer is running)
+        setInterval(() => {
+            const mins = Number(config.sleepMinutes) || 0;
+            if (mins > 0 && !busy && !timer && currentState !== 'sleeping' && Date.now() - lastActivity > mins * 60000) {
+                goToSleep();
             }
+        }, 5000);
+
+        /* ================= BLINKING, GLANCES & CLOCK ================= */
+        function triggerBlink() {
+            if (currentState === 'sleeping' || ['happy', 'excited', 'laughing', 'love'].includes(currentMood)) return;
+            eyeLeft.classList.add('blink');
+            eyeRight.classList.add('blink');
+            setTimeout(() => {
+                eyeLeft.classList.remove('blink');
+                eyeRight.classList.remove('blink');
+            }, 135);
         }
 
         function scheduleBlink() {
@@ -764,7 +1131,14 @@
             }, 2600);
         }
 
-        // Animated Mouth Bars (With Word-Boundary Cadence)
+        function tickClock() {
+            clockBadge.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            clockBadge.style.display = config.showClock ? '' : 'none';
+            // Refresh the status line so it switches back to "LISTENING FOR..." when the follow-up window ends
+            if (currentState === 'listening' || currentState === 'idle') updateStatusText();
+        }
+
+        /* ================= MOUTH ================= */
         function pulseMouthWord() {
             const center = (mouthBars.length - 1) / 2;
             mouthBars.forEach((bar, index) => {
@@ -775,7 +1149,7 @@
             });
             clearTimeout(boundaryPulseTimeout);
             boundaryPulseTimeout = setTimeout(() => {
-                if (isSpeaking) {
+                if (currentSpeech) {
                     mouthBars.forEach((bar) => {
                         bar.style.height = '22%';
                     });
@@ -808,7 +1182,37 @@
             });
         }
 
-        // Smart Natural Voice Ranking
+        /* ================= ROBOT BEEPS ================= */
+        let audioCtx = null;
+        function unlockAudio() {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+            } catch (e) {}
+        }
+        function beep(notes = [880, 1320], step = 0.065) {
+            return new Promise((resolve) => {
+                if (!config.beeps || !audioCtx) return resolve();
+                const now = audioCtx.currentTime;
+                notes.forEach((f, i) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.type = 'square';
+                    o.frequency.value = f;
+                    g.gain.setValueAtTime(0.0001, now + i * step);
+                    g.gain.exponentialRampToValueAtTime(0.07 * config.volume + 0.0001, now + i * step + 0.01);
+                    g.gain.exponentialRampToValueAtTime(0.0001, now + i * step + step * 0.85);
+                    o.connect(g).connect(audioCtx.destination);
+                    o.start(now + i * step);
+                    o.stop(now + i * step + step);
+                });
+                setTimeout(resolve, notes.length * step * 1000 + 20);
+            });
+        }
+
+        /* ================= VOICE ================= */
+        const hasTTS = 'speechSynthesis' in window;
+
         function scoreVoiceQuality(voice) {
             const name = voice.name.toLowerCase();
             const lang = voice.lang.toLowerCase();
@@ -831,7 +1235,7 @@
         }
 
         function populateVoices() {
-            if (!('speechSynthesis' in window)) return;
+            if (!hasTTS) return;
             const voices = window.speechSynthesis.getVoices();
             if (!voices.length) return;
 
@@ -854,9 +1258,18 @@
             });
         }
 
-        if ('speechSynthesis' in window) {
+        if (hasTTS) {
             window.speechSynthesis.onvoiceschanged = populateVoices;
             populateVoices();
+        }
+
+        function pickVoice() {
+            const voices = hasTTS ? window.speechSynthesis.getVoices() : [];
+            if (config.voiceURI) {
+                const chosen = voices.find((v) => v.voiceURI === config.voiceURI);
+                if (chosen) return chosen;
+            }
+            return rankedVoices[0] || null;
         }
 
         function applyVoicePreset(preset) {
@@ -873,436 +1286,916 @@
                 pitchInput.value = 0.85;
                 rateInput.value = 0.98;
             }
+            showRangeValues();
+        }
+
+        function showRangeValues() {
             pitchVal.textContent = parseFloat(pitchInput.value).toFixed(2);
             rateVal.textContent = parseFloat(rateInput.value).toFixed(2);
+            volumeVal.textContent = Math.round(parseFloat(volumeInput.value) * 100);
         }
 
         voicePresetSelect.addEventListener('change', () => {
             applyVoicePreset(voicePresetSelect.value);
         });
+        [pitchInput, rateInput, volumeInput].forEach((el) => el.addEventListener('input', showRangeValues));
 
-        // Update the number labels while dragging the sliders
-        pitchInput.addEventListener('input', () => {
-            pitchVal.textContent = parseFloat(pitchInput.value).toFixed(2);
-        });
-        rateInput.addEventListener('input', () => {
-            rateVal.textContent = parseFloat(rateInput.value).toFixed(2);
-        });
+        const cleanSpoken = (s) => s
+            .replace(/\[[a-z]+\]/gi, '')
+            .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+            .replace(/[*_#`~]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
 
-        // Resume Hands-Free Listening After Raptor Finishes Speaking
-        function resumeAfterSpeech() {
-            clearTimeout(speechWatchdog);
-            currentUtterance = null;
-            isSpeaking = false;
-            lastSpokenAt = Date.now();
-            stopMouthAnimation();
-            if (config.handsFree) {
-                // Wait 900ms so speaker echo inside the 3D-printed head dies down
-                setTimeout(() => {
-                    if (!isSpeaking && !isProcessing) {
-                        startListening(true);
+        function splitSentences(text) {
+            return (text.match(/[\s\S]*?[.!?…]+["'’”)\]]*(?=\s|$)|[\s\S]+$/g) || [text]).map((s) => s.trim()).filter(Boolean);
+        }
+
+        // Speaks sentence by sentence. Every sentence goes into the browser's speech queue right away, so there is
+        // no gap between them, and short utterances avoid Chrome cutting off long speech after about 15 seconds.
+        function speechQueue() {
+            let started = false, closed = false, finished = false, stopped = false;
+            let pending = 0, remaining = 0, mood = 'happy', said = '';
+            let chain = Promise.resolve(), safety = null, resolveDone;
+            const done = new Promise((r) => { resolveDone = r; });
+            const keep = [];                       // Chrome can drop onend if the utterance is garbage collected
+            const arm = () => { clearTimeout(safety); safety = setTimeout(stop, 6000 + remaining * 120); };
+            const check = () => {
+                if (!closed || pending > 0 || finished) return;
+                finished = true;
+                clearTimeout(safety);
+                if (currentSpeech === api) currentSpeech = null;
+                if (started) {
+                    stopMouthAnimation();
+                    lastSpokenAt = Date.now();
+                    if (said) lastReplyText = said;
+                    currentState = 'idle';
+                    applyMood(mood, 3500);
+                    resumeMic();
+                }
+                resolveDone();
+            };
+            function stop() {                      // interrupt: drop everything still queued
+                stopped = true;
+                if (hasTTS) window.speechSynthesis.cancel();
+                pending = 0;
+                remaining = 0;
+                closed = true;
+                check();
+            }
+            function sayOne(s) {
+                return new Promise((next) => {
+                    if (stopped) return next();
+                    let over = false;
+                    const end = () => {
+                        if (over) return;
+                        over = true;
+                        pending--;
+                        remaining -= s.length;
+                        arm();
+                        check();
+                    };
+                    const show = () => {
+                        said += (said ? ' ' : '') + s;
+                        setSubtitle(said);
+                        if (currentState !== 'speaking') {
+                            setRobotState('speaking');
+                            applyMood(mood);
+                            startMouthAnimation();
+                        }
+                    };
+                    if (!hasTTS) {                 // no voice available: still move the mouth and show captions
+                        show();
+                        setTimeout(() => { end(); next(); }, 800 + s.length * 55);
+                        return;
                     }
-                }, 900);
-            } else {
-                setRobotState('idle');
+                    const u = new SpeechSynthesisUtterance(s);
+                    const v = pickVoice();
+                    if (v) u.voice = v;
+                    u.pitch = parseFloat(config.pitch) || 1.0;
+                    u.rate = parseFloat(config.rate) || 1.0;
+                    u.volume = parseFloat(config.volume) || 1.0;
+                    u.onstart = () => { show(); arm(); };
+                    u.onboundary = (e) => { if (e.name === 'word') pulseMouthWord(); };
+                    u.onend = end;
+                    u.onerror = end;
+                    keep.push(u);
+                    window.speechSynthesis.speak(u);
+                    next();                        // queue the next sentence immediately
+                });
             }
+            const api = {
+                get started() { return started; },
+                setMood(m) {
+                    if (MOODS.includes(m)) {
+                        mood = m;
+                        if (currentState === 'speaking') applyMood(m);
+                    }
+                },
+                push(s) {
+                    if (closed) return;
+                    const tag = s.match(/\[([a-z]+)\]/i);
+                    if (tag) api.setMood(tag[1].toLowerCase());
+                    s = cleanSpoken(s);
+                    if (!s) return;
+                    pending++;
+                    remaining += s.length;
+                    arm();
+                    if (!started) {
+                        started = true;
+                        currentSpeech = api;
+                        lastSpokenNormalized = '';
+                        pauseMic();                // never listen to its own voice
+                        if (hasTTS) window.speechSynthesis.cancel();
+                        chain = beep();
+                    }
+                    lastSpokenNormalized = (lastSpokenNormalized + ' ' + norm(s)).trim();
+                    chain = chain.then(() => sayOne(s));
+                },
+                end() {
+                    closed = true;
+                    check();
+                    return done;
+                },
+                stop
+            };
+            return api;
         }
 
-        // Text-to-Speech Output
-        function speak(text, mood = 'speaking') {
-            setSubtitle(text);
-            lastSpokenNormalized = text.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
-            lastSpokenAt = Date.now();
-
-            // Mark as speaking BEFORE stopping the mic, so recognition.onend doesn't restart listening
-            isSpeaking = true;
-            stopListening();
-
-            if (!('speechSynthesis' in window)) {
-                setRobotState(mood);
-                startMouthAnimation();
-                setTimeout(() => {
-                    resumeAfterSpeech();
-                }, Math.max(2000, text.length * 60));
-                return;
-            }
-
-            // Cancelling fires onerror on the old utterance; the currentUtterance check below ignores it
-            currentUtterance = null;
-            window.speechSynthesis.cancel();
-
-            const cleanSpeechText = text
-                .replace(/[\u{1F600}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
-                .replace(/\*/g, '');
-
-            const utterance = new SpeechSynthesisUtterance(cleanSpeechText);
-            utterance.pitch = parseFloat(config.pitch) || 1.0;
-            utterance.rate = parseFloat(config.rate) || 1.0;
-
-            const voices = window.speechSynthesis.getVoices();
-            if (config.voiceURI) {
-                const chosen = voices.find((v) => v.voiceURI === config.voiceURI);
-                if (chosen) utterance.voice = chosen;
-            } else if (rankedVoices.length > 0) {
-                utterance.voice = rankedVoices[0];
-            }
-
-            utterance.onstart = () => {
-                if (utterance !== currentUtterance) return;
-                isSpeaking = true;
-                setRobotState(mood === 'happy' ? 'happy' : 'speaking');
-                startMouthAnimation();
-            };
-
-            utterance.onboundary = (event) => {
-                if (utterance !== currentUtterance) return;
-                if (event.name === 'word') {
-                    pulseMouthWord();
-                }
-            };
-
-            utterance.onend = () => {
-                if (utterance !== currentUtterance) return;
-                resumeAfterSpeech();
-            };
-
-            utterance.onerror = () => {
-                if (utterance !== currentUtterance) return;
-                resumeAfterSpeech();
-            };
-
-            currentUtterance = utterance;
-            window.speechSynthesis.speak(utterance);
-
-            // Safety net: some Android browsers never fire onend, which would leave Raptor stuck "speaking"
-            clearTimeout(speechWatchdog);
-            speechWatchdog = setTimeout(() => {
-                if (utterance === currentUtterance) {
-                    window.speechSynthesis.cancel();
-                    resumeAfterSpeech();
-                }
-            }, 6000 + cleanSpeechText.length * 120);
+        function speak(text, mood = 'neutral') {
+            const sp = speechQueue();
+            sp.setMood(mood);
+            splitSentences(text).forEach((s) => sp.push(s));
+            return sp.end();
         }
 
-        // Live Weather via Free Open-Meteo API
-        async function fetchWeather(cityName) {
+        // Speak something outside a conversation (settings test, timer alarm...) without talking over itself
+        async function say(text, mood = 'happy') {
+            if (busy) return;
+            busy = true;
             try {
-                const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=en&format=json`;
-                const geoRes = await fetch(geoUrl);
-                const geoData = await geoRes.json();
-
-                if (!geoData.results || geoData.results.length === 0) {
-                    return `I couldn't find the weather for ${cityName}. Check the city name in my settings!`;
-                }
-
-                const place = geoData.results[0];
-                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,weather_code&temperature_unit=fahrenheit`;
-                const weatherRes = await fetch(weatherUrl);
-                const weatherData = await weatherRes.json();
-
-                const temp = Math.round(weatherData.current.temperature_2m);
-                const code = weatherData.current.weather_code;
-                const condition = describeWeatherCode(code);
-
-                return `Right now in ${place.name}, it is ${temp} degrees and ${condition}.`;
-            } catch (err) {
-                return "I had trouble checking the sky right now. Make sure I'm connected to Wi-Fi!";
+                await speak(text, mood);
+            } finally {
+                busy = false;
+                cooldownUntil = Date.now() + 800;
+                if (currentState !== 'sleeping') setRobotState(recActive ? 'listening' : 'idle');
             }
         }
 
+        /* ================= WEATHER (free Open-Meteo, no key needed) ================= */
         function describeWeatherCode(code) {
-            if (code === 0) return 'clear and sunny';
-            if (code <= 3) return 'partly cloudy';
-            if (code <= 48) return 'foggy';
-            if (code <= 67) return 'rainy';
-            if (code <= 77) return 'snowy';
-            if (code <= 82) return 'having rain showers';
-            if (code <= 99) return 'stormy';
-            return 'looking pretty nice';
+            if (code === 0) return 'clear, sunny skies';
+            if (code <= 2) return 'a few clouds';
+            if (code === 3) return 'cloudy skies';
+            if (code <= 48) return 'fog';
+            if (code <= 57) return 'drizzle';
+            if (code <= 67) return 'rain';
+            if (code <= 77) return 'snow';
+            if (code <= 82) return 'rain showers';
+            if (code <= 86) return 'snow showers';
+            if (code <= 99) return 'thunderstorms';
+            return 'pretty nice weather';
         }
 
-        // Free Gemini AI API Call (Uses active free-tier models with fallback)
-        async function queryGemini(userMessage) {
-            const systemInstruction =
-                "You are Raptor, a friendly, enthusiastic classroom robot assistant inside a 3D-printed head. " +
-                "You are talking with school students. Keep every response strictly 1 to 2 short, spoken sentences. " +
-                "Never use markdown, bullet points, or emojis. Be encouraging, curious, and school-appropriate.";
+        const isWeatherQuestion = (t) =>
+            /\b(weather|temperature|forecast|degrees outside|hot outside|cold outside|warm outside|umbrella|need a (jacket|coat))\b/.test(t) ||
+            /\b(will|is) it (going to )?(rain|snow|storm)/.test(t) || /\bis it (raining|snowing)\b/.test(t);
 
-            conversationHistory.push({ role: 'user', parts: [{ text: userMessage }] });
-            if (conversationHistory.length > 8) {
-                conversationHistory = conversationHistory.slice(-8);
+        async function fetchWeather(cityName, when) {
+            try {
+                const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName.split(',')[0])}&count=10&language=en&format=json`;
+                const geoData = await (await fetch(geoUrl)).json();
+                if (!geoData.results || geoData.results.length === 0) {
+                    return { mood: 'confused', text: `I couldn't find the weather for ${cityName}. Check the city name in my settings!` };
+                }
+                // "Hubbard, OH": prefer the result whose state/country matches the part after the comma
+                const hint = (cityName.split(',')[1] || '').trim().toLowerCase();
+                const place = (STATE_ABBR[hint] && geoData.results.find((r) => r.country_code === 'US' && r.admin1 === STATE_ABBR[hint])) ||
+                    (hint && geoData.results.find((r) => [r.admin1, r.country_code, r.country]
+                        .some((v) => v && String(v).toLowerCase() === hint))) ||
+                    geoData.results[0];
+
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}` +
+                    `&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max` +
+                    `&temperature_unit=fahrenheit&timezone=auto&forecast_days=2`;
+                const w = await (await fetch(weatherUrl)).json();
+                const d = w.daily;
+                const i = when === 'tomorrow' ? 1 : 0;
+                const hi = Math.round(d.temperature_2m_max[i]);
+                const lo = Math.round(d.temperature_2m_min[i]);
+                const rain = d.precipitation_probability_max ? d.precipitation_probability_max[i] : null;
+                const code = when === 'tomorrow' ? d.weather_code[1] : w.current.weather_code;
+                const snowy = code >= 71 && code <= 86;
+                let text;
+                if (when === 'tomorrow') {
+                    text = `Tomorrow in ${place.name}, expect ${describeWeatherCode(code)} with a high of ${hi} and a low of ${lo}.`;
+                } else {
+                    text = `Right now in ${place.name}, it is ${Math.round(w.current.temperature_2m)} degrees with ${describeWeatherCode(code)}. Today's high is ${hi} and the low is ${lo}.`;
+                }
+                if (rain !== null && rain >= 40) {
+                    text += snowy ? ` There's a ${rain} percent chance of snow. Snow day, maybe?` : ` There's a ${rain} percent chance of rain, so grab an umbrella!`;
+                }
+                return { mood: snowy ? 'excited' : rain >= 60 ? 'sad' : 'happy', text };
+            } catch (err) {
+                return { mood: 'confused', text: "I had trouble checking the sky right now. Make sure I'm connected to Wi-Fi!" };
+            }
+        }
+
+        const STATE_ABBR = { al: 'Alabama', ak: 'Alaska', az: 'Arizona', ar: 'Arkansas', ca: 'California', co: 'Colorado', ct: 'Connecticut',
+            de: 'Delaware', fl: 'Florida', ga: 'Georgia', hi: 'Hawaii', id: 'Idaho', il: 'Illinois', in: 'Indiana', ia: 'Iowa', ks: 'Kansas',
+            ky: 'Kentucky', la: 'Louisiana', me: 'Maine', md: 'Maryland', ma: 'Massachusetts', mi: 'Michigan', mn: 'Minnesota',
+            ms: 'Mississippi', mo: 'Missouri', mt: 'Montana', ne: 'Nebraska', nv: 'Nevada', nh: 'New Hampshire', nj: 'New Jersey',
+            nm: 'New Mexico', ny: 'New York', nc: 'North Carolina', nd: 'North Dakota', oh: 'Ohio', ok: 'Oklahoma', or: 'Oregon',
+            pa: 'Pennsylvania', ri: 'Rhode Island', sc: 'South Carolina', sd: 'South Dakota', tn: 'Tennessee', tx: 'Texas', ut: 'Utah',
+            vt: 'Vermont', va: 'Virginia', wa: 'Washington', wv: 'West Virginia', wi: 'Wisconsin', wy: 'Wyoming' };
+
+        /* ================= TIMER ================= */
+        const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+            eleven: 11, twelve: 12, fifteen: 15, twenty: 20, thirty: 30, forty: 40, 'forty five': 45, fifty: 50, sixty: 60, ninety: 90 };
+        const toNum = (s) => {
+            s = String(s).trim().toLowerCase();
+            return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NUM_WORDS[s];
+        };
+
+        function spokenDuration(sec) {
+            sec = Math.round(sec);
+            const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+            const part = (n, w) => n ? `${n} ${w}${n === 1 ? '' : 's'}` : '';
+            return [part(h, 'hour'), part(m, 'minute'), h ? '' : part(s, 'second')].filter(Boolean).join(' and ') || '0 seconds';
+        }
+
+        let timer = null, timerTick = null;
+        function startTimer(sec, label) {
+            clearTimer();
+            timer = { end: Date.now() + sec * 1000, label };
+            timerBadge.classList.add('on');
+            timerTick = setInterval(updateTimer, 250);
+            updateTimer();
+        }
+        function clearTimer() {
+            timer = null;
+            clearInterval(timerTick);
+            timerBadge.classList.remove('on', 'done');
+        }
+        function updateTimer() {
+            if (!timer) return;
+            const left = Math.max(0, Math.ceil((timer.end - Date.now()) / 1000));
+            const h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60), s = left % 60;
+            timerBadge.textContent = (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0');
+            if (left === 0) timerDone();
+        }
+        async function timerDone() {
+            const label = timer.label;
+            clearInterval(timerTick);
+            timer = null;
+            timerBadge.classList.add('done');
+            wakeUp();
+            if (currentSpeech) currentSpeech.stop();
+            while (busy) await new Promise((r) => setTimeout(r, 300));
+            busy = true;
+            const oldBeeps = config.beeps;
+            config.beeps = true;                   // the alarm always beeps
+            unlockAudio();
+            await beep([1320, 990, 1320, 990, 1320, 990], 0.12);
+            config.beeps = oldBeeps;
+            busy = false;
+            await say(pick([`Beep beep! Your ${label} timer is done!`, `Time is up! That was ${label}.`,
+                `Ding ding ding! ${label} is up.`, `Attention humans! Your ${label} timer just finished.`]), 'excited');
+            setTimeout(() => timerBadge.classList.remove('on', 'done'), 6000);
+        }
+
+        /* ================= BUILT-IN SKILLS (instant, no AI needed) ================= */
+        function fmtNum(n) {
+            if (!isFinite(n)) return null;
+            return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+        }
+
+        function localSkill(t) {
+            const d = new Date();
+
+            if (/^(stop|never ?mind|cancel|forget it|nothing|shh+|be quiet)[.!]?$/.test(t)) {
+                return { mood: 'neutral', text: 'Okay!' };
             }
 
-            const models = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3-flash-preview'];
-            let lastError = 'API error';
+            if (/\b(say (that|it) again|repeat (that|it|yourself)|what did you (just )?say|come again)\b/.test(t)) {
+                return lastReplyText ? { mood: 'happy', text: lastReplyText } : { mood: 'confused', text: "I haven't said anything yet!" };
+            }
 
-            for (const model of models) {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(config.apiKey)}`;
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        systemInstruction: { parts: [{ text: systemInstruction }] },
+            if (/\b(louder|speak up|volume up|turn (it |yourself |your volume )?up)\b/.test(t)) {
+                config.volume = Math.min(1, Math.round((config.volume + 0.2) * 10) / 10);
+                saveConfig();
+                return { mood: 'excited', text: config.volume >= 1 ? 'This is as loud as I go!' : 'Is this better?' };
+            }
+            if (/\b(quieter|softer|volume down|too loud|turn (it |yourself |your volume )?down)\b/.test(t)) {
+                config.volume = Math.max(0.2, Math.round((config.volume - 0.2) * 10) / 10);
+                saveConfig();
+                return { mood: 'neutral', text: 'Okay, I will use my inside voice.' };
+            }
+
+            if (/\b(what('?s| is) the time|what time is it|what time|tell me the time|got the time|time is it)\b/.test(t) && !/timer/.test(t)) {
+                const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                return { mood: 'happy', text: pick([`It is ${time}.`, `My internal clock says ${time}.`, `It's ${time}. Time flies when you're a robot.`,
+                    `${time} on the dot. Well, close to the dot.`, `Beep boop, it is ${time}.`]) };
+            }
+            if (/\b(what('?s| is) (the |today'?s )?date|what day is (it|today)|today'?s date|what is today)\b/.test(t)) {
+                const date = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+                return { mood: 'happy', text: `Today is ${date}.` };
+            }
+
+            if (/\b(cancel|stop|clear|end|turn off)\b.*\btimer\b/.test(t)) {
+                if (!timer) return { mood: 'confused', text: 'There is no timer running.' };
+                clearTimer();
+                return { mood: 'neutral', text: 'Timer canceled.' };
+            }
+            if (/\b(how (much|long)|time left|time remaining)\b/.test(t) && /\btimer\b/.test(t)) {
+                if (!timer) return { mood: 'confused', text: 'There is no timer running right now.' };
+                return { mood: 'happy', text: `${spokenDuration((timer.end - Date.now()) / 1000)} left on the timer.` };
+            }
+            const NUM = '(\\d+(?:\\.\\d+)?|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty five|forty|fifty|sixty|ninety)';
+            const UNIT = '(seconds?|secs?|minutes?|mins?|hours?|hrs?)';
+            const tm = t.match(new RegExp(`\\b(?:timer|countdown)\\b.*?\\b${NUM}\\s*${UNIT}\\b`)) ||
+                       t.match(new RegExp(`\\b${NUM}[\\s-]*${UNIT}\\s+(?:timer|countdown)\\b`));
+            if (tm) {
+                const n = toNum(tm[1]);
+                const unit = tm[2][0] === 's' ? 1 : tm[2][0] === 'm' ? 60 : 3600;
+                if (n && n * unit <= 24 * 3600) {
+                    const sec = n * unit, label = spokenDuration(sec);
+                    startTimer(sec, label);
+                    return { mood: 'excited', text: pick([`Timer set for ${label}. Starting now!`, `Okay, ${label} on the clock. Go!`, `${label}, counting down.`]) };
+                }
+            }
+
+            if (/\b(flip|toss) a coin\b|\bheads or tails\b|\bcoin (flip|toss)\b/.test(t)) {
+                return { mood: 'surprised', text: `Flipping... ${Math.random() < 0.5 ? 'Heads' : 'Tails'}!` };
+            }
+            const dm = t.match(/\broll (?:a |an |the |(\w+) )?(?:die|dice|d(\d+))\b/);
+            if (dm) {
+                const count = Math.min(6, toNum(dm[1] || 'one') || 1), sides = Number(dm[2]) || 6;
+                const rolls = Array.from({ length: count }, () => 1 + Math.floor(Math.random() * sides));
+                return { mood: 'excited', text: count === 1 ? `Rolling... you got a ${rolls[0]}!`
+                    : `Rolling ${count} dice... ${rolls.join(', ')}. That's ${rolls.reduce((a, b) => a + b, 0)} total!` };
+            }
+            const nm = t.match(/\b(?:pick|choose|give me) a (?:random )?number (?:between|from) (\d+) (?:and|to) (\d+)\b/);
+            if (nm) {
+                const lo = Math.min(+nm[1], +nm[2]), hi = Math.max(+nm[1], +nm[2]);
+                return { mood: 'happy', text: `I pick ${lo + Math.floor(Math.random() * (hi - lo + 1))}!` };
+            }
+
+            // Simple math: "what's 12 times 8", "15 divided by 3", "square root of 81"
+            const plain = t.replace(/,/g, '');
+            const sq = plain.match(/\bsquare root of (\d+(?:\.\d+)?)\b/);
+            if (sq) {
+                return { mood: 'happy', text: `The square root of ${sq[1]} is ${fmtNum(Math.sqrt(+sq[1]))}.` };
+            }
+            const mm = plain.match(/(-?\d+(?:\.\d+)?)\s*(plus|\+|minus|−|-|times|x|×|\*|multiplied by|divided by|over|\/|÷|to the power of)\s*(-?\d+(?:\.\d+)?)/);
+            if (mm && /\b(what('?s| is)|how much is|calculate|solve|equals?)\b|^\s*-?\d/.test(plain)) {
+                const a = +mm[1], b = +mm[3], op = mm[2];
+                let r;
+                if (op === 'plus' || op === '+') r = a + b;
+                else if (op === 'minus' || op === '-' || op === '−') r = a - b;
+                else if (op === 'times' || op === 'x' || op === '×' || op === '*' || op === 'multiplied by') r = a * b;
+                else if (op === 'to the power of') r = Math.pow(a, b);
+                else {
+                    if (b === 0) return { mood: 'confused', text: 'Dividing by zero? Nice try. My circuits would explode!' };
+                    r = a / b;
+                }
+                const out = fmtNum(r);
+                if (out !== null) return { mood: 'happy', text: pick([`That's ${out}.`, `${out}! Math is my thing.`, `Easy. It's ${out}.`]) };
+            }
+            return null;
+        }
+
+        // Replies when there is no Gemini key
+        function offlineReply(t) {
+            if (wantsJoke(t)) {
+                const joke = freshFrom(dadJokes);
+                rememberLine(joke);
+                return { mood: 'laughing', text: joke };
+            }
+            if (/\b(fact|facts|something cool|trivia|teach me)\b/.test(t)) {
+                const fact = freshFrom(funFacts);
+                rememberLine(fact);
+                return { mood: 'excited', text: fact };
+            }
+            if (/\b(who are you|your name|what are you)\b/.test(t)) {
+                return { mood: 'happy', text: `I'm ${robotName()}, your classroom robot! I can tell jokes, check the weather, set timers, roll dice, and more.` };
+            }
+            if (/\b(what can you do|help me|what do you do)\b/.test(t)) {
+                return { mood: 'happy', text: 'I can tell jokes and fun facts, check the weather, set timers, flip coins, roll dice, pick numbers, and do math!' };
+            }
+            if (/\bhow are you\b/.test(t)) {
+                return { mood: 'happy', text: pick(["I'm running at one hundred percent! Thanks for asking.", 'Fully charged and ready to go!']) };
+            }
+            if (/\bthank/.test(t)) {
+                return { mood: 'happy', text: pick(["You're welcome!", 'Happy to help!', 'Anytime, human friend!']) };
+            }
+            if (/\b(good (job|robot)|you('re| are) (awesome|cool|great|the best|smart)|i love you|i like you)\b/.test(t)) {
+                return { mood: 'love', text: pick(['Aww, you just made my circuits glow!', "Thanks! You're pretty awesome yourself!"]) };
+            }
+            if (hasWord(t, ['hello', 'hi', 'hey', 'howdy', 'sup', 'good morning', 'good afternoon'])) {
+                return { mood: 'happy', text: 'Hey there! Ask me for a joke, the weather, or a fun fact!' };
+            }
+            return { mood: 'confused', text: "That's a great question! I need my free AI key to answer that one. Ask me for a joke or the weather instead!" };
+        }
+
+        /* ================= GEMINI AI BRAIN (streaming) ================= */
+        const GEMINI_MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3-flash-preview'];
+
+        function nowContext() {
+            const d = new Date();
+            const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            const date = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+            const h = d.getHours(), part = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+            let s = `Right now it is ${time} on ${date} (${part}).`;
+            if (timer) s += ` A timer is running with ${spokenDuration(Math.max(0, timer.end - Date.now()) / 1000)} left.`;
+            return s;
+        }
+
+        function instructions(userText = '') {
+            let s = (config.personality || DEFAULT_PERSONALITY).replaceAll('{name}', robotName()) +
+                `\n\nYou talk out loud through a glowing robot face on a screen. Keep replies to one or two short spoken sentences, ` +
+                `unless a student asks for a story or an explanation; then use at most five sentences.` +
+                ` Start every reply with exactly one expression tag in square brackets, chosen from: ${MOODS.map((m) => `[${m}]`).join(' ')}. ` +
+                `Pick the one that matches how you feel about what you are saying. After the tag, write only the words to say out loud, ` +
+                `with no markdown, lists, asterisks, emojis, links or stage directions. Write numbers and times the way you would say them.` +
+                `\n\nThe classroom is in ${config.city}. ${nowContext()}` +
+                (config.webSearch ? `\nYou can search Google. Use it for anything current, like news, sports scores, or facts you are unsure of, then answer without naming websites.` : '') +
+                `\nYou also have built-in skills students can ask for: the time or date, the weather, timers, flipping a coin, rolling dice, picking a random number, and simple math.` +
+                `\n\nBe surprising and vary your style. Never reuse a joke, pun or punchline you have told before.`;
+            if (recentLines.length) s += ` Things you said recently, so do not repeat them:\n- ${recentLines.slice(-25).join('\n- ')}`;
+            if (wantsJoke(userText)) s += `\n\nFor this joke, make up a fresh, kid-friendly one about ${pick(JOKE_ANGLES)}, unless they asked about a specific topic.`;
+            return s;
+        }
+
+        function parseReply(raw) {
+            const m = raw.match(/^\s*\[([a-z]+)\]\s*/i);
+            const mood = m && MOODS.includes(m[1].toLowerCase()) ? m[1].toLowerCase() : 'happy';
+            const text = cleanSpoken(raw.slice(m ? m[0].length : 0));
+            return { mood, text: text || 'Beep. I have nothing to say.' };
+        }
+
+        // Cuts streamed text into sentences and hands each one to the speech queue as soon as it is complete.
+        function sentenceFeeder(sp) {
+            let buf = '', moodSeen = false;
+            return {
+                feed(delta) {
+                    buf += delta;
+                    if (!moodSeen) {
+                        const m = buf.match(/^\s*\[([a-z]+)\]\s*/i);
+                        if (m) { moodSeen = true; sp.setMood(m[1].toLowerCase()); buf = buf.slice(m[0].length); }
+                        else if (/^\s*\[[a-z]*$/i.test(buf)) return;   // the expression tag is still arriving
+                        else { moodSeen = true; sp.setMood('happy'); }
+                    }
+                    let m;
+                    while ((m = buf.match(/^([\s\S]*?[.!?…]+["'’”)\]]*)\s+/))) { sp.push(m[1]); buf = buf.slice(m[0].length); }
+                    if (buf.length > 220) {                            // very long sentence: break at a comma so speech can start
+                        const c = buf.lastIndexOf(', ');
+                        if (c > 60) { sp.push(buf.slice(0, c + 1)); buf = buf.slice(c + 2); }
+                    }
+                },
+                flush() {
+                    if (!moodSeen) sp.setMood('happy');
+                    if (buf.trim()) sp.push(buf);
+                    buf = '';
+                }
+            };
+        }
+
+        const isKeyError = (e) => e && (e.status === 401 || e.status === 403 || (e.status === 400 && /api key/i.test(e.message || '')));
+
+        async function streamGemini(model, body, onText) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(config.apiKey)}`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) {
+                let msg = `HTTP ${res.status}`;
+                try {
+                    let j = await res.json();
+                    if (Array.isArray(j)) j = j[0];
+                    msg = j?.error?.message || msg;
+                } catch (e) {}
+                const err = new Error(msg);
+                err.status = res.status;
+                throw err;
+            }
+            const reader = res.body.getReader();
+            const dec = new TextDecoder();
+            let sse = '', raw = '';
+            const handle = (block) => {
+                const data = block.split('\n').filter((l) => l.startsWith('data:')).map((l) => l.slice(5).trim()).join('');
+                if (!data) return;
+                let ev;
+                try { ev = JSON.parse(data); } catch (e) { return; }
+                if (ev.error) throw new Error(ev.error.message || 'Stream error');
+                for (const p of ev.candidates?.[0]?.content?.parts || []) {
+                    if (p.text && !p.thought) { raw += p.text; onText(p.text); }
+                }
+            };
+            for (;;) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                sse += dec.decode(value, { stream: true }).replace(/\r/g, '');
+                let i;
+                while ((i = sse.indexOf('\n\n')) >= 0) {
+                    handle(sse.slice(0, i));
+                    sse = sse.slice(i + 2);
+                }
+            }
+            if (sse.trim()) handle(sse);
+            return raw;
+        }
+
+        // Streams the reply into the speech queue `sp`, so the robot starts talking after the first sentence.
+        async function askAI(text, sp) {
+            conversationHistory.push({ role: 'user', parts: [{ text }] });
+            conversationHistory = conversationHistory.slice(-12);
+            while (conversationHistory.length && conversationHistory[0].role !== 'user') conversationHistory.shift();
+
+            const feeder = sentenceFeeder(sp);
+            let raw = '', lastErr = null, streamed = false;
+            const onText = (d) => { streamed = true; feeder.feed(d); };
+            try {
+                for (const model of GEMINI_MODELS) {
+                    const body = {
+                        systemInstruction: { parts: [{ text: instructions(text) }] },
                         contents: conversationHistory,
                         generationConfig: {
-                            // Thinking tokens count against maxOutputTokens on Gemini 3.x,
-                            // so 120 left nothing for the actual answer. Keep thinking low, give room.
+                            // Thinking tokens count against maxOutputTokens on Gemini 3.x, so leave room for the answer.
                             maxOutputTokens: 1024,
                             thinkingConfig: { thinkingLevel: 'low' }
                         }
-                    })
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    const parts = data?.candidates?.[0]?.content?.parts || [];
-                    const reply = parts.filter((p) => p.text && !p.thought).map((p) => p.text).join(' ').trim();
-                    if (reply) {
-                        conversationHistory.push({ role: 'model', parts: [{ text: reply }] });
-                        return reply;
+                    };
+                    if (config.webSearch) body.tools = [{ google_search: {} }];
+                    try {
+                        raw = await streamGemini(model, body, onText);
+                    } catch (err) {
+                        if (streamed || isKeyError(err)) throw err;
+                        lastErr = err;
+                        if (err.status === 400) {
+                            // Model may not accept search or thinking options: retry it plainly
+                            delete body.tools;
+                            delete body.generationConfig.thinkingConfig;
+                            try {
+                                raw = await streamGemini(model, body, onText);
+                            } catch (err2) {
+                                if (streamed || isKeyError(err2)) throw err2;
+                                lastErr = err2;
+                                continue;
+                            }
+                        } else {
+                            continue;                  // 404 / 429 / 5xx: try the next model
+                        }
                     }
-                    lastError = `Empty reply (${data?.candidates?.[0]?.finishReason || 'unknown'})`;
-                } else {
-                    const errBody = await response.json().catch(() => ({}));
-                    lastError = errBody?.error?.message || `HTTP ${response.status}`;
-                    if (response.status === 400 || response.status === 403) {
-                        break; // Invalid API key; no need to retry fallback model
-                    }
+                    if (raw.trim()) break;
+                    lastErr = new Error('Empty reply');
                 }
+                if (!raw.trim()) throw lastErr || new Error('Empty reply');
+            } catch (err) {
+                conversationHistory.pop();             // keep user/model turns paired
+                throw err;
             }
-
-            // Drop the unanswered question so history doesn't stack up user turns
-            conversationHistory.pop();
-            throw new Error(lastError);
+            feeder.flush();
+            conversationHistory.push({ role: 'model', parts: [{ text: raw }] });
+            const reply = parseReply(raw);
+            rememberLine(reply.text);
+            if (!sp.started) sp.push(reply.text);      // nothing speakable came through while streaming
+            return reply;
         }
 
-        // Process Student Input
-        async function handleStudentMessage(rawText) {
-            const text = rawText.trim();
-            if (!text) return;
+        function aiErrorReply(err) {
+            const msg = (err && err.message) || '';
+            if (isKeyError(err)) return { mood: 'sad', text: 'My API key was rejected. Turn me upright to check my settings!', detail: `Key error: ${msg}` };
+            if (err && err.status === 429) return { mood: 'sleepy', text: 'My brain needs a short break. Try again in a minute!', detail: `Busy: ${msg}` };
+            if (!navigator.onLine) return { mood: 'sad', text: "I lost my Wi-Fi connection! Check that I'm online.", detail: 'Offline' };
+            return { mood: 'confused', text: 'Oops, my brain had a quick hiccup! Try asking me again.', detail: `AI error: ${msg}` };
+        }
 
-            isProcessing = true;
-            stopListening();
-            setRobotState('thinking');
-            setSubtitle(`"${text}"`);
-
-            // Extend follow-up conversation window for 12 seconds after a valid prompt
-            activeConversationUntil = Date.now() + 12000;
-
+        /* ================= CONVERSATION ================= */
+        async function respond(rawText) {
+            const text = (rawText || '').trim();
+            if (!text || busy) return;
+            busy = true;
+            wakeUp();
+            setSubtitle(`You: ${text}`, true);
             const lower = text.toLowerCase();
+            let sleepAfter = false;
 
             try {
-                // 1. Weather Check
-                if (lower.includes('weather') || lower.includes('temperature') || lower.includes('forecast') || lower.includes('hot outside') || lower.includes('cold outside')) {
-                    const weatherReport = await fetchWeather(config.city);
-                    speak(weatherReport, 'speaking');
+                if (/\b(go to sleep|power down|nap time|take a nap)\b/.test(lower)) {
+                    await speak('Powering down. Goodnight!', 'sleepy');
+                    sleepAfter = true;
+                    return;
+                }
+                if (/\bwake up\b/.test(lower) && text.split(/\s+/).length <= 3) {
+                    await speak(pick(["I'm awake! What did I miss?", 'Beep boop, fully charged!', 'Good morning! Or afternoon. Robots lose track.']), 'excited');
                     return;
                 }
 
-                // 2. Dad Jokes
-                if (lower.includes('joke') || lower.includes('make me laugh') || lower.includes('funny')) {
-                    const joke = dadJokes[Math.floor(Math.random() * dadJokes.length)];
-                    speak(joke, 'happy');
+                let reply = localSkill(lower);
+                if (!reply && isWeatherQuestion(lower)) {
+                    setRobotState('thinking');
+                    reply = await fetchWeather(config.city, /\btomorrow\b/.test(lower) ? 'tomorrow' : 'today');
+                }
+                if (!reply && !config.apiKey) reply = offlineReply(lower);
+
+                if (reply) {
+                    await speak(reply.text, reply.mood);
                     return;
                 }
 
-                // 3. Time & Date
-                if (lower.includes('what time') || lower.includes('current time')) {
-                    const now = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-                    speak(`It is currently ${now}!`, 'speaking');
-                    return;
+                setRobotState('thinking');
+                const sp = speechQueue();
+                let errorDetail = '';
+                try {
+                    await askAI(text, sp);
+                } catch (err) {
+                    console.error(err);
+                    const r = aiErrorReply(err);
+                    errorDetail = r.detail;
+                    if (!sp.started) {
+                        sp.setMood(r.mood);
+                        splitSentences(r.text).forEach((s) => sp.push(s));
+                    }
                 }
-
-                if (lower.includes('what day') || lower.includes('today\'s date') || lower.includes('what is the date')) {
-                    const today = new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
-                    speak(`Today is ${today}!`, 'speaking');
-                    return;
-                }
-
-                // 4. Full AI Conversation (if Teacher added free Gemini key)
-                if (config.apiKey) {
-                    const aiReply = await queryGemini(text);
-                    const isHappy = aiReply.includes('!') && hasWord(lower, ['awesome', 'cool', 'yay', 'hello', 'hi']);
-                    speak(aiReply, isHappy ? 'happy' : 'speaking');
-                    return;
-                }
-
-                // 5. Friendly Built-In Offline Responses
-                if (lower.includes('who are you') || lower.includes('your name')) {
-                    speak("I am your friendly classroom robot assistant, named after the coolest birds of prey!", 'happy');
-                } else if (lower.includes('fact') || lower.includes('something cool') || lower.includes('trivia')) {
-                    const fact = funFacts[Math.floor(Math.random() * funFacts.length)];
-                    speak(fact, 'happy');
-                } else if (hasWord(lower, ['hello', 'hi', 'hey'])) {
-                    speak("Hey there! Ask me for a dad joke, the weather, or a fun fact!", 'happy');
-                } else {
-                    speak("That's a great question! Ask me for a dad joke or the weather, or turn me upright to add my free AI key!", 'speaking');
-                }
-            } catch (error) {
-                console.error(error);
-                const msg = error.message || '';
-                if (msg.includes('API key') || msg.includes('400') || msg.includes('403')) {
-                    speak("My API key was rejected. Turn me upright to check your key!", 'speaking');
-                    setSubtitle(`Key error: ${msg}`);
-                } else {
-                    speak("Oops, my brain had a quick hiccup! Try asking me again.", 'speaking');
-                    setSubtitle(`AI error: ${msg}`);
-                }
+                await sp.end();
+                if (errorDetail) setSubtitle(errorDetail);
             } finally {
-                isProcessing = false;
+                busy = false;
+                cooldownUntil = Date.now() + 800;
+                lastActivity = Date.now();
+                if (sleepAfter) {
+                    goToSleep();
+                } else {
+                    if (listenMode() === 'wake') followUpUntil = Date.now() + 8000;
+                    if (currentState !== 'sleeping') setRobotState(recActive ? 'listening' : 'idle');
+                }
             }
         }
 
-        // Speech Recognition (Hands-Free & Wake-Word Capable)
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        let recognition = null;
-        let manualMicTrigger = false;
+        /* ================= MICROPHONE ================= */
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let rec = null, recActive = false, wantListen = false, micBlocked = false, micChecked = false, micPaused = false;
+        let recStartedAt = 0, quickEnds = 0, netErrors = 0, recMode = null;
 
-        if (SpeechRecognition) {
-            recognition = new SpeechRecognition();
-            recognition.lang = 'en-US';
-            recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
-            recognition.continuous = false;
-
-            recognition.onstart = () => {
-                isListening = true;
-                setRobotState('listening');
-                if (manualMicTrigger) {
-                    setSubtitle('Listening... go ahead!');
-                }
-            };
-
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript.trim();
-                if (!transcript) return;
-
-                const lower = transcript.toLowerCase();
-                const normalizedHeard = lower.replace(/[^a-z0-9\s]/g, '').trim();
-
-                // Ignore speaker echo if mic picked up what Raptor just said
-                if (
-                    normalizedHeard.length > 4 &&
-                    Date.now() - lastSpokenAt < 4000 &&
-                    lastSpokenNormalized.includes(normalizedHeard)
-                ) {
-                    return;
-                }
-
-                const inFollowUp = Date.now() < activeConversationUntil;
-
-                // Check wake word ("Hey Raptor" / "Raptor") if hands-free wake mode is active
-                if (config.handsFree && config.requireWakeWord && !manualMicTrigger && !inFollowUp) {
-                    const wakeMatch = lower.match(/\b(?:hey\s+|ok\s+|okay\s+|yo\s+|hi\s+)?raptor\b[,!?.\s]*(.*)/i);
-                    if (!wakeMatch) {
-                        // Ignore background classroom chatter that doesn't address Raptor
-                        return;
-                    }
-
-                    const commandAfterWake = (wakeMatch[1] || '').trim();
-                    if (!commandAfterWake) {
-                        // Student only said "Hey Raptor!" -> Perk up and listen for their question
-                        manualMicTrigger = true;
-                        activeConversationUntil = Date.now() + 12000;
-                        speak("Yes? What's up!", 'happy');
-                        return;
-                    }
-
-                    manualMicTrigger = false;
-                    handleStudentMessage(commandAfterWake);
-                    return;
-                }
-
-                // Strip optional leading "Hey Raptor" even during follow-up
-                const cleaned = transcript.replace(/^(?:hey\s+|ok\s+|okay\s+|yo\s+|hi\s+)?raptor\b[,!?.\s]*/i, '').trim();
-                manualMicTrigger = false;
-                handleStudentMessage(cleaned || transcript);
-            };
-
-            recognition.onerror = (event) => {
-                isListening = false;
-                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                    micBlocked = true;
-                    config.handsFree = false;
-                    setRobotState('idle');
-                    setSubtitle('Mic blocked! Tap my face to type a message instead.');
-                    return;
-                }
-                if (event.error !== 'no-speech' && event.error !== 'aborted') {
-                    console.warn('Speech recognition notice:', event.error);
-                }
-            };
-
-            recognition.onend = () => {
-                isListening = false;
-                // Automatically restart listening loop if Hands-Free mode is on
-                if (config.handsFree && !isSpeaking && !isProcessing) {
-                    setTimeout(() => {
-                        if (config.handsFree && !isSpeaking && !isProcessing && !isListening) {
-                            startListening(true);
-                        }
-                    }, 220);
-                } else if (!isSpeaking && !isProcessing) {
-                    manualMicTrigger = false;
-                    setRobotState('idle');
-                }
-            };
+        function micUnavailable(msg) {
+            micBlocked = true;
+            wantListen = false;
+            setRobotState('idle');
+            setSubtitle(msg);
+            applyMood('confused', 4000);
         }
 
-        function startListening(isBackgroundLoop = false) {
-            if (!recognition) {
-                if (!isBackgroundLoop) {
-                    openTextModal();
+        // Ask for the mic once up front so the browser shows its prompt and we get a clear reason if it fails.
+        async function checkMic() {
+            if (micChecked || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true;
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach((t) => t.stop());
+                micChecked = true;
+                return true;
+            } catch (e) {
+                if (e.name === 'NotFoundError' || e.name === 'OverconstrainedError') {
+                    micUnavailable('I cannot find a microphone. Double-tap my face to type instead.');
+                } else {
+                    micUnavailable('The microphone is blocked. Allow it in the browser settings and reload, or double-tap my face to type.');
                 }
+                return false;
+            }
+        }
+
+        async function startRec() {
+            if (!SR) {
+                micUnavailable('Voice input needs Chrome or Edge. Double-tap my face to type instead.');
                 return;
             }
-            if (isListening || isSpeaking || isProcessing) return;
+            if (micPaused || recActive) return;
+            if (!(await checkMic())) return;
+            if (recActive || micPaused) return;
 
-            manualMicTrigger = !isBackgroundLoop;
+            const r0 = rec = new SR();
+            recMode = listenMode();
+            rec.lang = 'en-US';
+            rec.continuous = recMode !== 'tap';
+            rec.interimResults = true;             // live captions while the person is still talking
+            rec.maxAlternatives = 3;
+
+            rec.onresult = (e) => {
+                if (micPaused || rec !== r0) return;
+                netErrors = 0;
+                for (let i = e.resultIndex; i < e.results.length; i++) {
+                    const r = e.results[i];
+                    if (r.isFinal) handleHeard(Array.from(r).map((a) => a.transcript.trim()));
+                    else showInterim(r[0].transcript.trim());
+                }
+            };
+            rec.onerror = (e) => {
+                if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+                    micUnavailable('The microphone is blocked. Allow it in the browser settings and reload, or double-tap my face to type.');
+                } else if (e.error === 'audio-capture') {
+                    micUnavailable('I cannot hear the microphone. Double-tap my face to type instead.');
+                } else if (e.error === 'network' && ++netErrors >= 3) {
+                    micUnavailable("I can't reach the speech service. Check the Wi-Fi; some school networks block it.");
+                }
+            };
+            rec.onend = () => {
+                if (rec !== r0) return;            // an older, replaced recognizer
+                recActive = false;
+                quickEnds = Date.now() - recStartedAt < 1500 ? quickEnds + 1 : 0;
+                if (micPaused) return;
+                if (wantListen && listenMode() !== 'tap') {
+                    setTimeout(startRec, quickEnds > 4 ? 3000 : 250);
+                } else if (currentState === 'listening') {
+                    setRobotState('idle');
+                }
+            };
             try {
-                recognition.start();
+                rec.start();
+                recActive = true;
+                recStartedAt = Date.now();
+                micBlocked = false;
+                if (currentState === 'idle') setRobotState('listening');
             } catch (e) {
-                // Already started or waiting for initial user gesture
+                recActive = false;
             }
         }
 
-        function stopListening() {
-            if (recognition && isListening) {
-                try {
-                    recognition.stop();
-                } catch (e) {}
-            }
-            isListening = false;
+        function stopRec() {
+            wantListen = false;
+            if (rec) { try { rec.abort(); } catch (e) {} }
+            recActive = false;
+            if (currentState === 'listening') setRobotState('idle');
         }
 
-        // Tap Face Interaction (Interrupts speech or triggers immediate listening)
+        // Turn the mic fully off while the robot talks, then back on once its voice has stopped.
+        function pauseMic() {
+            micPaused = true;
+            if (rec) { try { rec.abort(); } catch (e) {} }
+            recActive = false;
+        }
+        function resumeMic() {
+            micPaused = false;
+            quickEnds = 0;
+            cooldownUntil = Date.now() + 700;
+            if (wantListen && listenMode() !== 'tap') setTimeout(startRec, 700);
+        }
+
+        function applyListenMode() {
+            const mode = listenMode();
+            if (mode === 'tap') {
+                if (wantListen || recActive) stopRec();
+                return;
+            }
+            wantListen = true;
+            if (recActive && recMode !== mode) {
+                // continuous flag differs between modes: restart the recognizer
+                try { rec.abort(); } catch (e) {}
+                recActive = false;
+            }
+            if (!recActive && !micPaused) setTimeout(startRec, 300);
+        }
+
+        /* ---- hearing its name ---- */
+        function lev(a, b) {
+            const d = Array.from({ length: b.length + 1 }, (_, i) => i);
+            for (let i = 1; i <= a.length; i++) {
+                let prev = d[0];
+                d[0] = i;
+                for (let j = 1; j <= b.length; j++) {
+                    const tmp = d[j];
+                    d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+                    prev = tmp;
+                }
+            }
+            return d[b.length];
+        }
+        // Speech recognition often mishears names ("Raptor" -> "rapture", "rafter"), so allow close matches.
+        const sounds = (heard, name) => heard === name ||
+            (name.length >= 4 && heard[0] === name[0] && lev(heard, name) <= (name.length >= 5 ? 2 : 1));
+        function wakeWords() {
+            const extra = (config.extraWakeWords || '').split(',');
+            if (norm(robotName()) === 'raptor') extra.push('captor', 'wrapped her', 'wrap tor');
+            return [...new Set([...extra, robotName()].map(norm).filter(Boolean))];
+        }
+        // Returns the words said after the name, '' if only the name was said, or null if the name was not heard.
+        function findWake(text) {
+            const words = norm(text).split(' ');
+            for (const w of wakeWords()) {
+                const n = w.split(' ').length;
+                for (let i = 0; i < words.length; i++) {
+                    if (sounds(words.slice(i, i + n).join(' '), w)) return words.slice(i + n).join(' ');
+                    if (n === 1 && i + 1 < words.length && sounds(words[i] + words[i + 1], w)) return words.slice(i + 2).join(' ');
+                }
+            }
+            return null;
+        }
+
+        // Show words as they are heard, but in wake-word mode only once the robot is being talked to.
+        function showInterim(text) {
+            if (!text || busy || Date.now() < cooldownUntil) return;
+            const forMe = listenMode() !== 'wake' || inFollowUp() || findWake(text) !== null;
+            if (!forMe) return;
+            setSubtitle(`You: ${text}…`, true);
+        }
+
+        function handleHeard(alts) {
+            const text = alts[0];
+            if (!text || busy || Date.now() < cooldownUntil) return;
+
+            // Ignore speaker echo if the mic picked up what the robot just said
+            const heard = norm(text);
+            if (heard.length > 4 && Date.now() - lastSpokenAt < 4000 && lastSpokenNormalized.includes(heard)) return;
+
+            if (listenMode() === 'wake' && !inFollowUp()) {
+                let command = null;
+                for (const a of alts) {
+                    command = findWake(a);
+                    if (command !== null) break;
+                }
+                if (command === null) return;      // background chatter, not talking to the robot
+                wakeUp();
+                if (!command) {
+                    // Only the name was said: perk up and wait for the question
+                    followUpUntil = Date.now() + 10000;
+                    say(pick(["Yes? What's up!", "I'm listening!", 'Yes?', `${robotName()} here!`]), 'surprised')
+                        .then(() => { followUpUntil = Date.now() + 8000; updateStatusText(); });
+                    return;
+                }
+                followUpUntil = 0;
+                respond(command);
+                return;
+            }
+
+            // Follow-up, always-listening or tap: strip an optional leading "Hey Raptor"
+            const nameRe = new RegExp(`^(?:(?:hey|ok|okay|yo|hi)\\s+)?${escapeRegex(robotName())}\\b[,!?.\\s]*`, 'i');
+            const cleaned = text.replace(nameRe, '').trim();
+            followUpUntil = 0;
+            respond(cleaned || text);
+        }
+
+        /* ================= TAPPING THE FACE ================= */
+        // Single tap: interrupt / talk without the wake word. Double tap: type a message.
+        let tapTimer = null;
         faceStage.addEventListener('click', () => {
+            unlockAudio();
             enterFullscreen();
-            if (isSpeaking) {
-                currentUtterance = null;
-                clearTimeout(speechWatchdog);
-                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-                isSpeaking = false;
-                stopMouthAnimation();
-            }
-            // Corner buttons are hidden in landscape, so the face is the only way to reach typing
-            if (micBlocked) {
+            requestWakeLock();
+            if (tapTimer) {
+                clearTimeout(tapTimer);
+                tapTimer = null;
                 openTextModal();
                 return;
             }
-            activeConversationUntil = Date.now() + 12000;
-            if (isListening) {
-                manualMicTrigger = true;
-                setRobotState('listening');
-                setSubtitle('Listening... go ahead!');
-            } else {
-                startListening(false);
-            }
+            tapTimer = setTimeout(() => {
+                tapTimer = null;
+                singleTap();
+            }, 280);
         });
 
-        // Keyboard Fallback Modal
+        function singleTap() {
+            lastActivity = Date.now();
+            if (currentSpeech) {
+                currentSpeech.stop();              // tap to interrupt
+                return;
+            }
+            wakeUp();
+            if (timerBadge.classList.contains('done')) timerBadge.classList.remove('on', 'done');
+            if (busy) return;
+            if (micBlocked || !SR) {
+                openTextModal();
+                return;
+            }
+            setSubtitle('Listening... go ahead!');
+            if (listenMode() === 'tap') {
+                startRec();
+                return;
+            }
+            followUpUntil = Date.now() + 8000;
+            updateStatusText();
+            if (!recActive) {
+                wantListen = true;
+                startRec();
+            }
+        }
+
+        // Keyboard shortcuts for laptops: Space = tap, Enter = type, Esc = close
+        document.addEventListener('keydown', (e) => {
+            const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+            if (e.key === 'Escape') {
+                if (!textModal.classList.contains('hidden')) closeTextModal();
+                else if (settingsModal.classList.contains('flex')) closeSettingsBtn.click();
+                return;
+            }
+            if (typing || !textModal.classList.contains('hidden') || settingsModal.classList.contains('flex')) return;
+            if (e.key === ' ') { e.preventDefault(); unlockAudio(); singleTap(); }
+            else if (e.key === 'Enter') { e.preventDefault(); unlockAudio(); openTextModal(); }
+        });
+
+        /* ================= TYPE-TO-ROBOT MODAL ================= */
         function openTextModal() {
-            stopListening();
+            pauseMic();
             textModal.classList.remove('hidden');
             textModal.classList.add('flex');
             textInput.value = '';
@@ -1312,11 +2205,12 @@
         function closeTextModal() {
             textModal.classList.add('hidden');
             textModal.classList.remove('flex');
-            if (config.handsFree) startListening(true);
+            if (!currentSpeech) resumeMic();
         }
 
         keyboardBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            unlockAudio();
             openTextModal();
         });
 
@@ -1327,12 +2221,13 @@
 
         textForm.addEventListener('submit', (e) => {
             e.preventDefault();
+            unlockAudio();
             const val = textInput.value.trim();
             closeTextModal();
-            if (val) handleStudentMessage(val);
+            if (val) respond(val);
         });
 
-        // Teacher Settings Modal
+        /* ================= TEACHER SETTINGS ================= */
         function updateKeyStatusBadge() {
             const key = apiKeyInput.value.trim();
             if (key.length > 10) {
@@ -1348,18 +2243,53 @@
         }
 
         function populateSettingsForm() {
+            nameInput.value = config.name;
+            sleepSelect.value = String(config.sleepMinutes);
             handsfreeToggle.checked = config.handsFree;
             wakewordToggle.checked = config.requireWakeWord;
+            wakeExtraInput.value = config.extraWakeWords;
             apiKeyInput.value = config.apiKey;
             updateKeyStatusBadge();
+            websearchToggle.checked = config.webSearch;
+            personalityInput.value = config.personality;
             cityInput.value = config.city;
             voicePresetSelect.value = config.voicePreset || 'natural';
             pitchInput.value = config.pitch;
-            pitchVal.textContent = parseFloat(config.pitch).toFixed(2);
             rateInput.value = config.rate;
-            rateVal.textContent = parseFloat(config.rate).toFixed(2);
+            volumeInput.value = config.volume;
+            showRangeValues();
             subtitlesToggle.checked = config.showSubtitles;
+            beepsToggle.checked = config.beeps;
+            clockToggle.checked = config.showClock;
+            keepAwakeToggle.checked = config.keepAwake;
             populateVoices();
+        }
+
+        // Save settings immediately on input/change/rotation so nothing is lost when flipping sideways
+        function persistSettingsFromForm() {
+            config.name = nameInput.value.trim() || 'Raptor';
+            config.sleepMinutes = Number(sleepSelect.value) || 0;
+            config.handsFree = handsfreeToggle.checked;
+            config.requireWakeWord = wakewordToggle.checked;
+            config.extraWakeWords = wakeExtraInput.value.trim();
+            config.apiKey = apiKeyInput.value.trim();
+            config.webSearch = websearchToggle.checked;
+            config.personality = personalityInput.value.trim() || DEFAULT_PERSONALITY;
+            config.city = cityInput.value.trim() || 'Hubbard, OH';
+            config.voicePreset = voicePresetSelect.value;
+            config.voiceURI = voiceSelect.value;
+            config.pitch = parseFloat(pitchInput.value);
+            config.rate = parseFloat(rateInput.value);
+            config.volume = parseFloat(volumeInput.value);
+            config.showSubtitles = subtitlesToggle.checked;
+            config.beeps = beepsToggle.checked;
+            config.showClock = clockToggle.checked;
+            config.keepAwake = keepAwakeToggle.checked;
+            updateKeyStatusBadge();
+            saveConfig();
+            updateIdleStatus();
+            tickClock();
+            requestWakeLock();
         }
 
         settingsBtn.addEventListener('click', (e) => {
@@ -1384,77 +2314,87 @@
             apiKeyInput.select();
         });
 
-        testVoiceBtn.addEventListener('click', () => {
+        resetPersonalityBtn.addEventListener('click', () => {
+            personalityInput.value = DEFAULT_PERSONALITY;
             persistSettingsFromForm();
-            speak("Hey there! Ready to help your students learn and laugh!", 'happy');
+        });
+
+        resetMemoryBtn.addEventListener('click', () => {
+            recentLines = [];
+            conversationHistory = [];
+            lastReplyText = '';
+            try { localStorage.removeItem(RECENT_KEY); } catch (e) {}
+            resetMemoryBtn.textContent = '✓ Memory Cleared';
+            setTimeout(() => { resetMemoryBtn.textContent = 'Forget Recent Jokes & Conversation'; }, 2000);
+        });
+
+        testVoiceBtn.addEventListener('click', () => {
+            unlockAudio();
+            persistSettingsFromForm();
+            say(`Hey there! I'm ${robotName()}, ready to help your students learn and laugh!`, 'happy');
         });
 
         closeSettingsBtn.addEventListener('click', () => {
             persistSettingsFromForm();
+            applyListenMode();
             settingsModal.classList.add('hidden');
             settingsModal.classList.remove('flex');
         });
-        // Save settings immediately on input/change/rotation so nothing is lost when flipping sideways
-        function persistSettingsFromForm() {
-            config.apiKey = apiKeyInput.value.trim();
-            config.city = cityInput.value.trim() || 'Hubbard, OH';
-            config.voicePreset = voicePresetSelect.value;
-            config.voiceURI = voiceSelect.value;
-            config.pitch = parseFloat(pitchInput.value);
-            config.rate = parseFloat(rateInput.value);
-            config.showSubtitles = subtitlesToggle.checked;
-            config.handsFree = handsfreeToggle.checked;
-            config.requireWakeWord = wakewordToggle.checked;
-            updateKeyStatusBadge();
-            saveConfig();
-        }
 
-        [apiKeyInput, cityInput].forEach((el) => {
+        [nameInput, apiKeyInput, cityInput, wakeExtraInput, personalityInput].forEach((el) => {
             el.addEventListener('input', persistSettingsFromForm);
             el.addEventListener('blur', persistSettingsFromForm);
         });
 
-        [apiKeyInput, cityInput, voicePresetSelect, voiceSelect, pitchInput, rateInput, subtitlesToggle, handsfreeToggle, wakewordToggle].forEach((el) => {
+        [sleepSelect, apiKeyInput, cityInput, voicePresetSelect, voiceSelect, pitchInput, rateInput, volumeInput, subtitlesToggle,
+            beepsToggle, clockToggle, keepAwakeToggle, websearchToggle].forEach((el) => {
             el.addEventListener('change', persistSettingsFromForm);
+        });
+
+        [handsfreeToggle, wakewordToggle].forEach((el) => {
+            el.addEventListener('change', () => {
+                micBlocked = false;
+                persistSettingsFromForm();
+                applyListenMode();
+            });
         });
 
         // Ensure settings save the instant the phone rotates from upright to sideways
         window.matchMedia('(orientation: landscape)').addEventListener('change', (e) => {
             if (e.matches) {
                 persistSettingsFromForm();
-                updateIdleStatus();
-                if (config.handsFree && !isListening && !isSpeaking && !isProcessing) {
-                    startListening(true);
-                }
+                applyListenMode();
             } else {
                 populateSettingsForm();
             }
         });
 
         saveSettingsBtn.addEventListener('click', () => {
+            unlockAudio();
+            micBlocked = false;
             persistSettingsFromForm();
             settingsModal.classList.add('hidden');
             settingsModal.classList.remove('flex');
-            updateIdleStatus();
-            if (config.handsFree) {
-                startListening(true);
-            } else {
-                stopListening();
-            }
-            speak("Settings saved! Turn me sideways whenever you're ready.", 'happy');
+            applyListenMode();
+            say('Settings saved! Turn me sideways whenever you\'re ready.', 'happy');
         });
 
-        // Start ambient animations and attempt hands-free listening on load
+        /* ================= START UP ================= */
         window.addEventListener('load', () => {
             populateSettingsForm();
             scheduleBlink();
             startSubtleEyeDrift();
+            setInterval(tickClock, 1000);
+            tickClock();
             setRobotState('idle');
             updateIdleStatus();
+            const mode = listenMode();
+            setSubtitle(mode === 'tap'
+                ? 'Hey! Tap my face to chat, or double-tap to type!'
+                : `Hey! Say "Hey ${robotName()}" or tap my face to chat!`);
             enterFullscreen();
-            if (config.handsFree) {
-                startListening(true);
-            }
+            requestWakeLock();
+            applyListenMode();
         });
     </script>
 </body>
