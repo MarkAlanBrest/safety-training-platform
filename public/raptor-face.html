@@ -645,17 +645,17 @@
 
                 <div>
                     <div class="flex justify-between items-center mb-1">
-                        <label class="text-slate-300 font-semibold">Free Gemini API Key (Optional)</label>
+                        <label class="text-slate-300 font-semibold">AI Brain Key (Claude)</label>
                         <span id="key-status-badge" class="text-xs font-semibold text-slate-400">Not set</span>
                     </div>
                     <div class="flex gap-2">
-                        <input id="api-key-input" type="password" placeholder="AIzaSy... (Leave blank for built-in mode)" class="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400">
+                        <input id="api-key-input" type="password" placeholder="sk-ant-... (Leave blank for built-in mode)" class="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400">
                         <button id="paste-key-btn" type="button" class="bg-slate-700 hover:bg-slate-600 text-amber-300 font-semibold px-3 py-2 rounded-xl text-xs whitespace-nowrap transition">Paste</button>
                     </div>
-                    <p class="text-xs text-slate-400 mt-1">Get a free key at <span class="text-amber-300">aistudio.google.com</span>.</p>
+                    <p class="text-xs text-slate-400 mt-1">Uses Claude Haiku 5.5, same as Talon. Get a key at <span class="text-amber-300">console.anthropic.com</span> (set a monthly spend limit on it). A Gemini key (AIza...) also works.</p>
                     <div class="flex items-center justify-between mt-2">
                         <div>
-                            <span class="text-slate-200 font-semibold block">Let AI Search Google</span>
+                            <span class="text-slate-200 font-semibold block">Let AI Search the Web</span>
                             <span class="text-xs text-slate-400">For news, scores and current facts</span>
                         </div>
                         <input id="websearch-toggle" type="checkbox" class="w-5 h-5 accent-amber-400 rounded">
@@ -742,7 +742,7 @@
                         <li>"What's 12 times 8?" / "Square root of 144"</li>
                         <li>"What time is it?" / "What's today's date?"</li>
                         <li>"Say that again" / "Louder" / "Quieter" / "Go to sleep"</li>
-                        <li>With a Gemini key: anything else, including current events</li>
+                        <li>With an AI key: anything else, including current events</li>
                         <li>Tap the face to talk without the wake word or to interrupt; double-tap to type</li>
                     </ul>
                 </details>
@@ -789,6 +789,18 @@
         };
 
         let config = loadConfig();
+
+        // Talon lives on the same site, so if a Claude key was saved there on this device, use it (once).
+        try {
+            if (!config.talonKeyImported && !/^sk-ant-/.test(config.apiKey)) {
+                const talonKey = (JSON.parse(localStorage.getItem('robotFaceSettingsV2') || '{}').apiKey || '').trim();
+                if (/^sk-ant-/.test(talonKey)) {
+                    config.apiKey = talonKey;
+                    config.talonKeyImported = true;
+                    saveConfig();
+                }
+            }
+        } catch (e) {}
 
         function loadConfig() {
             try {
@@ -1746,7 +1758,7 @@
                 `Pick the one that matches how you feel about what you are saying. After the tag, write only the words to say out loud, ` +
                 `with no markdown, lists, asterisks, emojis, links or stage directions. Write numbers and times the way you would say them.` +
                 `\n\nThe classroom is in ${config.city}. ${nowContext()}` +
-                (config.webSearch ? `\nYou can search Google. Use it for anything current, like news, sports scores, or facts you are unsure of, then answer without naming websites.` : '') +
+                (config.webSearch ? `\nYou can search the web. Use it for anything current, like news, sports scores, or facts you are unsure of, then answer without naming websites.` : '') +
                 `\nYou also have built-in skills students can ask for: the time or date, the weather, timers, flipping a coin, rolling dice, picking a random number, and simple math.` +
                 `\n\nBe surprising and vary your style. Never reuse a joke, pun or punchline you have told before.`;
             if (recentLines.length) s += ` Things you said recently, so do not repeat them:\n- ${recentLines.slice(-25).join('\n- ')}`;
@@ -1835,9 +1847,88 @@
             return raw;
         }
 
+        /* ---- Claude brain (same setup as Talon: Haiku 5.5, streaming, web search) ---- */
+        const CLAUDE_MODEL = 'claude-haiku-5-5';
+        const brain = () => /^sk-ant-/.test(config.apiKey) ? 'claude' : config.apiKey ? 'gemini' : null;
+
+        function claudeLocation() {
+            const [cityPart, regionPart] = (config.city || '').split(',').map((s) => (s || '').trim());
+            const loc = { type: 'approximate', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+            if (cityPart) loc.city = cityPart;
+            const state = STATE_ABBR[(regionPart || '').toLowerCase()];
+            if (state) { loc.region = state; loc.country = 'US'; }
+            else if (regionPart) loc.region = regionPart;
+            return loc;
+        }
+
+        async function streamClaude(body, onText) {
+            const res = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'content-type': 'application/json',
+                    'x-api-key': config.apiKey,
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-dangerous-direct-browser-access': 'true'
+                },
+                body: JSON.stringify(Object.assign({}, body, { stream: true }))
+            });
+            if (!res.ok) {
+                let msg = `HTTP ${res.status}`;
+                try { msg = (await res.json())?.error?.message || msg; } catch (e) {}
+                const err = new Error(msg);
+                err.status = res.status;
+                throw err;
+            }
+            const reader = res.body.getReader();
+            const dec = new TextDecoder();
+            let sse = '', raw = '';
+            for (;;) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                sse += dec.decode(value, { stream: true }).replace(/\r/g, '');
+                let i;
+                while ((i = sse.indexOf('\n\n')) >= 0) {
+                    const data = sse.slice(0, i).split('\n').filter((l) => l.startsWith('data:')).map((l) => l.slice(5).trim()).join('');
+                    sse = sse.slice(i + 2);
+                    if (!data) continue;
+                    let ev;
+                    try { ev = JSON.parse(data); } catch (e) { continue; }
+                    // text after a web search arrives in a new block: keep a space between them
+                    if (ev.type === 'content_block_start' && ev.content_block?.type === 'text' && raw) { raw += ' '; onText(' '); }
+                    else if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') { raw += ev.delta.text; onText(ev.delta.text); }
+                    else if (ev.type === 'error') throw new Error(ev.error?.message || 'Stream error');
+                }
+            }
+            return raw;
+        }
+
+        async function askClaude(text, onText, hasStreamed) {
+            const body = {
+                model: CLAUDE_MODEL,
+                max_tokens: 1500,                      // room for searching; the prompt keeps replies short
+                output_config: { effort: 'low' },      // quick answers for a talking robot
+                thinking: { type: 'disabled' },        // fastest time to the first spoken word
+                system: instructions(text),
+                messages: conversationHistory.map((m) => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text }))
+            };
+            if (config.webSearch) {
+                body.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2, user_location: claudeLocation() }];
+            }
+            try {
+                return await streamClaude(body, onText);
+            } catch (err) {
+                // 400 before anything streamed: retry plainly (web search not enabled for this key, or options not accepted)
+                if (err.status !== 400 || hasStreamed() || /credit balance/i.test(err.message)) throw err;
+                delete body.tools;
+                delete body.thinking;
+                delete body.output_config;
+                return await streamClaude(body, onText);
+            }
+        }
+
         // Streams the reply into the speech queue `sp`, so the robot starts talking after the first sentence.
         async function askAI(text, sp) {
-            conversationHistory.push({ role: 'user', parts: [{ text }] });
+            conversationHistory.push({ role: 'user', text });
             conversationHistory = conversationHistory.slice(-12);
             while (conversationHistory.length && conversationHistory[0].role !== 'user') conversationHistory.shift();
 
@@ -1846,10 +1937,13 @@
             const onText = (d) => { streamed = true; feeder.feed(d); };
             let saw429 = null;
             try {
-                for (const model of await geminiModels()) {
+                if (brain() === 'claude') {
+                    raw = await askClaude(text, onText, () => streamed);
+                    if (!raw.trim()) throw new Error('Empty reply');
+                } else for (const model of await geminiModels()) {
                     const body = {
                         systemInstruction: { parts: [{ text: instructions(text) }] },
-                        contents: conversationHistory,
+                        contents: conversationHistory.map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
                         generationConfig: {
                             // Thinking tokens count against maxOutputTokens on Gemini 3.x, so leave room for the answer.
                             maxOutputTokens: 1024,
@@ -1891,7 +1985,7 @@
                 throw err;
             }
             feeder.flush();
-            conversationHistory.push({ role: 'model', parts: [{ text: raw }] });
+            conversationHistory.push({ role: 'model', text: raw });
             const reply = parseReply(raw);
             rememberLine(reply.text);
             if (!sp.started) sp.push(reply.text);      // nothing speakable came through while streaming
@@ -1900,8 +1994,11 @@
 
         function aiErrorReply(err) {
             const msg = (err && err.message) || '';
-            if (isKeyError(err)) return { mood: 'sad', text: 'My API key was rejected. Turn me upright to check my settings!', detail: `Key error: ${msg}` };
-            if (err && err.status === 429) return { mood: 'sleepy', text: 'I used up my free AI brain power for now. Try again in a minute!', detail: `Gemini limit (429): ${msg.slice(0, 220)}` };
+            const who = brain() === 'claude' ? 'Claude' : 'Gemini';
+            if (isKeyError(err)) return { mood: 'sad', text: 'My API key was rejected. Turn me upright to check my settings!', detail: `${who} key error: ${msg}` };
+            if (/credit balance/i.test(msg)) return { mood: 'sad', text: "I'm out of AI credits. Ask my teacher to add some!", detail: `${who}: ${msg.slice(0, 220)}` };
+            if (err && err.status === 429) return { mood: 'sleepy', text: 'My brain needs a short break. Try again in a minute!', detail: `${who} limit (429): ${msg.slice(0, 220)}` };
+            if (err && (err.status === 529 || err.status >= 500)) return { mood: 'sleepy', text: 'My AI brain is extra busy right now. Try again in a moment!', detail: `${who} ${err.status}: ${msg.slice(0, 160)}` };
             if (!navigator.onLine) return { mood: 'sad', text: "I lost my Wi-Fi connection! Check that I'm online.", detail: 'Offline' };
             return { mood: 'confused', text: 'Oops, my brain had a quick hiccup! Try asking me again.', detail: `AI error: ${msg}` };
         }
@@ -2264,7 +2361,8 @@
         function updateKeyStatusBadge() {
             const key = apiKeyInput.value.trim();
             if (key.length > 10) {
-                keyStatusBadge.textContent = `✓ Key saved (${key.slice(0, 6)}...)`;
+                const kind = /^sk-ant-/.test(key) ? 'Claude' : /^AIza/.test(key) ? 'Gemini' : 'Unknown';
+                keyStatusBadge.textContent = `✓ ${kind} key saved (${key.slice(0, 10)}...)`;
                 keyStatusBadge.className = 'text-xs font-semibold text-emerald-400';
             } else if (key.length > 0) {
                 keyStatusBadge.textContent = 'Key looks too short';
